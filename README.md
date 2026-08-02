@@ -1,128 +1,36 @@
-# Armin
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Armin is a local-first, spaced-repetition flashcard app for desktop. It's built around the idea that learning is **hierarchical**. You should master the prerequisites of a topic you are trying to learn in order to understand it fully.
+## Getting Started
 
-For more on the philosophy of what inspired this type of thinking, read this Justin Skycak's article on [learning prerequisites](https://www.justinmath.com/the-importance-of-learning-your-prerequisites/).
-
-## What it is
-
-A desktop study app where you create decks and cards (like Anki), connect cards by
-their prerequisites, and review them on a schedule that adapts to how well you
-actually remember each one. Reviews are powered by
-[FSRS](https://github.com/open-spaced-repetition/ts-fsrs) (Free Spaced Repetition
-Scheduler), the same algorithm used by Anki's FSRS mode.
-
-## Why it exists
-
-Most flashcard apps treat every card as an independent atom of knowledge, meaning all cards always live in the same level of abstraction. In practice,
-knowledge is a graph: some things are prerequisites for others. Armin makes that
-structure explicit. A card stays **locked** until everything it depends on has been
-learned, so you build foundations before tackling what sits on top of them, and
-new material lands on knowledge you've already secured.
-
-## Core principles
-
-- **Local-first.** Everything works offline; your data lives on your machine. No account, no server required.
-- **Spaced-repetition done right.** FSRS schedules each card based on your recall performance.
-- **Hierarchical knowledge.** Within a deck, cards form a prerequisite graph. You
-  review the prerequisites first, then unlock and learn what builds on them. Each
-  deck has its own visual canvas that lets you see and edit the connections
-  between its cards; prerequisites never cross deck boundaries.
-- **Simple UI & UX.** Creating decks, cards, and tags should be fast, and reviewing
-  should be keyboard-driven and frictionless.
-- **AI-assisted card creation.** Armin exposes a local MCP server, so you can use
-  your own AI agent (Claude Code, Codex, OpenCode, etc.) to generate flashcards from
-  a topic, your notes, or research. It also comes with an agent skill that guides agents on which guidelines they should use for creating cards. It is important not only to be able to create the cards, but to make sure the content aligns with what you are actually are trying to learn and it is structured in an effective manner for future studying.
-- **Open-source.** Fully open, MIT-licensed, and meant to be built on.
-
-## Installation
-
-There are three types of releases for this app: `alpha`, `beta` & official releases.
-Right now, as I'm developing this app for myself mostly & I'm using Ubuntu as my daily driver, the `alpha` releases are only an Ubuntu AppImage.
-`beta` & official releases are available for the three main platforms: Windows, macOS & Linux.
-You can find the `alpha` & `beta` releases in the Tags section.
-The official releases are in the Releases section.
-
-### Linux
-
-Download the `Armin-*-x64.AppImage`, make it executable, and run it:
+First, run the development server:
 
 ```bash
-chmod +x Armin-*-x64.AppImage
-./Armin-*-x64.AppImage
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-Optional: import the AppImage with [Gear Lever](https://github.com/mijorus/gearlever) for a
-desktop entry.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-### Windows
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-Download `Armin-*-Setup.exe` and run the installer. SmartScreen may block it because
-the build is not signed.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-### macOS
+## Learn More
 
-Download `Armin-darwin-arm64-*.zip` (Apple Silicon), extract it, and move `Armin.app`
-into Applications. If Gatekeeper blocks the app, right-click it and choose **Open**.
+To learn more about Next.js, take a look at the following resources:
 
-## Releases
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-Alpha builds are published from GitHub tags. See
-[docs/release.md](apps/desktop/docs/release.md) for the release checklist, artifact targets,
-and current unsigned-build notes.
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## MCP server
+## Deploy on Vercel
 
-Armin includes a local stdio MCP server so coding agents can create decks, cards,
-and prerequisite graphs. See [docs/mcp-server.md](apps/desktop/docs/mcp-server.md) for setup,
-available tools, and configuration for Codex, Claude Code, Cursor, and OpenCode.
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-## Card-writing skill
-
-The MCP server lets agents create cards, but it doesn't tell them _how_ to structure
-the content — how to chunk a topic, what belongs in a single card, or how cards
-should depend on each other. The `writing-study-cards` skill provides those
-guidelines, distilled from Andy Matuschak's
-[How to write good prompts](https://andymatuschak.org/prompts/). Install it so your
-agent applies them automatically whenever it generates cards.
-
-The skill lives in [`.agents/skills/writing-study-cards`](.agents/skills/writing-study-cards)
-and installs with the [`skills` CLI](https://www.skills.sh/docs):
-
-```bash
-# Install into the current project (auto-detects your agent)
-npx skills add ansanabria/armin --skill writing-study-cards
-
-# Or install globally so it's available across all projects
-npx skills add ansanabria/armin --skill writing-study-cards --global
-```
-
-You can target a specific agent (for example Cursor, Claude Code, or Codex) with
-`-a`, and preview what's available without installing using `--list`:
-
-```bash
-npx skills add ansanabria/armin --list
-npx skills add ansanabria/armin --skill writing-study-cards -a cursor
-```
-
-The `skills` CLI discovers skills under `.agents/skills/`, so it picks up
-`writing-study-cards` directly from this repository.
-
-## Development notes
-
-Early development. Expect lots of bugs and strange behavior. I built this for myself in a Linux machine and it is supposed to work for macOS and Windows, but I haven't tested those builds myself, so be aware.
-
-See [docs/testing.md](apps/desktop/docs/testing.md) for the testing philosophy, test-layer guidance,
-and validation commands used in this codebase.
-
-## Contributions
-
-Bug reports and feature requests are very welcome — file them in the
-[Issues tab](https://github.com/ansanabria/armin/issues). They're the most useful
-thing you can send at this stage.
-
-Code pull requests aren't being accepted yet: the domain model and internal
-contracts are still moving quickly. This will open up as the project stabilizes.
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details, and
-[SECURITY.md](SECURITY.md) to report a vulnerability privately. Participation is
-governed by our [Code of Conduct](CODE_OF_CONDUCT.md).
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
