@@ -8,6 +8,6 @@ provides the agent/tool scaffolding the features need.
 
 Consequences: the AI integration is a thin layer over OpenRouter's API and
 Mastra's abstractions, so swapping models or providers later is a configuration
-change rather than a rewrite. The rest of the stack — Vercel (Next.js), Neon
-(Postgres), Vercel Blob (media), Polar (payments) — is unchanged by this
+change rather than a rewrite. The rest of the stack — Vercel (Next.js), Supabase
+(Postgres, object storage, auth), Polar (payments) — is unchanged by this
 decision.

@@ -1,7 +1,7 @@
 # Flashcard media is study-space-scoped content-addressed objects
 
 Flashcard media lives in a Study Space as content-addressed image objects named
-`<sha256>.<ext>` in Vercel Blob, and flashcard content references them with
+`<sha256>.<ext>` in object storage (Supabase Storage), and flashcard content references them with
 `armin-media:<sha256>.<ext>` identifiers. This replaces inline image data in
 flashcard content while preserving the Study Space as the unit that owns its
 media.

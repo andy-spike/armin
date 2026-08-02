@@ -29,13 +29,13 @@ tier and a paid AI plan.
 
 | # | Decision | Rationale |
 |---|----------|-----------|
-| D1 | Hosted multi-user SaaS on **Vercel + Neon (managed Postgres) + Vercel Blob**. Neon CLI is already installed and authenticated on the dev machine — use it to create/manage databases rather than a local Docker Postgres | Serverless-friendly, zero ops; Neon CLI ready to use (`neonctl`) |
+| D1 | Hosted multi-user SaaS on **Vercel + Supabase (managed Postgres, object storage, auth)**. Supabase provides the Postgres database, flashcard-media storage, and user auth; Vercel hosts the Next.js app | Serverless-friendly, zero ops; rely on Supabase's managed capabilities to build fast (ADR 0017) |
 | D2 | **User = one study space.** Profile dies. No profile picker, no profile switching, no per-profile DBs | Domain simplification; one User owns exactly one Study Space |
 | D3 | Data store: **Postgres via `drizzle-orm` + `pg`**; better-sqlite3 removed everywhere | SaaS-appropriate storage; domain services survive |
-| D4 | Auth: **Better Auth** (email + password primary, Google/GitHub OAuth as convenience sign-in, Postgres adapter, session cookies) | Chosen provider; self-contained, MIT |
+| D4 | Auth: **Supabase Auth** (email + password primary, Google/GitHub OAuth as convenience sign-in, session cookies via the SSR client) | Managed auth; no self-hosted auth tables to maintain (ADR 0017) |
 | D5 | UI ↔ backend: **REST route handlers + TanStack Query** client-side; RSC only for shell/layout/fonts | Clean client contract, minimal churn |
 | D6 | **External MCP protocol dropped.** No `/mcp` route, no stdio server, no MCP settings UI, no API keys | Dead concept |
-| D7 | All study features survive: decks/browse/review/cram/settings routes, keybindings (per-User overrides), prerequisite graph canvas, media (Vercel Blob), Anki import, export/restore | Full feature carryover |
+| D7 | All study features survive: decks/browse/review/cram/settings routes, keybindings (per-User overrides), prerequisite graph canvas, media (Supabase Storage), Anki import, export/restore | Full feature carryover |
 | D8 | **Monorepo removed.** The repo is a single Next.js app at the **repo root** (no npm workspaces, no `apps/`, no `packages/`) | Already done by the purge |
 | D9 | **No data bridge** — SaaS starts fresh | No legacy users to migrate |
 | D10 | Epoch-ms integer timestamps preserved as **BIGINT** in Postgres | Zero semantic churn on FSRS due-date math |
@@ -72,13 +72,13 @@ tier and a paid AI plan.
 │   │   └── api/                  # route handlers (see §5)
 │   ├── lib/
 │   │   ├── db.ts                 # Postgres pool + drizzle instance
-│   │   ├── auth.ts               # Better Auth server config
+│   │   ├── auth.ts               # Supabase Auth server client (session cookies, getUser)
 │   │   ├── api.ts                # typed client
 │   │   ├── query.ts              # TanStack Query keys
-│   │   ├── session.ts            # getSession() → userId guard for handlers
+│   │   ├── session.ts            # getUser() → userId guard for handlers
 │   │   ├── services/             # domain services
 │   │   ├── shared/               # shared types + zod schemas
-│   │   ├── media/                # Vercel Blob put/head + media-ref helpers
+│   │   ├── media/                # Supabase Storage upload/signed-URL + media-ref helpers
 │   │   ├── billing/              # Polar.sh client + webhook handling + entitlement checks
 │   │   └── ai/                   # OpenRouter + Mastra integrations (per ADR 0003/0004)
 │   ├── components/               # UI components
@@ -87,7 +87,7 @@ tier and a paid AI plan.
 │   ├── styles/                   # flexoki CSS
 │   ├── db/
 │   │   ├── schema.ts             # Postgres schema
-│   │   ├── better-auth.ts        # user/session/account tables
+│   │   ├── users.ts              # users row keyed to auth.users.id (Study Space + billing)
 │   │   └── migrations/           # drizzle-kit generated SQL
 │   ├── test/db.ts                # PG test helper
 │   └── e2e/                      # Playwright web specs
@@ -117,7 +117,8 @@ tier and a paid AI plan.
 - **Schema** (`src/db/schema.ts`):
   - `pgTable`; `text` PKs; `bigint` epoch-ms (D10); `jsonb` for flashcard
     content, graph layout, settings
-  - all rows scoped by `userId`; Better Auth `user/session/account` tables
+  - all rows scoped by `userId` referencing `auth.users.id`; Supabase Auth's
+    `auth` schema is managed — our `users` row carries the Study Space + billing linkage
   - `subscriptions` table keyed to Polar.sh customer/subscription IDs + plan +
     status; `ai_usage` (monthly AI allowance ledger)
   - first migration generated with `--name=account_initial_schema` per
@@ -125,7 +126,7 @@ tier and a paid AI plan.
 
 ## 5. REST API contract
 
-Every handler: `auth.api.getSession({ headers })` → 401 if absent → build
+Every handler: Supabase SSR `createServerClient(...).auth.getUser()` → 401 if absent → build
 `ServiceContext { userId, db }` → check entitlement where needed → call service.
 No RSC/`force-static` on these routes.
 
@@ -151,7 +152,7 @@ No RSC/`force-static` on these routes.
 | `/api/data/export` | POST | returns zip download |
 | `/api/data/restore` | POST | multipart zip |
 | `/api/media` | POST | multipart `{ file, fileName?, mime? }` → `{ ref }` |
-| `/api/media/[ref]` | GET | 302 → Blob URL (or proxy) |
+| `/api/media/[ref]` | GET | 302 → signed URL (Supabase Storage) |
 | `/api/review/queue?deckId=` | GET | — |
 | `/api/review/queue` | GET | — |
 | `/api/review/preview/[reviewUnitId]` | GET | — |
@@ -201,10 +202,11 @@ Commit after each phase. Phase gates must pass before moving on.
    `@dagrejs/dagre`, `@fontsource-variable/inter`, `@fontsource-variable/jetbrains-mono`,
    `@fontsource-variable/source-serif-4`, `@tanstack/react-query`,
    `@tanstack/react-virtual`, `@tiptap/*` (core, extension-image, extension-placeholder,
-   markdown, pm, react, starter-kit), `@xyflow/react`, `@vercel/blob`,
-   `class-variance-authority`, `clsx`, `drizzle-orm`, `fflate`, `fzstd`, `lucide-react`,
-   `pg`, `react-markdown`, `remark-gfm`, `tailwind-merge`, `ts-fsrs`, `tw-animate-css`,
-   `zod`, `better-auth`, `@polar-sh/sdk` (or Polar's checkout/webhook package),
+   markdown, pm, react, starter-kit), `@xyflow/react`, `@supabase/supabase-js`,
+   `@supabase/ssr`, `class-variance-authority`, `clsx`, `drizzle-orm`, `fflate`,
+   `fzstd`, `lucide-react`, `pg`, `react-markdown`, `remark-gfm`, `tailwind-merge`,
+   `ts-fsrs`, `tw-animate-css`, `zod`, `@polar-sh/sdk` (or Polar's checkout/webhook
+   package),
    `@mastra/core` (or the Mastra packages the AI features need), plus the
    OpenRouter SDK/HTTP client. Dev deps: `drizzle-kit`, `vitest`, `@types/pg`, `@playwright/test`.
 3. Port `DESIGN.md` tokens into `src/styles/` (flexoki CSS); port the fontsource
@@ -219,7 +221,8 @@ Commit after each phase. Phase gates must pass before moving on.
 ### Phase 1 — Postgres data layer + async services
 
 1. `src/db/schema.ts` per §4 (all `userId`, `jsonb`, epoch-ms `bigint`), plus
-   Better Auth tables and billing/AI-usage tables.
+   `users` table keyed to `auth.users.id`, and billing/AI-usage tables (Supabase
+   Auth's `auth` schema stays managed).
 2. `drizzle.config.ts` (postgres dialect); first migration:
    `bun run db:generate --name=account_initial_schema`. Review the SQL.
 3. `src/lib/db.ts`: `pg` Pool + drizzle; `DATABASE_URL` from env.
@@ -227,15 +230,15 @@ Commit after each phase. Phase gates must pass before moving on.
    contracts. `ServiceContext = { userId: string; db }`.
 5. `src/test/db.ts`: fresh schema per suite against `DATABASE_URL_TEST`.
    `docs/testing.md` discipline applies.
-6. **Gate**: `bun run test` green. Local Postgres for dev/tests: **Neon** via the
-   authenticated CLI — `neonctl projects create --name armin-dev`, then
-   `neonctl connection-string --project-id <id> --database dev` for `DATABASE_URL`
-   and a separate `DATABASE_URL_TEST` database.
+6. **Gate**: `bun run test` green. Postgres for dev/tests: a **Supabase** project
+   (dashboard or `supabase` CLI). Use the pooler connection string for
+   `DATABASE_URL`; create a separate database for `DATABASE_URL_TEST` (direct
+   connection) so test-suite schema resets don't touch dev data.
 
-### Phase 2 — Better Auth
+### Phase 2 — Supabase Auth
 
-1. `src/lib/auth.ts` (Better Auth + Drizzle adapter): email/password **and**
-   Google/GitHub OAuth, session cookie (D4).
+1. `src/lib/auth.ts` (Supabase SSR server client): email/password **and**
+   Google/GitHub OAuth, session cookie via `@supabase/ssr` (D4).
 2. `(auth)/sign-in` + `(auth)/sign-up` client pages (Base UI components, Flexoki styles).
 3. Auth guard: `(study)/layout.tsx` checks session server-side; `app/api/**`
    handlers use `lib/session.ts`.
@@ -278,9 +281,9 @@ Route mapping (all client components, `"use client"` at the top):
 
 ### Phase 5 — Media, import, export, restore
 
-1. `media.ts` → Vercel Blob: `put()` under content-hashed keys
-   (`{userId}/{sha256}` — keeps ADR 0014 content-addressing), `GET /api/media/[ref]`
-   302s to the Blob URL.
+1. `media.ts` → Supabase Storage: `storage.from(bucket).upload()` under
+   content-hashed keys (`{userId}/{sha256}` — keeps ADR 0014 content-addressing);
+   `GET /api/media/[ref]` 302s to a signed URL (private bucket, never public).
 2. Anki import via native file input → `/api/import/anki/analyze` + `/commit`.
 3. Export: browser download of the zip; Restore: file input → upload → import
    into the User's Study Space.
@@ -320,9 +323,10 @@ Route mapping (all client components, `"use client"` at the top):
 
 ### Phase 9 — Deploy
 
-1. Vercel: **Neon** Postgres env `DATABASE_URL` (via `neonctl`), `BLOB_READ_WRITE_TOKEN`
-   from Vercel Blob, Polar.sh API key + webhook secret, OpenRouter API key.
-   `db:migrate` wired into the deploy path (idempotent, once per environment).
+1. Vercel env: **Supabase** Postgres `DATABASE_URL` (pooler), `SUPABASE_URL`,
+   `SUPABASE_ANON_KEY` (or `SERVICE_ROLE_KEY` server-side), storage bucket name,
+   Polar.sh API key + webhook secret, OpenRouter API key. `db:migrate` wired into
+   the deploy path (idempotent, once per environment).
    Set the Vercel project's **Install Command to `bun install`** (D11).
 2. Polar.sh: configure the product ($5/mo) and the webhook endpoint.
 3. **Gate**: `bun run typecheck && bun run lint && bun run test && bun run test:e2e`; clean `git status`; production deploy smoke test.
@@ -341,6 +345,10 @@ Route mapping (all client components, `"use client"` at the top):
 - **Vercel**: no native modules remain; `pg` is fine serverless. Bump `maxDuration`
   on heavy routes (anki import, AI generation) if needed. Migrations must be
   idempotent and run before traffic.
+- **Supabase**: `auth` schema is managed — never migrate or edit it. Scope every
+  study row by `userId` (`auth.users.id`). Serve media through signed URLs from a
+  private bucket; use the direct connection for migrations/tests and the pooler
+  for the app.
 - **bun everywhere**: commit `bun.lock`; never `npm install` (D11).
 - **AI cost control**: every AI route must check entitlement and allowance **in
   one place**; never debit after generating. Keep the OpenRouter seam mockable
@@ -371,7 +379,7 @@ Route mapping (all client components, `"use client"` at the top):
 7. No `electron`, `better-sqlite3`, `window.armin`, or `arminShell` references
    remain; the repo root is the Next.js app with no npm workspaces (D8).
 8. `bun.lock` is the only lockfile; every command runs via `bun run` (D11).
-9. Deploy live on Vercel with Neon Postgres + Blob + Polar.sh + OpenRouter wired.
+9. Deploy live on Vercel with Supabase (Postgres + storage + auth) + Polar.sh + OpenRouter wired.
 
 ## 9. Out of scope
 
