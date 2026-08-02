@@ -1,36 +1,23 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Armin
 
-## Getting Started
+Armin is a hosted, multi-user spaced-repetition web app for building durable,
+hierarchical knowledge through flashcards, decks, reviews, and prerequisite
+relationships.
 
-First, run the development server:
+The study feature set is free and unlimited; a paid plan ($5/month) adds AI
+capabilities — card generation, on-demand explanations, and card improvement.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+This repository is currently being rebuilt from an Electron desktop app into a
+hosted SaaS on Next.js. The domain model and design survive; the implementation
+is new. Until the app exists again, this repo holds the product's context docs:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- `CONTEXT.md` — the ubiquitous language (User, Study Space, Deck, Flashcard,
+  Review unit, Prerequisite graph, AI features)
+- `docs/adr/` — architectural decisions (payments via Polar.sh, AI via
+  OpenRouter + Mastra, free tier + paid plan)
+- `PRODUCT.md` — who the product is for and how it should feel
+- `DESIGN.md` — the visual system
+- `docs/testing.md` and `docs/migrations.md` — validation and DB discipline
+- `docs/agents/` — how engineering agents work with this repo
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The build plan lives in `docs/migration-plan.md`.

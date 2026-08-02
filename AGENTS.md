@@ -12,19 +12,19 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 ### Domain docs
 
-Multi-context monorepo. `CONTEXT-MAP.md` at the repo root indexes each context's
-own `CONTEXT.md` and `docs/adr/` (e.g. the study domain under `apps/desktop/`).
-System-wide decisions live in the root `docs/adr/`. See `docs/agents/domain.md`.
+Single-context repo. The ubiquitous language lives in `CONTEXT.md` at the repo
+root; all architectural decisions live in `docs/adr/`. See `docs/agents/domain.md`.
 
 ## Notes
 
 - The project context is described in @README.md . Always read the file when starting a new session.
-- The repository is a monorepo: the desktop app lives in `apps/desktop/`, with placeholders for `apps/sync-server/` and `packages/sync-contract/`. Keep project-specific scripts in each workspace package; from the repo root, run desktop commands with `--workspace apps/desktop`.
-- Testing philosophy and validation tiers are described in @apps/desktop/docs/testing.md . Read it before adding or changing tests.
-- Migration workflow is described in @apps/desktop/docs/migrations.md . Read it before changing @apps/desktop/src/main/db/schema.ts or files under @apps/desktop/drizzle/ .
+- This is a single Next.js app at the repo root (no monorepo, no `apps/` or `packages/`). Run everything with `bun run <script>` from the repo root; bun is the package manager (`bun.lock`, never `npm install`).
+- Testing philosophy and validation tiers are described in @docs/testing.md . Read it before adding or changing tests.
+- Migration workflow is described in @docs/migrations.md . Read it before changing @src/db/schema.ts or files under @drizzle/ .
 - Migration names must be descriptive. Pass a snake_case `--name` to Drizzle instead of accepting generated fantasy names.
 - Shadcn uses Base UI instead of Radix UI. Use only Base UI, unless the user explictly asks to use the Radix UI API.
-- Dialog action buttons keep a static label. Show "running" with the `busy` prop on `Button`, never by swapping the label to a busy verb ("Deleting…"), which flashes during the dialog's close animation. See @apps/desktop/docs/adr/0016-dialog-action-labels-stay-static.md .
+- Dialog action buttons keep a static label. Show "running" with the `busy` prop on `Button`, never by swapping the label to a busy verb ("Deleting…"), which flashes during the dialog's close animation. See @docs/adr/0013-dialog-action-labels-stay-static.md .
+- Payments run through Polar.sh (ADR 0002), AI features through OpenRouter + Mastra (ADR 0003), and study content goes to the model only per-invocation (ADR 0004). Free tier = all study features; paid plan = AI only (ADR 0005).
 
 ## TypeScript styling notes
 

@@ -7,11 +7,9 @@ product
 ## Users
 
 Self-directed learners studying technical or layered subjects (programming,
-languages, sciences) on their own desktop. They're often at a computer, in a
-focused session, building real expertise over weeks and months rather than
-cramming. Many are technically literate — comfortable with keyboard shortcuts,
-local-first tools, and connecting their own AI agent (Claude Code, Codex,
-OpenCode) to generate cards.
+languages, sciences) on the web. They're often at a computer, in a focused
+session, building real expertise over weeks and months rather than cramming.
+Many are technically literate and comfortable with keyboard shortcuts.
 
 The job to be done: build durable, _hierarchical_ knowledge. Create decks and
 cards, wire up prerequisite relationships, and run short spaced-repetition review
@@ -21,28 +19,28 @@ authoring and structuring cards into a prerequisite graph.
 
 ## Product Purpose
 
-Armin is a local-first, FSRS-scheduled flashcard app for desktop that treats
+Armin is a hosted, FSRS-scheduled flashcard app for the web that treats
 knowledge as a graph instead of a flat pile. Cards declare prerequisites, and a
 card stays locked until its foundations are learned — so new material always lands
 on knowledge already secured, and a visual canvas makes the dependency tree
 editable.
 
 It exists because most flashcard apps treat every card as an independent island,
-ignoring that real learning is layered. It's an open-source, MIT-licensed personal
-project meant to grow with a community — explicitly never a SaaS. Success looks
-like: a learner sits down, the right cards are due, review is fast and almost
-entirely keyboard-driven, and over time they can see and trust the structure of
-what they know.
+ignoring that real learning is layered. Every study feature is free; a $5/month
+plan adds AI help — generating decks and cards, explaining material on demand,
+and suggesting improvements to existing cards — with study content sent to the
+model only when a User invokes it. Success looks like: a learner sits down, the
+right cards are due, review is fast and almost entirely keyboard-driven, and over
+time they can see and trust the structure of what they know.
 
 ## Brand Personality
 
 Warm and encouraging, but grown-up — a calm study companion, not a cheerleader.
 Three words: **warm, focused, trustworthy**. The tone is steady and
 low-pressure: it celebrates progress quietly and never nags. It carries the DNA
-of calm modern study tools (Mochi) and local-first knowledge tools (Obsidian) —
-content-forward, slightly technical, respectful of a learner's attention.
-Warmth comes from color temperature, copy, and gentle feedback, not from mascots
-or gamification.
+of calm modern study tools (Mochi) and knowledge tools (Obsidian) — content-forward,
+slightly technical, respectful of a learner's attention. Warmth comes from color
+temperature, copy, and gentle feedback, not from mascots or gamification.
 
 ## Anti-references
 
