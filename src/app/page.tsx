@@ -1,42 +1,17 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import { Brand } from "@/components/brand";
-import { LandingPage } from "@/components/landing/landing-page";
 import { DecksHome } from "@/components/landing/decks-home";
-import {
-  getMockSession,
-  subscribe,
-  type MockSession,
-} from "@/lib/mock/session";
+import { LandingPage } from "@/components/landing/landing-page";
+import { ensureAuthUser } from "@/lib/auth";
 
-export default function Home() {
-  const [session, setSession] = useState<MockSession | null | undefined>(
-    undefined,
-  );
+export default async function Home() {
+  const user = await ensureAuthUser();
 
-  useEffect(() => {
-    setSession(getMockSession());
-    return subscribe(() => setSession(getMockSession()));
-  }, []);
-
-  if (session === undefined) {
-    return (
-      <div className="min-h-dvh bg-[var(--color-canvas)]">
-        <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-6">
-          <Brand />
-        </div>
-      </div>
-    );
-  }
-
-  if (!session) {
+  if (!user) {
     return <LandingPage />;
   }
 
   return (
-    <AppShell>
+    <AppShell user={user}>
       <DecksHome />
     </AppShell>
   );

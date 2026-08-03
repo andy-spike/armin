@@ -6,8 +6,9 @@ import { BookOpen, Brain, Settings, Sparkles, ListFilter, FileText } from "lucid
 import { Brand } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Kbd } from "@/components/ui/kbd";
-import { useMockSession, setMockSession } from "@/lib/mock/session";
+import type { AuthUser } from "@/lib/auth";
 import { useSettingsKeymap, useKeybinding } from "@/lib/keybindings/dispatcher";
+import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 
@@ -71,14 +72,20 @@ function NavLink({
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  user,
+}: {
+  children: React.ReactNode;
+  user: AuthUser;
+}) {
   const pathname = usePathname();
   const router = useRouter();
-  const session = useMockSession();
   const { effective } = useSettingsKeymap();
 
-  const signOut = () => {
-    setMockSession(null);
+  const signOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
     router.replace("/");
     router.refresh();
   };
@@ -141,10 +148,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
             <div className="min-w-0">
               <p className="truncate text-xs font-medium text-[var(--color-text)]">
-                {session?.name ?? "Reader"}
+                {user.name}
               </p>
               <p className="truncate font-mono text-[10px] text-[var(--color-muted)]">
-                {session?.email ?? ""}
+                {user.email}
               </p>
             </div>
           </div>

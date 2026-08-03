@@ -1,34 +1,15 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import {
-  getMockSession,
-  subscribe,
-  type MockSession,
-} from "@/lib/mock/session";
+import { ensureAuthUser } from "@/lib/auth";
 
-export default function StudyLayout({
+export default async function StudyLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  const [session, setSession] = useState<MockSession | null | undefined>(
-    undefined,
-  );
+  const user = await ensureAuthUser();
+  if (!user) redirect("/sign-in");
 
-  useEffect(() => {
-    setSession(getMockSession());
-    return subscribe(() => setSession(getMockSession()));
-  }, []);
-
-  useEffect(() => {
-    if (session === null) router.replace("/sign-in");
-  }, [session, router]);
-
-  if (!session) return null;
-
-  return <AppShell>{children}</AppShell>;
+  return <AppShell user={user}>{children}</AppShell>;
 }
