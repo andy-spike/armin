@@ -323,7 +323,8 @@ Route mapping (all client components, `"use client"` at the top):
 
 ### Phase 9 — Deploy
 
-1. Vercel env: **Supabase** Postgres `DATABASE_URL` (pooler), `SUPABASE_URL`,
+1. Vercel env: **Supabase** Postgres `DATABASE_URL` (transaction pooler),
+   `DATABASE_MIGRATION_URL` (direct connection or session pooler), `SUPABASE_URL`,
    `SUPABASE_ANON_KEY` (or `SERVICE_ROLE_KEY` server-side), storage bucket name,
    Polar.sh API key + webhook secret, OpenRouter API key. `db:migrate` wired into
    the deploy path (idempotent, once per environment).

@@ -18,3 +18,11 @@ migrated; study rows stay scoped by `userId` referencing `auth.users.id`. A
 future move away from Supabase would touch the auth/session plumbing, the media
 store, and connection strings, but the domain services and their ADR contracts
 are unaffected.
+
+Drizzle remains the sole migration authority for the `public` application
+schema. Supabase's migration system is disabled for the project: the Supabase
+CLI provisions platform schemas locally, then Drizzle applies the versioned SQL
+in `drizzle/`. Hosted deployments run the same Drizzle migrator through a
+dedicated direct or session-pooled migration connection before releasing the new
+application version. This avoids maintaining two schema histories for one
+database.

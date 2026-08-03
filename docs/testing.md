@@ -176,8 +176,14 @@ When the data layer, schema, or migrations change:
 bun run typecheck
 bun run lint
 bun run test
+bun run db:check
 bun run db:migrate
 ```
+
+Before releasing a changed migration chain, run `bun run db:local:reset` to prove
+all committed Drizzle migrations build a fresh local Supabase database. This
+command destroys local data and local Auth users; never point it at a shared
+environment.
 
 When user journeys, dialogs, or HTTP wiring change:
 

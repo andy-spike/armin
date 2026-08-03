@@ -3,8 +3,13 @@ import { defineConfig } from "drizzle-kit";
 
 config({ path: ".env.local" });
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is required to run drizzle-kit");
+const migrationUrl =
+  process.env.DATABASE_MIGRATION_URL ?? process.env.DATABASE_URL;
+
+if (!migrationUrl) {
+  throw new Error(
+    "DATABASE_MIGRATION_URL or DATABASE_URL is required to run drizzle-kit",
+  );
 }
 
 export default defineConfig({
@@ -13,6 +18,6 @@ export default defineConfig({
   schemaFilter: ["public"],
   out: "./drizzle",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: migrationUrl,
   },
 });
