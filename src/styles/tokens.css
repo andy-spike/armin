@@ -27,6 +27,13 @@
   --radius-xl: 16px;
 }
 
+:root {
+  --color-canvas: var(--color-paper);
+  --color-surface: var(--color-bg-2);
+  --color-surface-strong: var(--color-ui-2);
+  --color-text: var(--color-ink);
+}
+
 @utility text-display {
   font-family: var(--font-serif);
   font-size: 1.75rem;
@@ -77,4 +84,30 @@
   font-size: 0.8125rem;
   font-weight: 400;
   line-height: 1.5;
+}
+
+/* Dark ramp: Flexoki dark palette converted to oklch, same role mapping as
+   the light theme. Utilities reference var(--color-*), so overriding the
+   custom properties under [data-theme="dark"] flips the whole system. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-paper: oklch(0.17 0.002 60);
+  --color-bg-2: oklch(0.223 0.003 60);
+  --color-ui: oklch(0.273 0.003 60);
+  --color-ui-2: oklch(0.321 0.004 60);
+  --color-ui-3: oklch(0.365 0.004 60);
+  --color-ink: oklch(0.954 0.015 95);
+  --color-muted: oklch(0.617 0.008 95);
+  --color-accent: oklch(0.674 0.105 208);
+  --color-accent-deep: oklch(0.554 0.086 187);
+  --color-accent-tint: oklch(0.435 0.07 194);
+  --color-on-accent: oklch(0.17 0.002 60);
+  --color-again: oklch(0.597 0.169 28.4);
+  --color-hard: oklch(0.658 0.154 49.3);
+  --color-good: oklch(0.651 0.124 119.4);
+  --color-easy: oklch(0.599 0.11 247);
+  --color-canvas: var(--color-paper);
+  --color-surface: var(--color-bg-2);
+  --color-surface-strong: var(--color-ui-2);
+  --color-text: var(--color-ink);
 }

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 400" role="img" aria-label="Diagram of the heart and great vessels">
+  <rect width="480" height="400" fill="oklch(0.985 0.002 247)" rx="12"/>
+  <path d="M240 300 C 140 300 90 240 90 185 C 90 130 130 100 170 100 C 200 100 222 120 240 150 C 258 120 280 100 310 100 C 350 100 390 130 390 185 C 390 240 340 300 240 300 Z"
+        fill="oklch(0.92 0.05 30)" stroke="oklch(0.53 0.06 20)" stroke-width="2.5"/>
+  <path d="M170 100 C 140 60 90 70 80 100 C 70 130 100 155 130 150"
+        fill="none" stroke="oklch(0.53 0.06 20)" stroke-width="5"/>
+  <path d="M310 100 C 380 55 420 80 410 110 C 400 140 360 145 330 140"
+        fill="none" stroke="oklch(0.55 0.08 250)" stroke-width="5"/>
+  <line x1="240" y1="150" x2="240" y2="300" stroke="oklch(0.53 0.06 20)" stroke-width="2" stroke-dasharray="5 4"/>
+  <circle cx="150" cy="200" r="30" fill="oklch(0.86 0.09 15)" stroke="oklch(0.53 0.06 20)" stroke-width="2"/>
+  <circle cx="330" cy="200" r="30" fill="oklch(0.86 0.09 15)" stroke="oklch(0.53 0.06 20)" stroke-width="2"/>
+  <circle cx="150" cy="260" r="32" fill="oklch(0.79 0.08 20)" stroke="oklch(0.53 0.06 20)" stroke-width="2"/>
+  <circle cx="330" cy="260" r="32" fill="oklch(0.79 0.08 20)" stroke="oklch(0.53 0.06 20)" stroke-width="2"/>
+  <text x="150" y="205" text-anchor="middle" font-family="ui-monospace, monospace" font-size="13" fill="oklch(0.3 0.02 20)">R1</text>
+  <text x="330" y="205" text-anchor="middle" font-family="ui-monospace, monospace" font-size="13" fill="oklch(0.3 0.02 20)">R2</text>
+  <text x="150" y="265" text-anchor="middle" font-family="ui-monospace, monospace" font-size="13" fill="oklch(0.3 0.02 20)">R3</text>
+  <text x="330" y="265" text-anchor="middle" font-family="ui-monospace, monospace" font-size="13" fill="oklch(0.3 0.02 20)">R4</text>
+  <text x="240" y="210" text-anchor="middle" font-family="ui-monospace, monospace" font-size="13" fill="oklch(0.3 0.02 20)">R5</text>
+  <text x="240" y="290" text-anchor="middle" font-family="ui-monospace, monospace" font-size="13" fill="oklch(0.3 0.02 20)">R6</text>
+</svg>
