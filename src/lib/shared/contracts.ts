@@ -98,6 +98,48 @@ export const graphSchema = z.object({
 });
 export type PrereqGraph = z.infer<typeof graphSchema>;
 
+export const graphPlacementSchema = z.object({
+  id: z.string(),
+  x: z.number(),
+  y: z.number(),
+});
+export type GraphPlacement = z.infer<typeof graphPlacementSchema>;
+
+export const graphLayoutSchema = z.object({
+  nodes: z.array(
+    z.object({
+      id: z.string(),
+      position: z.object({ x: z.number(), y: z.number() }),
+    }),
+  ),
+  edges: z.array(
+    z.object({
+      id: z.string(),
+      points: z.array(z.object({ x: z.number(), y: z.number() })),
+    }),
+  ),
+});
+export type GraphLayout = z.infer<typeof graphLayoutSchema>;
+
+export const deckSettingsSchema = z.object({
+  newCardsPerDay: z.number().nullable().optional(),
+});
+export type DeckSettings = z.infer<typeof deckSettingsSchema>;
+
+export const reviewStateSnapshotSchema = z.object({
+  state: flashcardStateSchema,
+  dueAt: z.number().nullable(),
+  stability: z.number(),
+  difficulty: z.number(),
+  elapsedDays: z.number(),
+  scheduledDays: z.number(),
+  learningSteps: z.number(),
+  reps: z.number(),
+  lapses: z.number(),
+  lastReviewAt: z.number().nullable(),
+});
+export type ReviewStateSnapshot = z.infer<typeof reviewStateSnapshotSchema>;
+
 export const keybindingSchema = z.object({
   action: z.string(),
   keys: z.array(z.string()),
