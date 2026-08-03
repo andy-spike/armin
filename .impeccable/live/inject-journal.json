@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "appRoot": "/home/andy-spike/code/armin.refactor-next-js-app",
+  "framework": "nextjs",
+  "port": 8400,
+  "pid": 28271,
+  "recordedAt": "2026-08-02T23:25:05.531Z",
+  "artifacts": [
+    {
+      "kind": "patched",
+      "path": "src/app/layout.tsx",
+      "patch": "live-tag",
+      "markers": [
+        "impeccable-live-start",
+        "data-impeccable-csp-original"
+      ]
+    }
+  ]
+}

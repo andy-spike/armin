@@ -161,6 +161,18 @@ Flexoki light base ramp on warm paper, with cyan accent and reserved study seman
 - **Ratings (filled):** Again (red), Hard (orange), Good (green), Easy (blue). Flexoki 600 values in OKLCH.
 - **Card states (soft chips):** pale bg + dark same-hue text, always labelled.
 
+### Dark theme
+
+- `data-theme="dark"` on `<html>` (set by ThemeProvider from `localStorage:armin:theme`, default `system`) flips the whole ramp: Flexoki dark values in oklch with the same role mapping as light.
+- **Semantic aliases** in `:root` and the dark block keep components theme-agnostic:
+  - `--color-canvas` → paper (page background, review card, inputs)
+  - `--color-surface` → bg-2 (sunken fills, hover rows)
+  - `--color-surface-strong` → ui-2 (hover borders, secondary strokes)
+  - `--color-text` → ink (primary text)
+- Components use only `var(--color-canvas|surface|surface-strong|text|muted|accent|on-accent|again|hard|good|easy)`; no component needs to know which theme is active.
+- Dark accent/rating values are the Flexoki dark steps (brighter than light steps, tuned for ≥4.5:1 contrast on dark paper).
+- `suppressHydrationWarning` on `<html>` because the theme attribute is set before hydration.
+
 ### Named Rules
 
 **Reserved-Semantics Rule.** Rating hues are for review meaning only. Brand accent is cyan, never a rating color.
@@ -217,6 +229,15 @@ Flat by default. Tonal paper steps and hairline borders define structure.
 - Centered, max ~52ch, hairline border, generous padding.
 - Sans card front/back; accent "Show answer" primary.
 - Rating grid: Flexoki semantic fills, paper text, mono intervals.
+
+## 5b. Landing
+
+Signed-out `/` renders the marketing page (signed-in renders the study app instead — see `src/app/page.tsx` session gate).
+
+- **Field Notes essay**: a single serif-led article on warm paper, editorial prose, one idea per section — no SaaS hero, no feature grid cards.
+- **Live demos** (`src/components/landing/*-demo.tsx`): miniature interactive decks list, prerequisite graph with locked children, and a review loop with the rating grid — the product, not screenshots of it.
+- Structure per `docs/adr/`: hook (prerequisite-locked cards) → consequences (locked until foundations) → method (deck graph, review, keyboard) → evidence (Field Notes) → close.
+- Direction is emitted to production for the design team via a hidden `data-contract` div (id `production->landing`), seeded with the phrase "A Field Notes-style essay that teaches the prerequisite graph concept by example" (seed `6f7dcf54`). Survives the Next build in the SSR chunk.
 
 ## 6. Do's and Don'ts
 

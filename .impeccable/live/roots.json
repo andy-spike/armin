@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "appRoot": "/home/andy-spike/code/armin.refactor-next-js-app",
+  "repoRoot": "/home/andy-spike/code/armin.refactor-next-js-app",
+  "contextRoot": "/home/andy-spike/code/armin.refactor-next-js-app",
+  "sessionRoot": "/home/andy-spike/code/armin.refactor-next-js-app/.impeccable/live",
+  "productPath": "/home/andy-spike/code/armin.refactor-next-js-app/PRODUCT.md",
+  "designPath": "/home/andy-spike/code/armin.refactor-next-js-app/DESIGN.md",
+  "resolvedFrom": "cwd"
+}

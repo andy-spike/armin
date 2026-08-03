@@ -3,6 +3,8 @@ import Script from "next/script";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import "@fontsource-variable/source-serif-4";
+import { ThemeProvider } from "@/theme/theme-provider";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,11 +19,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <head>
         <Script src="/theme-init.js" strategy="beforeInteractive" />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ThemeProvider>
+          <Providers>{children}</Providers>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
