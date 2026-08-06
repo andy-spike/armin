@@ -37,10 +37,8 @@ new material lands on knowledge you've already secured.
 
 ## Installation
 
-There are three types of releases for this app: `alpha`, `beta` & official releases.
-All releases are Linux AppImages for now.
-You can find the `alpha` & `beta` releases in the Tags section.
-The official releases are in the Releases section.
+Each release is a Linux AppImage. You can find releases in the
+[Releases section](https://github.com/andy-spike/armin/releases).
 
 ### Linux
 
