@@ -38,8 +38,7 @@ new material lands on knowledge you've already secured.
 ## Installation
 
 There are three types of releases for this app: `alpha`, `beta` & official releases.
-Right now, as I'm developing this app for myself mostly & I'm using Ubuntu as my daily driver, the `alpha` releases are only an Ubuntu AppImage.
-`beta` & official releases are available for the three main platforms: Windows, macOS & Linux.
+All releases are Linux AppImages for now.
 You can find the `alpha` & `beta` releases in the Tags section.
 The official releases are in the Releases section.
 
@@ -54,16 +53,6 @@ chmod +x Armin-*-x64.AppImage
 
 Optional: import the AppImage with [Gear Lever](https://github.com/mijorus/gearlever) for a
 desktop entry.
-
-### Windows
-
-Download `Armin-*-Setup.exe` and run the installer. SmartScreen may block it because
-the build is not signed.
-
-### macOS
-
-Download `Armin-darwin-arm64-*.zip` (Apple Silicon), extract it, and move `Armin.app`
-into Applications. If Gatekeeper blocks the app, right-click it and choose **Open**.
 
 ## Releases
 
@@ -110,7 +99,7 @@ The `skills` CLI discovers skills under `.agents/skills/`, so it picks up
 
 ## Development notes
 
-Early development. Expect lots of bugs and strange behavior. I built this for myself in a Linux machine and it is supposed to work for macOS and Windows, but I haven't tested those builds myself, so be aware.
+Early development. Expect lots of bugs and strange behavior.
 
 See [docs/testing.md](apps/desktop/docs/testing.md) for the testing philosophy, test-layer guidance,
 and validation commands used in this codebase.

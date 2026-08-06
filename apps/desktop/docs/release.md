@@ -5,21 +5,16 @@ for saving WIP and may receive direct commits or feature branch merges without
 running CI. When `development` is releasable, open a PR into `master`; CI runs on
 that PR, and `master` should remain known-good and release-capable.
 
-Fast dogfood releases are always alpha tags and publish only the Ubuntu/Linux
-artifact. Official releases can be beta prereleases or stable releases; both run
-CI and publish Linux, Windows, and macOS artifacts.
+All releases publish a Linux AppImage. Fast dogfood releases are always alpha
+tags and skip the full release CI job. Official releases can be beta prereleases
+or stable releases; both run CI before publishing the AppImage.
 
 ## Alpha 1 distribution
 
 - Linux: AppImage
-- Windows: Squirrel installer
-- macOS: ZIP
 - Auto-update: deferred for Alpha 1
-- Code signing/notarization: deferred for Alpha 1
 
-Linux users can manage the AppImage with Gear Lever. Because the Alpha artifacts
-are unsigned, Windows and macOS may show trust or security warnings during
-installation or first launch.
+Linux users can manage the AppImage with Gear Lever.
 
 ## Toolchain
 
@@ -73,7 +68,7 @@ when possible, so the merged commit and release tag are traceable together.
 ## Publish a fast prerelease
 
 Fast prereleases are for local dogfooding. They are always alpha versions,
-publish only the Ubuntu/Linux AppImage, and are marked as GitHub prereleases.
+publish the AppImage, and are marked as GitHub prereleases.
 
 1. Promote `development` to `master` with an alpha version, for example
    `0.2.0-alpha`.
@@ -84,12 +79,12 @@ git tag v0.2.0-alpha
 git push origin master v0.2.0-alpha
 ```
 
-Tags ending in `-alpha` skip the full release CI job and publish only the Linux
-AppImage to a GitHub prerelease.
+Tags ending in `-alpha` skip the full release CI job and publish the AppImage to
+a GitHub prerelease.
 
 ## Publish an official beta release
 
-Official beta releases are prereleases with the full platform artifact set.
+Official beta releases are prereleases that publish the AppImage.
 
 1. Promote `development` to `master` with a beta version, for example
    `0.3.0-beta`.
@@ -100,13 +95,12 @@ git tag v0.3.0-beta
 git push origin master v0.3.0-beta
 ```
 
-Tags ending in `-beta` run CI, build each platform on its native runner, and
-publish all artifacts to a GitHub prerelease.
+Tags ending in `-beta` run CI, build the AppImage on Ubuntu, and publish it to a
+GitHub prerelease.
 
 ## Publish a full release
 
-Official stable releases publish the full platform artifact set as normal GitHub
-releases.
+Official stable releases publish the AppImage as normal GitHub releases.
 
 1. Promote `development` to `master` with a stable version, for example `0.3.0`.
 2. Create and push a matching tag from `master`:
@@ -116,15 +110,15 @@ git tag v0.3.0
 git push origin master v0.3.0
 ```
 
-Plain version tags run CI, build each platform on its native runner, and publish
-all artifacts to a normal GitHub release.
+Plain version tags run CI, build the AppImage on Ubuntu, and publish it to a
+normal GitHub release.
 
 ## Manual fallback
 
 The `Release` GitHub Actions workflow can still be run manually from `master`.
-Use `release_mode=fast` for an Ubuntu-only prerelease, or `release_mode=full` for
-the full platform release path. Manual runs publish the tag derived from the
-current `package.json` version.
+Use `release_mode=fast` for an AppImage prerelease, or `release_mode=full` for a
+release that runs CI before publishing the AppImage. Manual runs publish the tag
+derived from the current `package.json` version.
 
 ## Smoke test artifacts
 

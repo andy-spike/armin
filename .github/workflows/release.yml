@@ -23,7 +23,6 @@ jobs:
     name: Prepare release
     runs-on: ubuntu-latest
     outputs:
-      oses: ${{ steps.release.outputs.oses }}
       prerelease: ${{ steps.release.outputs.prerelease }}
       release_mode: ${{ steps.release.outputs.release_mode }}
     steps:
@@ -52,12 +51,6 @@ jobs:
 
           echo "release_mode=${release_mode}" >> "$GITHUB_OUTPUT"
 
-          if [ "${release_mode}" = "full" ]; then
-            echo 'oses=["ubuntu-latest","windows-latest","macos-latest"]' >> "$GITHUB_OUTPUT"
-          else
-            echo 'oses=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
-          fi
-
           echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
 
   verify:
@@ -67,19 +60,12 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   publish:
-    name: Publish (${{ matrix.os }})
+    name: Publish AppImage
     needs:
       - prepare
       - verify
     if: ${{ always() && needs.prepare.result == 'success' && (needs.verify.result == 'success' || needs.verify.result == 'skipped') }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      # Each matrix job publishes to the same GitHub release, so serialize them
-      # to avoid races when the release is created or refreshed.
-      max-parallel: 1
-      matrix:
-        os: ${{ fromJSON(needs.prepare.outputs.oses) }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -91,7 +77,6 @@ jobs:
           cache: npm
 
       - name: Install Linux AppImage dependencies
-        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y squashfs-tools
 
       - name: Install dependencies
