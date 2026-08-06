@@ -1,8 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ForgeConfig } from "@electron-forge/shared-types";
-import { MakerSquirrel } from "@electron-forge/maker-squirrel";
-import { MakerZIP } from "@electron-forge/maker-zip";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-natives";
@@ -43,8 +41,6 @@ const config: ForgeConfig = {
     onlyModules: ["better-sqlite3"],
   },
   makers: [
-    new MakerSquirrel({}),
-    new MakerZIP({}, ["darwin"]),
     new MakerAppImage({
       options: {
         bin: "armin-launch",

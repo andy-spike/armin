@@ -30,8 +30,6 @@ body:
       label: Operating system
       options:
         - Linux (AppImage)
-        - Windows (installer)
-        - macOS (ZIP)
         - Other / built from source
     validations:
       required: true
