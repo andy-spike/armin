@@ -1,18 +1,15 @@
 # Release checklist
 
-Armin releases are published from tags on `master`. The `development` branch is
-for saving WIP and may receive direct commits or feature branch merges without
-running CI. When `development` is releasable, open a PR into `master`; CI runs on
-that PR, and `master` should remain known-good and release-capable.
+Armin releases are published from version tags on `master`. Every release is a
+normal GitHub release with one Linux AppImage.
 
-All releases publish a Linux AppImage. Fast dogfood releases are always alpha
-tags and skip the full release CI job. Official releases can be beta prereleases
-or stable releases; both run CI before publishing the AppImage.
+CI runs on PRs into `master`. Create a release tag only after the PR has passed
+CI and is merged, so the release workflow packages a known-good commit.
 
-## Alpha 1 distribution
+## Distribution
 
 - Linux: AppImage
-- Auto-update: deferred for Alpha 1
+- Auto-update: deferred
 
 Linux users can manage the AppImage with Gear Lever.
 
@@ -27,7 +24,7 @@ packages.
 
 ## Local checks
 
-Run these before opening a release PR or creating a release tag:
+Run these before opening the PR that will be released:
 
 ```bash
 npm run icons --workspace apps/desktop
@@ -41,17 +38,8 @@ npm run test:e2e --workspace apps/desktop
 
 ## Versioning
 
-Use semver with at most one prerelease suffix:
-
-- Dogfood alpha: `0.2.0-alpha`, tagged as `v0.2.0-alpha`.
-- Official beta: `0.2.0-beta`, tagged as `v0.2.0-beta`.
-- Official stable: `0.2.0`, tagged as `v0.2.0`.
-
-Bump the `MAJOR.MINOR.PATCH` base version for each new set of changes. A single
-base version is shared across its prerelease stages: `0.3.0-alpha` (dogfood) and
-`0.3.0-beta` (official prerelease) both carry the `0.3.0` base before the `0.3.0`
-stable release. Do not append numeric prerelease suffixes such as `0.3.0-alpha.1`
-or `0.3.0-beta.1`.
+Use a stable semver version, for example `0.5.0`, and create the matching tag
+`v0.5.0`.
 
 Include the `package.json` version bump in the PR from `development` to `master`
 when possible, so the merged commit and release tag are traceable together.
@@ -65,60 +53,18 @@ when possible, so the merged commit and release tag are traceable together.
 4. Wait for CI to pass.
 5. Merge the PR. `master` is now ready to tag.
 
-## Publish a fast prerelease
+## Publish a release
 
-Fast prereleases are for local dogfooding. They are always alpha versions,
-publish the AppImage, and are marked as GitHub prereleases.
-
-1. Promote `development` to `master` with an alpha version, for example
-   `0.2.0-alpha`.
-2. Create and push a matching tag from `master`:
+1. Merge the PR containing the version bump into `master`.
+2. Create and push the matching tag from `master`:
 
 ```bash
-git tag v0.2.0-alpha
-git push origin master v0.2.0-alpha
+git tag v0.5.0
+git push origin v0.5.0
 ```
 
-Tags ending in `-alpha` skip the full release CI job and publish the AppImage to
-a GitHub prerelease.
-
-## Publish an official beta release
-
-Official beta releases are prereleases that publish the AppImage.
-
-1. Promote `development` to `master` with a beta version, for example
-   `0.3.0-beta`.
-2. Create and push a matching tag from `master`:
-
-```bash
-git tag v0.3.0-beta
-git push origin master v0.3.0-beta
-```
-
-Tags ending in `-beta` run CI, build the AppImage on Ubuntu, and publish it to a
-GitHub prerelease.
-
-## Publish a full release
-
-Official stable releases publish the AppImage as normal GitHub releases.
-
-1. Promote `development` to `master` with a stable version, for example `0.3.0`.
-2. Create and push a matching tag from `master`:
-
-```bash
-git tag v0.3.0
-git push origin master v0.3.0
-```
-
-Plain version tags run CI, build the AppImage on Ubuntu, and publish it to a
+The tag triggers the release workflow. It builds and uploads the AppImage to a
 normal GitHub release.
-
-## Manual fallback
-
-The `Release` GitHub Actions workflow can still be run manually from `master`.
-Use `release_mode=fast` for an AppImage prerelease, or `release_mode=full` for a
-release that runs CI before publishing the AppImage. Manual runs publish the tag
-derived from the current `package.json` version.
 
 ## Smoke test artifacts
 

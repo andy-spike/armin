@@ -7,8 +7,6 @@ import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-nati
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { MakerAppImage } from "@reforged/maker-appimage";
 
-const prerelease = process.env.RELEASE_PRERELEASE !== "false";
-
 // The native runtime dependency closure: better-sqlite3 plus its two pure-JS
 // deps. Both the asar `ignore` keep-list and the `packageAfterCopy` hook derive
 // from this single list so the packaged set stays in sync.
@@ -59,7 +57,7 @@ const config: ForgeConfig = {
           owner: "ansanabria",
           name: "armin",
         },
-        prerelease,
+        prerelease: false,
         draft: false,
         force: true,
         generateReleaseNotes: true,
