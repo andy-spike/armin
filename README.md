@@ -4,6 +4,21 @@ Armin is a local-first, spaced-repetition flashcard app for desktop. It's built 
 
 For more on the philosophy of what inspired this type of thinking, read this Justin Skycak's article on [learning prerequisites](https://www.justinmath.com/the-importance-of-learning-your-prerequisites/).
 
+## Table of Contents
+
+- [What it is](#what-it-is)
+- [Why it exists](#why-it-exists)
+- [Core principles](#core-principles)
+- [Installation](#installation)
+  - [Linux](#linux)
+  - [Windows](#windows)
+  - [macOS](#macos)
+- [Releases](#releases)
+- [MCP server](#mcp-server)
+- [Card-writing skill](#card-writing-skill)
+- [Development notes](#development-notes)
+- [Contributions](#contributions)
+
 ## What it is
 
 A desktop study app where you create decks and cards (like Anki), connect cards by
