@@ -1,7 +1,7 @@
 # Release checklist
 
 Armin releases are published from version tags on `master`. Every release is a
-normal GitHub release with one Linux AppImage.
+normal GitHub release with Linux, Windows, and macOS artifacts.
 
 CI runs on PRs into `master`. Create a release tag only after the PR has passed
 CI and is merged, so the release workflow packages a known-good commit.
@@ -9,9 +9,33 @@ CI and is merged, so the release workflow packages a known-good commit.
 ## Distribution
 
 - Linux: AppImage
+- Windows: unsigned x64 Squirrel installer
+- macOS: unsigned ZIPs for Apple silicon (`arm64`) and Intel (`x64`)
 - Auto-update: deferred
 
 Linux users can manage the AppImage with Gear Lever.
+
+## Unsigned public beta
+
+Windows and macOS artifacts are deliberately unsigned, and the macOS artifacts
+are not notarized. This keeps public beta builds available without the recurring
+cost of a Windows code-signing certificate or an Apple Developer membership.
+
+Windows SmartScreen can warn that the installer is from an unknown publisher or
+has no established reputation. macOS Gatekeeper blocks the first launch because
+Apple cannot verify the developer or scan a notarized copy. These are expected
+warnings, not release failures. The README and every release's notes must tell
+users to download only from GitHub Releases and explain the supported override:
+SmartScreen's **More info → Run anyway** on Windows, or **Privacy & Security →
+Open Anyway** after an initial launch attempt on macOS.
+
+Never recommend disabling SmartScreen, Gatekeeper, antivirus software, or
+managed-device policies. Some Windows installations forbid unsigned apps; those
+users cannot install this beta build.
+
+Revisit this policy when non-Linux adoption makes installation friction a real
+barrier, or before a stable release. Then replace this guidance with code
+signing and macOS notarization.
 
 ## Toolchain
 
@@ -63,8 +87,13 @@ git tag v0.5.0
 git push origin v0.5.0
 ```
 
-The tag triggers the release workflow. It builds and uploads the AppImage to a
-normal GitHub release.
+The tag triggers the release workflow. It builds and uploads these artifacts to
+a normal GitHub release:
+
+- Linux AppImage
+- Windows x64 installer
+- macOS Apple silicon ZIP
+- macOS Intel ZIP
 
 ## Smoke test artifacts
 
@@ -79,3 +108,10 @@ For each artifact downloaded from the GitHub release:
 
 For Linux, also import the AppImage into Gear Lever and confirm it launches from
 the desktop entry.
+
+For Windows, confirm SmartScreen's expected unsigned-app warning can be
+overridden on an unmanaged test PC, then complete the smoke test.
+
+For macOS, confirm each architecture's ZIP unpacks and the expected Gatekeeper
+warning can be overridden through Privacy & Security, then complete the smoke
+test.

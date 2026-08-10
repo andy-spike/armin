@@ -11,8 +11,23 @@ permissions:
 
 jobs:
   publish:
-    name: Publish AppImage
-    runs-on: ubuntu-latest
+    name: Publish ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      # Each matrix entry updates the same GitHub release. Serialize publishing
+      # so only one job can create or update that release at a time.
+      max-parallel: 1
+      matrix:
+        include:
+          - name: Linux AppImage
+            runner: ubuntu-latest
+          - name: Windows x64 installer
+            runner: windows-latest
+          - name: macOS Apple silicon ZIP
+            runner: macos-latest
+          - name: macOS Intel ZIP
+            runner: macos-15-intel
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -24,6 +39,7 @@ jobs:
           cache: npm
 
       - name: Install Linux AppImage dependencies
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y squashfs-tools
 
       - name: Install dependencies
@@ -36,7 +52,7 @@ jobs:
         shell: bash
         run: echo "PUBLISH_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
 
-      - name: Publish AppImage
+      - name: Publish release artifacts
         run: npm run publish --workspace apps/desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

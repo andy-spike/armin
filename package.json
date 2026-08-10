@@ -26,12 +26,14 @@
     "yauzl": "^3.3.1"
   },
   "allowScripts": {
-    "electron-winstaller@5.4.0": true,
+    "electron-winstaller@5.4.4": true,
     "better-sqlite3@12.10.1": true,
     "electron@41.10.4": true,
     "esbuild@0.28.1": true
   },
   "devDependencies": {
+    "@electron-forge/maker-squirrel": "^7.11.2",
+    "@electron-forge/maker-zip": "^7.11.2",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "eslint": "^8.57.1",

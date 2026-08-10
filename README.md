@@ -37,7 +37,7 @@ new material lands on knowledge you've already secured.
 
 ## Installation
 
-Each release is a Linux AppImage. You can find releases in the
+Each release is published on GitHub. You can find them in the
 [Releases section](https://github.com/andy-spike/armin/releases).
 
 ### Linux
@@ -51,6 +51,34 @@ chmod +x Armin-*-x64.AppImage
 
 Optional: import the AppImage with [Gear Lever](https://github.com/mijorus/gearlever) for a
 desktop entry.
+
+### Windows
+
+Download and run the `Setup.exe` file for your release. It is an unsigned beta
+installer. Microsoft Defender SmartScreen may warn that it has no established
+reputation. This is expected: Armin does not yet have a paid Windows
+code-signing certificate. Download it only from this project's GitHub Releases,
+then use SmartScreen's **More info** and **Run anyway** controls if you trust
+the release.
+
+Some managed PCs and Windows security policies do not permit unsigned apps to
+run. Armin cannot bypass those policies.
+
+### macOS
+
+Download the ZIP that matches your Mac:
+
+- `arm64` for Apple silicon Macs (M1 and later)
+- `x64` for Intel Macs
+
+Unzip it and move `Armin.app` to Applications. Armin is an unsigned beta app
+and is not notarized because the project does not yet have a paid Apple
+Developer membership. Gatekeeper will warn on first launch. If you trust the
+download from this project's GitHub Releases, try to open Armin once, then go
+to **System Settings → Privacy & Security** and choose **Open Anyway**. macOS
+saves that choice for future launches.
+
+Do not disable Gatekeeper or other system security features to run Armin.
 
 ## Releases
 

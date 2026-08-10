@@ -4,6 +4,8 @@ import type { ForgeConfig } from "@electron-forge/shared-types";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-natives";
+import { MakerSquirrel } from "@electron-forge/maker-squirrel";
+import { MakerZIP } from "@electron-forge/maker-zip";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { MakerAppImage } from "@reforged/maker-appimage";
 
@@ -48,6 +50,13 @@ const config: ForgeConfig = {
         keywords: ["flashcards", "spaced repetition", "study"],
       },
     }),
+    // Public beta builds are intentionally unsigned. Squirrel gives Windows
+    // users a normal installer; SmartScreen will show its expected warning.
+    new MakerSquirrel({}, ["win32"]),
+    // A ZIP keeps the unsigned macOS app bundle intact without requiring a
+    // signing identity or notarization. Ship each native architecture from its
+    // matching GitHub Actions runner.
+    new MakerZIP({}, ["darwin"]),
   ],
   publishers: [
     {
