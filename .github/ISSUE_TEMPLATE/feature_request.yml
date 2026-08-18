@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Ideas are welcome. Note that code pull requests aren't being accepted yet
-        (see [CONTRIBUTING.md](https://github.com/ansanabria/armin/blob/master/CONTRIBUTING.md));
+        (see [CONTRIBUTING.md](https://github.com/andy-spike/armin/blob/master/CONTRIBUTING.md));
         opening an issue is the right way to propose a change.
   - type: textarea
     id: problem

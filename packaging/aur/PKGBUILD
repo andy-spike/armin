@@ -1,0 +1,50 @@
+# Maintainer: Andy Spike <ansanabria12@gmail.com>
+
+# armin-bin repackages the official Linux AppImage from GitHub Releases.
+# The AppImage is extracted at build time, so the installed package does
+# not depend on libfuse or appimage runtime tooling.
+#
+# This PKGBUILD is the template maintained in the armin repository under
+# packaging/aur/. The release workflow rewrites pkgver and sha256sums, then
+# pushes the result to the AUR. Do not edit the AUR copy by hand.
+
+pkgname=armin-bin
+pkgver=0.5.0
+pkgrel=1
+pkgdesc='Local-first hierarchical spaced-repetition flashcards for desktop'
+arch=('x86_64')
+url='https://github.com/andy-spike/armin'
+license=('MIT')
+depends=('gtk3' 'nss' 'alsa-lib' 'libxss')
+provides=('armin')
+conflicts=('armin')
+options=('!strip')
+source=("Armin-${pkgver}-x64.AppImage::https://github.com/andy-spike/armin/releases/download/v${pkgver}/Armin-${pkgver}-x64.AppImage"
+        'armin.desktop')
+sha256sums=('ab3db3621f43c7dc2574c5101fd74d54567fa338dda76cf5038fa2ab50dbae3a' '7218976054e0aee2c32984dc36b54c1aa498c7326159c12f325828f75a1f3ade')
+noextract=("Armin-${pkgver}-x64.AppImage")
+
+package() {
+  # Self-extract the AppImage. This needs no FUSE: the runtime unpacks its
+  # embedded SquashFS into ./squashfs-root.
+  chmod +x "${srcdir}/Armin-${pkgver}-x64.AppImage"
+  "${srcdir}/Armin-${pkgver}-x64.AppImage" --appimage-extract > /dev/null
+
+  # The AppImage already ships an FHS layout; reuse it. The bundled
+  # armin-launch wrapper is dropped because it hardcodes --no-sandbox,
+  # which is only required when running from a FUSE mount. Installed to
+  # a regular directory, Chromium's user-namespace sandbox works without
+  # the setuid helper, so /usr/bin/armin points at the real binary.
+  install -dm755 "${pkgdir}/usr/lib"
+  cp -a squashfs-root/usr/lib/armin "${pkgdir}/usr/lib/armin"
+  rm -f "${pkgdir}/usr/lib/armin/armin-launch"
+
+  install -dm755 "${pkgdir}/usr/bin"
+  ln -s /usr/lib/armin/Armin "${pkgdir}/usr/bin/armin"
+
+  install -Dm644 "${srcdir}/armin.desktop" "${pkgdir}/usr/share/applications/armin.desktop"
+  install -Dm644 squashfs-root/usr/share/icons/hicolor/scalable/apps/armin.svg \
+    "${pkgdir}/usr/share/icons/hicolor/scalable/apps/armin.svg"
+  install -Dm644 squashfs-root/usr/lib/armin/LICENSE \
+    "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

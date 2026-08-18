@@ -12,8 +12,8 @@ project is early.
 Report privately through either channel:
 
 - **Preferred — GitHub Private Vulnerability Reporting.** Open the repository's
-  [Security tab](https://github.com/ansanabria/armin/security) and use
-  *"Report a vulnerability."* This keeps the report private and lets us coordinate
+  [Security tab](https://github.com/andy-spike/armin/security) and use
+  _"Report a vulnerability."_ This keeps the report private and lets us coordinate
   a fix and advisory.
 - **Email fallback.** If you would rather not use GitHub, email
   **ansanabria12@gmail.com** with details.

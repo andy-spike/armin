@@ -57,7 +57,16 @@ Each release is published on GitHub. You can find them in the
 
 ### Linux
 
-Download the `Armin-*-x64.AppImage`, make it executable, and run it:
+On Arch Linux, build and install the AUR package with `makepkg`:
+
+```bash
+git clone https://aur.archlinux.org/armin-bin.git
+cd armin-bin
+makepkg -si
+```
+
+Everywhere else, download the `Armin-*-x64.AppImage`, make it executable, and
+run it:
 
 ```bash
 chmod +x Armin-*-x64.AppImage
@@ -121,18 +130,18 @@ and installs with the [`skills` CLI](https://www.skills.sh/docs):
 
 ```bash
 # Install into the current project (auto-detects your agent)
-npx skills add ansanabria/armin --skill writing-study-cards
+npx skills add andy-spike/armin --skill writing-study-cards
 
 # Or install globally so it's available across all projects
-npx skills add ansanabria/armin --skill writing-study-cards --global
+npx skills add andy-spike/armin --skill writing-study-cards --global
 ```
 
 You can target a specific agent (for example Cursor, Claude Code, or Codex) with
 `-a`, and preview what's available without installing using `--list`:
 
 ```bash
-npx skills add ansanabria/armin --list
-npx skills add ansanabria/armin --skill writing-study-cards -a cursor
+npx skills add andy-spike/armin --list
+npx skills add andy-spike/armin --skill writing-study-cards -a cursor
 ```
 
 The `skills` CLI discovers skills under `.agents/skills/`, so it picks up
@@ -148,7 +157,7 @@ and validation commands used in this codebase.
 ## Contributions
 
 Bug reports and feature requests are very welcome — file them in the
-[Issues tab](https://github.com/ansanabria/armin/issues). They're the most useful
+[Issues tab](https://github.com/andy-spike/armin/issues). They're the most useful
 thing you can send at this stage.
 
 Code pull requests aren't being accepted yet: the domain model and internal
