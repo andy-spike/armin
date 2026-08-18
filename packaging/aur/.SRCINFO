@@ -1,0 +1,21 @@
+pkgbase = armin-bin
+	pkgdesc = Local-first hierarchical spaced-repetition flashcards for desktop
+	pkgver = 0.5.0
+	pkgrel = 1
+	url = https://github.com/andy-spike/armin
+	arch = x86_64
+	license = MIT
+	depends = gtk3
+	depends = nss
+	depends = alsa-lib
+	depends = libxss
+	provides = armin
+	conflicts = armin
+	noextract = Armin-0.5.0-x64.AppImage
+	options = !strip
+	source = Armin-0.5.0-x64.AppImage::https://github.com/andy-spike/armin/releases/download/v0.5.0/Armin-0.5.0-x64.AppImage
+	source = armin.desktop
+	sha256sums = ab3db3621f43c7dc2574c5101fd74d54567fa338dda76cf5038fa2ab50dbae3a
+	sha256sums = 7218976054e0aee2c32984dc36b54c1aa498c7326159c12f325828f75a1f3ade
+
+pkgname = armin-bin

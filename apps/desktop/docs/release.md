@@ -8,12 +8,14 @@ CI and is merged, so the release workflow packages a known-good commit.
 
 ## Distribution
 
-- Linux: AppImage
+- Linux: AppImage, plus the `armin-bin` AUR package (see `packaging/aur/README.md`)
 - Windows: unsigned x64 Squirrel installer
 - macOS: unsigned ZIPs for Apple silicon (`arm64`) and Intel (`x64`)
 - Auto-update: deferred
 
-Linux users can manage the AppImage with Gear Lever.
+Linux users can manage the AppImage with Gear Lever. Arch users install
+`armin-bin`; the Release workflow pushes the updated PKGBUILD to the AUR on
+every tag, so no manual step is needed after the one-time setup.
 
 ## Unsigned public beta
 

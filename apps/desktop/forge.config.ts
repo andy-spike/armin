@@ -63,7 +63,7 @@ const config: ForgeConfig = {
       name: "@electron-forge/publisher-github",
       config: {
         repository: {
-          owner: "ansanabria",
+          owner: "andy-spike",
           name: "armin",
         },
         prerelease: false,

@@ -4,7 +4,7 @@
 
 ### Issue tracker
 
-Issues are tracked in GitHub Issues (`ansanabria/armin`) via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues are tracked in GitHub Issues (`andy-spike/armin`) via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

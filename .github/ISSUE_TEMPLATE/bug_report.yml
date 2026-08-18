@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Thanks for reporting a bug. Please don't use this for security issues —
-        see [SECURITY.md](https://github.com/ansanabria/armin/blob/master/SECURITY.md)
+        see [SECURITY.md](https://github.com/andy-spike/armin/blob/master/SECURITY.md)
         for private reporting.
   - type: textarea
     id: what-happened

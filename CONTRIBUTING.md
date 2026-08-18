@@ -43,4 +43,4 @@ conventions, domain language, and architectural decisions are documented in:
   [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md) — how issues are
   tracked and triaged.
 
-[issues]: https://github.com/ansanabria/armin/issues
+[issues]: https://github.com/andy-spike/armin/issues
