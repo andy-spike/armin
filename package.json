@@ -2,7 +2,7 @@
   "name": "armin-monorepo",
   "version": "0.0.0",
   "private": true,
-  "description": "Monorepo for Armin: the local-first desktop app and its optional cloud sync service.",
+  "description": "Monorepo for Armin: the local-first desktop and mobile apps and the optional cloud sync service.",
   "homepage": "https://github.com/andy-spike/armin#readme",
   "repository": {
     "type": "git",
@@ -12,33 +12,20 @@
     "url": "https://github.com/andy-spike/armin/issues"
   },
   "license": "MIT",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "packageManager": "pnpm@12.4.1",
   "scripts": {
-    "typecheck": "npm run typecheck --workspace apps/desktop --",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "lint": "eslint --ext .ts,.tsx .",
     "format": "prettier --write ."
   },
-  "overrides": {
-    "@electron/rebuild": "4.0.4",
-    "yauzl": "^3.3.1"
-  },
-  "allowScripts": {
-    "electron-winstaller@5.4.4": true,
-    "better-sqlite3@12.10.1": true,
-    "electron@41.10.4": true,
-    "esbuild@0.28.1": true
-  },
   "devDependencies": {
-    "@electron-forge/maker-squirrel": "^7.11.2",
-    "@electron-forge/maker-zip": "^7.11.2",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "eslint": "^8.57.1",
     "eslint-plugin-import": "^2.32.0",
     "prettier": "^3.8.3",
+    "turbo": "^2.11.7",
     "typescript": "^5.9.3"
   }
 }

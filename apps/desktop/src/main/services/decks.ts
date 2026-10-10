@@ -1,10 +1,10 @@
 import { and, count, eq } from "drizzle-orm";
 import { schema } from "../db";
-import type { Deck } from "../db/schema";
+import type { Deck } from "@armin/core/schema";
 import type { ServiceContext } from "./context";
 import { createFlashcard } from "./flashcards";
 import { buildSessionQueue } from "./review";
-import { State } from "./scheduler";
+import { State } from "@armin/core/scheduler";
 
 const { decks, reviewUnits, flashcards } = schema;
 

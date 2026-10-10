@@ -6,7 +6,7 @@ import {
   isPrereqSecured,
   newReviewUnitFields,
   pendingReviewUnitFields,
-} from "./scheduler";
+} from "@armin/core/scheduler";
 import { getEffectiveSettingsForDeck } from "./settings";
 
 const { reviewUnits, flashcardPrereqs, flashcards } = schema;

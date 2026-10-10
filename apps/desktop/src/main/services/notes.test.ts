@@ -13,7 +13,7 @@ import * as graph from "./graph";
 import * as prerequisiteState from "./prerequisite-state";
 import * as flashcards from "./flashcards";
 import * as review from "./review";
-import { State } from "./scheduler";
+import { State } from "@armin/core/scheduler";
 
 useTestDb();
 

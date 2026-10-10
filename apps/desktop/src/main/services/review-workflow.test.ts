@@ -13,7 +13,7 @@ import * as decks from "./decks";
 import * as graph from "./graph";
 import * as review from "./review";
 import * as settings from "./settings";
-import { isPendingSchedule, State } from "./scheduler";
+import { isPendingSchedule, State } from "@armin/core/scheduler";
 
 useTestDb();
 

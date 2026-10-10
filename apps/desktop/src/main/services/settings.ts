@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import { PRESET_VALUES } from "../../shared/scheduling-presets";
+import { PRESET_VALUES } from "@armin/core/scheduling-presets";
 import { schema } from "../db";
-import type { DeckSettings, Settings } from "../db/schema";
+import type { DeckSettings, Settings } from "@armin/core/schema";
 import type { ServiceContext } from "./context";
 import {
   refreshAllLockedStates,

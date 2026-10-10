@@ -57,13 +57,13 @@ The packaged app does not need this. It exists for tests and development.
 Install dependencies first:
 
 ```bash
-npm install
+pnpm install
 ```
 
 Open Armin and select the profile you want the development stdio server to write
 
 ```bash
-npm run mcp --workspace apps/desktop
+pnpm --filter ./apps/desktop mcp
 ```
 
 `ARMIN_DATA_DIR` and `ARMIN_PROFILE_ID` are still supported as advanced overrides
@@ -72,7 +72,7 @@ for tests or unusual setups, but normal agent configuration should not need them
 For example:
 
 ```bash
-ARMIN_DATA_DIR="$PWD/.armin-data" ARMIN_PROFILE_ID="default" npm run mcp --workspace apps/desktop
+ARMIN_DATA_DIR="$PWD/.armin-data" ARMIN_PROFILE_ID="default" pnpm --filter ./apps/desktop mcp
 ```
 
 ## Example agent request

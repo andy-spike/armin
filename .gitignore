@@ -108,3 +108,5 @@ dist/
 
 # Test results
 test-results/
+# Turborepo
+.turbo/

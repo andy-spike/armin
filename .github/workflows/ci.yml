@@ -23,41 +23,45 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # Installs the pnpm version pinned by package.json's packageManager field.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Install E2E dependencies
         run: sudo apt-get update && sudo apt-get install -y xvfb
 
       - name: Build icons
-        run: npm run icons --workspace apps/desktop
+        run: pnpm --filter ./apps/desktop icons
 
       - name: Lint
-        run: npm run lint
+        run: pnpm lint
 
       - name: Typecheck
-        run: npm run typecheck
+        run: pnpm typecheck
 
       - name: Test
-        run: npm run test --workspace apps/desktop
+        run: pnpm --filter ./apps/desktop test
 
       - name: Test MCP server
-        run: npm run test:mcp --workspace apps/desktop
+        run: pnpm --filter ./apps/desktop test:mcp
 
       - name: Build Electron app for E2E
-        run: npm run test:e2e:build --workspace apps/desktop
+        run: pnpm --filter ./apps/desktop test:e2e:build
 
       - name: Check packaged app output
-        run: npm run check:package --workspace apps/desktop
+        run: pnpm --filter ./apps/desktop check:package
 
       - name: Run E2E tests
-        run: xvfb-run --auto-servernum npm run test:e2e --workspace apps/desktop
+        run: xvfb-run --auto-servernum pnpm --filter ./apps/desktop test:e2e
 
       - name: Upload E2E artifacts
         if: failure()

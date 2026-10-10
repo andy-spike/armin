@@ -1,4 +1,4 @@
-import type { ReviewUnit, Deck, Flashcard, Settings } from "../main/db/schema";
+import type { ReviewUnit, Deck, Flashcard, Settings } from "@armin/core/schema";
 import type { DeckWithStats } from "../main/services/decks";
 import type {
   DeckSettingsOverrides,
@@ -12,7 +12,10 @@ import type {
   FlashcardMoveConsequences,
   FlashcardWithMeta,
 } from "../main/services/flashcards";
-import type { FlashcardContent, FlashcardType } from "./flashcard-types";
+import type {
+  FlashcardContent,
+  FlashcardType,
+} from "@armin/core/flashcard-types";
 import type { PreviewOption, ReviewQueueItem } from "../main/services/review";
 import type { CramPool, CramScope } from "../main/services/cram";
 import type { DeckGraph } from "../main/services/graph";

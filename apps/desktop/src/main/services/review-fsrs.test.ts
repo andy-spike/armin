@@ -12,7 +12,7 @@ import * as flashcards from "./flashcards";
 import * as decks from "./decks";
 import * as review from "./review";
 import * as settings from "./settings";
-import { fromFsrsCard, toFsrsCard } from "./scheduler";
+import { fromFsrsCard, toFsrsCard } from "@armin/core/scheduler";
 
 useTestDb();
 

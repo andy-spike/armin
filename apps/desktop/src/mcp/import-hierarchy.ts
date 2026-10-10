@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
-import type { Deck, Flashcard } from "../main/db/schema";
+import type { Deck, Flashcard } from "@armin/core/schema";
 import { schema } from "../main/db";
 import {
   isFlashcardType,
   type FlashcardType,
-} from "../main/services/flashcard-types";
+} from "@armin/core/flashcard-types";
 import { getDeck } from "../main/services/decks";
 import { getDeckGraph } from "../main/services/graph";
 import { refreshLockedForDeck } from "../main/services/prerequisite-state";

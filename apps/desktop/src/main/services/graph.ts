@@ -4,7 +4,7 @@ import {
   flashcardDisplay,
   parseStoredContent,
   type FlashcardType,
-} from "./flashcard-types";
+} from "@armin/core/flashcard-types";
 import type { ServiceContext } from "./context";
 import {
   getDependentIds,

@@ -8,7 +8,7 @@ import type { ServiceContext } from "../main/services/context";
 import {
   isFlashcardType,
   type FlashcardType,
-} from "../main/services/flashcard-types";
+} from "@armin/core/flashcard-types";
 import { storeFlashcardMedia } from "../main/services/media";
 import { createDeck, listDecks } from "../main/services/decks";
 import { addPrereq, removePrereq } from "../main/services/graph";

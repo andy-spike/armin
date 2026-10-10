@@ -32,9 +32,9 @@ import {
   type ImageOcclusionContent,
   type ImageOcclusionGeometry,
   type ImageOcclusionMask,
-} from "../flashcard-types";
+} from "@armin/core/flashcard-types";
 import type { ServiceContext } from "../context";
-import type { FsrsFields } from "../scheduler";
+import type { FsrsFields } from "@armin/core/scheduler";
 import { canonicalizeLegacyMediaForWrite } from "../media";
 import { createFlashcardRecord } from "../flashcards";
 import { ankiHtmlToMarkdown } from "./html";

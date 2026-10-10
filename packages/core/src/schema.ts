@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import {
   index,
@@ -12,7 +11,7 @@ import {
 const uuid = () =>
   text("id")
     .primaryKey()
-    .$defaultFn(() => randomUUID());
+    .$defaultFn(() => crypto.randomUUID());
 const createdAt = () =>
   integer("created_at", { mode: "timestamp_ms" })
     .notNull()
@@ -201,9 +200,12 @@ export const settings = sqliteTable("settings", {
     .notNull()
     .default(10),
   /** Admit all eligible new review units for a flashcard together. */
-  keepSiblingReviewUnitsTogether: integer("keep_sibling_review_units_together", {
-    mode: "boolean",
-  })
+  keepSiblingReviewUnitsTogether: integer(
+    "keep_sibling_review_units_together",
+    {
+      mode: "boolean",
+    },
+  )
     .notNull()
     .default(true),
   /** Selected scheduling preset: balanced | aggressive | relaxed | custom. */
@@ -212,7 +214,7 @@ export const settings = sqliteTable("settings", {
    * Per-profile keybinding overrides as a JSON object mapping Command id to its
    * binding string; null = no overrides (use factory defaults). Only the
    * Commands the user changed are stored. See
-   * docs/adr/0019-keybindings-stored-as-per-profile-overrides-on-factory-defaults.md.
+   * apps/desktop/docs/adr/0019-keybindings-stored-as-per-profile-overrides-on-factory-defaults.md.
    */
   keybindings: text("keybindings"),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" })
@@ -234,9 +236,12 @@ export const deckSettings = sqliteTable("deck_settings", {
   weights: text("weights"),
   prereqStabilityFloor: real("prereq_stability_floor"),
   newReviewUnitsPerDay: integer("new_review_units_per_day"),
-  keepSiblingReviewUnitsTogether: integer("keep_sibling_review_units_together", {
-    mode: "boolean",
-  }),
+  keepSiblingReviewUnitsTogether: integer(
+    "keep_sibling_review_units_together",
+    {
+      mode: "boolean",
+    },
+  ),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" })
     .notNull()
     .default(sql`(unixepoch() * 1000)`),

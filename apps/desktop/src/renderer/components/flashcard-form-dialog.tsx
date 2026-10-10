@@ -26,7 +26,7 @@ import {
   parseClozes,
   type FlashcardContent,
   type FlashcardType,
-} from "../../shared/flashcard-types";
+} from "@armin/core/flashcard-types";
 
 export type CardFormValues = {
   type: FlashcardType;

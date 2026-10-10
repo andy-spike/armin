@@ -169,34 +169,34 @@ count changed.
 Fast local default for most changes:
 
 ```bash
-npm run typecheck
-npm run lint
-npm run test --workspace apps/desktop
+pnpm typecheck
+pnpm lint
+pnpm --filter ./apps/desktop test
 ```
 
 When main, preload, shared, or Electron packaging changes:
 
 ```bash
-npm run typecheck
-npm run lint
-npm run test --workspace apps/desktop
-npm run package --workspace apps/desktop
-npm run check:package --workspace apps/desktop
+pnpm typecheck
+pnpm lint
+pnpm --filter ./apps/desktop test
+pnpm --filter ./apps/desktop package
+pnpm --filter ./apps/desktop check:package
 ```
 
 When user journeys, profile windows, import/export dialogs, or Electron wiring
 changes:
 
 ```bash
-npm run test:e2e:build --workspace apps/desktop
-npm run check:package --workspace apps/desktop
-npm run test:e2e --workspace apps/desktop
+pnpm --filter ./apps/desktop test:e2e:build
+pnpm --filter ./apps/desktop check:package
+pnpm --filter ./apps/desktop test:e2e
 ```
 
 For MCP changes:
 
 ```bash
-npm run test:mcp --workspace apps/desktop
+pnpm --filter ./apps/desktop test:mcp
 ```
 
 Also run relevant service tests when an MCP tool depends on service behavior.

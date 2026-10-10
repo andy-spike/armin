@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { eq } from "drizzle-orm";
 import { profileMediaDir, schema } from "../db";
-import type { Flashcard } from "../db/schema";
+import type { Flashcard } from "@armin/core/schema";
 import type { ServiceContext } from "./context";
 import {
   isMediaRef,
@@ -17,7 +17,7 @@ import {
   type FlashcardContent,
   type FlashcardType,
   type ImageOcclusionContent,
-} from "./flashcard-types";
+} from "@armin/core/flashcard-types";
 
 export const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
 

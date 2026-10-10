@@ -7,7 +7,7 @@ databases by running the SQL files in `drizzle/` with Drizzle's SQLite migrator.
 
 1. Update the current schema in `src/main/db/schema.ts`.
 2. Generate a descriptively named migration for schema changes:
-   `npm run db:generate --workspace apps/desktop -- --name=<descriptive_snake_case_name>`.
+   `pnpm --filter ./apps/desktop db:generate --name=<descriptive_snake_case_name>`.
 3. Review the generated SQL before committing it.
 4. Commit Drizzle's generated snapshot and journal changes with the SQL whenever
    `drizzle-kit generate` creates them.
@@ -19,11 +19,11 @@ databases by running the SQL files in `drizzle/` with Drizzle's SQLite migrator.
    limited to the behavior Drizzle cannot safely infer.
 7. Manually verify hand-authored or materially hand-edited migrations against a
    copied or temporary old-shape database before release.
-8. Run `npm run typecheck`, `npm run lint`, and `npm run test --workspace apps/desktop`.
+8. Run `pnpm typecheck`, `pnpm lint`, and `pnpm --filter ./apps/desktop test`.
 
 When a change touches migration discovery, packaging, or the bundled `drizzle/`
-folder, also run `npm run package --workspace apps/desktop` and
-`npm run check:package --workspace apps/desktop`.
+folder, also run `pnpm --filter ./apps/desktop package` and
+`pnpm --filter ./apps/desktop check:package`.
 
 Agents must use Drizzle-generated migrations for ordinary schema changes. Manual
 SQL is an exception for cases Drizzle cannot express safely; discuss that reason
@@ -53,17 +53,17 @@ migration was generated.
 
 Migration names should always describe the schema or data change. Use snake_case
 names, not generated fantasy names. Agents must pass `--name` when running
-`npm run db:generate --workspace apps/desktop`, for example:
+`pnpm --filter ./apps/desktop db:generate`, for example:
 
 ```bash
-npm run db:generate --workspace apps/desktop -- --name=add_deck_scheduling_overrides
+pnpm --filter ./apps/desktop db:generate --name=add_deck_scheduling_overrides
 ```
 
 For custom manual migrations, use Drizzle's custom migration generation with a
 descriptive name:
 
 ```bash
-npm run db:generate --workspace apps/desktop -- --custom --name=backfill_flashcard_content
+pnpm --filter ./apps/desktop db:generate --custom --name=backfill_flashcard_content
 ```
 
 Backup and restore compatibility also uses the journal entry count as the local

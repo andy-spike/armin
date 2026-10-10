@@ -6,7 +6,7 @@ import { count, eq } from "drizzle-orm";
 import { closeDb, schema, setDbRootForTests } from "../db";
 import { ensureProfileReady, resetProfileRuntime } from "../profiles/runtime";
 import type { ServiceContext } from "../services/context";
-import { State } from "../services/scheduler";
+import { State } from "@armin/core/scheduler";
 
 let root: string;
 

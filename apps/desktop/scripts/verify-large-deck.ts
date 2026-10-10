@@ -1,7 +1,7 @@
 /**
  * Smoke-test large-deck paging, tags, and stats through the service layer.
  *
- * Usage: CARD_COUNT=1500 npx tsx scripts/verify-large-deck.ts
+ * Usage: CARD_COUNT=1500 pnpm exec tsx scripts/verify-large-deck.ts
  */
 import fs from "node:fs";
 import os from "node:os";

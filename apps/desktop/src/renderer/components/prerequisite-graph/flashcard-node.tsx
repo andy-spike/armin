@@ -9,7 +9,7 @@ import {
 } from "@xyflow/react";
 import { StateBadge, type ReviewState } from "@/components/ui/badge";
 import { FlashcardTypeBadge } from "@/components/flashcard-type-badge";
-import type { FlashcardType } from "../../../shared/flashcard-types";
+import type { FlashcardType } from "@armin/core/flashcard-types";
 import { cn } from "@/lib/utils";
 
 /**

@@ -6,7 +6,7 @@ import * as cram from "./cram";
 import * as decks from "./decks";
 import * as flashcards from "./flashcards";
 import * as graph from "./graph";
-import { State } from "./scheduler";
+import { State } from "@armin/core/scheduler";
 
 useTestDb();
 
