@@ -45,7 +45,7 @@ import {
   matchesTypeAnswer,
   type ImageOcclusionContent,
   type TypeAnswerContent,
-} from "../../shared/flashcard-types";
+} from "@armin/core/flashcard-types";
 import { cn } from "@/lib/utils";
 
 const RATINGS: {

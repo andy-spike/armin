@@ -28,7 +28,7 @@ import {
   matchesTypeAnswer,
   type ImageOcclusionContent,
   type TypeAnswerContent,
-} from "../../shared/flashcard-types";
+} from "@armin/core/flashcard-types";
 import { useScope } from "@/keybindings/keybindings-provider";
 import { cn } from "@/lib/utils";
 

@@ -19,9 +19,11 @@ System-wide decisions live in the root `docs/adr/`. See `docs/agents/domain.md`.
 ## Notes
 
 - The project context is described in @README.md . Always read the file when starting a new session.
-- The repository is a monorepo: the desktop app lives in `apps/desktop/`, with placeholders for `apps/sync-server/` and `packages/sync-contract/`. Keep project-specific scripts in each workspace package; from the repo root, run desktop commands with `--workspace apps/desktop`.
+- The repository is a pnpm + Turborepo monorepo (see `docs/adr/0002-pnpm-workspaces-with-turborepo.md`). The desktop app lives in `apps/desktop/`, the shared platform-agnostic study domain in `packages/core/` (`@armin/core`), and `apps/mobile/` and `apps/sync-server/` are placeholders. Keep project-specific scripts in each workspace package; from the repo root, run `pnpm typecheck`, `pnpm lint`, and `pnpm test` for every workspace, and `pnpm --filter ./apps/desktop <script>` for desktop scripts. Run the desktop release script as `pnpm --filter ./apps/desktop run publish`: bare `publish` is a built-in pnpm command.
+- Use pnpm, never npm or yarn. Don't commit `package-lock.json`.
+- Put code in `packages/core/` only when it is free of Electron, Node, and database-driver APIs, so every client can run it.
 - Testing philosophy and validation tiers are described in @apps/desktop/docs/testing.md . Read it before adding or changing tests.
-- Migration workflow is described in @apps/desktop/docs/migrations.md . Read it before changing @apps/desktop/src/main/db/schema.ts or files under @apps/desktop/drizzle/ .
+- Migration workflow is described in @apps/desktop/docs/migrations.md . Read it before changing @packages/core/src/schema.ts or files under @apps/desktop/drizzle/ .
 - Migration names must be descriptive. Pass a snake_case `--name` to Drizzle instead of accepting generated fantasy names.
 - Shadcn uses Base UI instead of Radix UI. Use only Base UI, unless the user explictly asks to use the Radix UI API.
 - Dialog action buttons keep a static label. Show "running" with the `busy` prop on `Button`, never by swapping the label to a busy verb ("Deleting…"), which flashes during the dialog's close animation. See @apps/desktop/docs/adr/0016-dialog-action-labels-stay-static.md .

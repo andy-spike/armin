@@ -41,25 +41,23 @@ signing and macOS notarization.
 
 ## Toolchain
 
-The release workflow runs entirely on Node 24 (npm 11), including the Forge
-publish step. Use the same locally (`.nvmrc` pins Node 24) so `package-lock.json`
-stays npm-11 compatible. Avoid regenerating the lockfile under npm 10 (Node 22):
-npm 10 drops the `libc` fields npm 11 records, and npm 10's `npm ci` then rejects
-an npm-11 lockfile as out of sync around the optional `esbuild@0.28.0` platform
-packages.
+The release workflow runs on Node 24 (`.nvmrc` pins it) and the pnpm version
+pinned by the root `package.json` `packageManager` field. Use the same locally so
+`pnpm-lock.yaml` stays stable; CI installs with `--frozen-lockfile` and fails if
+the lockfile is out of date.
 
 ## Local checks
 
 Run these before opening the PR that will be released:
 
 ```bash
-npm run icons --workspace apps/desktop
-npm run lint
-npm run test --workspace apps/desktop
-npm run test:mcp --workspace apps/desktop
-npm run test:e2e:build --workspace apps/desktop
-npm run check:package --workspace apps/desktop
-npm run test:e2e --workspace apps/desktop
+pnpm --filter ./apps/desktop icons
+pnpm lint
+pnpm --filter ./apps/desktop test
+pnpm --filter ./apps/desktop test:mcp
+pnpm --filter ./apps/desktop test:e2e:build
+pnpm --filter ./apps/desktop check:package
+pnpm --filter ./apps/desktop test:e2e
 ```
 
 ## Versioning

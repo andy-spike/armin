@@ -1,6 +1,6 @@
 import { count, eq, inArray, min, max, or, sql } from "drizzle-orm";
 import { schema } from "../db";
-import type { ReviewUnit, Flashcard } from "../db/schema";
+import type { ReviewUnit, Flashcard } from "@armin/core/schema";
 import {
   generateReviewUnits,
   flashcardDisplay,
@@ -9,13 +9,13 @@ import {
   validateContent,
   type FlashcardContent,
   type FlashcardType,
-} from "./flashcard-types";
+} from "@armin/core/flashcard-types";
 import {
   newReviewUnitFields,
   pendingReviewUnitFields,
   type FsrsFields,
   State,
-} from "./scheduler";
+} from "@armin/core/scheduler";
 import type { ServiceContext } from "./context";
 import {
   getDependentIds,

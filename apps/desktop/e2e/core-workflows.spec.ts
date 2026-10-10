@@ -15,7 +15,7 @@ import {
 test.beforeAll(() => {
   test.skip(
     !isE2eBuildAvailable(),
-    `Vite build missing at ${mainEntryPath()}. Run npm run test:e2e:build first.`,
+    `Vite build missing at ${mainEntryPath()}. Run pnpm --filter ./apps/desktop test:e2e:build first.`,
   );
 });
 

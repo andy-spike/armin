@@ -1,4 +1,4 @@
-import type { ImageOcclusionContent } from "../../shared/flashcard-types";
+import type { ImageOcclusionContent } from "@armin/core/flashcard-types";
 import { mediaDisplayUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 

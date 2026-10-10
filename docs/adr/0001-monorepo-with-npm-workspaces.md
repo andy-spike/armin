@@ -1,5 +1,7 @@
 # Armin is a monorepo managed with npm workspaces
 
+_Superseded by ADR 0002 (pnpm workspaces with Turborepo)._
+
 Armin is adding an optional, paid cloud sync service alongside the local-first
 desktop app. The sync service is a separate deployable with its own lifecycle, but
 it shares a thin protocol contract with the desktop client, so both live in one

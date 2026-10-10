@@ -22,15 +22,12 @@ const env = {
   GITHUB_TOKEN: githubToken(),
 };
 
-const result = spawnSync(
-  process.platform === "win32" ? "npm.cmd" : "npm",
-  ["exec", "--", "electron-forge", "publish"],
-  {
-    env,
-    stdio: "inherit",
-    shell: process.platform === "win32",
-  },
-);
+// On Windows the shell resolves whichever pnpm shim is installed (.cmd or .exe).
+const result = spawnSync("pnpm", ["exec", "electron-forge", "publish"], {
+  env,
+  stdio: "inherit",
+  shell: process.platform === "win32",
+});
 
 if (result.error) throw result.error;
 process.exit(result.status ?? 1);

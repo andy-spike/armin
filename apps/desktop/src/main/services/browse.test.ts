@@ -4,7 +4,7 @@ import * as browse from "./browse";
 import * as decks from "./decks";
 import * as flashcards from "./flashcards";
 import * as review from "./review";
-import { State } from "./scheduler";
+import { State } from "@armin/core/scheduler";
 
 useTestDb();
 

@@ -2,8 +2,8 @@
  * Benchmark deck load paths for large decks.
  *
  * Usage:
- *   CARD_COUNT=500 npm run bench:deck -- --seed
- *   DECK_ID=<id> npm run bench:deck
+ *   CARD_COUNT=500 pnpm run bench:deck -- --seed
+ *   DECK_ID=<id> pnpm run bench:deck
  */
 import fs from "node:fs";
 import os from "node:os";

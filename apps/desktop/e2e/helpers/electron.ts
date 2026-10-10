@@ -28,7 +28,7 @@ export async function launchArmin(
 ): Promise<ArminTestApp> {
   if (!isE2eBuildAvailable()) {
     throw new Error(
-      `Vite build output missing at ${MAIN_ENTRY}. Run npm run test:e2e:build first.`,
+      `Vite build output missing at ${MAIN_ENTRY}. Run pnpm --filter ./apps/desktop test:e2e:build first.`,
     );
   }
 

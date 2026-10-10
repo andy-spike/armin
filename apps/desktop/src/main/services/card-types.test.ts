@@ -5,7 +5,7 @@ import {
   renderClozeText,
   validateContent,
   type ImageOcclusionContent,
-} from "./flashcard-types";
+} from "@armin/core/flashcard-types";
 
 describe("cloze parsing", () => {
   it("blanks the target cluster and reveals the rest", () => {

@@ -8,7 +8,7 @@ import {
 } from "drizzle-orm/better-sqlite3";
 import { defaultArminDataDir } from "../../shared/mcp-session";
 import { openSqliteDatabase } from "./better-sqlite";
-import * as schema from "./schema";
+import * as schema from "@armin/core/schema";
 
 type DbHandle = {
   client: Database.Database;

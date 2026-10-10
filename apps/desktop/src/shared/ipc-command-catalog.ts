@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { BROWSE_SORT_KEYS } from "./browse";
-import { FLASHCARD_TYPES } from "./flashcard-types";
+import { FLASHCARD_TYPES } from "@armin/core/flashcard-types";
 import { ipcCommandNames } from "./ipc-channels";
-import { SCHEDULING_PRESET_VALUES } from "./scheduling-presets";
+import { SCHEDULING_PRESET_VALUES } from "@armin/core/scheduling-presets";
 
 export type IpcCommand<TSchema extends z.ZodType = z.ZodType> = {
   channel: string;

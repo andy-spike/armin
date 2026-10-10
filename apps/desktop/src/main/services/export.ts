@@ -3,7 +3,7 @@ import { strToU8, zipSync } from "fflate";
 import { asc, eq } from "drizzle-orm";
 import { schema, snapshotProfileDb } from "../db";
 import { getLocalSchemaVersion } from "../db/schema-version";
-import type { Deck, Flashcard, ReviewUnit } from "../db/schema";
+import type { Deck, Flashcard, ReviewUnit } from "@armin/core/schema";
 import {
   BACKUP_DB_ENTRY,
   BACKUP_FORMAT,
@@ -27,7 +27,7 @@ import {
   type FlashcardType,
   type ImageOcclusionContent,
   type TypeAnswerContent,
-} from "./flashcard-types";
+} from "@armin/core/flashcard-types";
 import type { ServiceContext } from "./context";
 
 const { decks, flashcards, flashcardPrereqs, reviewUnits, tags, flashcardTags } =

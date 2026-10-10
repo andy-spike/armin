@@ -10,7 +10,7 @@ import * as graph from "./graph";
 import * as prerequisiteState from "./prerequisite-state";
 import * as flashcards from "./flashcards";
 import * as settings from "./settings";
-import { isPendingSchedule } from "./scheduler";
+import { isPendingSchedule } from "@armin/core/scheduler";
 
 useTestDb();
 

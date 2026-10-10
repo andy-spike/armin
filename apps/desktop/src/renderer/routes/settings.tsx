@@ -30,7 +30,7 @@ import {
   presetLabel,
   type PresetValues,
   type SchedulingPreset,
-} from "../../shared/scheduling-presets";
+} from "@armin/core/scheduling-presets";
 import { THEME_OPTIONS, type ThemePreference } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/theme/theme-provider";

@@ -116,8 +116,8 @@ const config: ForgeConfig = {
     }),
   ],
   hooks: {
-    // In the npm-workspaces monorepo, better-sqlite3 and its runtime deps hoist
-    // to the repo-root node_modules, outside this app dir. @electron/packager
+    // In the pnpm workspace (hoisted node_modules), better-sqlite3 and its
+    // runtime deps live in the repo-root node_modules, outside this app dir. @electron/packager
     // only bundles files physically under the app, so the packaged asar would
     // ship without the native module and crash on first database open. Copy the
     // resolved modules (electron-ABI builds, already rebuilt by the prepackage
