@@ -48,6 +48,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Check mobile bundles
+        run: pnpm --filter ./apps/mobile check:bundle
+
       - name: Test
         run: pnpm --filter ./apps/desktop test
 

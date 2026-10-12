@@ -19,7 +19,8 @@ System-wide decisions live in the root `docs/adr/`. See `docs/agents/domain.md`.
 ## Notes
 
 - The project context is described in @README.md . Always read the file when starting a new session.
-- The repository is a pnpm + Turborepo monorepo (see `docs/adr/0002-pnpm-workspaces-with-turborepo.md`). The desktop app lives in `apps/desktop/`, the shared platform-agnostic study domain in `packages/core/` (`@armin/core`), and `apps/mobile/` and `apps/sync-server/` are placeholders. Keep project-specific scripts in each workspace package; from the repo root, run `pnpm typecheck`, `pnpm lint`, and `pnpm test` for every workspace, and `pnpm --filter ./apps/desktop <script>` for desktop scripts. Run the desktop release script as `pnpm --filter ./apps/desktop run publish`: bare `publish` is a built-in pnpm command.
+- The repository is a pnpm + Turborepo monorepo (see `docs/adr/0002-pnpm-workspaces-with-turborepo.md`). The desktop app lives in `apps/desktop/`, the Expo mobile app in `apps/mobile/`, the shared platform-agnostic study domain in `packages/core/` (`@armin/core`), and `apps/sync-server/` is a placeholder. Keep project-specific scripts in each workspace package; from the repo root, run `pnpm typecheck`, `pnpm lint`, and `pnpm test` for every workspace, and `pnpm --filter ./apps/desktop <script>` for desktop scripts. Run the desktop release script as `pnpm --filter ./apps/desktop run publish`: bare `publish` is a built-in pnpm command.
+- Before changing the mobile app's dependencies or native setup, read `apps/mobile/README.md` for the Expo Go workflow and shared-core runtime requirements.
 - Use pnpm, never npm or yarn. Don't commit `package-lock.json`.
 - Put code in `packages/core/` only when it is free of Electron, Node, and database-driver APIs, so every client can run it.
 - Testing philosophy and validation tiers are described in @apps/desktop/docs/testing.md . Read it before adding or changing tests.
