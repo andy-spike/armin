@@ -39,6 +39,73 @@ Stop the server with Ctrl+C. Expo Go on a physical phone requires no local
 Android SDK, Java setup, or Expo account. An iOS simulator requires macOS;
 Linux can serve the app to a physical iPhone running Expo Go.
 
+## Develop on an Android emulator
+
+An emulator lets both you and a coding agent inspect the native Android app.
+It uses the same Expo Go and Fast Refresh workflow as a phone. Android Studio
+is optional; the Android SDK command-line tools can install the emulator and
+system image directly.
+
+On this development machine, the SDK is installed in `~/Android/Sdk` and the
+virtual device is `Armin_Pixel_7_API_36`, a Pixel 7 with an Android 16 Google
+APIs x86_64 image. `agent-device` is installed globally through pnpm.
+`~/.config/android/env.sh` sets `ANDROID_HOME` and adds the SDK tools to `PATH`;
+the Bash startup files source it. In an existing shell, load it once:
+
+```bash
+source ~/.config/android/env.sh
+```
+
+In T3, enable device support and agent device access in the environment's
+device settings. Enable agent access before starting the agent session; an
+existing session can retain its previous access capabilities. The agent can
+use `device_list` and `device_open` to open the emulator in the Device panel,
+then use the returned `agent-device` command and target arguments. Keep those
+arguments on subsequent commands so they control the displayed device.
+
+To run locally without the Device panel, boot the virtual device first and
+wait for the command to report that it is ready:
+
+```bash
+agent-device boot --platform android --device Armin_Pixel_7_API_36
+pnpm --filter ./apps/mobile android
+```
+
+Keep the Expo command running. It installs a compatible Expo Go version when
+needed and opens Armin. For terminal-only automation, add `--headless` to the
+boot command. The emulator's `10.0.2.2` address points to the host computer;
+if LAN access fails, run Metro with `--localhost` and open that address:
+
+```bash
+pnpm --filter ./apps/mobile start --localhost
+```
+
+From another terminal at the repository root, an agent can inspect and control
+the running app. Read the installed CLI's workflow help first:
+
+```bash
+agent-device help workflow
+agent-device open host.exp.exponent exp://10.0.2.2:8081 \
+  --platform android --device Armin_Pixel_7_API_36 --session armin
+agent-device snapshot --session armin
+agent-device screenshot /tmp/armin-android.png --session armin
+```
+
+Use refs from the latest snapshot for taps, such as `agent-device press @e12
+--settle --session armin` when `@e12` is the intended current element. Close
+the automation session with `agent-device close --session armin`; this leaves
+the emulator running. Stop Metro with Ctrl+C and shut down the virtual device
+with `adb -s emulator-5554 emu kill` after confirming its serial in
+`adb devices`. Future emulators may receive a different serial.
+
+For another machine, install the [Android command-line tools](https://developer.android.com/studio#command-tools),
+then use `sdkmanager` to install `platform-tools`, `emulator`, and
+`system-images;android-36;google_apis;x86_64`. Create the virtual device with
+`avdmanager`, and install the agent CLI with `pnpm add -g agent-device`.
+Hardware acceleration must work; on Linux, `emulator -accel-check` should
+report that KVM is usable. See [Expo's agent-device guide](https://docs.expo.dev/agents/agent-device/)
+for the observation and interaction workflow.
+
 ## Verify changes
 
 ```bash
