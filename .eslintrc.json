@@ -23,6 +23,8 @@
     "**/forge.config.ts",
     "**/drizzle.config.ts",
     "**/out/**",
-    "**/dist/**"
+    "**/dist/**",
+    "**/.wrangler/**",
+    "**/worker-configuration.d.ts"
   ]
 }

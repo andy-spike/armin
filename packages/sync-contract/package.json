@@ -1,0 +1,17 @@
+{
+  "name": "@armin/sync-contract",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Versioned request/response schemas shared by the Armin sync server and its clients.",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@armin/core": "workspace:*",
+    "zod": "^4.4.3"
+  }
+}

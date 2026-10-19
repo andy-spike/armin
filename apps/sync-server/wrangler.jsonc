@@ -1,0 +1,71 @@
+// Local development is the top-level configuration. `staging` and `production`
+// are deploy targets with their own D1 database and R2 bucket; bindings are not
+// inherited between environments, so each one declares its own.
+// Replace the REPLACE_WITH_* ids after creating the resources (see README.md).
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "armin-sync",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "observability": { "enabled": true },
+  "secrets": {
+    "required": [
+      "BETTER_AUTH_SECRET",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET"
+    ]
+  },
+  "vars": {
+    "BETTER_AUTH_URL": "http://localhost:8787",
+    "TRUSTED_ORIGINS": "http://localhost:8787"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "armin-sync-local",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "armin-sync-media-local" }],
+  "env": {
+    "staging": {
+      "name": "armin-sync-staging",
+      "vars": {
+        "BETTER_AUTH_URL": "https://REPLACE_WITH_STAGING_HOST",
+        "TRUSTED_ORIGINS": "https://REPLACE_WITH_STAGING_HOST"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "armin-sync-staging",
+          "database_id": "REPLACE_WITH_STAGING_D1_ID",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        { "binding": "MEDIA", "bucket_name": "armin-sync-media-staging" }
+      ]
+    },
+    "production": {
+      "name": "armin-sync-production",
+      "vars": {
+        "BETTER_AUTH_URL": "https://REPLACE_WITH_PRODUCTION_HOST",
+        "TRUSTED_ORIGINS": "https://REPLACE_WITH_PRODUCTION_HOST"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "armin-sync-production",
+          "database_id": "REPLACE_WITH_PRODUCTION_D1_ID",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        { "binding": "MEDIA", "bucket_name": "armin-sync-media-production" }
+      ]
+    }
+  }
+}

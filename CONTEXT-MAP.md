@@ -24,13 +24,14 @@ language and shared domain, not a glossary of its own.
 
 ### Sync (cloud service)
 
-The optional paid backup-and-restore service. It treats a Profile's data as
-opaque, end-to-end-encrypted bytes — it never parses the study domain. Its
-language is about Accounts, Subscriptions, Devices, and sync state, not Flashcards.
+The optional paid service that synchronizes Profile records between devices.
+It manages Accounts, Subscriptions, Devices, and sync state. Study rules remain
+in the clients. Data uses HTTPS and provider-managed encryption at rest; the
+service can access its contents.
 
 - Code: `apps/sync-server/`
-- Language: `apps/sync-server/CONTEXT.md` _(created when its first term is resolved)_
-- Decisions: `apps/sync-server/docs/adr/` _(created when its first decision is made)_
+- Language: `apps/sync-server/CONTEXT.md`
+- Decisions: `apps/sync-server/docs/adr/`
 
 ## Shared packages
 

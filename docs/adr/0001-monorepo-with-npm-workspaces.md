@@ -11,11 +11,10 @@ under `packages/` (`sync-contract`), and a root reserved for workspace wiring an
 repo-wide lint/type/format tooling.
 
 We chose **npm workspaces** over pnpm and over adding Turborepo/Nx. Staying on npm
-keeps the delicate `better-sqlite3` per-runtime ABI rebuild (ADR `apps/desktop`
-0012) working untouched, where pnpm's non-flat `node_modules` is a known hazard for
+keeps the delicate `better-sqlite3` per-runtime ABI rebuild (ADR `apps/desktop` 0012) working untouched, where pnpm's non-flat `node_modules` is a known hazard for
 Electron native-module rebuilds. A task runner earns its config at ~10+ packages;
 at three workspaces it is pure overhead. The native module stays declared in
-`apps/desktop` alone — the sync server is opaque encrypted blob storage and never
+`apps/desktop` alone — the sync server stores Profile backups and never
 depends on it — so workspace hoisting cannot introduce a second ABI copy.
 
 Consequences: the entire desktop app moved from the repo root into `apps/desktop/`,

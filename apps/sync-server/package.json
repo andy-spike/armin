@@ -1,0 +1,32 @@
+{
+  "name": "@armin/sync-server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Optional Cloudflare Worker that synchronizes one Armin Profile per Account.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "cf-typegen": "wrangler types",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:staging": "wrangler d1 migrations apply DB --remote --env staging",
+    "db:migrate:production": "wrangler d1 migrations apply DB --remote --env production",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production"
+  },
+  "dependencies": {
+    "@armin/core": "workspace:*",
+    "@armin/sync-contract": "workspace:*",
+    "better-auth": "^1.7.7",
+    "hono": "^4.13.13",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.8",
+    "wrangler": "^4.150.0"
+  }
+}
