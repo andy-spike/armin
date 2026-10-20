@@ -22,6 +22,8 @@ import {
   type Viewport,
   type XYPosition,
 } from "@xyflow/react";
+// Loaded with the graph page's code instead of on every page.
+import "@xyflow/react/dist/style.css";
 import {
   ArrowLeft,
   LayoutGrid,

@@ -12,7 +12,6 @@ import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import type { ConvexQueryClient } from "@convex-dev/react-query";
 import appCss from "@/styles/app.css?url";
-import xyflowCss from "@xyflow/react/dist/style.css?url";
 import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 import sourceSerifLatin from "@fontsource-variable/source-serif-4/files/source-serif-4-latin-wght-normal.woff2?url";
 import { authClient } from "@/lib/auth-client";
@@ -63,7 +62,6 @@ export const Route = createRootRouteWithContext<{
       { rel: "preload", href: interLatin, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
       { rel: "preload", href: sourceSerifLatin, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: appCss },
-      { rel: "stylesheet", href: xyflowCss },
       { rel: "icon", type: "image/png", href: "/favicon.png" },
     ],
     scripts: [{ src: "/theme-init.js" }],
