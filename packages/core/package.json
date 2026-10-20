@@ -6,6 +6,7 @@
   "license": "MIT",
   "exports": {
     "./flashcard-types": "./src/flashcard-types.ts",
+    "./flashcard-rules": "./src/flashcard-rules.ts",
     "./scheduler": "./src/scheduler.ts",
     "./scheduling-presets": "./src/scheduling-presets.ts",
     "./study": "./src/study.ts",

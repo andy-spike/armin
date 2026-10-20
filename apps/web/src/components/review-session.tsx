@@ -40,10 +40,10 @@ import type {
   PreviewOption,
 } from "@/types/window";
 import type { UiFlashcard, UiReviewUnit } from "@/types/view-models";
-import {
-  matchesTypeAnswer,
-  type ImageOcclusionContent,
-  type TypeAnswerContent,
+import { matchesTypeAnswer } from "@armin/core/flashcard-rules";
+import type {
+  ImageOcclusionContent,
+  TypeAnswerContent,
 } from "@armin/core/flashcard-types";
 import { cn } from "@/lib/utils";
 
