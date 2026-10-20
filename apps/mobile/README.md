@@ -111,6 +111,11 @@ Hardware acceleration must work; on Linux, `emulator -accel-check` should
 report that KVM is usable. See [Expo's agent-device guide](https://docs.expo.dev/agents/agent-device/)
 for the observation and interaction workflow.
 
+For agent worktrees, use the root `pnpm worktree:setup` and `pnpm dev:mobile`
+commands. Setup writes the worktree's backend URLs and the launcher selects its
+allocated Metro port. SecureStore sessions are separated by Convex hostname.
+See [worktree environments](../../docs/dev-worktrees.md).
+
 ## Connect to the Convex dev deployment
 
 Create `apps/mobile/.env.local` from `.env.example` with the same deployment

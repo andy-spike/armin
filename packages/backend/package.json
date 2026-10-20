@@ -14,8 +14,10 @@
     "dev:once": "convex dev --once",
     "codegen": "convex codegen",
     "typecheck": "tsc --noEmit -p convex",
-    "dev:setup": "convex dev --once && node scripts/configure-clients.mjs",
-    "dev:clients": "node scripts/configure-clients.mjs"
+    "dev:setup": "node scripts/setup-dev.mjs",
+    "dev:clients": "node scripts/configure-clients.mjs",
+    "worktree:setup": "node scripts/setup-worktree.mjs",
+    "worktree:seed": "node scripts/seed-worktree.mjs"
   },
   "dependencies": {
     "@armin/core": "workspace:*",

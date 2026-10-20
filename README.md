@@ -162,6 +162,9 @@ See [mobile setup](apps/mobile/README.md) for Expo Go, emulator, and networking
 requirements. Desktop runs independently of Convex. Stop each command with Ctrl+C;
 Turborepo stops both watchers started by `pnpm dev`.
 
+For parallel agent work, T3 Code can prepare a separate Convex environment and
+sample library for each worktree. See [agent worktree setup](docs/dev-worktrees.md).
+
 ## MCP server
 
 Armin includes a local stdio MCP server so coding agents can create decks, cards,

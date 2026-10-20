@@ -114,3 +114,7 @@ test-results/
 
 # Convex CLI temp dir (same filesystem as generated code)
 .convex-tmp/
+
+# Per-worktree development environment and local Convex state
+.armin/
+.convex/

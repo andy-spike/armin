@@ -39,9 +39,11 @@ pnpm --filter @armin/backend dev
 pnpm --filter @armin/web dev
 ```
 
-Port 3000 is fixed (`--strictPort`) because it must match the deployment's
-`SITE_URL` and the Google OAuth redirect URI
-`http://localhost:3000/api/auth/callback/google`.
+The main checkout uses port 3000 with strict-port checking. Agent worktrees get
+an allocated port and `.localhost` hostname from `pnpm worktree:setup`; their
+backend `SITE_URL` matches that origin. Open the exact URL printed by `pnpm dev`.
+See [worktree environments](../../docs/dev-worktrees.md) for cookie isolation and
+Google OAuth redirect registration.
 
 ## Build and run the production bundle
 

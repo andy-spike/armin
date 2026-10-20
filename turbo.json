@@ -10,7 +10,8 @@
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "passThroughEnv": ["ARMIN_WEB_PORT"]
     }
   }
 }

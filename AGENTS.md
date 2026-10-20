@@ -16,6 +16,12 @@ Multi-context monorepo. `CONTEXT-MAP.md` at the repo root indexes each context's
 own `CONTEXT.md` and `docs/adr/` (e.g. the study domain under `apps/desktop/`).
 System-wide decisions live in the root `docs/adr/`. See `docs/agents/domain.md`.
 
+## Agent worktrees
+
+Before starting servers, pushing Convex code, or seeding data in a task worktree,
+read `docs/dev-worktrees.md`. Use `pnpm worktree:setup` and the root `pnpm dev*`
+launchers for the checkout's isolated deployment, URLs, ports, and sample account.
+
 ## Notes
 
 - The project context is described in @README.md . Always read the file when starting a new session.

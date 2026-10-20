@@ -6,7 +6,7 @@
   "description": "Armin web app: TanStack Start client and auth/media/export proxy for the Convex backend.",
   "license": "MIT",
   "scripts": {
-    "dev": "vite dev --port 3000 --strictPort",
+    "dev": "vite dev",
     "build": "vite build",
     "start": "vite preview --port 3000 --strictPort",
     "typecheck": "tsc --noEmit"

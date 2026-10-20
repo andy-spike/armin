@@ -11,13 +11,19 @@ import { convexSiteUrl } from "./env";
 export const authClient = createAuthClient({
   baseURL: convexSiteUrl,
   plugins: [
-    expoClient({ scheme: "armin", storagePrefix: "armin", storage: SecureStore }),
+    expoClient({
+      scheme: "armin",
+      storagePrefix: `armin-${new URL(convexSiteUrl).hostname}`,
+      storage: SecureStore,
+    }),
     convexClient(),
   ],
 });
 
 /** A short-lived Convex token for authenticated HTTP routes (private images). */
 export async function convexToken() {
-  const { data } = await authClient.convex.token({ fetchOptions: { throw: false } });
+  const { data } = await authClient.convex.token({
+    fetchOptions: { throw: false },
+  });
   return data?.token ?? null;
 }

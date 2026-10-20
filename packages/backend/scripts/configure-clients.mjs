@@ -1,21 +1,19 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import {
+  assertTarget,
+  backend,
+  readEnv,
+  readState,
+  root,
+  statePath,
+  updateEnv,
+} from "./dev-environment.mjs";
 
-const backend = new URL("../.env.local", import.meta.url);
-const root = new URL("../../../", import.meta.url);
-
-function readValues(content) {
-  return Object.fromEntries(
-    content.split(/\r?\n/).flatMap((line) => {
-      const match = line.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*(?:#.*)?$/);
-      return match
-        ? [[match[1], match[2].replace(/^(["'])(.*)\1$/, "$2")]]
-        : [];
-    }),
-  );
-}
-
-async function configure() {
-  const values = readValues(await readFile(backend, "utf8"));
+try {
+  const state = existsSync(statePath) ? readState() : null;
+  if (state) assertTarget(state);
+  const values = readEnv(join(backend, ".env.local"));
   for (const key of ["CONVEX_URL", "CONVEX_SITE_URL"]) {
     if (
       !values[key] ||
@@ -26,42 +24,29 @@ async function configure() {
       );
     }
   }
-
   for (const [path, prefix] of [
     ["apps/web/.env.local", "VITE"],
     ["apps/mobile/.env.local", "EXPO_PUBLIC"],
   ]) {
-    const file = new URL(path, root);
-    let content;
-    try {
-      content = await readFile(file, "utf8");
-    } catch (error) {
-      if (error.code !== "ENOENT") throw error;
-      content = "";
+    const file = join(root, path);
+    const updates = Object.fromEntries(
+      ["CONVEX_URL", "CONVEX_SITE_URL"].map((key) => [
+        `${prefix}_${key}`,
+        values[key],
+      ]),
+    );
+    if (prefix === "VITE") {
+      updates.VITE_SITE_URL =
+        state?.siteUrl ??
+        readEnv(file).VITE_SITE_URL ??
+        "http://localhost:3000";
+      if (state) updates.ARMIN_WEB_PORT = state.webPort;
     }
-    for (const key of ["CONVEX_URL", "CONVEX_SITE_URL"]) {
-      const name = `${prefix}_${key}`;
-      const entry = `${name}=${values[key]}`;
-      const pattern = new RegExp(`^\\s*${name}\\s*=.*$`, "gm");
-      content = pattern.test(content)
-        ? content.replace(pattern, () => entry)
-        : `${content}${content && !content.endsWith("\n") ? "\n" : ""}${entry}\n`;
-    }
-    if (prefix === "VITE" && !/^\s*VITE_SITE_URL\s*=/m.test(content)) {
-      content += `${content.endsWith("\n") ? "" : "\n"}VITE_SITE_URL=http://localhost:3000\n`;
-    }
-    await writeFile(file, content, { mode: 0o600 });
+    updateEnv(file, updates);
     console.log(`Configured ${path}`);
   }
-  console.log(
-    "Run pnpm dev for web + backend, and pnpm dev:mobile in another terminal for Expo Go.",
-  );
-}
-
-configure().catch((error) => {
-  console.error(`Dev setup failed: ${error.message}`);
-  console.error(
-    "Run pnpm dev:setup to configure a Convex development deployment first.",
-  );
+} catch (error) {
+  console.error(`Client configuration failed: ${error.message}`);
+  console.error("Run pnpm dev:setup to configure this checkout first.");
   process.exitCode = 1;
-});
+}
