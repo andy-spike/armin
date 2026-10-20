@@ -1,0 +1,43 @@
+diff --git a/dist/esm/internal-request-response.js b/dist/esm/internal-request-response.js
+index 5aa9265e492a64e9c4daa3f5bf0b36d486123682..691c9b22e84a92c904047a7c67bccaa2f6834886 100644
+--- a/dist/esm/internal-request-response.js
++++ b/dist/esm/internal-request-response.js
+@@ -296,7 +296,9 @@ function getHttpErrorStatus(status) {
+ function resolveErrorStatus(error, event) {
+ 	const metadataStatus = getErrorStatus(error);
+ 	const errorStatus = getHttpErrorStatus(metadataStatus);
+-	if (errorStatus === void 0) console.error(error);
++	const signal = event?.request.signal;
++	const isRequestCancellation = signal?.aborted && (error === signal.reason || (error instanceof Error && error.message === "aborted" && "code" in error && error.code === "ECONNRESET"));
++	if (errorStatus === void 0 && !isRequestCancellation) console.error(error);
+ 	const state = event?.responseState;
+ 	const helperStatus = getHttpErrorStatus(state?.status);
+ 	const status = helperStatus ?? errorStatus ?? 500;
+diff --git a/src/internal-request-response.ts b/src/internal-request-response.ts
+index 90128ab29cf8770d34292c8b2fe1963fe25426a3..65269e1c7959f189f03ff5a68a336b3ce649d8c0 100644
+--- a/src/internal-request-response.ts
++++ b/src/internal-request-response.ts
+@@ -682,11 +682,21 @@ function getHttpErrorStatus(status: number | undefined): number | undefined {
+  */
+ function resolveErrorStatus(
+   error: unknown,
+-  event: Pick<StartEvent, 'responseState'> | undefined,
++  event: Pick<StartEvent, 'request' | 'responseState'> | undefined,
+ ): { status: number; statusText: string } {
+   const metadataStatus = getErrorStatus(error)
+   const errorStatus = getHttpErrorStatus(metadataStatus)
+-  if (errorStatus === undefined) {
++  // A disconnected client can reject an in-flight request body read. Report
++  // other failures, including connection resets from upstream services.
++  const signal = event?.request.signal
++  const isRequestCancellation =
++    signal?.aborted &&
++    (error === signal.reason ||
++      (error instanceof Error &&
++        error.message === 'aborted' &&
++        'code' in error &&
++        error.code === 'ECONNRESET'))
++  if (errorStatus === undefined && !isRequestCancellation) {
+     console.error(error)
+   }
+   const state = event?.responseState

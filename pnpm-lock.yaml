@@ -162,6 +162,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@tanstack/start-server-core': 4400ad05f92fb5f7fad946f6798f55f97f86c8938581e08eaa8ccfadd882cd54
+
 importers:
 
   .:
@@ -9044,7 +9047,7 @@ snapshots:
     dependencies:
       '@tanstack/react-router': 1.170.45(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/router-core': 1.171.38
-      '@tanstack/start-server-core': 1.169.44
+      '@tanstack/start-server-core': 1.169.44(patch_hash=4400ad05f92fb5f7fad946f6798f55f97f86c8938581e08eaa8ccfadd882cd54)
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
 
@@ -9057,7 +9060,7 @@ snapshots:
       '@tanstack/router-utils': 1.162.4(supports-color@8.1.1)
       '@tanstack/start-client-core': 1.170.38
       '@tanstack/start-plugin-core': 1.171.54(@tanstack/react-router@1.170.45(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(esbuild@0.28.1)(rolldown@1.2.14)(rollup@4.62.0)(supports-color@8.1.1)(vite@8.3.4(@types/node@24.12.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.1))(webpack@5.107.2(esbuild@0.28.1)(lightningcss@1.32.0)(postcss@8.5.26))
-      '@tanstack/start-server-core': 1.169.44
+      '@tanstack/start-server-core': 1.169.44(patch_hash=4400ad05f92fb5f7fad946f6798f55f97f86c8938581e08eaa8ccfadd882cd54)
       pathe: 2.0.3
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
@@ -9085,7 +9088,7 @@ snapshots:
       '@tanstack/router-utils': 1.162.4(supports-color@8.1.1)
       '@tanstack/start-client-core': 1.170.38
       '@tanstack/start-plugin-core': 1.171.54(@tanstack/react-router@1.170.45(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(esbuild@0.28.1)(rolldown@1.2.14)(rollup@4.62.0)(supports-color@8.1.1)(vite@8.3.4(@types/node@24.12.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.1))(webpack@5.107.2(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.31))
-      '@tanstack/start-server-core': 1.169.44
+      '@tanstack/start-server-core': 1.169.44(patch_hash=4400ad05f92fb5f7fad946f6798f55f97f86c8938581e08eaa8ccfadd882cd54)
       pathe: 2.0.3
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
@@ -9114,7 +9117,7 @@ snapshots:
       '@tanstack/router-utils': 1.162.4(supports-color@8.1.1)
       '@tanstack/start-client-core': 1.170.38
       '@tanstack/start-plugin-core': 1.171.54(@tanstack/react-router@1.170.45(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(esbuild@0.28.2)(rolldown@1.2.14)(rollup@4.62.0)(supports-color@8.1.1)(vite@8.3.4(@types/node@25.9.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.1))(webpack@5.107.2(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.31))
-      '@tanstack/start-server-core': 1.169.44
+      '@tanstack/start-server-core': 1.169.44(patch_hash=4400ad05f92fb5f7fad946f6798f55f97f86c8938581e08eaa8ccfadd882cd54)
       pathe: 2.0.3
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
@@ -9281,7 +9284,7 @@ snapshots:
       '@tanstack/router-generator': 1.167.45(supports-color@8.1.1)
       '@tanstack/router-plugin': 1.168.47(@tanstack/react-router@1.170.45(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(esbuild@0.28.1)(rolldown@1.2.14)(rollup@4.62.0)(supports-color@8.1.1)(vite@8.3.4(@types/node@24.12.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.1))(webpack@5.107.2(esbuild@0.28.1)(lightningcss@1.32.0)(postcss@8.5.26))
       '@tanstack/router-utils': 1.162.4(supports-color@8.1.1)
-      '@tanstack/start-server-core': 1.169.44
+      '@tanstack/start-server-core': 1.169.44(patch_hash=4400ad05f92fb5f7fad946f6798f55f97f86c8938581e08eaa8ccfadd882cd54)
       exsolve: 1.1.3
       lightningcss: 1.33.0
       pathe: 2.0.3
@@ -9319,7 +9322,7 @@ snapshots:
       '@tanstack/router-generator': 1.167.45(supports-color@8.1.1)
       '@tanstack/router-plugin': 1.168.47(@tanstack/react-router@1.170.45(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(esbuild@0.28.1)(rolldown@1.2.14)(rollup@4.62.0)(supports-color@8.1.1)(vite@8.3.4(@types/node@24.12.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.1))(webpack@5.107.2(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.31))
       '@tanstack/router-utils': 1.162.4(supports-color@8.1.1)
-      '@tanstack/start-server-core': 1.169.44
+      '@tanstack/start-server-core': 1.169.44(patch_hash=4400ad05f92fb5f7fad946f6798f55f97f86c8938581e08eaa8ccfadd882cd54)
       exsolve: 1.1.3
       lightningcss: 1.33.0
       pathe: 2.0.3
@@ -9358,7 +9361,7 @@ snapshots:
       '@tanstack/router-generator': 1.167.45(supports-color@8.1.1)
       '@tanstack/router-plugin': 1.168.47(@tanstack/react-router@1.170.45(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(esbuild@0.28.2)(rolldown@1.2.14)(rollup@4.62.0)(supports-color@8.1.1)(vite@8.3.4(@types/node@25.9.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.1))(webpack@5.107.2(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.31))
       '@tanstack/router-utils': 1.162.4(supports-color@8.1.1)
-      '@tanstack/start-server-core': 1.169.44
+      '@tanstack/start-server-core': 1.169.44(patch_hash=4400ad05f92fb5f7fad946f6798f55f97f86c8938581e08eaa8ccfadd882cd54)
       exsolve: 1.1.3
       lightningcss: 1.33.0
       pathe: 2.0.3
@@ -9387,7 +9390,7 @@ snapshots:
       - webpack
     optional: true
 
-  '@tanstack/start-server-core@1.169.44':
+  '@tanstack/start-server-core@1.169.44(patch_hash=4400ad05f92fb5f7fad946f6798f55f97f86c8938581e08eaa8ccfadd882cd54)':
     dependencies:
       '@tanstack/history': 1.162.5
       '@tanstack/router-core': 1.171.38

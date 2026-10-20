@@ -25,3 +25,6 @@ minimumReleaseAgeExclude:
   - expo-crypto@57.0.4
   - miniflare@5.20261006.2-beta
   - wrangler@4.150.0
+
+patchedDependencies:
+  '@tanstack/start-server-core': patches/@tanstack__start-server-core.patch
