@@ -31,7 +31,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DeckGridSkeleton } from "@/components/page-skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SortControl } from "@/components/sort-control";
 import { useToast } from "@/components/ui/toast";
@@ -209,7 +209,7 @@ function DecksPage() {
         </div>
       </header>
 
-      {decksQuery.isLoading && <DecksSkeleton />}
+      {decksQuery.isLoading && <DeckGridSkeleton />}
 
       {decksQuery.isError && (
         <div className="flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
@@ -550,21 +550,6 @@ function Stat({
       <span className={`h-1.5 w-1.5 ${color}`} aria-hidden />
       {label}
     </span>
-  );
-}
-
-function DecksSkeleton() {
-  return (
-    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <li key={i} className="border border-border bg-surface p-5">
-          <Skeleton className="h-6 w-2/3" />
-          <Skeleton className="mt-2 h-3.5 w-full" />
-          <Skeleton className="mt-4 h-1.5 w-full" />
-          <Skeleton className="mt-2.5 h-3 w-24" />
-        </li>
-      ))}
-    </ul>
   );
 }
 

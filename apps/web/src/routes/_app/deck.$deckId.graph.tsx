@@ -7,6 +7,7 @@ import type { Viewport, XYPosition } from "@xyflow/react";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog";
 import { PrerequisiteGraph } from "@/components/prerequisite-graph/prerequisite-graph";
 import { Button } from "@/components/ui/button";
+import { GraphSkeleton } from "@/components/page-skeletons";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
@@ -250,11 +251,12 @@ function DeckGraphPage() {
         <div
           aria-hidden={canvasReady}
           className={cn(
-            "pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-bg transition-opacity duration-200",
+            "pointer-events-none absolute inset-0 z-30 bg-bg transition-opacity duration-200",
             canvasReady ? "opacity-0" : "opacity-100",
           )}
         >
-          <p className="text-sm text-muted">Loading graph…</p>
+          {!canvasReady && <span className="sr-only">Loading graph…</span>}
+          <GraphSkeleton />
         </div>
       )}
       {graphQuery.isError && (

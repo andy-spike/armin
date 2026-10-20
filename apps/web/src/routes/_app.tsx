@@ -8,10 +8,11 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { flushSync } from "react-dom";
-import { CloudOff, Layers, Library, LoaderCircle, Settings } from "lucide-react";
+import { CloudOff, Layers, Library, Settings } from "lucide-react";
 import { useScope } from "@/keybindings/keybindings-provider";
 import { KeyboardOverlays } from "@/components/keyboard-overlays";
-import { ReviewNavLink } from "@/components/review-nav-link";
+import { PageSkeleton } from "@/components/page-skeletons";
+import { ReviewNavLink, ReviewNavLinkPlaceholder } from "@/components/review-nav-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { convexClient, errorMessage } from "@/lib/armin-client";
@@ -66,7 +67,7 @@ function AppLayout() {
       });
   }, [data]);
 
-  if (viewer.isLoading) return <FullPageMessage busy title="Loading your library" />;
+  if (viewer.isLoading) return <Shell loading="Loading your library" />;
   if (viewer.isError || data === null) {
     return (
       <FullPageMessage
@@ -78,7 +79,7 @@ function AppLayout() {
       />
     );
   }
-  if (!data) return <FullPageMessage busy title="Loading your library" />;
+  if (!data) return <Shell loading="Loading your library" />;
   if (!data.emailVerified) {
     return (
       <FullPageMessage
@@ -101,7 +102,7 @@ function AppLayout() {
     return provisionError ? (
       <FullPageMessage title="Couldn't set up your library" body={provisionError} action={<SignOutButton />} />
     ) : (
-      <FullPageMessage busy title="Setting up your library" />
+      <Shell loading="Setting up your library" />
     );
   }
   return <Shell />;
@@ -124,17 +125,14 @@ function FullPageMessage({
   title,
   body,
   action,
-  busy,
 }: {
   title: string;
   body?: string;
   action?: React.ReactNode;
-  busy?: boolean;
 }) {
   return (
     <div className="notebook-bg flex min-h-dvh items-center justify-center px-4">
       <div className="w-full max-w-sm border border-border bg-surface px-6 py-10 text-center">
-        {busy && <LoaderCircle className="mx-auto mb-4 h-5 w-5 animate-spin text-muted" aria-hidden />}
         <h1 className="text-lg font-semibold" aria-live="polite">{title}</h1>
         {body && <p className="mt-2 text-sm text-muted">{body}</p>}
         {action && <div className="mt-6 flex justify-center">{action}</div>}
@@ -159,7 +157,12 @@ function ConnectionBanner() {
   );
 }
 
-function Shell() {
+/**
+ * The signed-in app frame. With `loading`, the account isn't ready yet, so the
+ * header renders without live counts and the page area shows the skeleton of
+ * the page being opened; the real page then fills the same layout.
+ */
+function Shell({ loading }: { loading?: string }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [optimisticPathname, setOptimisticPathname] = useState<string | null>(null);
   const activePathname = optimisticPathname ?? pathname;
@@ -235,7 +238,7 @@ function Shell() {
         </nav>
         <div className="flex items-center justify-self-end">
           <ThemeToggle />
-          <ReviewNavLink />
+          {loading ? <ReviewNavLinkPlaceholder /> : <ReviewNavLink />}
         </div>
       </header>
       <ConnectionBanner />
@@ -246,7 +249,14 @@ function Shell() {
           )}
         >
           <div className="route-pad mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
-            <Outlet />
+            {loading ? (
+              <div role="status" aria-busy className="h-full">
+                <span className="sr-only">{loading}</span>
+                <PageSkeleton pathname={activePathname} />
+              </div>
+            ) : (
+              <Outlet />
+            )}
           </div>
         </div>
       </main>
