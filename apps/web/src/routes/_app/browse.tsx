@@ -1,4 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import {
+  BROWSE_PAGE_SORT,
+  browseQuery as browseQueryOptions,
+  decksQuery as decksQueryOptions,
+  prefetchBrowsePage,
+  tagsQuery as tagsQueryOptions,
+} from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -10,7 +17,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { Tag, Layers, AlertTriangle, Library, CircleDot } from "lucide-react";
-import { FlashcardFormDialog } from "@/components/flashcard-form-dialog";
+import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import {
   FlashcardDeleteDialog,
   FlashcardTile,
@@ -38,7 +45,6 @@ import { useToast } from "@/components/ui/toast";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
 import {
   flashcardKeys,
-  deckKeys,
   invalidateCoreData,
   type BrowseQueryFilters,
 } from "@/lib/armin-query";
@@ -48,7 +54,6 @@ import {
 } from "@/types/view-models";
 import { BROWSE_SORT_OPTIONS, type BrowseSortKey } from "@/lib/browse";
 import { STATE_OPTIONS } from "@/lib/flashcard-filters";
-import { BROWSE_PAGE_SIZE } from "@armin/core/study";
 import { cn, plural } from "@/lib/utils";
 import type { FlashcardDeleteConsequences } from "@/types/window";
 
@@ -59,7 +64,7 @@ function BrowsePage() {
   const navigate = useNavigate();
   const toast = useToast();
 
-  const [sort, setSort] = useState<BrowseSortKey>("created-new");
+  const [sort, setSort] = useState<BrowseSortKey>(BROWSE_PAGE_SORT);
   const [stateFilter, setStateFilter] = useState<string>(ALL_STATES);
   const [deckFilter, setDeckFilter] = useState("");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
@@ -83,35 +88,11 @@ function BrowsePage() {
     return filters;
   }, [sort, stateFilter, deckFilter, tagFilter]);
 
-  const decksQuery = useQuery({
-    queryKey: deckKeys.all,
-    queryFn: () => armin.decks.list(),
-  });
-
-  const tagsQuery = useQuery({
-    queryKey: flashcardKeys.tags,
-    queryFn: () => armin.flashcards.listTags(),
-  });
+  const decksQuery = useQuery(decksQueryOptions());
+  const tagsQuery = useQuery(tagsQueryOptions());
 
   const browseQuery = useInfiniteQuery({
-    queryKey: flashcardKeys.browse(browseFilters),
-    queryFn: ({ pageParam }) =>
-      armin.flashcards.browse({
-        offset: pageParam,
-        limit: BROWSE_PAGE_SIZE,
-        sort: browseFilters.sort,
-        state: browseFilters.state,
-        deckId: browseFilters.deckId,
-        tags: browseFilters.tags,
-      }),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      const loaded = allPages.reduce(
-        (count, page) => count + page.flashcards.length,
-        0,
-      );
-      return loaded < lastPage.filteredTotal ? loaded : undefined;
-    },
+    ...browseQueryOptions(browseFilters),
     placeholderData: keepPreviousData,
   });
 
@@ -531,5 +512,6 @@ function FilterField({
 }
 
 export const Route = createFileRoute("/_app/browse")({
+  loader: ({ context }) => prefetchBrowsePage(context.queryClient),
   component: BrowsePage,
 });

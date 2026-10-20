@@ -50,6 +50,15 @@
   --color-relearning: var(--armin-relearning);
   --color-relearning-bg: var(--armin-relearning-bg);
 
+  /* shadcn Sidebar slots: a sunken desk beside the ruled page. Hover steps one
+     tone further down; the current row is lifted back to paper in the app. */
+  --color-sidebar: var(--armin-bg-2);
+  --color-sidebar-foreground: var(--armin-ink);
+  --color-sidebar-accent: var(--armin-border);
+  --color-sidebar-accent-foreground: var(--armin-ink);
+  --color-sidebar-border: var(--armin-border);
+  --color-sidebar-ring: var(--armin-accent);
+
   --shadow-overlay: var(--armin-shadow-overlay);
 
   /* Radii — sharp corners throughout */

@@ -1,17 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { deckQuery as deckQueryOptions, prefetchGraphPage } from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { GitBranch } from "lucide-react";
 import type { Viewport, XYPosition } from "@xyflow/react";
-import { FlashcardFormDialog } from "@/components/flashcard-form-dialog";
+import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { PrerequisiteGraph } from "@/components/prerequisite-graph/prerequisite-graph";
 import { Button } from "@/components/ui/button";
 import { GraphSkeleton } from "@/components/page-skeletons";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
-import { deckKeys, graphKeys } from "@/lib/armin-query";
+import { graphKeys } from "@/lib/armin-query";
 import { useGraphCanvasEdits } from "@/lib/use-graph-canvas-edits";
 import { toUiDeckGraph, type UiDeckGraph } from "@/types/view-models";
 import type {
@@ -116,10 +117,7 @@ function DeckGraphPage() {
     }
   };
 
-  const deckQuery = useQuery({
-    queryKey: deckKeys.detail(deckId),
-    queryFn: () => armin.decks.get(deckId),
-  });
+  const deckQuery = useQuery(deckQueryOptions(deckId));
 
   const graphQuery = useQuery({
     queryKey: graphKeys.deck(deckId),
@@ -367,5 +365,6 @@ function DeckGraphPage() {
 }
 
 export const Route = createFileRoute("/_app/deck/$deckId/graph")({
+  loader: ({ context, params }) => prefetchGraphPage(context.queryClient, params.deckId),
   component: DeckGraphPage,
 });

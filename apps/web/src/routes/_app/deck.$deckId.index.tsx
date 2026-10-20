@@ -1,4 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  browseQuery,
+  DECK_PAGE_SORT,
+  deckQuery as deckQueryOptions,
+  deckTagsQuery,
+  prefetchDeckPage,
+} from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import {
@@ -25,7 +32,7 @@ import {
   Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FlashcardFormDialog } from "@/components/flashcard-form-dialog";
+import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
 import {
   FlashcardDeleteDialog,
@@ -49,8 +56,6 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import {
-  flashcardKeys,
-  deckKeys,
   invalidateDeckScopedData,
   type BrowseQueryFilters,
 } from "@/lib/armin-query";
@@ -60,7 +65,6 @@ import {
 } from "@/lib/deck-detail-cache";
 import { toUiFlashcard, type UiDeck, type UiFlashcard } from "@/types/view-models";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
-import { BROWSE_PAGE_SIZE } from "@armin/core/study";
 import type { FlashcardDeleteConsequences } from "@/types/window";
 
 function DeckPage() {
@@ -77,7 +81,7 @@ function DeckPage() {
   const [deleteConsequences, setDeleteConsequences] =
     useState<FlashcardDeleteConsequences | null>(null);
   const [deleteConsequencesError, setDeleteConsequencesError] = useState(false);
-  const [sort, setSort] = useState<FlashcardSortKey>("due-soon");
+  const [sort, setSort] = useState<FlashcardSortKey>(DECK_PAGE_SORT);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
 
   const browseFilters = useMemo(() => {
@@ -87,36 +91,16 @@ function DeckPage() {
   }, [sort, deckId, tagFilter]);
 
   const deckQuery = useQuery({
-    queryKey: deckKeys.detail(deckId),
-    queryFn: () => armin.decks.get(deckId),
+    ...deckQueryOptions(deckId),
     initialData: () => getCachedDeckDetail(queryClient, deckId),
     initialDataUpdatedAt: () =>
       getCachedDeckDetailUpdatedAt(queryClient, deckId),
   });
 
-  const tagsQuery = useQuery({
-    queryKey: flashcardKeys.deckTags(deckId),
-    queryFn: () => armin.flashcards.listDeckTags(deckId),
-  });
+  const tagsQuery = useQuery(deckTagsQuery(deckId));
 
   const cardsQuery = useInfiniteQuery({
-    queryKey: flashcardKeys.browse(browseFilters),
-    queryFn: ({ pageParam }) =>
-      armin.flashcards.browse({
-        offset: pageParam,
-        limit: BROWSE_PAGE_SIZE,
-        sort: browseFilters.sort,
-        deckId: browseFilters.deckId,
-        tags: browseFilters.tags,
-      }),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      const loaded = allPages.reduce(
-        (count, page) => count + page.flashcards.length,
-        0,
-      );
-      return loaded < lastPage.filteredTotal ? loaded : undefined;
-    },
+    ...browseQuery(browseFilters),
     placeholderData: keepPreviousData,
   });
 
@@ -548,5 +532,6 @@ function FilterField({
 }
 
 export const Route = createFileRoute("/_app/deck/$deckId/")({
+  loader: ({ context, params }) => prefetchDeckPage(context.queryClient, params.deckId),
   component: DeckPage,
 });

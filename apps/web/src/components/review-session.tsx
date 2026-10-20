@@ -30,10 +30,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ImageOcclusionReview } from "@/components/image-occlusion-review";
-import {
-  FlashcardFormDialog,
-  type CardFormValues,
-} from "@/components/flashcard-form-dialog";
+import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
+import type { CardFormValues } from "@/components/flashcard-form-dialog";
 import { reviewKeys } from "@/lib/armin-query";
 import { useScope } from "@/keybindings/keybindings-provider";
 import type {
@@ -42,10 +40,10 @@ import type {
   PreviewOption,
 } from "@/types/window";
 import type { UiFlashcard, UiReviewUnit } from "@/types/view-models";
-import {
-  matchesTypeAnswer,
-  type ImageOcclusionContent,
-  type TypeAnswerContent,
+import { matchesTypeAnswer } from "@armin/core/flashcard-rules";
+import type {
+  ImageOcclusionContent,
+  TypeAnswerContent,
 } from "@armin/core/flashcard-types";
 import { cn } from "@/lib/utils";
 

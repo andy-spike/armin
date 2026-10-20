@@ -1,38 +1,53 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   createFileRoute,
   Link,
   Outlet,
   redirect,
   useNavigate,
+  useRouter,
   useRouterState,
 } from "@tanstack/react-router";
+import { createIsomorphicFn } from "@tanstack/react-start";
+import { getCookie } from "@tanstack/react-start/server";
 import { flushSync } from "react-dom";
-import { CloudOff, Layers, Library, Settings } from "lucide-react";
-import { useScope } from "@/keybindings/keybindings-provider";
+import { Brain, CloudOff } from "lucide-react";
+import { useKeybindings, useScope } from "@/keybindings/keybindings-provider";
+import { isStepsPrefix, parseBinding } from "@/lib/keybindings/keys";
 import { KeyboardOverlays } from "@/components/keyboard-overlays";
 import { PageSkeleton } from "@/components/page-skeletons";
-import { ReviewNavLink, ReviewNavLinkPlaceholder } from "@/components/review-nav-link";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { AppSidebar } from "@/components/app-sidebar";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { convexClient, errorMessage } from "@/lib/armin-client";
 import { authClient } from "@/lib/auth-client";
 import { useConnection, useViewer } from "@/lib/session";
 import { installNoSpellcheck } from "@/lib/disable-spellcheck";
 import { api } from "@armin/backend/api";
-import { cn } from "@/lib/utils";
+
+/**
+ * The sidebar's saved open state, from the cookie its toggle writes. Read on the
+ * server too, so a collapsed sidebar doesn't flash open during hydration.
+ */
+const readSidebarOpen = createIsomorphicFn()
+  .server(() => getCookie("sidebar_state") !== "false")
+  .client(() => !document.cookie.split("; ").includes("sidebar_state=false"));
 
 export const Route = createFileRoute("/_app")({
+  // The frame (sidebar and the opened page's skeleton) renders on the server so
+  // it paints with the HTML; the pages inside it still render in the browser.
+  ssr: true,
   beforeLoad: ({ context }) => {
     if (!context.isAuthenticated) throw redirect({ to: "/sign-in" });
+    return { sidebarOpen: readSidebarOpen() };
   },
   component: AppLayout,
 });
-
-const navLink =
-  "-mb-px flex h-14 items-center gap-1.5 border-b-2 border-b-transparent px-3 text-sm font-medium text-muted transition-colors duration-150 hover:bg-surface-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent sm:px-4";
-const navLinkActive =
-  "-mb-px flex h-14 items-center gap-1.5 border-b-2 !border-b-accent px-3 text-sm font-medium text-accent transition-colors duration-150 hover:text-accent-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent sm:px-4";
 
 function detectTimeZone() {
   try {
@@ -159,7 +174,7 @@ function ConnectionBanner() {
 
 /**
  * The signed-in app frame. With `loading`, the account isn't ready yet, so the
- * header renders without live counts and the page area shows the skeleton of
+ * sidebar renders without live counts and the page area shows the skeleton of
  * the page being opened; the real page then fills the same layout.
  */
 function Shell({ loading }: { loading?: string }) {
@@ -171,97 +186,90 @@ function Shell({ loading }: { loading?: string }) {
     if (optimisticPathname === pathname) setOptimisticPathname(null);
   }, [optimisticPathname, pathname]);
 
-  const navClass = (path: string, exact = false) => {
-    const active = exact
+  const activateNav = (path: string) => flushSync(() => setOptimisticPathname(path));
+  const isActive = (path: string, exact = false) =>
+    exact
       ? activePathname === path
       : activePathname === path || activePathname.startsWith(`${path}/`);
-    return active ? navLinkActive : navLink;
-  };
 
-  const navigate = useNavigate();
-  const activateNav = (path: string) => flushSync(() => setOptimisticPathname(path));
-
-  useScope("global", {
-    "nav.decks": () => {
-      activateNav("/");
-      void navigate({ to: "/" });
-    },
-    "nav.browse": () => {
-      activateNav("/browse");
-      void navigate({ to: "/browse" });
-    },
-    "nav.review": () => {
-      activateNav("/review");
-      void navigate({ to: "/review" });
-    },
-    "nav.settings": () => {
-      activateNav("/settings");
-      void navigate({ to: "/settings" });
-    },
-  });
-
-  const keyActivate = (event: KeyboardEvent<HTMLAnchorElement>, path: string) => {
-    if (event.key === "Enter" || event.key === " ") activateNav(path);
-  };
-
-  const navItems = [
-    { to: "/", label: "Decks", Icon: Layers, exact: true },
-    { to: "/browse", label: "Browse", Icon: Library, exact: false },
-    { to: "/settings", label: "Settings", Icon: Settings, exact: false },
-  ] as const;
+  const { sidebarOpen } = Route.useRouteContext();
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden">
-      <header className="z-30 flex h-14 w-full shrink-0 items-stretch justify-between border-b border-border bg-bg sm:grid sm:grid-cols-[1fr_auto_1fr]">
-        <Link
-          to="/"
-          className="hidden h-14 items-center justify-self-start px-6 font-serif text-xl font-semibold tracking-tight text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent sm:flex"
-        >
-          Armin
-        </Link>
-        <nav className="flex items-stretch justify-self-center" aria-label="Main">
-          {navItems.map(({ to, label, Icon, exact }) => (
-            <Link
-              key={to}
-              to={to}
-              className={navClass(to, exact)}
-              onPointerDown={(event) => {
-                if (event.button === 0) activateNav(to);
-              }}
-              onKeyDown={(event) => keyActivate(event, to)}
-              aria-label={label}
-            >
-              <Icon className="h-4 w-4" strokeWidth={1.5} />
-              <span className="hidden sm:inline">{label}</span>
-            </Link>
-          ))}
-        </nav>
-        <div className="flex items-center justify-self-end">
-          <ThemeToggle />
-          {loading ? <ReviewNavLinkPlaceholder /> : <ReviewNavLink />}
-        </div>
-      </header>
-      <ConnectionBanner />
-      <main className="route-view flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-        <div
-          className={cn(
-            "route-scroll armin-scrollbar armin-scrollbar-gutter-bg notebook-bg min-h-0 flex-1 overflow-y-auto",
-          )}
-        >
-          <div className="route-pad mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
-            {loading ? (
-              <div role="status" aria-busy className="h-full">
-                <span className="sr-only">{loading}</span>
-                <PageSkeleton pathname={activePathname} />
-              </div>
-            ) : (
-              <Outlet />
-            )}
+    <SidebarProvider defaultOpen={sidebarOpen} className="h-dvh min-h-0 overflow-hidden">
+      <ShellKeybindings activateNav={activateNav} />
+      <AppSidebar ready={!loading} isActive={isActive} onNavigate={activateNav} />
+      <SidebarInset className="min-w-0 overflow-hidden">
+        <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border bg-bg px-2 md:hidden">
+          <SidebarTrigger className="text-muted hover:text-ink" />
+          <Link
+            to="/"
+            className="flex h-9 items-center gap-2 px-1 font-serif text-lg font-semibold tracking-tight text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Brain className="size-4.5 text-accent" strokeWidth={1.75} aria-hidden />
+            Armin
+          </Link>
+        </header>
+        <ConnectionBanner />
+        <div className="route-view flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+          <div className="route-scroll armin-scrollbar armin-scrollbar-gutter-bg notebook-bg min-h-0 flex-1 overflow-y-auto">
+            <div className="route-pad mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+              {loading ? (
+                <div role="status" aria-busy className="h-full">
+                  <span className="sr-only">{loading}</span>
+                  <PageSkeleton pathname={activePathname} />
+                </div>
+              ) : (
+                <Outlet />
+              )}
+            </div>
           </div>
         </div>
-      </main>
+      </SidebarInset>
       <KeyboardOverlays />
-    </div>
+    </SidebarProvider>
   );
 }
 
+const NAV_COMMANDS = {
+  "nav.decks": "/",
+  "nav.browse": "/browse",
+  "nav.review": "/review",
+  "nav.settings": "/settings",
+} as const;
+
+type NavTarget = (typeof NAV_COMMANDS)[keyof typeof NAV_COMMANDS];
+
+/** Global navigation and sidebar shortcuts; lives inside the SidebarProvider. */
+function ShellKeybindings({ activateNav }: { activateNav: (path: string) => void }) {
+  const navigate = useNavigate();
+  const router = useRouter();
+  const { keymap, pendingChord } = useKeybindings();
+  const { toggleSidebar } = useSidebar();
+  const go = (to: NavTarget) => {
+    activateNav(to);
+    void navigate({ to });
+  };
+
+  // Keyboard counterpart of preloading on hover: once a chord's first key
+  // (`g`) is down, start loading every page it can still lead to, so the page
+  // is usually ready by the time the second key lands.
+  useEffect(() => {
+    if (pendingChord.length === 0) return;
+    for (const [command, to] of Object.entries(NAV_COMMANDS)) {
+      const binding = keymap[command as keyof typeof NAV_COMMANDS];
+      if (binding && isStepsPrefix(pendingChord, parseBinding(binding))) {
+        void router.preloadRoute({ to }).catch(() => undefined);
+      }
+    }
+  }, [keymap, pendingChord, router]);
+
+  useScope("global", {
+    "nav.decks": () => go(NAV_COMMANDS["nav.decks"]),
+    "nav.browse": () => go(NAV_COMMANDS["nav.browse"]),
+    "nav.review": () => go(NAV_COMMANDS["nav.review"]),
+    "nav.settings": () => go(NAV_COMMANDS["nav.settings"]),
+    "sidebar.toggle": toggleSidebar,
+  });
+
+  return null;
+}

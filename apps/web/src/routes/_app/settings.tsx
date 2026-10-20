@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { prefetchSettingsPage, settingsQuery as settingsQueryOptions } from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RotateCcw } from "lucide-react";
@@ -100,10 +101,7 @@ function SettingsPage() {
   const queuedSaveRef = useRef<SettingsState | null>(null);
   const savingRef = useRef(false);
 
-  const settingsQuery = useQuery({
-    queryKey: settingsKeys.current,
-    queryFn: () => armin.settings.get(),
-  });
+  const settingsQuery = useQuery(settingsQueryOptions());
 
   const updateSettings = useMutation({
     mutationFn: (patch: SettingsState) => armin.settings.update(patch),
@@ -463,5 +461,6 @@ function SettingsPage() {
 }
 
 export const Route = createFileRoute("/_app/settings")({
+  loader: ({ context }) => prefetchSettingsPage(context.queryClient),
   component: SettingsPage,
 });

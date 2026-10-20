@@ -22,11 +22,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import {
-  clozeClusters,
-  parseClozes,
-  type FlashcardContent,
-  type FlashcardType,
+import { clozeClusters, parseClozes } from "@armin/core/flashcard-rules";
+import type {
+  FlashcardContent,
+  FlashcardType,
 } from "@armin/core/flashcard-types";
 
 export type CardFormValues = {

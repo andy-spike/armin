@@ -35,6 +35,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = React.useState<ToastItem[]>([]);
   const idRef = React.useRef(0);
   const timeoutsRef = React.useRef<Map<number, number>>(new Map());
+  // The app frame is server-rendered, where there is no document to portal
+  // into; nothing can raise a toast before mount anyway.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
 
   const clearToastTimeout = React.useCallback((id: number) => {
     const timeoutId = timeoutsRef.current.get(id);
@@ -79,7 +83,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      {createPortal(
+      {mounted && createPortal(
         <div className="pointer-events-none fixed inset-x-0 bottom-4 z-60 flex flex-col items-center gap-2 px-4">
           {items.map(({ id, title, description, tone, exiting }) => {
             const { Icon, color } = TONE[tone];

@@ -50,6 +50,7 @@ export const COMMANDS: readonly CommandDef[] = [
   // General
   { id: "palette.open", scope: "global", group: "General", label: "Open command palette", defaultBinding: "Mod+k" },
   { id: "cheatsheet.open", scope: "global", group: "General", label: "Show keyboard shortcuts", defaultBinding: "?" },
+  { id: "sidebar.toggle", scope: "global", group: "General", label: "Toggle sidebar", defaultBinding: "[" },
 
   // Review session
   { id: "review.flip", scope: "review", group: "Review", label: "Show answer", defaultBinding: "Space" },

@@ -109,6 +109,15 @@ components:
     rounded: "{rounded.sm}"
     padding: "2px 8px"
     textColor: "{colors.ink}"
+  sidebar:
+    backgroundColor: "{colors.bg-2}"
+    textColor: "{colors.muted}"
+    width: "256px"
+  sidebar-item-active:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+    height: "32px"
   review-card:
     backgroundColor: "{colors.paper}"
     textColor: "{colors.ink}"
@@ -203,8 +212,23 @@ Flat by default. Tonal paper steps and hairline borders define structure.
 
 ### Navigation
 
-- Paper field, hairline bottom border, no glass blur.
-- Active route: cyan bottom border + accent text.
+- Left sidebar on bg-2 with a hairline right border, no glass blur. 16rem wide;
+  collapses to a 3rem icon rail with the panel button beside the wordmark or `[`.
+  The open/closed state is saved in a cookie and rendered on the server, so it
+  never flashes on load.
+- Order: Review, Decks, Browse; then "Your decks" (each deck with its due count);
+  the footer holds Settings, the theme switch, and the account.
+- Rows: muted text, hover fills ui and turns ink. The current route is a paper
+  row with ink text and an accent icon.
+- Counts are quiet tabular figures. Review's due count turns accent (accent-tint
+  fill, accent-deep text) when cards are due; the rail shows it as an accent dot.
+- Motion: width animates 240ms ease-out-quart; labels fade over 150ms (75ms late
+  when expanding, immediately when collapsing). Footer rows keep their size in
+  both states.
+- Account menu opens above the account row; in the rail it opens beside the
+  avatar. Right-click the theme row to pick Light, Dark, or System.
+- Below 768px: a 48px paper top bar with the menu button and wordmark, and the
+  sidebar slides in from the left as a sheet.
 - Brand: serif wordmark, accent brain icon.
 
 ### Deck list
