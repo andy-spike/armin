@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
 import {
   assertTarget,
   readState,
@@ -50,7 +49,6 @@ try {
       "--port",
       String(state?.mobilePort ?? 8081),
     ],
-    desktop: ["--filter", "./apps/desktop", "start"],
     all: [
       "exec",
       "turbo",
@@ -64,7 +62,6 @@ try {
   const env = { ...process.env };
   if (state) {
     env.ARMIN_WEB_PORT = String(state.webPort);
-    env.ARMIN_DATA_DIR = join(root, ".armin/desktop");
     console.log(`Web: ${state.siteUrl}\nConvex: ${state.reference}`);
   }
   const child = spawn("pnpm", [...commands[mode], ...extra], {

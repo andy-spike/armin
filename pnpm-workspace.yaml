@@ -2,25 +2,14 @@ packages:
   - apps/*
   - packages/*
 
-# Electron Forge and the desktop app's native-module packaging hook expect a
-# flat node_modules (see apps/desktop/forge.config.ts and ADR 0002). React
-# Native / Expo has the same requirement, so hoisting stays repo-wide.
+# Expo requires a hoisted workspace dependency layout.
 nodeLinker: hoisted
 
-# Lifecycle hooks such as `pretest` rebuild better-sqlite3 for the runtime that
-# is about to load it (apps/desktop ADR 0012).
-enablePrePostScripts: true
-
 allowBuilds:
+  # Better Auth still resolves this native dependency transitively.
   better-sqlite3: true
-  electron: true
-  electron-winstaller: true
   esbuild: true
   workerd: true
-
-overrides:
-  "@electron/rebuild": 4.0.4
-  yauzl: ^3.3.1
 
 minimumReleaseAgeExclude:
   - "@expo/cli@57.0.29"

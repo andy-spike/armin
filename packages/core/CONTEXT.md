@@ -1,3 +1,6 @@
+> Historical study glossary. Profile describes the retired desktop storage model.
+> The current clients use an account-owned library in Convex.
+
 # Armin
 
 Armin is a local-first study context for retaining knowledge through flashcards,

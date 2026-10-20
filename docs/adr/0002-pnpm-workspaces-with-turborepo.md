@@ -1,3 +1,7 @@
+> Historical document. The desktop app and old sync service were retired on
+> 2026-10-20. Paths below describe the repository at the time of writing;
+> consult README.md for the current web and mobile workspace layout.
+
 # The monorepo uses pnpm workspaces with Turborepo and a shared core package
 
 _Supersedes ADR 0001 (npm workspaces)._

@@ -1,9 +1,0 @@
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "noEmit": true,
-    "lib": ["ESNext"],
-    "types": ["./worker-configuration.d.ts", "@cloudflare/vitest-plugin/types"]
-  },
-  "include": ["src", "test", "vitest.config.ts", "worker-configuration.d.ts"]
-}

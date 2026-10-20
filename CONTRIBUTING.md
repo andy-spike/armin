@@ -11,8 +11,8 @@ guide you. New issues are labelled `needs-triage` and reviewed from there.
 
 When filing a bug, include:
 
-- Your OS and how you installed Armin (AppImage, Windows installer, macOS ZIP).
-- The Armin version (see the app, or the release you downloaded).
+- Your browser or mobile OS, and whether you used the web app or Expo Go.
+- The app version or development commit, when available.
 - What you did, what you expected, and what actually happened.
 - Whether your data persisted across a restart, if the bug touches study state.
 
@@ -33,12 +33,12 @@ for the private reporting process.
 
 ## Project layout
 
-Armin is a monorepo. The desktop app lives in `apps/desktop/`. The repository's
+Armin is a monorepo with web and mobile clients and a Convex backend. The repository's
 conventions, domain language, and architectural decisions are documented in:
 
 - [`README.md`](README.md) — what Armin is and how to install it.
 - [`CONTEXT-MAP.md`](CONTEXT-MAP.md) — the contexts and where their language lives.
-- [`apps/desktop/docs/`](apps/desktop/docs/) — testing, migrations, release, and MCP docs.
+- [`packages/backend/README.md`](packages/backend/README.md) and the client READMEs cover development and validation.
 - [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md) and
   [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md) — how issues are
   tracked and triaged.

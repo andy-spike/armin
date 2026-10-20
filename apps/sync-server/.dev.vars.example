@@ -1,6 +1,0 @@
-# Copy to .dev.vars for `pnpm dev`. Never commit real values.
-# Generate with: openssl rand -base64 32
-BETTER_AUTH_SECRET=replace-with-a-random-32-byte-secret
-# Google OAuth client for http://localhost:8787/api/auth/callback/google
-GOOGLE_CLIENT_ID=replace-me
-GOOGLE_CLIENT_SECRET=replace-me

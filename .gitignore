@@ -91,12 +91,6 @@ typings/
 # Vite
 .vite/
 
-# Electron-Forge
-out/
-
-# Armin profile data
-.armin-data
-
 # Agent tooling
 .cursor/
 .opencode/

@@ -40,7 +40,7 @@ jobs:
         run: pnpm lint
 
       - name: Typecheck
-        run: pnpm typecheck --filter=!./apps/desktop
+        run: pnpm typecheck
 
       # Convex code in packages/backend/convex/_generated is committed; refresh
       # it locally with `pnpm --filter @armin/backend codegen` after backend changes.
