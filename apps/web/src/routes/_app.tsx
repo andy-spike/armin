@@ -5,13 +5,15 @@ import {
   Outlet,
   redirect,
   useNavigate,
+  useRouter,
   useRouterState,
 } from "@tanstack/react-router";
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { flushSync } from "react-dom";
 import { Brain, CloudOff } from "lucide-react";
-import { useScope } from "@/keybindings/keybindings-provider";
+import { useKeybindings, useScope } from "@/keybindings/keybindings-provider";
+import { isStepsPrefix, parseBinding } from "@/lib/keybindings/keys";
 import { KeyboardOverlays } from "@/components/keyboard-overlays";
 import { PageSkeleton } from "@/components/page-skeletons";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -228,20 +230,44 @@ function Shell({ loading }: { loading?: string }) {
   );
 }
 
+const NAV_COMMANDS = {
+  "nav.decks": "/",
+  "nav.browse": "/browse",
+  "nav.review": "/review",
+  "nav.settings": "/settings",
+} as const;
+
+type NavTarget = (typeof NAV_COMMANDS)[keyof typeof NAV_COMMANDS];
+
 /** Global navigation and sidebar shortcuts; lives inside the SidebarProvider. */
 function ShellKeybindings({ activateNav }: { activateNav: (path: string) => void }) {
   const navigate = useNavigate();
+  const router = useRouter();
+  const { keymap, pendingChord } = useKeybindings();
   const { toggleSidebar } = useSidebar();
-  const go = (to: "/" | "/browse" | "/review" | "/settings") => {
+  const go = (to: NavTarget) => {
     activateNav(to);
     void navigate({ to });
   };
 
+  // Keyboard counterpart of preloading on hover: once a chord's first key
+  // (`g`) is down, start loading every page it can still lead to, so the page
+  // is usually ready by the time the second key lands.
+  useEffect(() => {
+    if (pendingChord.length === 0) return;
+    for (const [command, to] of Object.entries(NAV_COMMANDS)) {
+      const binding = keymap[command as keyof typeof NAV_COMMANDS];
+      if (binding && isStepsPrefix(pendingChord, parseBinding(binding))) {
+        void router.preloadRoute({ to }).catch(() => undefined);
+      }
+    }
+  }, [keymap, pendingChord, router]);
+
   useScope("global", {
-    "nav.decks": () => go("/"),
-    "nav.browse": () => go("/browse"),
-    "nav.review": () => go("/review"),
-    "nav.settings": () => go("/settings"),
+    "nav.decks": () => go(NAV_COMMANDS["nav.decks"]),
+    "nav.browse": () => go(NAV_COMMANDS["nav.browse"]),
+    "nav.review": () => go(NAV_COMMANDS["nav.review"]),
+    "nav.settings": () => go(NAV_COMMANDS["nav.settings"]),
     "sidebar.toggle": toggleSidebar,
   });
 
