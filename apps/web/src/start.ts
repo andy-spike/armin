@@ -1,4 +1,8 @@
-import { createStart } from "@tanstack/react-start";
+import { createCsrfMiddleware, createStart } from "@tanstack/react-start";
+
+const csrfMiddleware = createCsrfMiddleware({
+  filter: (ctx) => ctx.handlerType === "serverFn",
+});
 
 /**
  * The study UI is client-rendered: it depends on the live Convex connection
@@ -7,4 +11,5 @@ import { createStart } from "@tanstack/react-start";
  */
 export const startInstance = createStart(() => ({
   defaultSsr: false,
+  requestMiddleware: [csrfMiddleware],
 }));
