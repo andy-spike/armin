@@ -2,7 +2,7 @@
   "name": "armin-monorepo",
   "version": "0.0.0",
   "private": true,
-  "description": "Monorepo for Armin: the local-first desktop and mobile apps and the optional cloud sync service.",
+  "description": "Monorepo for Armin: the desktop app, the in-development web app and Convex backend, the Expo mobile client, and shared study code.",
   "homepage": "https://github.com/andy-spike/armin#readme",
   "repository": {
     "type": "git",

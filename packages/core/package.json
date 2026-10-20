@@ -2,13 +2,16 @@
   "name": "@armin/core",
   "version": "0.0.0",
   "private": true,
-  "description": "Platform-agnostic Armin study domain: database schema, flashcard types, FSRS scheduling rules, and scheduling presets.",
+  "description": "Platform-agnostic Armin study domain: flashcard types, FSRS scheduling rules, scheduling presets, study-day and Frontier rules, and media references. The Drizzle schema remains for the retained desktop app.",
   "license": "MIT",
   "exports": {
     "./schema": "./src/schema.ts",
     "./flashcard-types": "./src/flashcard-types.ts",
     "./scheduler": "./src/scheduler.ts",
-    "./scheduling-presets": "./src/scheduling-presets.ts"
+    "./scheduling-presets": "./src/scheduling-presets.ts",
+    "./study": "./src/study.ts",
+    "./media": "./src/media.ts",
+    "./media-ref": "./src/media-ref.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
