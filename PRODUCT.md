@@ -7,11 +7,10 @@ product
 ## Users
 
 Self-directed learners studying technical or layered subjects (programming,
-languages, sciences) on their own desktop. They're often at a computer, in a
+languages, sciences) on web and mobile. They're often at a computer, in a
 focused session, building real expertise over weeks and months rather than
 cramming. Many are technically literate — comfortable with keyboard shortcuts,
-local-first tools, and connecting their own AI agent (Claude Code, Codex,
-OpenCode) to generate cards.
+tools for organizing knowledge and writing effective study prompts.
 
 The job to be done: build durable, _hierarchical_ knowledge. Create decks and
 cards, wire up prerequisite relationships, and run short spaced-repetition review
@@ -21,7 +20,7 @@ authoring and structuring cards into a prerequisite graph.
 
 ## Product Purpose
 
-Armin is a local-first, FSRS-scheduled flashcard app for desktop that treats
+Armin is an FSRS-scheduled flashcard app for web and mobile that treats
 knowledge as a graph instead of a flat pile. Cards declare prerequisites, and a
 card stays locked until its foundations are learned — so new material always lands
 on knowledge already secured, and a visual canvas makes the dependency tree
@@ -29,7 +28,7 @@ editable.
 
 It exists because most flashcard apps treat every card as an independent island,
 ignoring that real learning is layered. It's an open-source, MIT-licensed personal
-project meant to grow with a community — explicitly never a SaaS. Success looks
+project with account-owned libraries stored in Convex. Success looks
 like: a learner sits down, the right cards are due, review is fast and almost
 entirely keyboard-driven, and over time they can see and trust the structure of
 what they know.

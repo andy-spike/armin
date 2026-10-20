@@ -1,3 +1,7 @@
+> Historical document. The desktop app and old sync service were retired on
+> 2026-10-20. Paths below describe the repository at the time of writing;
+> consult README.md for the current web and mobile workspace layout.
+
 # Armin web migration with Convex
 
 Researched on 2026-10-19 against the current checkout and primary documentation. This is a planning note. No application code, dependencies, cloud resources, or credentials were changed. Recommendations and inferred implementation approaches are marked as such; runtime compatibility has not been demonstrated.

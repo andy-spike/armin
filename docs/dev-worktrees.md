@@ -85,10 +85,6 @@ emulators. On a physical phone, Metro needs LAN access to the printed Expo port;
 the `.localhost` web origin is for the host browser only. Use the mobile README's
 Expo Go and `adb reverse` instructions, substituting this worktree's Expo port.
 
-The desktop launcher sets `ARMIN_DATA_DIR` to this checkout's `.armin/desktop`.
-Desktop data is separate from both other worktrees and the normal desktop dev
-profile. Its existing Forge/Vite servers still manage their own ports.
-
 ## Email and Google sign-in
 
 The synthetic account is verified by an operator component call during seeding,

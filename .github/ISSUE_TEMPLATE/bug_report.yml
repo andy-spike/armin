@@ -20,17 +20,18 @@ body:
     id: version
     attributes:
       label: Armin version
-      description: The release you downloaded, or the version shown in the app.
+      description: The app version or development commit, when available.
       placeholder: e.g. v0.3.0-beta
     validations:
-      required: true
+      required: false
   - type: dropdown
     id: os
     attributes:
-      label: Operating system
+      label: Client
       options:
-        - Linux (AppImage)
-        - Other / built from source
+        - Web browser
+        - Android / Expo Go
+        - iOS / Expo Go
     validations:
       required: true
   - type: dropdown

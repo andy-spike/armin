@@ -1,9 +1,7 @@
-# Security Policy
+# Security policy
 
-Armin is a local-first desktop app: your study data lives on your own machine, and
-the app ships a local MCP server that lets coding agents create and mutate that
-data. Because of that surface, security reports are taken seriously even though the
-project is early.
+Armin has web and Expo mobile clients backed by Convex and Better Auth.
+Study data and uploaded images belong to an authenticated account's library.
 
 ## Reporting a vulnerability
 
@@ -23,7 +21,7 @@ Please include, as far as you can:
 - A description of the issue and its impact.
 - Steps to reproduce, or a proof of concept.
 - The Armin version and your operating system.
-- Whether it involves data at rest, the MCP server, or the renderer/IPC boundary.
+- Whether it involves authentication, library ownership, uploaded media, or exports.
 
 ## What to expect
 
@@ -36,13 +34,7 @@ issue before any public disclosure.
 
 Areas of particular interest:
 
-- **MCP server.** Unauthorized access to the local MCP port, or an agent escaping
-  the intended create/mutate scope.
-- **Data at rest.** Profile databases and exported backups.
-- **Renderer / IPC / CSP.** Content injection or privilege escalation across the
-  Electron preload/IPC boundary.
-
-Out of scope: unsigned Windows/macOS builds and the resulting SmartScreen/Gatekeeper
-warnings are a known, documented limitation (see
-[`apps/desktop/docs/adr/0014-launch-unsigned-defer-code-signing.md`](apps/desktop/docs/adr/0014-launch-unsigned-defer-code-signing.md)),
-not a vulnerability report.
+- Authentication and session handling in the web and mobile clients.
+- Access to another account's library, reviews, images, or exports.
+- Content injection through flashcards or uploaded media.
+- Exposure of deployment secrets or private user data.

@@ -1,32 +1,7 @@
 # Armin
 
-Armin is a local-first, spaced-repetition flashcard app for desktop. It's built around the idea that learning is **hierarchical**. You should master the prerequisites of a topic you are trying to learn in order to understand it fully.
-
-For more on the philosophy of what inspired this type of thinking, read this Justin Skycak's article on [learning prerequisites](https://www.justinmath.com/the-importance-of-learning-your-prerequisites/).
-
-## Table of Contents
-
-- [What it is](#what-it-is)
-- [Why it exists](#why-it-exists)
-- [Core principles](#core-principles)
-- [Installation](#installation)
-  - [Linux](#linux)
-  - [Windows](#windows)
-  - [macOS](#macos)
-- [Releases](#releases)
-- [Web app (in development)](#web-app-in-development)
-- [MCP server](#mcp-server)
-- [Card-writing skill](#card-writing-skill)
-- [Development notes](#development-notes)
-- [Contributions](#contributions)
-
-## What it is
-
-A desktop study app where you create decks and cards (like Anki), connect cards by
-their prerequisites, and review them on a schedule that adapts to how well you
-actually remember each one. Reviews are powered by
-[FSRS](https://github.com/open-spaced-repetition/ts-fsrs) (Free Spaced Repetition
-Scheduler), the same algorithm used by Anki's FSRS mode.
+Armin is a spaced-repetition flashcard app for web and mobile. Cards form a
+prerequisite graph, and FSRS schedules reviews based on recall performance.
 
 ## Why it exists
 
@@ -36,96 +11,19 @@ structure explicit. A card stays **locked** until everything it depends on has b
 learned, so you build foundations before tackling what sits on top of them, and
 new material lands on knowledge you've already secured.
 
-## Core principles
+## Applications and shared code
 
-- **Local-first.** Everything works offline; your data lives on your machine. No account, no server required.
-- **Spaced-repetition done right.** FSRS schedules each card based on your recall performance.
-- **Hierarchical knowledge.** Within a deck, cards form a prerequisite graph. You
-  review the prerequisites first, then unlock and learn what builds on them. Each
-  deck has its own visual canvas that lets you see and edit the connections
-  between its cards; prerequisites never cross deck boundaries.
-- **Simple UI & UX.** Creating decks, cards, and tags should be fast, and reviewing
-  should be keyboard-driven and frictionless.
-- **AI-assisted card creation.** Armin exposes a local MCP server, so you can use
-  your own AI agent (Claude Code, Codex, OpenCode, etc.) to generate flashcards from
-  a topic, your notes, or research. It also comes with an agent skill that guides agents on which guidelines they should use for creating cards. It is important not only to be able to create the cards, but to make sure the content aligns with what you are actually are trying to learn and it is structured in an effective manner for future studying.
-- **Open-source.** Fully open, MIT-licensed, and meant to be built on.
+- [`apps/web`](apps/web/README.md): TanStack Start web client.
+- [`apps/mobile`](apps/mobile/README.md): Expo mobile client for the same backend.
+- [`packages/backend`](packages/backend/README.md): Convex backend and Better Auth,
+  with account-owned libraries, server-side scheduling, images, and ZIP export.
+- [`packages/core`](packages/core): portable study types and rules.
 
-## Installation
+The web app is in development and is not deployed publicly yet. The Electron
+desktop app, its local MCP server, and the old sync service have been retired.
+Their source and release tooling remain available in Git history.
 
-Each release is published on GitHub. You can find them in the
-[Releases section](https://github.com/andy-spike/armin/releases).
-
-### Linux
-
-On Arch Linux, build and install the AUR package with `makepkg`:
-
-```bash
-git clone https://aur.archlinux.org/armin-bin.git
-cd armin-bin
-makepkg -si
-```
-
-Everywhere else, download the `Armin-*-x64.AppImage`, make it executable, and
-run it:
-
-```bash
-chmod +x Armin-*-x64.AppImage
-./Armin-*-x64.AppImage
-```
-
-Optional: import the AppImage with [Gear Lever](https://github.com/mijorus/gearlever) for a
-desktop entry.
-
-### Windows
-
-Download and run the `Setup.exe` file for your release. It is an unsigned beta
-installer. Microsoft Defender SmartScreen may warn that it has no established
-reputation. This is expected: Armin does not yet have a paid Windows
-code-signing certificate. Download it only from this project's GitHub Releases,
-then use SmartScreen's **More info** and **Run anyway** controls if you trust
-the release.
-
-Some managed PCs and Windows security policies do not permit unsigned apps to
-run. Armin cannot bypass those policies.
-
-### macOS
-
-Download the ZIP that matches your Mac:
-
-- `arm64` for Apple silicon Macs (M1 and later)
-- `x64` for Intel Macs
-
-Unzip it and move `Armin.app` to Applications. Armin is an unsigned beta app
-and is not notarized because the project does not yet have a paid Apple
-Developer membership. Gatekeeper will warn on first launch. If you trust the
-download from this project's GitHub Releases, try to open Armin once, then go
-to **System Settings → Privacy & Security** and choose **Open Anyway**. macOS
-saves that choice for future launches.
-
-Do not disable Gatekeeper or other system security features to run Armin.
-
-## Releases
-
-Alpha builds are published from GitHub tags. See
-[docs/release.md](apps/desktop/docs/release.md) for the release checklist, artifact targets,
-and current unsigned-build notes.
-
-## Web app (in development)
-
-Armin is moving to an online web app with the same study model: one account,
-one private library, server-side FSRS scheduling, prerequisite graphs, images,
-and a full ZIP export. It is built with TanStack Start, Convex, and Better Auth
-and is not deployed publicly yet. The desktop app above remains the released
-product until the web app passes its launch checks.
-
-- [`apps/web`](apps/web/README.md) — the web client and its local workflow.
-- [`packages/backend`](packages/backend/README.md) — the Convex backend,
-  environment variables, and beta limits.
-- [`apps/mobile`](apps/mobile/README.md) — an Expo smoke client for the same
-  backend.
-- [Development walkthrough](docs/qa/2026-10-19-web-dev-walkthrough.md) — what
-  has been verified so far.
+## Development
 
 Quick start from the repository root, using the pinned Node and pnpm versions:
 
@@ -152,29 +50,21 @@ Additional commands, each run from the root in its own terminal:
 | `pnpm dev:mobile`  | Expo Go with a LAN QR code on port 8081             |
 | `pnpm dev:android` | Expo Go and opens the Android emulator/device       |
 | `pnpm dev:ios`     | Expo Go and opens the iOS simulator, requires macOS |
-| `pnpm dev:desktop` | Electron desktop app with its own local database    |
 | `pnpm dev:web`     | Web client only, port 3000                          |
 | `pnpm dev:backend` | Convex watcher only                                 |
 
 Keep `pnpm dev` running when using mobile so backend changes are pushed. Create
 and verify your account in the web app first, then use it to sign into mobile.
 See [mobile setup](apps/mobile/README.md) for Expo Go, emulator, and networking
-requirements. Desktop runs independently of Convex. Stop each command with Ctrl+C;
+requirements. Stop each command with Ctrl+C;
 Turborepo stops both watchers started by `pnpm dev`.
 
 For parallel agent work, T3 Code can prepare a separate Convex environment and
 sample library for each worktree. See [agent worktree setup](docs/dev-worktrees.md).
 
-## MCP server
-
-Armin includes a local stdio MCP server so coding agents can create decks, cards,
-and prerequisite graphs. See [docs/mcp-server.md](apps/desktop/docs/mcp-server.md) for setup,
-available tools, and configuration for Codex, Claude Code, Cursor, and OpenCode.
-
 ## Card-writing skill
 
-The MCP server lets agents create cards, but it doesn't tell them _how_ to structure
-the content — how to chunk a topic, what belongs in a single card, or how cards
+Agents need guidance on how to structure flashcard content — how to chunk a topic, what belongs in a single card, or how cards
 should depend on each other. The `writing-study-cards` skill provides those
 guidelines, distilled from Andy Matuschak's
 [How to write good prompts](https://andymatuschak.org/prompts/). Install it so your
@@ -202,23 +92,16 @@ npx skills add andy-spike/armin --skill writing-study-cards -a cursor
 The `skills` CLI discovers skills under `.agents/skills/`, so it picks up
 `writing-study-cards` directly from this repository.
 
-## Development notes
+## Validation
 
-Early development. Expect lots of bugs and strange behavior.
-
-See [docs/testing.md](apps/desktop/docs/testing.md) for the testing philosophy, test-layer guidance,
-and validation commands used in the desktop app. The web migration adds no new
-test suites; it is validated with lint, typecheck, builds, mobile bundle checks,
-and recorded agent walkthroughs in [`docs/qa/`](docs/qa/).
+Run `pnpm typecheck`, `pnpm lint`, `pnpm --filter @armin/web build`, and
+`pnpm --filter @armin/mobile check:bundle`. Web, backend, and mobile changes use
+running-app walkthroughs recorded in [`docs/qa/`](docs/qa/), without new automated
+test suites. `pnpm test` remains the workspace task runner for test scripts.
 
 ## Contributions
 
-Bug reports and feature requests are very welcome — file them in the
-[Issues tab](https://github.com/andy-spike/armin/issues). They're the most useful
-thing you can send at this stage.
-
-Code pull requests aren't being accepted yet: the domain model and internal
-contracts are still moving quickly. This will open up as the project stabilizes.
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details, and
-[SECURITY.md](SECURITY.md) to report a vulnerability privately. Participation is
-governed by our [Code of Conduct](CODE_OF_CONDUCT.md).
+Report bugs and feature requests in [GitHub Issues](https://github.com/andy-spike/armin/issues).
+Code pull requests are not being accepted while the domain contracts stabilize.
+See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
+[the code of conduct](CODE_OF_CONDUCT.md).
