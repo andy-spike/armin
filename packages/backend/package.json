@@ -13,7 +13,9 @@
     "dev": "convex dev",
     "dev:once": "convex dev --once",
     "codegen": "convex codegen",
-    "typecheck": "tsc --noEmit -p convex"
+    "typecheck": "tsc --noEmit -p convex",
+    "dev:setup": "convex dev --once && node scripts/configure-clients.mjs",
+    "dev:clients": "node scripts/configure-clients.mjs"
   },
   "dependencies": {
     "@armin/core": "workspace:*",

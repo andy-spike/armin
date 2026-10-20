@@ -127,13 +127,40 @@ product until the web app passes its launch checks.
 - [Development walkthrough](docs/qa/2026-10-19-web-dev-walkthrough.md) — what
   has been verified so far.
 
-Quick start, after configuring a Convex dev deployment:
+Quick start from the repository root, using the pinned Node and pnpm versions:
 
 ```bash
-pnpm install
-pnpm --filter @armin/backend dev   # terminal 1: watch the backend
-pnpm --filter @armin/web dev       # terminal 2: http://localhost:3000
+pnpm install --frozen-lockfile
+pnpm dev:setup  # configure/push Convex, then write both clients' local URLs
+pnpm dev        # web at http://localhost:3000 + Convex watcher
 ```
+
+On the first run, Convex prompts you to select or create a development deployment.
+The backend currently uses a hosted Convex dev deployment even though the client
+servers run locally. Configure its authentication and email variables as described
+in [the backend README](packages/backend/README.md#deployment-environment-variables).
+Setup does not create or replace those secrets. Existing deployments keep their data.
+
+`dev:setup` refreshes only the Convex URL entries in the web and mobile
+`.env.local` files, preserving other settings. To refresh those URLs without
+pushing backend code, run `pnpm --filter @armin/backend dev:clients`.
+
+Additional commands, each run from the root in its own terminal:
+
+| Command            | Starts                                              |
+| ------------------ | --------------------------------------------------- |
+| `pnpm dev:mobile`  | Expo Go with a LAN QR code on port 8081             |
+| `pnpm dev:android` | Expo Go and opens the Android emulator/device       |
+| `pnpm dev:ios`     | Expo Go and opens the iOS simulator, requires macOS |
+| `pnpm dev:desktop` | Electron desktop app with its own local database    |
+| `pnpm dev:web`     | Web client only, port 3000                          |
+| `pnpm dev:backend` | Convex watcher only                                 |
+
+Keep `pnpm dev` running when using mobile so backend changes are pushed. Create
+and verify your account in the web app first, then use it to sign into mobile.
+See [mobile setup](apps/mobile/README.md) for Expo Go, emulator, and networking
+requirements. Desktop runs independently of Convex. Stop each command with Ctrl+C;
+Turborepo stops both watchers started by `pnpm dev`.
 
 ## MCP server
 

@@ -70,7 +70,13 @@ library revision, so another saved library change can require a graph reload.
 
 ## Development
 
-Run from the repository root:
+Run `pnpm dev:setup` from the repository root to configure/push the development
+deployment and copy its public URLs into the web and mobile `.env.local` files.
+Then `pnpm dev` runs the backend watcher and web client together. Authentication
+and email secrets still need the deployment configuration below. To copy URLs
+without pushing, run `pnpm --filter @armin/backend dev:clients`.
+
+Individual backend commands from the repository root:
 
 ```bash
 # Configure (first time) and watch the Convex dev deployment. Writes
@@ -92,14 +98,14 @@ to continue while the TypeScript project is temporarily broken, and
 Set these on the Convex deployment with `npx convex env set <NAME> <value>` from
 `packages/backend` (values are never stored in the repository):
 
-| Name | Purpose |
-| --- | --- |
-| `BETTER_AUTH_SECRET` | Session signing secret. Generate with `openssl rand -base64 32`. |
-| `SITE_URL` | Public web origin, `http://localhost:3000` in development. Used for auth callbacks and email links. |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth web client. Register `${SITE_URL}/api/auth/callback/google` as a redirect URI. |
-| `RESEND_API_KEY` | Resend key for verification and password-reset email. |
-| `EMAIL_FROM` | Optional. Defaults to `Armin <onboarding@resend.dev>`, which Resend only delivers to the Resend account's own address. |
-| `MOBILE_TRUSTED_ORIGINS` | Optional comma-separated origins for the Expo app. Defaults to `armin://`. The development deployment adds `exp://,exp://**` for Expo Go; never use `exp://` wildcards in production. |
+| Name                                       | Purpose                                                                                                                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET`                       | Session signing secret. Generate with `openssl rand -base64 32`.                                                                                                                      |
+| `SITE_URL`                                 | Public web origin, `http://localhost:3000` in development. Used for auth callbacks and email links.                                                                                   |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth web client. Register `${SITE_URL}/api/auth/callback/google` as a redirect URI.                                                                                           |
+| `RESEND_API_KEY`                           | Resend key for verification and password-reset email.                                                                                                                                 |
+| `EMAIL_FROM`                               | Optional. Defaults to `Armin <onboarding@resend.dev>`, which Resend only delivers to the Resend account's own address.                                                                |
+| `MOBILE_TRUSTED_ORIGINS`                   | Optional comma-separated origins for the Expo app. Defaults to `armin://`. The development deployment adds `exp://,exp://**` for Expo Go; never use `exp://` wildcards in production. |
 
 ### QA without an inbox
 

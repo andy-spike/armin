@@ -20,7 +20,11 @@ because they depend on the live Convex connection and browser-only editors.
 
 ## Develop
 
-Prerequisites: a Convex development deployment configured as described in
+From the repository root, run `pnpm dev:setup` once, then `pnpm dev` to start
+the web client and Convex watcher together. Setup copies the deployment URLs
+into both clients while preserving other local settings.
+
+For separate terminals, use the manual workflow below. Prerequisites: a Convex development deployment configured as described in
 [`packages/backend/README.md`](../../packages/backend/README.md).
 
 ```bash
