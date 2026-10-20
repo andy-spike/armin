@@ -17,6 +17,8 @@ routes:
 
 Study screens render on the client (`src/start.ts` disables SSR by default)
 because they depend on the live Convex connection and browser-only editors.
+The root and the signed-in frame opt back in, so the server sends the sidebar
+and the opened page's loading skeleton, and the browser fills in the page.
 
 ## Develop
 

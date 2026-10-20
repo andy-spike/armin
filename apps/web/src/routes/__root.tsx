@@ -80,12 +80,23 @@ export const Route = createRootRouteWithContext<{
     );
     return browserAuth;
   },
+  // Server-render the providers so the signed-in frame below can render too;
+  // routes that don't opt in still render only in the browser (`src/start.ts`).
+  ssr: true,
+  // A signed-in page carries the viewer's Convex token for hydration, so no
+  // shared cache may keep a copy.
+  headers: () => ({ "Cache-Control": "private, no-store" }),
   shellComponent: RootDocument,
   component: RootComponent,
 });
 
 function RootComponent() {
   const context = useRouteContext({ from: Route.id });
+  // A server-rendered load ran `beforeLoad` on the server, so the browser
+  // starts out remembering that answer instead of asking again on first click.
+  if (typeof window !== "undefined" && !browserAuth && context.isAuthenticated) {
+    browserAuth = Promise.resolve({ isAuthenticated: true, token: context.token });
+  }
   return (
     <ConvexBetterAuthProvider
       client={context.convexQueryClient.convexClient}

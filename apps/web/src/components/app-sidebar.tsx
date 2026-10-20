@@ -385,13 +385,15 @@ function DeckList({
   );
 }
 
+const showInLight = "[[data-theme=dark]_&]:hidden";
+const showInDark = "hidden [[data-theme=dark]_&]:inline";
+
 /** Click flips light/dark; right-click picks a specific theme or System. */
 function ThemeItem() {
   const { preference, resolved, setPreference } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const label = resolved === "light" ? "Dark mode" : "Light mode";
-  const Icon = resolved === "light" ? Moon : Sun;
 
   return (
     <SidebarMenuItem>
@@ -407,8 +409,14 @@ function ThemeItem() {
           }}
           render={<button ref={buttonRef} type="button" />}
         >
-          <Icon strokeWidth={1.5} />
-          <span className={fade}>{label}</span>
+          {/* The row is server-rendered, where the saved theme is unknown, so
+              it follows the theme already applied to <html> instead of state. */}
+          <Moon strokeWidth={1.5} className={showInLight} />
+          <Sun strokeWidth={1.5} className={showInDark} />
+          <span className={fade}>
+            <span className={showInLight}>Dark mode</span>
+            <span className={showInDark}>Light mode</span>
+          </span>
         </SidebarMenuButton>
         <DropdownMenuContent anchor={buttonRef} side="right" align="end" className="min-w-36">
           {TITLEBAR_THEME_OPTIONS.map((option) => (

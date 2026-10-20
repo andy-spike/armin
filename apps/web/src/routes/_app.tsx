@@ -37,6 +37,9 @@ const readSidebarOpen = createIsomorphicFn()
   .client(() => !document.cookie.split("; ").includes("sidebar_state=false"));
 
 export const Route = createFileRoute("/_app")({
+  // The frame (sidebar and the opened page's skeleton) renders on the server so
+  // it paints with the HTML; the pages inside it still render in the browser.
+  ssr: true,
   beforeLoad: ({ context }) => {
     if (!context.isAuthenticated) throw redirect({ to: "/sign-in" });
     return { sidebarOpen: readSidebarOpen() };
