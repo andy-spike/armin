@@ -30,10 +30,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ImageOcclusionReview } from "@/components/image-occlusion-review";
-import {
-  FlashcardFormDialog,
-  type CardFormValues,
-} from "@/components/flashcard-form-dialog";
+import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
+import type { CardFormValues } from "@/components/flashcard-form-dialog";
 import { reviewKeys } from "@/lib/armin-query";
 import { useScope } from "@/keybindings/keybindings-provider";
 import type {

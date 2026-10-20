@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { deckQuery as deckQueryOptions, prefetchReviewPage, reviewQueueQuery } from "@/lib/queries";
 import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ReviewSession } from "@/components/review-session";
 import { useReviewActions } from "@/lib/use-review-actions";
-import { armin } from "@/lib/armin-client";
-import { deckKeys, reviewKeys } from "@/lib/armin-query";
+import { reviewKeys } from "@/lib/armin-query";
 import { toUiReviewUnit } from "@/types/view-models";
 
 const QUEUE_POLL_MS = 15_000;
@@ -16,15 +16,11 @@ function ReviewPage() {
   const queryClient = useQueryClient();
   const actions = useReviewActions(deckId);
 
-  const deckQuery = useQuery({
-    queryKey: deckKeys.detail(deckId),
-    queryFn: () => armin.decks.get(deckId),
-  });
+  const deckQuery = useQuery(deckQueryOptions(deckId));
   // Re-polled so newly due units (learning steps, local midnight) appear
   // without any data write.
   const queueQuery = useQuery({
-    queryKey: reviewKeys.deck(deckId),
-    queryFn: () => armin.review.queue(deckId),
+    ...reviewQueueQuery(deckId),
     refetchInterval: QUEUE_POLL_MS,
     refetchOnWindowFocus: true,
   });
@@ -83,6 +79,7 @@ function ReviewPage() {
 }
 
 export const Route = createFileRoute("/_app/deck/$deckId/review")({
+  loader: ({ context, params }) => prefetchReviewPage(context.queryClient, params.deckId),
   component: ReviewPage,
 });
 

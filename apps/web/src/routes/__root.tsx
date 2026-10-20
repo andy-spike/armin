@@ -13,6 +13,8 @@ import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import type { ConvexQueryClient } from "@convex-dev/react-query";
 import appCss from "@/styles/app.css?url";
 import xyflowCss from "@xyflow/react/dist/style.css?url";
+import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
+import sourceSerifLatin from "@fontsource-variable/source-serif-4/files/source-serif-4-latin-wght-normal.woff2?url";
 import { authClient } from "@/lib/auth-client";
 import { getToken } from "@/lib/auth-server";
 import { ThemeProvider } from "@/theme/theme-provider";
@@ -24,6 +26,25 @@ import { LibrarySync } from "@/components/library-sync";
 const getAuth = createServerFn({ method: "GET" }).handler(async () => {
   return (await getToken()) ?? null;
 });
+
+type AuthContext = { isAuthenticated: boolean; token: string | null };
+
+/**
+ * The browser's signed-in state, remembered across client navigations so each
+ * click doesn't wait on a server round trip. It can't go stale: every sign-in,
+ * sign-out, reset, and account deletion is a full page load, which clears it,
+ * and the Convex client refreshes its own tokens. A session that ends elsewhere
+ * shows up through the viewer query instead. Holding the promise lets the
+ * router's back-to-back loads at startup share one request; signed-out and
+ * failed results are dropped, so the auth pages always ask the server.
+ */
+let browserAuth: Promise<AuthContext> | null = null;
+
+async function loadAuth(convexQueryClient: ConvexQueryClient): Promise<AuthContext> {
+  const token = await getAuth();
+  if (token) convexQueryClient.serverHttpClient?.setAuth(token);
+  return { isAuthenticated: Boolean(token), token };
+}
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
@@ -37,16 +58,29 @@ export const Route = createRootRouteWithContext<{
       { title: "Armin" },
     ],
     links: [
+      // The stylesheet only reveals these fonts once parsed; preloading the
+      // Latin files used above the fold starts them with the document instead.
+      { rel: "preload", href: interLatin, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
+      { rel: "preload", href: sourceSerifLatin, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: appCss },
       { rel: "stylesheet", href: xyflowCss },
       { rel: "icon", type: "image/png", href: "/favicon.png" },
     ],
     scripts: [{ src: "/theme-init.js" }],
   }),
-  beforeLoad: async (ctx) => {
-    const token = await getAuth();
-    if (token) ctx.context.convexQueryClient.serverHttpClient?.setAuth(token);
-    return { isAuthenticated: Boolean(token), token };
+  beforeLoad: (ctx) => {
+    if (typeof window === "undefined") return loadAuth(ctx.context.convexQueryClient);
+    browserAuth ??= loadAuth(ctx.context.convexQueryClient).then(
+      (auth) => {
+        if (!auth.isAuthenticated) browserAuth = null;
+        return auth;
+      },
+      (error: unknown) => {
+        browserAuth = null;
+        throw error;
+      },
+    );
+    return browserAuth;
   },
   shellComponent: RootDocument,
   component: RootComponent,

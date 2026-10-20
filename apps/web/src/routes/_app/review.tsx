@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { decksQuery as decksQueryOptions, prefetchReviewPage, reviewQueueQuery } from "@/lib/queries";
 import { plural } from "@/lib/utils";
-import { armin } from "@/lib/armin-client";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Layers } from "lucide-react";
@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ReviewSession } from "@/components/review-session";
-import { deckKeys, reviewKeys } from "@/lib/armin-query";
 import { toUiReviewUnit } from "@/types/view-models";
 import { useReviewActions } from "@/lib/use-review-actions";
 
@@ -24,18 +23,10 @@ const QUEUE_POLL_MS = 15_000;
 function ReviewsPage() {
   const [selectedDeckId, setSelectedDeckId] = useState(ALL_DECKS);
 
-  const decksQuery = useQuery({
-    queryKey: deckKeys.all,
-    queryFn: () => armin.decks.list(),
-  });
+  const decksQuery = useQuery(decksQueryOptions());
 
   const queueQuery = useQuery({
-    queryKey:
-      selectedDeckId === ALL_DECKS
-        ? reviewKeys.all
-        : reviewKeys.deck(selectedDeckId),
-    queryFn: () =>
-      armin.review.queue(selectedDeckId === ALL_DECKS ? undefined : selectedDeckId),
+    ...reviewQueueQuery(selectedDeckId === ALL_DECKS ? undefined : selectedDeckId),
     refetchInterval: QUEUE_POLL_MS,
     refetchOnWindowFocus: true,
   });
@@ -120,5 +111,6 @@ function ReviewsPage() {
 }
 
 export const Route = createFileRoute("/_app/review")({
+  loader: ({ context }) => prefetchReviewPage(context.queryClient),
   component: ReviewsPage,
 });

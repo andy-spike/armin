@@ -42,18 +42,10 @@ import {
 } from "@/lib/sort-decks";
 import {
   deckKeys,
-  flashcardKeys,
   invalidateDeckScopedData,
 } from "@/lib/armin-query";
 import type { UiDeck } from "@/types/view-models";
-import type { BrowseFlashcard } from "@/types/window";
-import { BROWSE_PAGE_SIZE } from "@armin/core/study";
-
-type BrowsePageResult = {
-  flashcards: BrowseFlashcard[];
-  filteredTotal: number;
-  libraryTotal: number;
-};
+import { decksQuery as decksQueryOptions, prefetchDeckPage, prefetchDecksPage } from "@/lib/queries";
 
 function DecksPage() {
   const queryClient = useQueryClient();
@@ -71,52 +63,13 @@ function DecksPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingDeck, setDeletingDeck] = useState<UiDeck | null>(null);
   const [closingAfterDelete, setClosingAfterDelete] = useState(false);
-  const prefetchedDecksRef = useRef<Set<string>>(new Set());
   // One request id per create dialog, so a retried submit can't add two decks.
   const createRequestId = useRef(newRequestId());
 
-  const decksQuery = useQuery({
-    queryKey: deckKeys.all,
-    queryFn: () => armin.decks.list(),
-  });
+  const decksQuery = useQuery(decksQueryOptions());
 
   const decks = decksQuery.data ?? [];
   const sortedDecks = useMemo(() => sortDecks(decks, sort), [decks, sort]);
-
-  const prefetchDeck = (deckId: string) => {
-    if (prefetchedDecksRef.current.has(deckId)) return;
-    prefetchedDecksRef.current.add(deckId);
-
-    void queryClient.prefetchQuery({
-      queryKey: deckKeys.detail(deckId),
-      queryFn: () => armin.decks.get(deckId),
-    });
-    void queryClient.prefetchQuery({
-      queryKey: flashcardKeys.deckTags(deckId),
-      queryFn: () => armin.flashcards.listDeckTags(deckId),
-    });
-    void queryClient.prefetchInfiniteQuery({
-      queryKey: flashcardKeys.browse({ deckId, sort: "due-soon" }),
-      queryFn: ({ pageParam }) =>
-        armin.flashcards.browse({
-          offset: pageParam,
-          limit: BROWSE_PAGE_SIZE,
-          sort: "due-soon",
-          deckId,
-        }),
-      initialPageParam: 0,
-      getNextPageParam: (
-        lastPage: BrowsePageResult,
-        allPages: BrowsePageResult[],
-      ) => {
-        const loaded = allPages.reduce(
-          (count, page) => count + page.flashcards.length,
-          0,
-        );
-        return loaded < lastPage.filteredTotal ? loaded : undefined;
-      },
-    });
-  };
 
   const createDeck = useMutation({
     mutationFn: (input: { name: string; description?: string | null }) =>
@@ -261,7 +214,7 @@ function DecksPage() {
             <li key={deck.id}>
               <DeckTile
                 deck={deck}
-                onPrefetch={() => prefetchDeck(deck.id)}
+                onPrefetch={() => prefetchDeckPage(queryClient, deck.id)}
                 onRename={() => {
                   setRenamingDeck(deck);
                   setRenameName(deck.name);
@@ -554,5 +507,6 @@ function Stat({
 }
 
 export const Route = createFileRoute("/_app/")({
+  loader: ({ context }) => prefetchDecksPage(context.queryClient),
   component: DecksPage,
 });
