@@ -111,3 +111,6 @@ dist/
 
 # Test results
 test-results/
+
+# Convex CLI temp dir (same filesystem as generated code)
+.convex-tmp/

@@ -6,25 +6,37 @@ import {
   type FSRS,
   type Steps,
 } from "ts-fsrs";
-import type { ReviewUnit as DbReviewUnit, Settings } from "./schema";
 
 /** Review units awaiting prerequisite unlock use a far-future due date. */
 export const PENDING_DUE = new Date("2099-01-01T00:00:00.000Z");
 
-/** The subset of review-unit columns that hold FSRS scheduling state. */
-export type FsrsFields = Pick<
-  DbReviewUnit,
-  | "due"
-  | "stability"
-  | "difficulty"
-  | "elapsedDays"
-  | "scheduledDays"
-  | "learningSteps"
-  | "reps"
-  | "lapses"
-  | "state"
-  | "lastReview"
->;
+/**
+ * The FSRS scheduling state a review unit holds. This mirrors the persisted
+ * review-unit columns structurally without depending on any database schema,
+ * so every persistence layer (SQLite, Convex) can map to it.
+ */
+export type FsrsFields = {
+  due: Date;
+  stability: number;
+  difficulty: number;
+  elapsedDays: number;
+  scheduledDays: number;
+  learningSteps: number;
+  reps: number;
+  lapses: number;
+  state: number;
+  lastReview: Date | null;
+};
+
+/**
+ * Transport-safe FSRS state: identical to {@link FsrsFields} with timestamps as
+ * epoch milliseconds. Convex documents and API values use this shape; `Date`
+ * objects only exist inside the scheduling algorithm boundary.
+ */
+export type FsrsFieldsMs = Omit<FsrsFields, "due" | "lastReview"> & {
+  due: number;
+  lastReview: number | null;
+};
 
 function parseSteps(csv: string): Steps {
   return csv
@@ -34,16 +46,16 @@ function parseSteps(csv: string): Steps {
 }
 
 /** The settings an FSRS scheduler is built from. */
-export type SchedulerParams = Pick<
-  Settings,
-  | "requestRetention"
-  | "maximumInterval"
-  | "enableFuzz"
-  | "enableShortTerm"
-  | "learningSteps"
-  | "relearningSteps"
-  | "weights"
->;
+export type SchedulerParams = {
+  requestRetention: number;
+  maximumInterval: number;
+  enableFuzz: boolean;
+  enableShortTerm: boolean;
+  learningSteps: string;
+  relearningSteps: string;
+  /** JSON array of FSRS weights; null = library defaults. */
+  weights: string | null;
+};
 
 /** Build an FSRS scheduler from the user's saved parameters. */
 export function createScheduler(params: SchedulerParams): FSRS {
@@ -111,19 +123,66 @@ export function pendingReviewUnitFields(): FsrsFields {
   };
 }
 
-export function isPendingSchedule(
-  reviewUnit: Pick<DbReviewUnit, "due" | "lastReview" | "reps">,
-): boolean {
+export function isPendingSchedule(reviewUnit: {
+  due: Date | number;
+  lastReview: Date | number | null;
+  reps: number;
+}): boolean {
+  const due =
+    typeof reviewUnit.due === "number"
+      ? reviewUnit.due
+      : reviewUnit.due.getTime();
   return (
     reviewUnit.reps === 0 &&
     reviewUnit.lastReview == null &&
-    reviewUnit.due.getTime() >= PENDING_DUE.getTime()
+    due >= PENDING_DUE.getTime()
   );
+}
+
+/** Epoch-millisecond FSRS state → `Date`-based fields. */
+export function fsrsFieldsFromMs(row: FsrsFieldsMs): FsrsFields {
+  return {
+    ...row,
+    due: new Date(row.due),
+    lastReview: row.lastReview == null ? null : new Date(row.lastReview),
+  };
+}
+
+/** `Date`-based FSRS fields → epoch-millisecond state. */
+export function fsrsFieldsToMs(row: FsrsFields): FsrsFieldsMs {
+  return {
+    due: row.due.getTime(),
+    stability: row.stability,
+    difficulty: row.difficulty,
+    elapsedDays: row.elapsedDays,
+    scheduledDays: row.scheduledDays,
+    learningSteps: row.learningSteps,
+    reps: row.reps,
+    lapses: row.lapses,
+    state: row.state,
+    lastReview: row.lastReview == null ? null : row.lastReview.getTime(),
+  };
+}
+
+/** Pick only the FSRS columns from a wider record. */
+export function pickFsrsFieldsMs(row: FsrsFieldsMs): FsrsFieldsMs {
+  return {
+    due: row.due,
+    stability: row.stability,
+    difficulty: row.difficulty,
+    elapsedDays: row.elapsedDays,
+    scheduledDays: row.scheduledDays,
+    learningSteps: row.learningSteps,
+    reps: row.reps,
+    lapses: row.lapses,
+    state: row.state,
+    lastReview: row.lastReview,
+  };
 }
 
 /** A prerequisite is secured enough to unlock dependents. */
 export function isPrereqSecured(
-  reviewUnit: Pick<DbReviewUnit, "state" | "stability">,
+  reviewUnit: { state: number; stability: number },
   stabilityFloor: number,
 ): boolean {
   return (

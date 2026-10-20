@@ -14,6 +14,7 @@ For more on the philosophy of what inspired this type of thinking, read this Jus
   - [Windows](#windows)
   - [macOS](#macos)
 - [Releases](#releases)
+- [Web app (in development)](#web-app-in-development)
 - [MCP server](#mcp-server)
 - [Card-writing skill](#card-writing-skill)
 - [Development notes](#development-notes)
@@ -110,6 +111,30 @@ Alpha builds are published from GitHub tags. See
 [docs/release.md](apps/desktop/docs/release.md) for the release checklist, artifact targets,
 and current unsigned-build notes.
 
+## Web app (in development)
+
+Armin is moving to an online web app with the same study model: one account,
+one private library, server-side FSRS scheduling, prerequisite graphs, images,
+and a full ZIP export. It is built with TanStack Start, Convex, and Better Auth
+and is not deployed publicly yet. The desktop app above remains the released
+product until the web app passes its launch checks.
+
+- [`apps/web`](apps/web/README.md) — the web client and its local workflow.
+- [`packages/backend`](packages/backend/README.md) — the Convex backend,
+  environment variables, and beta limits.
+- [`apps/mobile`](apps/mobile/README.md) — an Expo smoke client for the same
+  backend.
+- [Development walkthrough](docs/qa/2026-10-19-web-dev-walkthrough.md) — what
+  has been verified so far.
+
+Quick start, after configuring a Convex dev deployment:
+
+```bash
+pnpm install
+pnpm --filter @armin/backend dev   # terminal 1: watch the backend
+pnpm --filter @armin/web dev       # terminal 2: http://localhost:3000
+```
+
 ## MCP server
 
 Armin includes a local stdio MCP server so coding agents can create decks, cards,
@@ -152,7 +177,9 @@ The `skills` CLI discovers skills under `.agents/skills/`, so it picks up
 Early development. Expect lots of bugs and strange behavior.
 
 See [docs/testing.md](apps/desktop/docs/testing.md) for the testing philosophy, test-layer guidance,
-and validation commands used in this codebase.
+and validation commands used in the desktop app. The web migration adds no new
+test suites; it is validated with lint, typecheck, builds, mobile bundle checks,
+and recorded agent walkthroughs in [`docs/qa/`](docs/qa/).
 
 ## Contributions
 

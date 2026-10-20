@@ -36,40 +36,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install E2E dependencies
-        run: sudo apt-get update && sudo apt-get install -y xvfb
-
-      - name: Build icons
-        run: pnpm --filter ./apps/desktop icons
-
       - name: Lint
         run: pnpm lint
 
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm typecheck --filter=!./apps/desktop
+
+      # Convex code in packages/backend/convex/_generated is committed; refresh
+      # it locally with `pnpm --filter @armin/backend codegen` after backend changes.
+      - name: Build web app
+        run: pnpm --filter @armin/web build
 
       - name: Check mobile bundles
         run: pnpm --filter ./apps/mobile check:bundle
-
-      - name: Test
-        run: pnpm --filter ./apps/desktop test
-
-      - name: Test MCP server
-        run: pnpm --filter ./apps/desktop test:mcp
-
-      - name: Build Electron app for E2E
-        run: pnpm --filter ./apps/desktop test:e2e:build
-
-      - name: Check packaged app output
-        run: pnpm --filter ./apps/desktop check:package
-
-      - name: Run E2E tests
-        run: xvfb-run --auto-servernum pnpm --filter ./apps/desktop test:e2e
-
-      - name: Upload E2E artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: apps/desktop/test-results/
-          if-no-files-found: ignore

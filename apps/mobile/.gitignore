@@ -2,3 +2,4 @@
 dist/
 android/
 ios/
+.env.local

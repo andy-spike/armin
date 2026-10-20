@@ -1,0 +1,34 @@
+{
+  "name": "@armin/backend",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Armin Convex backend: account-scoped study data, Better Auth integration, server-owned study operations, private media, and export.",
+  "license": "MIT",
+  "exports": {
+    "./api": "./convex/_generated/api.js",
+    "./data-model": "./convex/_generated/dataModel.d.ts",
+    "./types": "./convex/model/publicTypes.ts"
+  },
+  "scripts": {
+    "dev": "convex dev",
+    "dev:once": "convex dev --once",
+    "codegen": "convex codegen",
+    "typecheck": "tsc --noEmit -p convex"
+  },
+  "dependencies": {
+    "@armin/core": "workspace:*",
+    "@better-auth/expo": "1.6.33",
+    "@convex-dev/better-auth": "0.12.5",
+    "@convex-dev/resend": "0.2.9",
+    "better-auth": "1.6.33",
+    "convex": "1.47.0",
+    "convex-helpers": "^0.1.106",
+    "fflate": "^0.8.3",
+    "ts-fsrs": "^5.4.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3"
+  }
+}
