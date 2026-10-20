@@ -12,8 +12,7 @@ backend, initializes the sample library, and exits. **Start dev** runs `pnpm dev
 when you want to inspect the app. **Start mobile** runs `pnpm dev:mobile` in another
 terminal. Long-running servers are deliberately separate from setup.
 
-These commands must exist in the commit used to create the worktree. Merge this
-setup into `master` before creating new task branches from it. T3's action settings
+These commands must exist in the commit used to create the worktree. T3's action settings
 are machine/app settings; another machine must register the same actions. A fresh
 machine also needs the pinned Node/pnpm versions and `pnpm --filter @armin/backend
 exec convex login` once. Cloud provisioning requires network access and permission
@@ -35,7 +34,10 @@ to create development deployments in `andy-spike:armin`.
 4. Make changes and run the validation required by `AGENTS.md`. Record app
    walkthroughs under `docs/qa/`. Commit regenerated Convex and route files when
    they change. Keep `.armin/`, `.env.local`, and `.convex/` out of commits.
-5. Open the PR against `master`. After checks and review, merge normally. Stop
+5. Open the PR against `master`. Bring the PR up to date with `master` and wait
+   for the required `Verify` check to pass before merging through GitHub. Direct
+   pushes and local Worktrunk merges into `master` are not part of this workflow.
+   Retain the task branch and worktree unless cleanup is requested. Stop
    servers with Ctrl+C before removing the worktree. Code merges through Git;
    fixture accounts, data, environment variables, and keys stay in the deployment.
 

@@ -18,6 +18,18 @@ System-wide decisions live in the root `docs/adr/`. See `docs/agents/domain.md`.
 
 ## Agent worktrees
 
+Every repository change, including features, fixes, documentation, and configuration,
+must be made on a task branch in a separate worktree managed by T3 Code. Before
+editing, verify the current branch and checkout. If the session is on `master` or
+in the main checkout, move the task to a T3 Code worktree before making changes.
+
+Open a GitHub PR targeting `master`, the default branch and release source. Merge
+through GitHub only after the required `Verify` check passes on an up-to-date PR
+and any requested review is resolved. Never push directly to `master`, bypass its
+protections, or merge a task into local `master` with Worktrunk. Keep the task
+branch and worktree available unless the user requests cleanup. Treat production
+deployment as a separate step and report it only when deployment is verified.
+
 Before starting servers, pushing Convex code, or seeding data in a task worktree,
 read `docs/dev-worktrees.md`. Use `pnpm worktree:setup` and the root `pnpm dev*`
 launchers for the checkout's isolated deployment, URLs, ports, and sample account.

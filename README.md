@@ -59,8 +59,14 @@ See [mobile setup](apps/mobile/README.md) for Expo Go, emulator, and networking
 requirements. Stop each command with Ctrl+C;
 Turborepo stops both watchers started by `pnpm dev`.
 
-For parallel agent work, T3 Code can prepare a separate Convex environment and
-sample library for each worktree. See [agent worktree setup](docs/dev-worktrees.md).
+Make every repository change on a task branch in a T3 Code worktree, then open a
+PR against `master`. GitHub requires the PR's `Verify` check to pass with the branch
+up to date before merging, including for administrators. Direct pushes, force
+pushes, and deletion of `master` are blocked. See
+[agent worktree setup](docs/dev-worktrees.md) for isolated development environments.
+
+`master` is the release source. Merging a PR does not currently deploy the app;
+production hosting and deployment automation still need to be configured.
 
 ## Card-writing skill
 
