@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/combobox";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BrowseContentSkeleton } from "@/components/page-skeletons";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -276,7 +277,7 @@ function BrowsePage() {
         </p>
       </header>
 
-      {isInitialLoading && <BrowseSkeleton />}
+      {isInitialLoading && <BrowseContentSkeleton />}
 
       {browseQuery.isError && (
         <div className="flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
@@ -526,32 +527,6 @@ function FilterField({
       </span>
       {children}
     </label>
-  );
-}
-
-function BrowseSkeleton() {
-  return (
-    <div>
-      <Skeleton className="mb-5 h-24 w-full" />
-      <ul className="card-grid grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <li
-            key={i}
-            className="card-tile-collapse flex min-h-[13.5rem] flex-col border border-border bg-surface p-4"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <Skeleton className="h-3 w-32" />
-              <Skeleton className="h-8 w-8 shrink-0" />
-            </div>
-            <Skeleton className="mt-2 h-5 w-16" />
-            <div className="mt-3 flex flex-1 flex-col gap-2">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-3 w-4/5" />
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 

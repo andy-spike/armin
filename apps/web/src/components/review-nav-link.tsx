@@ -16,6 +16,16 @@ const reviewButtonActive = cn(
   "titlebar-no-drag mx-2 shrink-0 sm:mx-4 bg-accent-deep hover:bg-accent-deep focus-visible:ring-inset focus-visible:ring-offset-0",
 );
 
+/** The Review link without its due count, for before the library is ready. */
+export function ReviewNavLinkPlaceholder() {
+  return (
+    <Link to="/review" className={reviewButton} activeProps={{ className: reviewButtonActive }}>
+      <GraduationCap className="h-4 w-4" strokeWidth={1.5} />
+      <span className="hidden sm:inline">Review</span>
+    </Link>
+  );
+}
+
 export function ReviewNavLink() {
   // Reactive: updates when any device reviews or edits, and as time passes.
   const now = useNow();

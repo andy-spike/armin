@@ -41,7 +41,11 @@ import {
   type FlashcardSortKey,
 } from "@/lib/sort-flashcards";
 import { cn, plural } from "@/lib/utils";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DeckCardsSkeleton,
+  DeckHeaderSkeleton,
+  FlashcardGridSkeleton,
+} from "@/components/page-skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -301,7 +305,7 @@ function DeckPage() {
         <DeckHeaderSkeleton />
       )}
 
-      {!deck && <CardsSkeleton />}
+      {!deck && <DeckCardsSkeleton />}
 
       {deck?.total === 0 && !cardsLoading && (
         <EmptyState
@@ -363,7 +367,7 @@ function DeckPage() {
             </div>
           </div>
 
-          {showCardsSkeleton && <CardsSkeleton />}
+          {showCardsSkeleton && <FlashcardGridSkeleton />}
 
           {!showCardsSkeleton && filteredTotal > 0 && (
             <>
@@ -513,22 +517,6 @@ function DeckHeader({
   );
 }
 
-function DeckHeaderSkeleton() {
-  return (
-    <header className="mb-6 mt-4 flex flex-wrap items-end justify-between gap-4">
-      <div className="min-w-0 flex-1">
-        <Skeleton className="h-9 w-full max-w-xs" />
-        <Skeleton className="mt-2 h-4 w-48" />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Skeleton className="h-9 w-20" />
-        <Skeleton className="h-9 w-9" />
-        <Skeleton className="h-9 w-24" />
-      </div>
-    </header>
-  );
-}
-
 function BackLink() {
   return (
     <Link
@@ -556,28 +544,6 @@ function FilterField({
       </span>
       {children}
     </label>
-  );
-}
-
-function CardsSkeleton() {
-  return (
-    <ul className="card-grid grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <li
-          key={i}
-          className="card-tile-collapse flex min-h-[13.5rem] flex-col border border-border bg-surface p-4"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <Skeleton className="h-5 w-16" />
-            <Skeleton className="h-8 w-8 shrink-0" />
-          </div>
-          <div className="mt-3 flex flex-1 flex-col gap-2">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-3 w-4/5" />
-          </div>
-        </li>
-      ))}
-    </ul>
   );
 }
 

@@ -10,6 +10,7 @@ import {
 } from "@/components/scheduling-inputs";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
 import { settingsKeys } from "@/lib/armin-query";
@@ -135,7 +136,19 @@ export function DeckSettingsDialog({
         </header>
 
         {!ready ? (
-          <div className="px-6 py-10 text-sm text-muted">Loading settings…</div>
+          <div
+            role="status"
+            aria-busy
+            className="armin-scrollbar flex-1 space-y-8 overflow-hidden px-6 py-6"
+          >
+            <span className="sr-only">Loading settings…</span>
+            <Section
+              title="Scheduling"
+              description="How FSRS schedules reviews for cards in this deck."
+            >
+              <OverrideRowsSkeleton rows={6} />
+            </Section>
+          </div>
         ) : (
           <div className="armin-scrollbar flex-1 space-y-8 overflow-y-auto px-6 py-6">
             <Section
@@ -294,6 +307,28 @@ function Section({
       <div className="mt-3 border border-border bg-surface">{children}</div>
     </section>
   );
+}
+
+function OverrideRowsSkeleton({ rows }: { rows: number }) {
+  return Array.from({ length: rows }).map((_, i) => (
+    <div
+      key={i}
+      className={cn(
+        "flex items-center justify-between gap-6 px-4 py-3.5",
+        i < rows - 1 && "border-b border-border",
+      )}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex h-5 items-center">
+          <Skeleton className="h-3.5 w-32" />
+        </div>
+        <div className="mt-0.5 flex h-[18px] items-center">
+          <Skeleton className="h-3 w-3/4" />
+        </div>
+      </div>
+      <Skeleton className="h-9 w-24 shrink-0 rounded-none" />
+    </div>
+  ));
 }
 
 function OverrideRow({

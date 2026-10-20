@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { MarkdownContent } from "@/components/ui/markdown-content";
 import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ReviewCardSkeleton, ReviewMetaSkeleton } from "@/components/page-skeletons";
 import { Dialog } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -480,7 +480,7 @@ export function ReviewSession({
         {deckSelector && <div className="shrink-0">{deckSelector}</div>}
       </div>
 
-      {(subtitle || card) && (
+      {(subtitle || card || isLoading) && (
         <div
           className={cn(
             "mt-1.5 flex items-baseline gap-4 text-sm",
@@ -488,6 +488,7 @@ export function ReviewSession({
           )}
         >
           {subtitle && <p className="min-w-0 text-muted">{subtitle}</p>}
+          {isLoading && <ReviewMetaSkeleton />}
           {card && (
             <div
               className={cn(
@@ -512,13 +513,7 @@ export function ReviewSession({
         </div>
       )}
 
-      {isLoading && (
-        <div className="mt-6">
-          <Skeleton className="h-1.5 w-full rounded-full" />
-          <Skeleton className="mt-6 h-[260px] w-full rounded-xl" />
-          <Skeleton className="mt-6 h-11 w-full" />
-        </div>
-      )}
+      {isLoading && <ReviewCardSkeleton />}
 
       {isError && (
         <div className="mt-10 flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
