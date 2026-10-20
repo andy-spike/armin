@@ -19,7 +19,12 @@ const reviewButtonActive = cn(
 /** The Review link without its due count, for before the library is ready. */
 export function ReviewNavLinkPlaceholder() {
   return (
-    <Link to="/review" className={reviewButton} activeProps={{ className: reviewButtonActive }}>
+    <Link
+      to="/review"
+      className={reviewButton}
+      activeProps={{ className: reviewButtonActive }}
+      aria-label="Review"
+    >
       <GraduationCap className="h-4 w-4" strokeWidth={1.5} />
       <span className="hidden sm:inline">Review</span>
     </Link>

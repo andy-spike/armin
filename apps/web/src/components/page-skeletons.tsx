@@ -37,15 +37,15 @@ function FieldSkeleton({ className }: { className?: string }) {
   );
 }
 
-/** The bordered filter/sort bar above a flashcard grid. */
-function FilterBarSkeleton({ fields }: { fields: number }) {
+/** Mirrors Browse's State, Deck, Tag, and Sort fields, including their widths. */
+function BrowseFilterBarSkeleton() {
   return (
     <div className="mb-5 border border-border bg-bg-2 px-4 py-3">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-wrap items-end gap-4">
-          {Array.from({ length: fields }).map((_, i) => (
-            <FieldSkeleton key={i} className="w-36" />
-          ))}
+          <FieldSkeleton className="w-36" />
+          <FieldSkeleton className="w-52" />
+          <FieldSkeleton className="w-44" />
         </div>
         <FieldSkeleton className="w-44" />
       </div>
@@ -153,7 +153,7 @@ export function FlashcardGridSkeleton({ showDeck = false }: { showDeck?: boolean
 export function BrowseContentSkeleton() {
   return (
     <>
-      <FilterBarSkeleton fields={3} />
+      <BrowseFilterBarSkeleton />
       <FlashcardGridSkeleton showDeck />
     </>
   );
