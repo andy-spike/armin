@@ -1,6 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { ConvexHttpClient } from "convex/browser";
 import { anyApi as api } from "convex/server";
@@ -15,19 +14,11 @@ import {
 export async function seedWorktree() {
   const state = readState();
   const values = assertTarget(state);
-  if (state.seeded) {
-    console.log(
-      "Sample library already initialized; keeping all edits and reviews.",
-    );
-    return;
-  }
   const credentialsPath = join(root, ".armin/demo-account.json");
-  const credentials = existsSync(credentialsPath)
-    ? JSON.parse(readFileSync(credentialsPath, "utf8"))
-    : {
-        email: `demo-${state.id}@example.com`,
-        password: randomBytes(24).toString("base64url"),
-      };
+  const credentials = {
+    email: "test@example.com",
+    password: "armin1234",
+  };
   writeFileSync(credentialsPath, `${JSON.stringify(credentials, null, 2)}\n`, {
     mode: 0o600,
   });
@@ -53,6 +44,7 @@ export async function seedWorktree() {
     model: "user",
     where: [{ field: "email", operator: "eq", value: credentials.email }],
   });
+  const createdUser = !user;
   if (!user) {
     user = adapter("create", {
       input: {
@@ -118,6 +110,10 @@ export async function seedWorktree() {
   client.setAuth(token);
   try {
     await client.mutation(api.account.ensureLibrary, { timeZone: "UTC" });
+    if (state.seeded && !createdUser) {
+      console.log("Test login verified; keeping all existing sample data.");
+      return;
+    }
     const { id: deckId } = await client.mutation(api.decks.create, {
       name: "Agent sample library",
       description: "Synthetic data for this worktree only.",

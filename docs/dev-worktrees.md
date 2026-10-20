@@ -26,7 +26,9 @@ to create development deployments in `andy-spike:armin`.
 2. Run `pnpm dev`. The launcher prints this checkout's web URL and deployment
    reference. Use that exact URL for browser checks. `pnpm dev:web` and
    `pnpm dev:backend` also work individually.
-3. Read `.armin/demo-account.json` locally for the synthetic email and password.
+3. Use `test@example.com` with password `armin1234` for the development test
+   account. Setup also writes these credentials to `.armin/demo-account.json`.
+   Each deployment has its own account and library with this same login.
    Sign in through the normal app. Each library starts with basic, cloze, and
    typed-answer cards, plus a prerequisite that locks one card. The seed is an
    operator CLI script, with no fixture endpoint in the deployed application.
@@ -38,7 +40,9 @@ to create development deployments in `andy-spike:armin`.
    fixture accounts, data, environment variables, and keys stay in the deployment.
 
 Setup is repeatable. It reuses the selected deployment and local port allocation;
-it does not reset sample data, passwords, edits, or reviews. `pnpm worktree:seed`
+it does not reset sample data, passwords, edits, or reviews. Existing deployments
+created with a random demo login get a separate account with the shared test login
+on the next seed run; the original account and its data remain available. `pnpm worktree:seed`
 retries an interrupted sample initialization. It does nothing after initialization
 has finished, including when you intentionally delete the sample deck.
 
