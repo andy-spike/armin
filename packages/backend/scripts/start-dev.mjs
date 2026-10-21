@@ -1,30 +1,11 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import {
-  assertTarget,
-  readState,
-  root,
-  run,
-  statePath,
-} from "./dev-environment.mjs";
+import { assertTarget, readState, root } from "./dev-environment.mjs";
 
 const mode = process.argv[2];
 const extra = process.argv.slice(3);
-let state;
 try {
-  const gitDir = run("git", ["rev-parse", "--absolute-git-dir"], {
-    cwd: root,
-    stdio: "pipe",
-  });
-  const common = run(
-    "git",
-    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    { cwd: root, stdio: "pipe" },
-  );
-  if (gitDir !== common || existsSync(statePath)) {
-    state = readState();
-    assertTarget(state);
-  }
+  const state = readState();
+  assertTarget(state);
   const commands = {
     web: ["--filter", "@armin/web", "dev"],
     backend: ["--filter", "@armin/backend", "dev"],
@@ -33,21 +14,21 @@ try {
       "@armin/mobile",
       "start",
       "--port",
-      String(state?.mobilePort ?? 8081),
+      String(state.mobilePort),
     ],
     android: [
       "--filter",
       "@armin/mobile",
       "android",
       "--port",
-      String(state?.mobilePort ?? 8081),
+      String(state.mobilePort),
     ],
     ios: [
       "--filter",
       "@armin/mobile",
       "ios",
       "--port",
-      String(state?.mobilePort ?? 8081),
+      String(state.mobilePort),
     ],
     all: [
       "exec",
@@ -59,11 +40,10 @@ try {
     ],
   };
   if (!commands[mode]) throw new Error(`Unknown dev target: ${mode}`);
-  const env = { ...process.env };
-  if (state) {
-    env.ARMIN_WEB_PORT = String(state.webPort);
-    console.log(`Web: ${state.siteUrl}\nConvex: ${state.reference}`);
-  }
+  const env = { ...process.env, ARMIN_WEB_PORT: String(state.webPort) };
+  console.log(
+    `Web: ${state.siteUrl}\nConvex: http://127.0.0.1:${state.convexPort} (local)`,
+  );
   const child = spawn("pnpm", [...commands[mode], ...extra], {
     cwd: root,
     env,

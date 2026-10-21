@@ -113,25 +113,33 @@ for the observation and interaction workflow.
 
 For agent worktrees, use the root `pnpm worktree:setup` and `pnpm dev:mobile`
 commands. Setup writes the worktree's backend URLs and the launcher selects its
-allocated Metro port. SecureStore sessions are separated by Convex hostname.
+allocated Metro port. Checkouts share one SecureStore session slot per device,
+so sign in again after switching bundles.
 See [worktree environments](../../docs/dev-worktrees.md).
 
-## Connect to the Convex dev deployment
+## Connect to the local Convex deployment
 
-Create `apps/mobile/.env.local` from `.env.example` with the same deployment
-URLs as `apps/web/.env.local`:
+`pnpm dev:setup` writes `apps/mobile/.env.local` with this checkout's local
+Convex URLs on the machine's LAN IPv4 address, for example:
 
 ```bash
-EXPO_PUBLIC_CONVEX_URL=https://<deployment>.convex.cloud
-EXPO_PUBLIC_CONVEX_SITE_URL=https://<deployment>.convex.site
+EXPO_PUBLIC_CONVEX_URL=http://192.168.1.20:3210
+EXPO_PUBLIC_CONVEX_SITE_URL=http://192.168.1.20:3211
 ```
 
-Better Auth talks to the deployment's `.convex.site` origin directly and stores
+The local backend listens on all interfaces, so Expo Go on a phone on the same
+network and the Android emulator both reach it at that address. Keep `pnpm dev`
+running. If the address changes, rerun `pnpm --filter @armin/backend dev:clients`;
+override it with `ARMIN_DEV_HOST=<address>`. Where LAN traffic is blocked, use
+`ARMIN_DEV_HOST=127.0.0.1` and `adb reverse` the Expo and both Convex ports.
+A phone that cannot reach this machine needs a cloud deployment instead.
+
+Better Auth talks to the deployment's site (HTTP actions) origin directly and stores
 the session in `expo-secure-store`. The deployment must trust the app's origin:
-the backend defaults to `armin://`, and the development deployment sets
+the backend defaults to `armin://`, and dev setup sets
 `MOBILE_TRUSTED_ORIGINS=armin://,exp://,exp://**` for Expo Go (see
-`packages/backend/README.md`). Sign in with an account that has verified its
-email and opened the web app once, which creates its library.
+`packages/backend/README.md`). Sign in with the sample account (`test@example.com` / `armin1234`), or an
+account that has verified its email and opened the web app once.
 
 Private images are fetched with an `Authorization: Bearer <Convex token>`
 header and shown from the downloaded bytes. Android's `Image` component drops
@@ -139,7 +147,7 @@ custom request headers in this setup, so don't pass the token to `Image`
 directly.
 
 Google sign-in on mobile is not wired yet. It needs the deployment's
-`https://<deployment>.convex.site/api/auth/callback/google` registered as an
+`<site URL>/api/auth/callback/google` registered as an
 additional redirect URI on the Google OAuth client.
 
 If Metro only listens on IPv6 (`[::1]:8081`), the emulator's `10.0.2.2` alias

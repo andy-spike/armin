@@ -8,6 +8,7 @@ import {
   rmSync,
 } from "node:fs";
 import { createServer } from "node:net";
+import { networkInterfaces } from "node:os";
 import { dirname, join } from "node:path";
 import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -38,6 +39,48 @@ export function convex(args, options) {
   return run("pnpm", ["exec", "convex", ...args], options);
 }
 
+// The local backend runs "use node" actions with the Node on PATH, and only
+// accepts these majors. The repository pins 24 in .nvmrc.
+export function assertNode() {
+  const major = Number(process.versions.node.split(".")[0]);
+  if (![20, 22, 24].includes(major))
+    throw new Error(
+      `Node ${process.versions.node} cannot run Convex "use node" actions locally. Use Node 24 from .nvmrc, e.g. mise exec node@24 -- pnpm worktree:setup.`,
+    );
+}
+
+export function convexPortArgs(state) {
+  return [
+    "--local-cloud-port",
+    String(state.convexPort),
+    "--local-site-port",
+    String(state.convexSitePort),
+  ];
+}
+
+// Expo Go runs on another device, so mobile URLs need an address it can reach.
+// The local backend listens on all interfaces. Override with ARMIN_DEV_HOST.
+export function lanHost() {
+  if (process.env.ARMIN_DEV_HOST) return process.env.ARMIN_DEV_HOST;
+  for (const entries of Object.values(networkInterfaces()))
+    for (const entry of entries ?? [])
+      if (entry.family === "IPv4" && !entry.internal) return entry.address;
+  return "127.0.0.1";
+}
+
+export function isMainCheckout() {
+  const gitDir = run("git", ["rev-parse", "--absolute-git-dir"], {
+    cwd: root,
+    stdio: "pipe",
+  });
+  const common = run(
+    "git",
+    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    { cwd: root, stdio: "pipe" },
+  );
+  return gitDir === common;
+}
+
 export function readEnv(path) {
   return existsSync(path) ? parseEnv(readFileSync(path, "utf8")) : {};
 }
@@ -54,12 +97,25 @@ export function updateEnv(path, values) {
   writeFileSync(path, text, { mode: 0o600 });
 }
 
+export function unsetEnv(path, keys) {
+  const text = readFileSync(path, "utf8");
+  const pattern = new RegExp(
+    `^\\s*(?:export\\s+)?(?:${keys.join("|")})\\s*=.*\\n?`,
+    "gm",
+  );
+  writeFileSync(path, text.replace(pattern, ""), { mode: 0o600 });
+}
+
 export function readState() {
   if (!existsSync(statePath))
     throw new Error(
-      "Run pnpm worktree:setup before starting an agent environment.",
+      "Run pnpm dev:setup (or pnpm worktree:setup) before starting the dev environment.",
     );
   const state = JSON.parse(readFileSync(statePath, "utf8"));
+  if (state.version !== 2)
+    throw new Error(
+      "This checkout was set up for a Convex cloud dev deployment. Delete .armin/dev.json and packages/backend/.env.local, then rerun setup to use a local deployment.",
+    );
   if (state.root !== root)
     throw new Error(
       "Environment belongs to a different checkout. Run setup in a fresh worktree; never copy .armin or .env.local files.",
@@ -69,14 +125,13 @@ export function readState() {
 
 export function assertTarget(state) {
   const values = readEnv(join(backend, ".env.local"));
-  const keyDeployment = values.CONVEX_DEPLOY_KEY?.match(/^dev:([^|]+)\|/u)?.[1];
   if (
-    !state.deployment ||
-    keyDeployment !== state.deployment ||
-    values.CONVEX_DEPLOYMENT !== `dev:${state.deployment}`
+    !values.CONVEX_DEPLOYMENT?.startsWith("anonymous:") ||
+    values.CONVEX_DEPLOY_KEY ||
+    values.CONVEX_URL !== `http://127.0.0.1:${state.convexPort}`
   ) {
     throw new Error(
-      "Convex selection does not match this worktree's scoped dev key. Refusing to push or seed.",
+      "Convex selection is not this checkout's local deployment. Refusing to push or seed. Rerun pnpm dev:setup.",
     );
   }
   for (const name of [
@@ -104,10 +159,22 @@ function portFree(port) {
   return new Promise((resolvePort) => {
     const server = createServer();
     server.once("error", () => resolvePort(false));
-    server.listen(port, "127.0.0.1", () =>
-      server.close(() => resolvePort(true)),
-    );
+    server.listen(port, () => server.close(() => resolvePort(true)));
   });
+}
+
+// The main checkout keeps the conventional ports.
+export function mainState() {
+  return {
+    version: 2,
+    root,
+    id: "main",
+    webPort: 3000,
+    mobilePort: 8081,
+    convexPort: 3210,
+    convexSitePort: 3211,
+    siteUrl: "http://localhost:3000",
+  };
 }
 
 export async function allocate() {
@@ -139,29 +206,42 @@ export async function allocate() {
       : {};
     for (const path of Object.keys(registry))
       if (!existsSync(path)) delete registry[path];
-    if (registry[root]) return registry[root];
+    if (registry[root]?.version === 2) return registry[root];
     const id = createHash("sha256").update(root).digest("hex").slice(0, 10);
-    const start = Number.parseInt(id.slice(0, 6), 16) % 15000;
-    for (let offset = 0; offset < 15000; offset++) {
-      const webPort = 10000 + ((start + offset) % 15000) * 2;
-      const mobilePort = webPort + 1;
-      if (Object.values(registry).some((entry) => entry.webPort === webPort))
-        continue;
-      if (!(await portFree(webPort)) || !(await portFree(mobilePort))) continue;
+    const taken = new Set(
+      Object.entries(registry)
+        .filter(([path]) => path !== root)
+        .flatMap(([, entry]) => [
+          entry.webPort,
+          entry.mobilePort,
+          entry.convexPort,
+          entry.convexSitePort,
+        ]),
+    );
+    // Each checkout gets a block of four: web, Expo, Convex API, Convex HTTP.
+    const start = Number.parseInt(id.slice(0, 6), 16) % 7500;
+    for (let offset = 0; offset < 7500; offset++) {
+      const webPort = 10000 + ((start + offset) % 7500) * 4;
+      const ports = [webPort, webPort + 1, webPort + 2, webPort + 3];
+      if (ports.some((port) => taken.has(port))) continue;
+      let free = true;
+      for (const port of ports) free &&= await portFree(port);
+      if (!free) continue;
       const state = {
-        version: 1,
+        version: 2,
         root,
         id,
         webPort,
-        mobilePort,
+        mobilePort: webPort + 1,
+        convexPort: webPort + 2,
+        convexSitePort: webPort + 3,
         siteUrl: `http://armin-${id}.localhost:${webPort}`,
-        reference: `andy-spike:armin:dev/t3code/${id}`,
       };
       registry[root] = state;
       writeFileSync(registryPath, `${JSON.stringify(registry, null, 2)}\n`);
       return state;
     }
-    throw new Error("No worktree port pair is available.");
+    throw new Error("No worktree port block is available.");
   } finally {
     rmSync(lock, { recursive: true });
   }
