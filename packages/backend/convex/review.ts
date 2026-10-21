@@ -193,6 +193,12 @@ export const rate = mutation({
       version,
       updatedAt: now,
     });
+    // An accepted review proves this flashcard was accessible, including root
+    // cards. Later prerequisite edits and Undo must not revoke that access.
+    const flashcard = await ctx.db.get(unit.flashcardId);
+    if (flashcard && flashcard.prerequisiteAccessGranted !== true) {
+      await ctx.db.patch(flashcard._id, { prerequisiteAccessGranted: true });
+    }
     const reviewLogId = await ctx.db.insert("reviewLogs", {
       libraryId: library._id,
       deckId: unit.deckId,

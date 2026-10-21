@@ -252,6 +252,7 @@ export const create = mutation({
       posX: null,
       posY: null,
       locked: false,
+      prerequisiteAccessGranted: false,
       archived: false,
       version: 1,
       createdAt: now,

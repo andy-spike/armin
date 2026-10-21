@@ -45,7 +45,8 @@ Client entry points (see `package.json` `exports`):
   (locks, archive, due time, the account-wide Frontier cap in the account
   timezone), runs FSRS at server time, and writes the schedule, the review log,
   and prerequisite lock changes in one mutation. Undo restores the exact saved
-  pre-review state only while that review is still the unit's latest.
+  pre-review schedule only while that review is still the unit's latest. Earned
+  prerequisite access is permanent and survives lapses, Undo, and authoring changes.
 - Edits name the version they started from. The first accepted edit wins; a
   stale save returns a conflict and changes nothing. Creates, ratings, and
   undos take a client request ID so an application-level retry returns the
@@ -69,6 +70,21 @@ and schedules bounded history cleanup. Graph writes compare the displayed
 library revision, so another saved library change can require a graph reload.
 
 ## Development
+
+When deploying the unlock-once policy to an existing deployment, run the bounded,
+idempotent backfill after pushing the new backend and before resuming study:
+
+```bash
+pnpm --filter @armin/backend exec convex run maintenance:grantLegacyPrerequisiteAccess '{}'
+```
+
+Each batch processes one flashcard and schedules the next batch. This also bounds
+read size when a cloze flashcard has many large review units.
+Check the scheduled functions in that deployment until the migration finishes.
+It preserves unlocked cards, restores locked cards with surviving review history,
+and leaves unreviewed locked cards gated. No lifetime review-log scan is needed.
+Run this only against the intended deployment; task worktrees use their scoped
+development key. New flashcards record their access state immediately.
 
 Run `pnpm dev:setup` from the repository root to configure/push the development
 deployment and copy its public URLs into the web and mobile `.env.local` files.

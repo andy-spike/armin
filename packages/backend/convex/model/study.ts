@@ -270,6 +270,12 @@ export async function deleteReviewUnit(ctx: MutationCtx, id: Id<"reviewUnits">) 
 
 // --- Prerequisite lock state ---
 
+/** Preserve access already earned, including currently unlocked legacy cards. */
+function hasPrerequisiteAccess(flashcard: Doc<"flashcards">) {
+  return flashcard.prerequisiteAccessGranted === true ||
+    (flashcard.prerequisiteAccessGranted === undefined && !flashcard.locked);
+}
+
 async function dependentsOf(ctx: QueryCtx, flashcardId: Id<"flashcards">) {
   const edges = await ctx.db
     .query("prereqs")
@@ -296,15 +302,16 @@ async function collectTransitiveDependents(
 }
 
 /**
- * A flashcard is locked when any non-archived prerequisite has a review unit
- * that is not yet secured (Review state with stability at or above the
- * dependent deck's floor). A prerequisite with no review units never secures.
+ * Access is permanent once granted. Before that milestone, every unit of
+ * every non-archived prerequisite must be secured at the dependent deck's
+ * floor. A prerequisite with no review units never secures.
  */
 async function computeLocked(
   ctx: QueryCtx,
   flashcard: Doc<"flashcards">,
   settings: SettingsCache,
 ): Promise<boolean> {
+  if (hasPrerequisiteAccess(flashcard)) return false;
   const edges = await ctx.db
     .query("prereqs")
     .withIndex("by_dependent", (q) => q.eq("dependentId", flashcard._id))
@@ -337,8 +344,11 @@ async function applyLockState(
   now: number,
   loadedUnits?: Doc<"reviewUnits">[],
 ) {
-  if (flashcard.locked !== locked) {
-    await ctx.db.patch(flashcard._id, { locked });
+  if (flashcard.locked !== locked || flashcard.prerequisiteAccessGranted !== !locked) {
+    await ctx.db.patch(flashcard._id, {
+      locked,
+      prerequisiteAccessGranted: !locked,
+    });
   }
   const units =
     loadedUnits ??
@@ -366,6 +376,27 @@ async function applyLockState(
       });
     }
   }
+}
+
+/**
+ * Backfill old cards without reading unbounded review history. Existing
+ * access and any surviving review history prove the card was accessible.
+ */
+export async function migratePrerequisiteAccess(
+  ctx: MutationCtx,
+  flashcard: Doc<"flashcards">,
+  now: number,
+) {
+  if (flashcard.prerequisiteAccessGranted !== undefined) return false;
+  const units = await ctx.db
+    .query("reviewUnits")
+    .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcard._id))
+    .collect();
+  const granted = !flashcard.locked || units.some(
+    (unit) => unit.reps > 0 || unit.lastReview != null,
+  );
+  await applyLockState(ctx, flashcard, !granted, now, units);
+  return true;
 }
 
 export async function refreshLockState(
@@ -444,7 +475,7 @@ export async function refreshAllLocks(
     const dependent = cards.get(dependentId);
     if (!dependent) continue;
     const floor = (await settings.forDeck(dependent.deckId)).prereqStabilityFloor;
-    const locked = prereqIds.some((prereqId) => {
+    const locked = !hasPrerequisiteAccess(dependent) && prereqIds.some((prereqId) => {
       const prereq = cards.get(prereqId);
       if (!prereq || prereq.archived) return false;
       const prereqUnits = unitsOf.get(prereqId) ?? [];

@@ -104,6 +104,8 @@ export default defineSchema({
     posX: v.union(v.number(), v.null()),
     posY: v.union(v.number(), v.null()),
     locked: v.boolean(),
+    /** Permanent access milestone. Absent only on pre-policy flashcards. */
+    prerequisiteAccessGranted: v.optional(v.boolean()),
     archived: v.boolean(),
     /** Incremented on every authored change; edits must name the version they started from. */
     version: v.number(),
