@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { checkParameters } from "ts-fsrs";
 import { SCHEDULING_PRESET_VALUES } from "@armin/core/scheduling-presets";
 import { resolveEffectiveSettings } from "@armin/core/study";
 import { mutation, query } from "./_generated/server";
@@ -30,8 +31,9 @@ function checkWeights(value: string | null | undefined) {
   try {
     const parsed = JSON.parse(value) as unknown;
     if (!Array.isArray(parsed) || parsed.some((n) => typeof n !== "number")) throw 0;
+    checkParameters(parsed);
   } catch {
-    fail("INVALID", "FSRS weights must be a JSON array of numbers.");
+    fail("INVALID", "FSRS weights must be a JSON array of 17, 19, or 21 finite numbers.");
   }
 }
 

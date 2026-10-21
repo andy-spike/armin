@@ -74,6 +74,16 @@ function formatReviewHistory(consequences: FlashcardDeleteConsequences | null) {
   return `${plural(consequences.reviewLogCount, "review log")} across ${plural(consequences.reviewUnitCount, "review unit")} will be destroyed${span}.`;
 }
 
+type SessionReviewUnit = UiReviewUnit & {
+  /** Stable identity for this occurrence, even when its unit version changes. */
+  turnId: string;
+  reviewed: boolean;
+};
+
+function sessionReviewUnit(unit: UiReviewUnit) {
+  return { ...unit, turnId: `${unit.id}:${unit.version}`, reviewed: false };
+}
+
 /**
  * Merge a fresh queue into the running session. Cards not yet on screen take
  * the latest data, new due cards are appended, and the card being answered
@@ -81,27 +91,44 @@ function formatReviewHistory(consequences: FlashcardDeleteConsequences | null) {
  * flagged stale instead of being swapped under them.
  */
 function reconcileSessionCards(
-  current: UiReviewUnit[],
+  current: SessionReviewUnit[],
   incoming: UiReviewUnit[],
-  activeId: string | undefined,
-): { cards: UiReviewUnit[]; staleActive: UiReviewUnit | null } {
+  activeTurnId: string | undefined,
+) {
   const incomingById = new Map(incoming.map((c) => [c.id, c]));
-  const currentIds = new Set(current.map((c) => c.id));
+  const pendingIds = new Set(current.filter((c) => !c.reviewed).map((c) => c.id));
+  const reviewedVersions = new Map<string, number>();
+  for (const c of current) {
+    if (c.reviewed) {
+      reviewedVersions.set(
+        c.id,
+        Math.max(reviewedVersions.get(c.id) ?? 0, c.version),
+      );
+    }
+  }
   let staleActive: UiReviewUnit | null = null;
   const updated = current.map((c) => {
+    if (c.reviewed) return c;
     const next = incomingById.get(c.id);
-    if (!next) return c;
-    if (c.id === activeId && next.version !== c.version) {
+    if (!next || next.version < c.version) return c;
+    if (c.turnId === activeTurnId && next.version !== c.version) {
       staleActive = next;
       return c;
     }
-    return next;
+    return { ...c, ...next };
   });
-  const appended = incoming.filter((c) => !currentIds.has(c.id));
+  // A completed occurrence stays in history. A newly due occurrence belongs
+  // ahead of the cursor, but an old queue response must not resurrect it.
+  const appended = incoming
+    .filter((c) =>
+      !pendingIds.has(c.id) && c.version >= (reviewedVersions.get(c.id) ?? 0),
+    )
+    .map(sessionReviewUnit);
   return { cards: [...updated, ...appended], staleActive };
 }
 
 type HistoryEntry = {
+  turnId: string;
   reviewUnitId: string;
   reviewLogId: string;
   version: number;
@@ -172,7 +199,7 @@ export function ReviewSession({
   const [flipped, setFlipped] = useState(false);
   const [rating, setRating] = useState<Grade | null>(null);
   const [typed, setTyped] = useState("");
-  const [sessionCards, setSessionCards] = useState<UiReviewUnit[]>([]);
+  const [sessionCards, setSessionCards] = useState<SessionReviewUnit[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [pending, setPending] = useState<PendingRating | null>(null);
   const [staleCard, setStaleCard] = useState<{ next: UiReviewUnit | null; message: string } | null>(null);
@@ -208,7 +235,7 @@ export function ReviewSession({
       ? [...reviewKeys.preview(card.id), card.version]
       : ["review", "preview", "none"],
     queryFn: () => loadPreview(card!.id),
-    enabled: Boolean(card),
+    enabled: Boolean(card && !card.reviewed),
   });
 
   const intervalLabels = new Map<Grade, string>(
@@ -225,22 +252,15 @@ export function ReviewSession({
 
   const removeFromSession = useCallback((reviewUnitId: string) => {
     setSessionCards((prev) => {
-      const removeIdx = prev.findIndex((c) => c.id === reviewUnitId);
       const next = prev.filter((c) => c.id !== reviewUnitId);
-      setIndex((i) => {
-        if (removeIdx < 0) return i;
-        if (i > removeIdx) return i - 1;
-        return Math.min(i, Math.max(0, next.length - 1));
-      });
+      setIndex((i) => Math.min(
+        i - prev.slice(0, i).filter((c) => c.id === reviewUnitId).length,
+        next.length,
+      ));
       return next;
     });
     setHistory((h) => h.filter((entry) => entry.reviewUnitId !== reviewUnitId));
   }, []);
-
-  const setCardVersion = (reviewUnitId: string, version: number) =>
-    setSessionCards((prev) =>
-      prev.map((c) => (c.id === reviewUnitId ? { ...c, version } : c)),
-    );
 
   /**
    * Submit an answer for the card on screen. The request id is reused if the
@@ -249,7 +269,7 @@ export function ReviewSession({
    * connection) the buttons stay disabled until the server's outcome arrives.
    */
   const rate = async (grade: Grade) => {
-    if (!card || rating || staleCard) return;
+    if (!card || card.reviewed || rating || undoing || staleCard) return;
     if (!online && !pending) return;
     const attempt =
       pending && pending.cardId === card.id && pending.rating === grade
@@ -264,9 +284,16 @@ export function ReviewSession({
       if (result.status === "ok") {
         setHistory((h) => [
           ...h,
-          { reviewUnitId: card.id, reviewLogId: result.reviewLogId, version: result.version },
+          {
+            turnId: card.turnId,
+            reviewUnitId: card.id,
+            reviewLogId: result.reviewLogId,
+            version: result.version,
+          },
         ]);
-        setCardVersion(card.id, result.version);
+        setSessionCards((prev) => prev.map((c) => c.turnId === card.turnId
+          ? { ...c, version: result.version, reviewed: true }
+          : c));
         setFlipped(false);
         setTyped("");
         setIndex((i) => i + 1);
@@ -289,7 +316,7 @@ export function ReviewSession({
     if (!card || !staleCard) return;
     if (staleCard.next) {
       const next = staleCard.next;
-      setSessionCards((prev) => prev.map((c) => (c.id === next.id ? next : c)));
+      setSessionCards((prev) => prev.map((c) => (c.turnId === card.turnId ? { ...c, ...next } : c)));
     } else {
       removeFromSession(card.id);
     }
@@ -300,15 +327,17 @@ export function ReviewSession({
   };
 
   const goPrev = () => {
+    if (rating || undoing) return;
     if (index > 0) setIndex((i) => i - 1);
   };
 
   const goNext = () => {
+    if (rating || undoing) return;
     if (index < cards.length - 1) setIndex((i) => i + 1);
   };
 
   const undoLast = async () => {
-    if (!onUndo || history.length === 0 || undoing || !online) return;
+    if (!onUndo || history.length === 0 || undoing || rating || !online) return;
     const last = history[history.length - 1]!;
     setUndoing(true);
     setNotice(null);
@@ -316,8 +345,15 @@ export function ReviewSession({
       const result = await onUndo(last, `undo:${last.reviewLogId}`);
       setHistory((h) => h.slice(0, -1));
       if (result.status === "ok") {
-        setCardVersion(last.reviewUnitId, result.version);
-        const idx = sessionCards.findIndex((c) => c.id === last.reviewUnitId);
+        // Undo returns to the exact occurrence that was answered, removing
+        // any waiting repeat of that unit so it cannot appear twice.
+        const restored = sessionCards
+          .filter((c) => c.id !== last.reviewUnitId || c.reviewed)
+          .map((c) => c.turnId === last.turnId
+            ? { ...c, version: result.version, reviewed: false }
+            : c);
+        setSessionCards(restored);
+        const idx = restored.findIndex((c) => c.turnId === last.turnId);
         if (idx >= 0) setIndex(idx);
         setStaleCard(null);
         setFlipped(false);
@@ -387,7 +423,14 @@ export function ReviewSession({
     onEditFlashcard || onArchiveFlashcard || onDeleteFlashcard,
   );
 
+  const sessionRef = useRef<{
+    cards: SessionReviewUnit[];
+    activeTurnId: string | undefined;
+  }>({ cards: sessionCards, activeTurnId: card?.turnId });
+  sessionRef.current = { cards: sessionCards, activeTurnId: card?.turnId };
+
   useEffect(() => {
+    sessionRef.current = { cards: [], activeTurnId: undefined };
     setIndex(0);
     setFlipped(false);
     setTyped("");
@@ -398,31 +441,24 @@ export function ReviewSession({
     setNotice(null);
   }, [resetKey]);
 
-  const activeIdRef = useRef<string | undefined>(undefined);
-  activeIdRef.current = card?.id;
-
   useEffect(() => {
-    if (isLoading || isError) return;
-    let staleNext: UiReviewUnit | null = null;
-    setSessionCards((prev) => {
-      if (prev.length === 0) return queue;
-      const merged = reconcileSessionCards(prev, queue, activeIdRef.current);
-      staleNext = merged.staleActive;
-      return merged.cards;
-    });
-    if (staleNext) {
+    if (isLoading || isError || rating !== null || undoing) return;
+    const current = sessionRef.current;
+    const merged = reconcileSessionCards(current.cards, queue, current.activeTurnId);
+    setSessionCards(merged.cards);
+    if (merged.staleActive) {
       setStaleCard({
-        next: staleNext,
+        next: merged.staleActive,
         message: "This card was changed in another tab or device.",
       });
     }
-  }, [isLoading, isError, queue]);
+  }, [isLoading, isError, queue, rating, undoing]);
 
   useEffect(() => {
     setFlipped(false);
     setTyped("");
     setStaleCard(null);
-  }, [card?.id]);
+  }, [card?.turnId]);
 
   const reviewActive = !isLoading && !isError && Boolean(card);
 
@@ -559,7 +595,7 @@ export function ReviewSession({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={history.length === 0 || undoing || !online}
+                disabled={history.length === 0 || undoing || rating !== null || !online}
                 onClick={() => void undoLast()}
                 aria-label="Undo last review"
               >
@@ -720,7 +756,7 @@ export function ReviewSession({
               variant="outline"
               size="lg"
               className="shrink-0 px-3"
-              disabled={index === 0}
+              disabled={index === 0 || rating !== null || undoing}
               onClick={goPrev}
               aria-label="Previous review unit"
             >
@@ -741,7 +777,7 @@ export function ReviewSession({
                     <button
                       key={r.grade}
                       onClick={() => void rate(r.grade)}
-                      disabled={rating !== null || Boolean(staleCard) || (!online && !pending)}
+                      disabled={card.reviewed || rating !== null || undoing || Boolean(staleCard) || (!online && !pending)}
                       className={cn(
                         "flex flex-col items-center justify-center gap-0.5 rounded-md px-3 py-2.5 text-sm font-medium text-on-accent transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
                         r.bg,
@@ -771,13 +807,16 @@ export function ReviewSession({
               variant="outline"
               size="lg"
               className="shrink-0 px-3"
-              disabled={index >= cards.length - 1}
+              disabled={index >= cards.length - 1 || rating !== null || undoing}
               onClick={goNext}
               aria-label="Next review unit"
             >
               <ChevronRight className="h-5 w-5" />
             </Button>
           </div>
+          {card.reviewed && (
+            <p className="mt-3 text-center text-sm text-muted">Already reviewed. Use Undo to change your last answer.</p>
+          )}
         </div>
       )}
 
