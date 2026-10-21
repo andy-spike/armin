@@ -20,7 +20,14 @@ async function deckStats(
     .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
     .collect();
   const active = units.filter((unit) => !unit.archived);
-  const flashcardIds = new Set(active.map((unit) => unit.flashcardId));
+  // Progress is counted in flashcards: a flashcard is learned only when every
+  // review unit it generates (both directions, every cloze deletion) is in
+  // FSRS Review state, so `learned` never exceeds `total`.
+  const learnedByFlashcard = new Map<string, boolean>();
+  for (const unit of active) {
+    const learned = learnedByFlashcard.get(unit.flashcardId) ?? true;
+    learnedByFlashcard.set(unit.flashcardId, learned && unit.state === State.Review);
+  }
   const session = await selectSession(ctx, library, deck._id, now);
   return {
     id: deck._id,
@@ -29,13 +36,13 @@ async function deckStats(
     version: deck.version,
     createdAt: deck.createdAt,
     updatedAt: deck.updatedAt,
-    total: flashcardIds.size,
+    total: learnedByFlashcard.size,
     due: session.reviews.length + session.frontier.length,
     newCount: active.filter((unit) => unit.state === State.New).length,
     learning: active.filter(
       (unit) => unit.state === State.Learning || unit.state === State.Relearning,
     ).length,
-    learned: active.filter((unit) => unit.state === State.Review).length,
+    learned: [...learnedByFlashcard.values()].filter(Boolean).length,
   };
 }
 
