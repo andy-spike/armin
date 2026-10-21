@@ -1,4 +1,9 @@
-import { MarkerType, type Edge, type XYPosition } from "@xyflow/react";
+import {
+  MarkerType,
+  Position,
+  type Edge,
+  type XYPosition,
+} from "@xyflow/react";
 import type { UiDeckGraph } from "@/types/view-models";
 import { CARD_NODE_HEIGHT, CARD_NODE_WIDTH } from "@/lib/graph-layout";
 import type { CardFlowNode } from "@/components/prerequisite-graph/flashcard-node";
@@ -99,6 +104,44 @@ export function graphNodePreview(value: string) {
   return `${compact.slice(0, CARD_PREVIEW_LIMIT - 1).trimEnd()}…`;
 }
 
+/**
+ * The card's four connect points, declared up front. React Flow force-renders
+ * every node it hasn't measured handles for, even with
+ * `onlyRenderVisibleElements`, so without these, opening a large Deck mounts
+ * every card in one long frame just to measure it. Cards that do render are
+ * still measured, and React Flow re-reads their handles if their size differs.
+ */
+const CARD_NODE_HANDLES = [
+  {
+    id: "top",
+    type: "source" as const,
+    position: Position.Top,
+    x: CARD_NODE_WIDTH / 2,
+    y: 0,
+  },
+  {
+    id: "right",
+    type: "source" as const,
+    position: Position.Right,
+    x: CARD_NODE_WIDTH,
+    y: CARD_NODE_HEIGHT / 2,
+  },
+  {
+    id: "bottom",
+    type: "source" as const,
+    position: Position.Bottom,
+    x: CARD_NODE_WIDTH / 2,
+    y: CARD_NODE_HEIGHT,
+  },
+  {
+    id: "left",
+    type: "source" as const,
+    position: Position.Left,
+    x: 0,
+    y: CARD_NODE_HEIGHT / 2,
+  },
+];
+
 export function toFlowNode(
   node: UiDeckGraph["nodes"][number],
   incidentNodeIds: Set<string>,
@@ -112,6 +155,9 @@ export function toFlowNode(
     // before nodes are measured in the DOM (avoids an unfitted flash).
     initialWidth: CARD_NODE_WIDTH,
     initialHeight: CARD_NODE_HEIGHT,
+    handles: CARD_NODE_HANDLES,
+    // Also lets Fit view include cards that haven't been rendered yet.
+    measured: { width: CARD_NODE_WIDTH, height: CARD_NODE_HEIGHT },
     data: {
       front: graphNodePreview(node.front),
       back: graphNodePreview(node.back),

@@ -1,18 +1,17 @@
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   assertTarget,
   backend,
+  lanHost,
   readEnv,
   readState,
   root,
-  statePath,
   updateEnv,
 } from "./dev-environment.mjs";
 
 try {
-  const state = existsSync(statePath) ? readState() : null;
-  if (state) assertTarget(state);
+  const state = readState();
+  assertTarget(state);
   const values = readEnv(join(backend, ".env.local"));
   for (const key of ["CONVEX_URL", "CONVEX_SITE_URL"]) {
     if (
@@ -29,18 +28,18 @@ try {
     ["apps/mobile/.env.local", "EXPO_PUBLIC"],
   ]) {
     const file = join(root, path);
+    // Expo Go runs off this machine, so it reaches the backend over the LAN.
+    const host = prefix === "VITE" ? "127.0.0.1" : lanHost();
     const updates = Object.fromEntries(
-      ["CONVEX_URL", "CONVEX_SITE_URL"].map((key) => [
-        `${prefix}_${key}`,
-        values[key],
-      ]),
+      ["CONVEX_URL", "CONVEX_SITE_URL"].map((key) => {
+        const url = new URL(values[key]);
+        url.hostname = host;
+        return [`${prefix}_${key}`, url.origin];
+      }),
     );
     if (prefix === "VITE") {
-      updates.VITE_SITE_URL =
-        state?.siteUrl ??
-        readEnv(file).VITE_SITE_URL ??
-        "http://localhost:3000";
-      if (state) updates.ARMIN_WEB_PORT = state.webPort;
+      updates.VITE_SITE_URL = state.siteUrl;
+      updates.ARMIN_WEB_PORT = state.webPort;
     }
     updateEnv(file, updates);
     console.log(`Configured ${path}`);

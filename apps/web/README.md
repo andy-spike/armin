@@ -23,21 +23,17 @@ and the opened page's loading skeleton, and the browser fills in the page.
 ## Develop
 
 From the repository root, run `pnpm dev:setup` once, then `pnpm dev` to start
-the web client and Convex watcher together. Setup copies the deployment URLs
-into both clients while preserving other local settings.
+the web client and local Convex backend together. Setup creates this
+checkout's local Convex deployment and copies its URLs into both clients while
+preserving other local settings.
 
-For separate terminals, use the manual workflow below. Prerequisites: a Convex development deployment configured as described in
-[`packages/backend/README.md`](../../packages/backend/README.md).
+For separate terminals, run `pnpm dev:setup` first, then:
 
 ```bash
-# 1. Point the web app at the dev deployment (public URLs, not secrets).
-cp apps/web/.env.example apps/web/.env.local
-#    Fill VITE_CONVEX_URL / VITE_CONVEX_SITE_URL from packages/backend/.env.local.
-
-# 2. In one terminal, watch and push the backend.
+# 1. In one terminal, run the local backend and push on save.
 pnpm --filter @armin/backend dev
 
-# 3. In another, run the web app on http://localhost:3000.
+# 2. In another, run the web app on http://localhost:3000.
 pnpm --filter @armin/web dev
 ```
 
