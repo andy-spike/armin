@@ -232,7 +232,7 @@ export function DeckSettingsDialog({
             >
               <OverrideRow
                 label="Prerequisite stability"
-                hint="A prereq must reach this FSRS stability in Review before dependents unlock."
+                hint="Required for initial access to dependents. Once earned, access stays unlocked."
                 overridden={localOverrides.prereqStabilityFloor !== null}
                 onRevert={() => clearField("prereqStabilityFloor")}
               >

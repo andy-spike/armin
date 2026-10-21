@@ -96,12 +96,21 @@ export async function selectSession(
 
   const settings = new SettingsCache(ctx, library._id);
   const global = await settings.globalSettings();
+  const siblingGrouping = new Map<Id<"decks">, boolean>();
+  for (const id of new Set(newUnits.map((unit) => unit.deckId))) {
+    siblingGrouping.set(
+      id,
+      (await settings.forDeck(id)).keepSiblingReviewUnitsTogether,
+    );
+  }
+  const keepSiblings = (unit: Doc<"reviewUnits">) =>
+    siblingGrouping.get(unit.deckId) ?? false;
   const today = await introducedToday(ctx, library, now);
   const remaining = Math.max(0, global.newReviewUnitsPerDay - today.units.size);
 
-  const continuing = global.keepSiblingReviewUnitsTogether
-    ? newUnits.filter((unit) => today.flashcards.has(unit.flashcardId))
-    : [];
+  const continuing = newUnits.filter(
+    (unit) => keepSiblings(unit) && today.flashcards.has(unit.flashcardId),
+  );
   const continuingIds = new Set(continuing.map((unit) => unit._id));
   const candidates = newUnits.filter((unit) => !continuingIds.has(unit._id));
 
@@ -110,20 +119,23 @@ export async function selectSession(
   // reshuffles which other units were admitted.
   const seed = `${library._id}:${today.since}:`;
   const keyOf = (unit: Doc<"reviewUnits">) =>
-    global.keepSiblingReviewUnitsTogether ? unit.flashcardId : unit._id;
+    keepSiblings(unit) ? unit.flashcardId : unit._id;
   const ordered = [...candidates].sort(
     (a, b) =>
       rank(seed + keyOf(a)) - rank(seed + keyOf(b)) ||
       a.subKey.localeCompare(b.subKey),
   );
+  // Represent each deck's grouping choice as a batch identity. Selecting all
+  // batches together keeps one shared budget, including mixed deck settings.
+  const batches = ordered.map((unit) => ({ flashcardId: keyOf(unit), unit }));
   const frontier = [
     ...continuing,
     ...selectFrontier(
-      ordered,
+      batches,
       remaining,
-      global.keepSiblingReviewUnitsTogether,
+      true,
       (items) => items,
-    ),
+    ).map(({ unit }) => unit),
   ];
   return { reviews, frontier };
 }

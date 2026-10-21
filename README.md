@@ -8,8 +8,9 @@ prerequisite graph, and FSRS schedules reviews based on recall performance.
 Most flashcard apps treat every card as an independent atom of knowledge, meaning all cards always live in the same level of abstraction. In practice,
 knowledge is a graph: some things are prerequisites for others. Armin makes that
 structure explicit. A card stays **locked** until everything it depends on has been
-learned, so you build foundations before tackling what sits on top of them, and
-new material lands on knowledge you've already secured.
+learned, so you build foundations before tackling what sits on top of them. Once
+unlocked, a card stays accessible even if a prerequisite is later forgotten;
+FSRS continues scheduling that prerequisite for practice.
 
 ## Applications and shared code
 

@@ -23,7 +23,7 @@ This archive contains one Armin account's study library.
   and a SHA-256 checksum for every other file.
 - \`data/decks.json\` — decks.
 - \`data/flashcards.json\` — authored flashcards with type, content, tags,
-  archive and lock state, and graph canvas positions.
+  archive and lock state, permanent prerequisite access, and graph canvas positions.
 - \`data/review-units.json\` — generated review units with their FSRS schedule.
 - \`data/review-logs.json\` — every review, oldest first.
 - \`data/prerequisites.json\` — prerequisite edges (prerequisite → dependent).
@@ -130,6 +130,7 @@ export const build = internalAction({
             tags: flashcard.tags,
             archived: flashcard.archived,
             locked: flashcard.locked,
+            prerequisiteAccessGranted: flashcard.prerequisiteAccessGranted ?? !flashcard.locked,
             position:
               flashcard.posX == null || flashcard.posY == null
                 ? null
