@@ -93,7 +93,9 @@ export function FlashcardFormDialog({
   });
   const [createSession, setCreateSession] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const wasOpenRef = useRef(open);
+  // Starts closed even when mounted open: the lazy wrapper first mounts this
+  // dialog already open, and that first open must hydrate like any other.
+  const wasOpenRef = useRef(false);
   const handleSubmitRef = useRef<(() => Promise<void>) | null>(null);
 
   const resetFields = () => {

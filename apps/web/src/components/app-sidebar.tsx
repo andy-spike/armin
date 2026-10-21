@@ -359,7 +359,9 @@ function DeckList({
                   <SidebarMenuItem key={deck.id}>
                     <SidebarMenuButton
                       isActive={isActive(path)}
-                      className={navButton}
+                      // The due badge floats over the row's right edge, so long
+                      // names truncate before reaching it.
+                      className={cn(navButton, deck.due > 0 && "pr-8")}
                       render={
                         <Link
                           to="/deck/$deckId"
