@@ -1,5 +1,8 @@
 # A flashcard is secured only when all of its review units are secured
 
+ADR [0021](0021-prerequisites-grant-permanent-access.md) limits this gate to
+initial access. Earned access is permanent even when securedness later changes.
+
 A prerequisite flashcard unlocks its dependents only once **every** review unit it
 generates is secured (FSRS `Review` state with stability ≥ the configured floor) —
 not when any single review unit is. We chose the all-units rule over "any unit" or

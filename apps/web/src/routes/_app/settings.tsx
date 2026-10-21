@@ -361,7 +361,7 @@ function SettingsPage() {
         >
           <Row
             label="Prerequisite stability"
-            hint="A prereq must reach this FSRS stability in Review before dependents unlock."
+            hint="Required for initial access to dependents. Once earned, access stays unlocked."
             {...resetProps("prereqStabilityFloor")}
           >
             <StabilityFloorInput

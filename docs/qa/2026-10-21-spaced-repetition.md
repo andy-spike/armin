@@ -54,4 +54,7 @@ Learning-step validation has a pre-existing mismatch with the installed FSRS ver
 
 ## Policy boundaries
 
-This change preserves the existing deck-selected use of the shared daily budget, the sibling soft cap, and the prerequisite securedness rule. It does not select a different learning policy. Policy alternatives are being presented to the user separately.
+The initial reliability pass preserved the deck-selected shared daily budget,
+sibling soft cap, and prerequisite securedness rule. The user subsequently chose
+N1 and P3. The [policy follow-up](2026-10-21-permanent-prerequisite-access.md)
+records permanent earned access and its verification.

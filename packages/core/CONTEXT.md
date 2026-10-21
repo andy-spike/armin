@@ -54,19 +54,26 @@ _Avoid_: Tree
 **Frontier**:
 The brand-new review units introduced into study each day, drawn after due
 reviews and limited by a single daily cap shared across every deck. The learner's
-daily capacity for new material, not a per-deck budget.
+daily capacity for new material, with the chosen deck able to use the remaining
+capacity.
 _Avoid_: Backlog, new queue
 
 **Secured**:
-The bar a prerequisite flashcard must clear before it unlocks its dependents:
+The bar a prerequisite flashcard must clear to initially unlock its dependents:
 every review unit it generates is in FSRS Review state with stability at or above
 the configured floor. A flashcard secures only when all of its review units (e.g.
 both directions of a reversed flashcard) are secured.
 _Avoid_: Learned, mastered, done
 
+**Earned access**:
+A flashcard's permanent eligibility after its prerequisite gate has opened or
+study has begun. Later prerequisite lapses do not revoke earned access.
+_Avoid_: Currently secured, temporarily unlocked
+
 **Locked flashcard**:
-A flashcard that is not yet ready to study because at least one prerequisite is
-not yet secured. Its review units are excluded from review while locked.
+A flashcard without earned access that is not yet ready to study because at
+least one active prerequisite is not secured. Its review units are excluded
+from review while locked.
 _Avoid_: Disabled flashcard, blocked flashcard
 
 **Archived flashcard**:
