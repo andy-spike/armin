@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useToast } from "@/components/ui/toast";
 import { Row, Section } from "@/components/settings-layout";
 import { GoogleIcon } from "@/components/auth/auth-layout";
@@ -225,9 +226,8 @@ function DeleteAccountDialog({
             <label htmlFor="delete-password" className="block text-sm font-medium">
               Password
             </label>
-            <Input
+            <PasswordInput
               id="delete-password"
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
