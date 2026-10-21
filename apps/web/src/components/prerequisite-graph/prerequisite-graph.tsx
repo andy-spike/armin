@@ -992,15 +992,22 @@ function PrerequisiteGraphCanvas({
         <Panel position="bottom-right">
           <ZoomControl />
         </Panel>
-        <Panel position="top-left">
-          <div className="flex items-center gap-2">
+        {/* One full-width toolbar row, so the controls share space instead of
+            overlapping on narrow canvases. The row ignores pointer events so the
+            gaps between controls still pan the graph. */}
+        <Panel
+          position="top-left"
+          className="@container"
+          style={{ right: 0, pointerEvents: "none" }}
+        >
+          <div className="flex items-center gap-2 *:pointer-events-auto">
             {(onBack || deckName) && (
               <button
                 type="button"
                 onClick={onBack}
                 disabled={!onBack}
                 aria-label={deckName ? `Back to ${deckName}` : "Back to deck"}
-                className="flex h-8 items-center gap-1.5 border border-border bg-surface px-2 text-xs font-medium text-ink shadow-overlay transition-colors hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default disabled:hover:bg-surface"
+                className="flex h-8 min-w-0 items-center gap-1.5 border border-border bg-surface px-2 text-xs font-medium text-ink shadow-overlay transition-colors hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default disabled:hover:bg-surface"
               >
                 {onBack && (
                   <ArrowLeft className="h-3.5 w-3.5 shrink-0 text-muted" />
@@ -1014,14 +1021,14 @@ function PrerequisiteGraphCanvas({
                 )}
               </button>
             )}
-            <div className="flex h-8 items-center gap-1.5 border border-border bg-surface px-2 shadow-overlay focus-within:ring-2 focus-within:ring-accent">
+            <div className="flex h-8 min-w-28 flex-1 items-center gap-1.5 border border-border bg-surface px-2 shadow-overlay focus-within:ring-2 focus-within:ring-accent @xl:flex-none">
               <Search className="h-3.5 w-3.5 shrink-0 text-muted" />
               <input
                 aria-label="Search flashcards"
                 placeholder="Search cards…"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                className="w-40 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
+                className="w-full min-w-0 bg-transparent text-xs text-ink outline-none placeholder:text-muted @xl:w-40"
               />
               {search && (
                 <button
@@ -1034,16 +1041,18 @@ function PrerequisiteGraphCanvas({
                 </button>
               )}
             </div>
+            <button
+              type="button"
+              onClick={onTidy}
+              aria-label="Tidy layout"
+              className="ml-auto inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 border border-border bg-surface px-2.5 text-xs font-medium text-ink shadow-overlay transition-colors hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span>
+                Tidy<span className="hidden @xl:inline"> layout</span>
+              </span>
+            </button>
           </div>
-        </Panel>
-        <Panel position="top-right">
-          <button
-            type="button"
-            onClick={onTidy}
-            className="inline-flex cursor-pointer items-center gap-1.5 border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-ink shadow-overlay transition-colors hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" /> Tidy layout
-          </button>
         </Panel>
         <PaneDoubleClickListener onDoubleClick={onPaneDoubleClick} />
       </ReactFlow>
