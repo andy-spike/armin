@@ -26,3 +26,18 @@ deployment, using the same data as the original QA pass, showed:
 The narrow check is a resized desktop browser, not a real mobile device.
 Email/Google authentication, real mobile browsers, large libraries, concurrent
 load, and production deployment remain unverified, as in the original report.
+
+## Follow-up polish: sidebar deck names
+
+The ISSUE-002 walkthrough noted that at 768 px a long deck name in the sidebar
+ran into its due count. The badge floats over the row's right edge, but the
+row reserved no space for it. Deck rows with a due count now reserve that space
+(`pr-8`), so the name truncates before the badge.
+
+Typecheck, lint, the web build, and the mobile bundle check pass. **This change
+was not checked in a browser.** When the walkthrough was attempted, every auth
+request returned HTTP 500 because Convex had disabled the team's development
+deployments for exceeding free-plan limits. Re-check a long deck name with due
+cards at 768 px once the deployments are available. The open question from
+ISSUE-002, whether Tidy visibly rearranges a messy graph, is still unverified
+for the same reason.
