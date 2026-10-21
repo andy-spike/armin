@@ -23,7 +23,7 @@ export async function seedWorktree() {
     mode: 0o600,
   });
 
-  // Operator-only component calls with this worktree's scoped deploy key.
+  // Operator-only component calls against this checkout's local deployment.
   // No fixture endpoint or verification bypass is added to the application.
   function adapter(name, args) {
     return JSON.parse(

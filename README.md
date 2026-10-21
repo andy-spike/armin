@@ -26,19 +26,21 @@ Their source and release tooling remain available in Git history.
 
 ## Development
 
-Quick start from the repository root, using the pinned Node and pnpm versions:
+Quick start from the repository root, using the pinned Node (24) and pnpm versions:
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm dev:setup  # configure/push Convex, then write both clients' local URLs
-pnpm dev        # web at http://localhost:3000 + Convex watcher
+pnpm dev:setup  # create a local Convex deployment, push, seed, write client URLs
+pnpm dev        # web at http://localhost:3000 + local Convex backend
 ```
 
-On the first run, Convex prompts you to select or create a development deployment.
-The backend currently uses a hosted Convex dev deployment even though the client
-servers run locally. Configure its authentication and email variables as described
-in [the backend README](packages/backend/README.md#deployment-environment-variables).
-Setup does not create or replace those secrets. Existing deployments keep their data.
+Development runs a **local Convex deployment** on this machine (Convex's
+open-source backend, started by `convex dev`); no Convex login or cloud dev
+deployment is needed. Production stays on Convex cloud. Setup sets `SITE_URL`,
+the Expo trusted origins, and a session secret, and seeds a sample account
+(`test@example.com` / `armin1234`). For real email or Google sign-in, set the
+variables in [the backend README](packages/backend/README.md#deployment-environment-variables)
+on the local deployment. Data lives in `packages/backend/.convex/local/`.
 
 `dev:setup` refreshes only the Convex URL entries in the web and mobile
 `.env.local` files, preserving other settings. To refresh those URLs without
@@ -52,10 +54,12 @@ Additional commands, each run from the root in its own terminal:
 | `pnpm dev:android` | Expo Go and opens the Android emulator/device       |
 | `pnpm dev:ios`     | Expo Go and opens the iOS simulator, requires macOS |
 | `pnpm dev:web`     | Web client only, port 3000                          |
-| `pnpm dev:backend` | Convex watcher only                                 |
+| `pnpm dev:backend` | Local Convex backend and watcher only               |
 
-Keep `pnpm dev` running when using mobile so backend changes are pushed. Create
-and verify your account in the web app first, then use it to sign into mobile.
+Keep `pnpm dev` running when using mobile; the local backend only runs while it
+does. Mobile URLs use this machine's LAN address, so a phone on the same network
+can connect; a phone that cannot reach this machine needs a cloud deployment.
+Sign into mobile with the sample account or one created in the web app.
 See [mobile setup](apps/mobile/README.md) for Expo Go, emulator, and networking
 requirements. Stop each command with Ctrl+C;
 Turborepo stops both watchers started by `pnpm dev`.

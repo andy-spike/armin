@@ -10,8 +10,8 @@
     "./types": "./convex/model/publicTypes.ts"
   },
   "scripts": {
-    "dev": "convex dev",
-    "dev:once": "convex dev --once",
+    "dev": "node scripts/convex-dev.mjs",
+    "dev:once": "node scripts/convex-dev.mjs --once",
     "codegen": "convex codegen",
     "typecheck": "tsc --noEmit -p convex",
     "dev:setup": "node scripts/setup-dev.mjs",

@@ -83,20 +83,24 @@ read size when a cloze flashcard has many large review units.
 Check the scheduled functions in that deployment until the migration finishes.
 It preserves unlocked cards, restores locked cards with surviving review history,
 and leaves unreviewed locked cards gated. No lifetime review-log scan is needed.
-Run this only against the intended deployment; task worktrees use their scoped
-development key. New flashcards record their access state immediately.
+Run this only against the intended deployment; development checkouts target
+their own local deployment. New flashcards record their access state immediately.
 
-Run `pnpm dev:setup` from the repository root to configure/push the development
-deployment and copy its public URLs into the web and mobile `.env.local` files.
-Then `pnpm dev` runs the backend watcher and web client together. Authentication
-and email secrets still need the deployment configuration below. To copy URLs
-without pushing, run `pnpm --filter @armin/backend dev:clients`.
+Development uses a local Convex deployment per checkout, never a cloud dev
+deployment. Run `pnpm dev:setup` from the repository root (with Node 20, 22, or
+24 on `PATH`; local `"use node"` actions need it) to create it, push, set
+`SITE_URL`, `MOBILE_TRUSTED_ORIGINS`, and `BETTER_AUTH_SECRET`, seed the sample
+account, and copy its URLs into the web and mobile `.env.local` files. Then
+`pnpm dev` runs the local backend and web client together. Email and Google
+secrets still need the configuration below. To copy URLs without pushing, run
+`pnpm --filter @armin/backend dev:clients`. See
+[local development environments](../../docs/dev-worktrees.md).
 
 Individual backend commands from the repository root:
 
 ```bash
-# Configure (first time) and watch the Convex dev deployment. Writes
-# packages/backend/.env.local with CONVEX_DEPLOYMENT and the deployment URLs.
+# Run this checkout's local backend on its allocated ports and watch for changes.
+# Requires pnpm dev:setup first.
 pnpm --filter @armin/backend dev
 
 # Regenerate convex/_generated without watching (commit the result).
@@ -112,7 +116,8 @@ to continue while the TypeScript project is temporarily broken, and
 ### Deployment environment variables
 
 Set these on the Convex deployment with `npx convex env set <NAME> <value>` from
-`packages/backend` (values are never stored in the repository):
+`packages/backend` (values are never stored in the repository). For the local
+dev deployment, keep `pnpm dev` running while you set them:
 
 | Name                                       | Purpose                                                                                                                                                                               |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -128,7 +133,7 @@ Set these on the Convex deployment with `npx convex env set <NAME> <value>` from
 Real verification and reset links are only delivered to the Resend account's
 address while the sender is `onboarding@resend.dev`. For other QA addresses,
 Resend rejects the send, but the Resend component still stores the message in
-the development deployment. An operator with CLI access to that deployment can
+the local development deployment. An operator with CLI access to that deployment can
 read the link from the component's `emails` and `content` tables
 (`npx convex data --component resend ...`) and open it in the browser. This is
 the same link the email carries; there is no verification bypass in the app.
