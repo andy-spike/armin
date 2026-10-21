@@ -21,6 +21,7 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
+  clampSidebarWidth,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -38,13 +39,23 @@ const readSidebarOpen = createIsomorphicFn()
   .server(() => getCookie("sidebar_state") !== "false")
   .client(() => !document.cookie.split("; ").includes("sidebar_state=false"));
 
+/** The sidebar's saved width in px, from the cookie its rail writes when dragged. */
+const readSidebarWidth = createIsomorphicFn()
+  .server(() => clampSidebarWidth(Number(getCookie("sidebar_width") ?? Number.NaN)))
+  .client(() => {
+    const saved = document.cookie
+      .split("; ")
+      .find((cookie) => cookie.startsWith("sidebar_width="));
+    return clampSidebarWidth(Number(saved?.slice("sidebar_width=".length) ?? Number.NaN));
+  });
+
 export const Route = createFileRoute("/_app")({
   // The frame (sidebar and the opened page's skeleton) renders on the server so
   // it paints with the HTML; the pages inside it still render in the browser.
   ssr: true,
   beforeLoad: ({ context }) => {
     if (!context.isAuthenticated) throw redirect({ to: "/sign-in" });
-    return { sidebarOpen: readSidebarOpen() };
+    return { sidebarOpen: readSidebarOpen(), sidebarWidth: readSidebarWidth() };
   },
   component: AppLayout,
 });
@@ -192,10 +203,14 @@ function Shell({ loading }: { loading?: string }) {
       ? activePathname === path
       : activePathname === path || activePathname.startsWith(`${path}/`);
 
-  const { sidebarOpen } = Route.useRouteContext();
+  const { sidebarOpen, sidebarWidth } = Route.useRouteContext();
 
   return (
-    <SidebarProvider defaultOpen={sidebarOpen} className="h-dvh min-h-0 overflow-hidden">
+    <SidebarProvider
+      defaultOpen={sidebarOpen}
+      defaultWidth={sidebarWidth}
+      className="h-dvh min-h-0 overflow-hidden"
+    >
       <ShellKeybindings activateNav={activateNav} />
       <AppSidebar ready={!loading} isActive={isActive} onNavigate={activateNav} />
       <SidebarInset className="min-w-0 overflow-hidden">

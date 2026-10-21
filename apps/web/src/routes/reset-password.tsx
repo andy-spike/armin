@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { AuthLayout, authErrorMessage, Field, FormError } from "@/components/auth/auth-layout";
 import { authClient } from "@/lib/auth-client";
 
@@ -54,9 +54,8 @@ function ResetPasswordPage() {
     <AuthLayout title="Choose a new password" subtitle="This signs out your other sessions.">
       <form className="space-y-4" onSubmit={onSubmit}>
         <Field label="New password" htmlFor="password" hint="At least 10 characters.">
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="new-password"
             minLength={10}
             required
@@ -65,9 +64,8 @@ function ResetPasswordPage() {
           />
         </Field>
         <Field label="Confirm password" htmlFor="confirm">
-          <Input
+          <PasswordInput
             id="confirm"
-            type="password"
             autoComplete="new-password"
             minLength={10}
             required
