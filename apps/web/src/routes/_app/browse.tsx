@@ -565,5 +565,6 @@ function FilterField({
 
 export const Route = createFileRoute("/_app/browse")({
   loader: ({ context }) => prefetchBrowsePage(context.queryClient),
+  head: () => ({ meta: [{ title: "Browse · Armin" }] }),
   component: BrowsePage,
 });

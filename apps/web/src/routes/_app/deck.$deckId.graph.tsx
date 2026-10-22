@@ -366,5 +366,6 @@ function DeckGraphPage() {
 
 export const Route = createFileRoute("/_app/deck/$deckId/graph")({
   loader: ({ context, params }) => prefetchGraphPage(context.queryClient, params.deckId),
+  head: () => ({ meta: [{ title: "Graph · Armin" }] }),
   component: DeckGraphPage,
 });

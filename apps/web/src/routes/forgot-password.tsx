@@ -10,12 +10,16 @@ import {
   FormNotice,
 } from "@/components/auth/auth-layout";
 import { authClient } from "@/lib/auth-client";
+import { useAuthFeatures } from "@/lib/session";
 
 export const Route = createFileRoute("/forgot-password")({
+  head: () => ({ meta: [{ title: "Reset password · Armin" }] }),
   component: ForgotPasswordPage,
 });
 
 function ForgotPasswordPage() {
+  const features = useAuthFeatures();
+  const emailUnavailable = features.data?.email === false;
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -45,6 +49,12 @@ function ForgotPasswordPage() {
       }
     >
       <form className="space-y-4" onSubmit={onSubmit}>
+        {emailUnavailable && (
+          <FormNotice>
+            Email isn&apos;t available right now, so reset links can&apos;t be sent. Contact
+            support.
+          </FormNotice>
+        )}
         {sent && (
           <FormNotice>
             If an account exists for {email}, a reset link is on its way.

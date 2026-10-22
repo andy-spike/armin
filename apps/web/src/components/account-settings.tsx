@@ -10,7 +10,7 @@ import { Row, Section } from "@/components/settings-layout";
 import { GoogleIcon } from "@/components/auth/auth-layout";
 import { armin, errorMessage } from "@/lib/armin-client";
 import { authClient } from "@/lib/auth-client";
-import { useViewer } from "@/lib/session";
+import { useAuthFeatures, useViewer } from "@/lib/session";
 
 function timeZoneOptions(current: string) {
   let zones: string[] = [];
@@ -37,9 +37,11 @@ export function AccountSettings() {
       return data ?? [];
     },
   });
+  const features = useAuthFeatures();
   const providers = new Set((accounts.data ?? []).map((account) => account.providerId));
   const hasPassword = providers.has("credential");
   const hasGoogle = providers.has("google");
+  const googleAvailable = features.data?.google === true;
 
   const timeZone = viewer.data?.library?.timeZone ?? "UTC";
   const zones = useMemo(() => timeZoneOptions(timeZone), [timeZone]);
@@ -61,6 +63,18 @@ export function AccountSettings() {
     onError: () => toast({ tone: "error", title: "Couldn't sign out other devices" }),
   });
 
+  const linkGoogle = useMutation({
+    mutationFn: async () => {
+      const { error } = await authClient.linkSocial({
+        provider: "google",
+        callbackURL: "/settings",
+      });
+      if (error) throw new Error(error.message || "Couldn't start Google sign-in.");
+    },
+    onError: (error) =>
+      toast({ tone: "error", title: "Couldn't link Google", description: errorMessage(error) }),
+  });
+
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   return (
@@ -74,22 +88,29 @@ export function AccountSettings() {
           hint={
             hasGoogle
               ? "Linked. You can sign in with Google."
-              : "Link Google to sign in with it. It must use this same verified email."
+              : googleAvailable || features.isLoading
+                ? "Link Google to sign in with it. It must use this same verified email."
+                : "Google sign-in isn't configured for this deployment."
           }
         >
           {hasGoogle ? (
             <span className="text-sm text-muted">Linked</span>
-          ) : (
+          ) : googleAvailable ? (
             <Button
               variant="outline"
               size="sm"
+              busy={linkGoogle.isPending}
               disabled={accounts.isLoading}
-              onClick={() =>
-                void authClient.linkSocial({ provider: "google", callbackURL: "/settings" })
-              }
+              onClick={() => linkGoogle.mutate()}
             >
               <GoogleIcon /> Link
             </Button>
+          ) : features.isLoading ? (
+            <Button variant="outline" size="sm" disabled>
+              <GoogleIcon /> Link
+            </Button>
+          ) : (
+            <span className="text-sm text-muted">Not configured</span>
           )}
         </Row>
         <Row

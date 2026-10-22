@@ -493,5 +493,6 @@ function SettingsPage() {
 
 export const Route = createFileRoute("/_app/settings")({
   loader: ({ context }) => prefetchSettingsPage(context.queryClient),
+  head: () => ({ meta: [{ title: "Settings · Armin" }] }),
   component: SettingsPage,
 });

@@ -1,4 +1,5 @@
 import { betterAuth, type BetterAuthOptions } from "better-auth/minimal";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { expo } from "@better-auth/expo";
 import {
   createClient,
@@ -49,6 +50,38 @@ function emailFrom() {
   return process.env.EMAIL_FROM ?? "Armin <onboarding@resend.dev>";
 }
 
+/** Whether this deployment can deliver verification and password-reset mail. */
+function emailConfigured() {
+  return Boolean(process.env.RESEND_API_KEY);
+}
+
+/** Whether this deployment can start Google OAuth. */
+function googleConfigured() {
+  return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+}
+
+/**
+ * A production deployment without optional auth providers still serves
+ * existing verified accounts, but sign-up and password reset cannot work.
+ * Warn once per process so the gap shows up in deployment logs. Local
+ * development intentionally runs without them.
+ */
+const authConfigWarnings = globalThis as { __arminAuthConfigWarned?: boolean };
+const localDevelopment = siteUrl().includes("localhost") || siteUrl().includes("127.0.0.1");
+if (!localDevelopment && !authConfigWarnings.__arminAuthConfigWarned) {
+  authConfigWarnings.__arminAuthConfigWarned = true;
+  if (!emailConfigured()) {
+    console.warn(
+      "[auth] RESEND_API_KEY is not set: sign-up and password reset are disabled, and verification resends report email as unavailable.",
+    );
+  }
+  if (!googleConfigured()) {
+    console.warn(
+      "[auth] GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are not both set: Google sign-in is disabled.",
+    );
+  }
+}
+
 function mobileOrigins() {
   return (process.env.MOBILE_TRUSTED_ORIGINS ?? "armin://")
     .split(",")
@@ -79,6 +112,26 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     baseURL: siteUrl(),
     trustedOrigins: [siteUrl(), ...mobileOrigins()],
     database: authComponent.adapter(ctx),
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        // Better Auth logs a failed email send and still answers 200. When
+        // this deployment cannot send mail at all, reject the flows that
+        // depend on it before an account or token is created, so the client
+        // never claims a message was sent. Existing verified users can still
+        // sign in with a password.
+        if (emailConfigured()) return;
+        if (
+          ctx.path === "/sign-up/email" ||
+          ctx.path === "/request-password-reset" ||
+          ctx.path === "/send-verification-email"
+        ) {
+          throw new APIError("SERVICE_UNAVAILABLE", {
+            message: "Email isn't available right now. Contact support.",
+            code: "EMAIL_UNAVAILABLE",
+          });
+        }
+      }),
+    },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
@@ -98,7 +151,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     },
     emailVerification: {
       sendOnSignUp: true,
-      sendOnSignIn: true,
+      // Without a provider the send is silently dropped, so skip it and let
+      // the client explain why an unverified account can't sign in.
+      sendOnSignIn: emailConfigured(),
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
         await sendEmail(
@@ -112,13 +167,15 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
         );
       },
     },
-    socialProviders: {
-      google: {
-        clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-        prompt: "select_account",
-      },
-    },
+    socialProviders: googleConfigured()
+      ? {
+          google: {
+            clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+            prompt: "select_account",
+          },
+        }
+      : {},
     account: {
       accountLinking: {
         // Link only when the provider vouches for the email. No trusted

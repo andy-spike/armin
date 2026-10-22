@@ -540,5 +540,6 @@ function FilterField({
 
 export const Route = createFileRoute("/_app/deck/$deckId/")({
   loader: ({ context, params }) => prefetchDeckPage(context.queryClient, params.deckId),
+  head: () => ({ meta: [{ title: "Deck · Armin" }] }),
   component: DeckPage,
 });

@@ -80,6 +80,7 @@ function ReviewPage() {
 
 export const Route = createFileRoute("/_app/deck/$deckId/review")({
   loader: ({ context, params }) => prefetchReviewPage(context.queryClient, params.deckId),
+  head: () => ({ meta: [{ title: "Deck review · Armin" }] }),
   component: ReviewPage,
 });
 

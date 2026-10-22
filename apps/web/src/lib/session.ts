@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
+import { ConvexHttpClient } from "convex/browser";
 import { api } from "@armin/backend/api";
 import { convexClient } from "@/lib/armin-client";
 
@@ -13,6 +14,22 @@ export function useViewer() {
 export function useLibraryReady() {
   const viewer = useViewer();
   return viewer.data?.library?.status === "active" && viewer.data.emailVerified;
+}
+
+/**
+ * Which optional auth services (email delivery, Google) this deployment has
+ * configured. Auth pages are signed out, where the websocket client waits for
+ * auth (`expectAuth`); this public read goes over the HTTP API instead.
+ */
+const publicConvex = new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL as string);
+
+export function useAuthFeatures() {
+  return useQuery({
+    queryKey: ["auth", "features"],
+    queryFn: () => publicConvex.query(api.account.authFeatures, {}),
+    staleTime: Infinity,
+    retry: false,
+  });
 }
 
 type Connection = { online: boolean; pending: boolean };

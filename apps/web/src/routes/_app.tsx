@@ -53,8 +53,16 @@ export const Route = createFileRoute("/_app")({
   // The frame (sidebar and the opened page's skeleton) renders on the server so
   // it paints with the HTML; the pages inside it still render in the browser.
   ssr: true,
-  beforeLoad: ({ context }) => {
-    if (!context.isAuthenticated) throw redirect({ to: "/sign-in" });
+  beforeLoad: ({ context, location }) => {
+    if (!context.isAuthenticated) {
+      // Keep the page the user asked for, minus the origin, so sign-in can
+      // return to it. The sign-in route validates it again before using it.
+      const redirectTo = `${location.pathname}${location.searchStr}${location.hash}`;
+      throw redirect({
+        to: "/sign-in",
+        search: redirectTo === "/" ? {} : { redirect: redirectTo },
+      });
+    }
     return { sidebarOpen: readSidebarOpen(), sidebarWidth: readSidebarWidth() };
   },
   component: AppLayout,
