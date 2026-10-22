@@ -112,5 +112,6 @@ function ReviewsPage() {
 
 export const Route = createFileRoute("/_app/review")({
   loader: ({ context }) => prefetchReviewPage(context.queryClient),
+  head: () => ({ meta: [{ title: "Review · Armin" }] }),
   component: ReviewsPage,
 });

@@ -508,5 +508,6 @@ function Stat({
 
 export const Route = createFileRoute("/_app/")({
   loader: ({ context }) => prefetchDecksPage(context.queryClient),
+  head: () => ({ meta: [{ title: "Decks · Armin" }] }),
   component: DecksPage,
 });
