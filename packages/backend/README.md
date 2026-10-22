@@ -128,6 +128,10 @@ dev deployment, keep `pnpm dev` running while you set them:
 | `EMAIL_FROM`                               | Optional. Defaults to `Armin <onboarding@resend.dev>`, which Resend only delivers to the Resend account's own address.                                                                |
 | `MOBILE_TRUSTED_ORIGINS`                   | Optional comma-separated origins for the Expo app. Defaults to `armin://`. The development deployment adds `exp://,exp://**` for Expo Go; never use `exp://` wildcards in production. |
 
+Without `RESEND_API_KEY`, sign-up, password reset, and verification resends are
+disabled and say that email is unavailable; existing verified accounts can still
+sign in. Without both Google variables, the app hides Google sign-in.
+
 ### QA without an inbox
 
 Real verification and reset links are only delivered to the Resend account's

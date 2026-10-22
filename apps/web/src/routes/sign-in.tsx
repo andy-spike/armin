@@ -11,21 +11,38 @@ import {
   FormNotice,
   GoogleIcon,
 } from "@/components/auth/auth-layout";
-import { authClient } from "@/lib/auth-client";
+import { authClient, safeRedirectPath } from "@/lib/auth-client";
+import { useAuthFeatures } from "@/lib/session";
+
+type SignInSearch = { reset?: boolean; deleted?: boolean; redirect?: string };
 
 export const Route = createFileRoute("/sign-in")({
-  validateSearch: (search: Record<string, unknown>): { reset?: boolean; deleted?: boolean } => ({
-    reset: search.reset === "1" || search.reset === 1 ? true : undefined,
-    deleted: search.deleted === "1" || search.deleted === 1 ? true : undefined,
+  validateSearch: (search: Record<string, unknown>): SignInSearch => ({
+    // Validation runs again on its own output, where these are booleans.
+    reset:
+      search.reset === true || search.reset === "1" || search.reset === 1 ? true : undefined,
+    deleted:
+      search.deleted === true || search.deleted === "1" || search.deleted === 1
+        ? true
+        : undefined,
+    redirect: safeRedirectPath(search.redirect),
   }),
-  beforeLoad: ({ context }) => {
-    if (context.isAuthenticated) throw redirect({ to: "/" });
+  beforeLoad: ({ context, search }) => {
+    // A password reset or account deletion revokes the session, but the
+    // short-lived Convex token can still mark this load as authenticated.
+    // Show the confirmation instead of bouncing back into the app.
+    if (context.isAuthenticated && !search.reset && !search.deleted) {
+      throw redirect({ href: search.redirect ?? "/" });
+    }
   },
+  head: () => ({ meta: [{ title: "Sign in · Armin" }] }),
   component: SignInPage,
 });
 
 function SignInPage() {
   const search = Route.useSearch();
+  const features = useAuthFeatures();
+  const redirectTo = search.redirect ?? "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -39,14 +56,14 @@ function SignInPage() {
     const { error } = await authClient.signIn.email({
       email,
       password,
-      callbackURL: "/",
+      callbackURL: redirectTo,
     });
     if (error) {
-      setError(authErrorMessage(error));
+      setError(authErrorMessage(error, { emailAvailable: features.data?.email }));
       setBusy(false);
       return;
     }
-    window.location.assign("/");
+    window.location.assign(redirectTo);
   };
 
   const signInWithGoogle = async () => {
@@ -54,7 +71,7 @@ function SignInPage() {
     setError(null);
     const { error } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/",
+      callbackURL: redirectTo,
       errorCallbackURL: "/sign-in",
     });
     if (error) {
@@ -79,21 +96,25 @@ function SignInPage() {
       <div className="space-y-4">
         {search.reset && <FormNotice>Password changed. Sign in with your new password.</FormNotice>}
         {search.deleted && <FormNotice>Your account and library were deleted.</FormNotice>}
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          onClick={signInWithGoogle}
-          busy={googleBusy}
-        >
-          <GoogleIcon />
-          Continue with Google
-        </Button>
-        <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-faint">
-          <span className="h-px flex-1 bg-border" />
-          or
-          <span className="h-px flex-1 bg-border" />
-        </div>
+        {features.data?.google && (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={signInWithGoogle}
+              busy={googleBusy}
+            >
+              <GoogleIcon />
+              Continue with Google
+            </Button>
+            <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-faint">
+              <span className="h-px flex-1 bg-border" />
+              or
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          </>
+        )}
         <form className="space-y-4" onSubmit={onSubmit}>
           <Field label="Email" htmlFor="email">
             <Input

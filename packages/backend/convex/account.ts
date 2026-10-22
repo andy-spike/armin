@@ -5,6 +5,18 @@ import { getViewer } from "./model/access";
 import { fail } from "./model/errors";
 import { bumpRevision } from "./model/study";
 
+/**
+ * Which optional auth services this deployment has configured. Public so the
+ * signed-out auth pages can hide actions that cannot work here.
+ */
+export const authFeatures = query({
+  args: {},
+  handler: async () => ({
+    email: Boolean(process.env.RESEND_API_KEY),
+    google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+  }),
+});
+
 /** Who is signed in, whether they may save, and their library state. */
 export const viewer = query({
   args: {},

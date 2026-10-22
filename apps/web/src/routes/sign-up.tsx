@@ -11,16 +11,27 @@ import {
   FormNotice,
   GoogleIcon,
 } from "@/components/auth/auth-layout";
-import { authClient } from "@/lib/auth-client";
+import { authClient, safeRedirectPath } from "@/lib/auth-client";
+import { useAuthFeatures } from "@/lib/session";
+
+type SignUpSearch = { redirect?: string };
 
 export const Route = createFileRoute("/sign-up")({
-  beforeLoad: ({ context }) => {
-    if (context.isAuthenticated) throw redirect({ to: "/" });
+  validateSearch: (search: Record<string, unknown>): SignUpSearch => ({
+    redirect: safeRedirectPath(search.redirect),
+  }),
+  beforeLoad: ({ context, search }) => {
+    if (context.isAuthenticated) throw redirect({ href: search.redirect ?? "/" });
   },
+  head: () => ({ meta: [{ title: "Create account · Armin" }] }),
   component: SignUpPage,
 });
 
 function SignUpPage() {
+  const search = Route.useSearch();
+  const features = useAuthFeatures();
+  const redirectTo = search.redirect ?? "/";
+  const emailUnavailable = features.data?.email === false;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +48,7 @@ function SignUpPage() {
       name: name.trim() || email.split("@")[0],
       email,
       password,
-      callbackURL: "/",
+      callbackURL: redirectTo,
     });
     setBusy(false);
     if (error) {
@@ -50,7 +61,10 @@ function SignUpPage() {
   const resend = async () => {
     if (!sentTo) return;
     setResent(false);
-    const { error } = await authClient.sendVerificationEmail({ email: sentTo, callbackURL: "/" });
+    const { error } = await authClient.sendVerificationEmail({
+      email: sentTo,
+      callbackURL: redirectTo,
+    });
     if (error) setError(authErrorMessage(error));
     else setResent(true);
   };
@@ -61,8 +75,9 @@ function SignUpPage() {
         title="Check your email"
         subtitle={
           <>
-            We sent a verification link to <strong className="text-ink">{sentTo}</strong>.
-            Open it to finish creating your account.
+            If this email can be used to create an account, we&apos;ve sent a verification
+            link to <strong className="text-ink">{sentTo}</strong>. Open it to finish creating
+            your account.
           </>
         }
         footer={
@@ -72,7 +87,11 @@ function SignUpPage() {
         }
       >
         <div className="space-y-4">
-          {resent && <FormNotice>Sent another link.</FormNotice>}
+          {resent && (
+            <FormNotice>
+              If a verification email can be sent, we&apos;ve sent another one.
+            </FormNotice>
+          )}
           <FormError message={error} />
           <Button variant="outline" className="w-full" onClick={resend}>
             Resend verification email
@@ -96,26 +115,36 @@ function SignUpPage() {
       }
     >
       <div className="space-y-4">
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          onClick={() =>
-            void authClient.signIn.social({
-              provider: "google",
-              callbackURL: "/",
-              errorCallbackURL: "/sign-up",
-            })
-          }
-        >
-          <GoogleIcon />
-          Continue with Google
-        </Button>
-        <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-faint">
-          <span className="h-px flex-1 bg-border" />
-          or
-          <span className="h-px flex-1 bg-border" />
-        </div>
+        {features.data?.google && (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() =>
+                void authClient.signIn.social({
+                  provider: "google",
+                  callbackURL: redirectTo,
+                  errorCallbackURL: "/sign-up",
+                })
+              }
+            >
+              <GoogleIcon />
+              Continue with Google
+            </Button>
+            <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-faint">
+              <span className="h-px flex-1 bg-border" />
+              or
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          </>
+        )}
+        {emailUnavailable && (
+          <FormNotice>
+            Email isn&apos;t available right now, so new accounts can&apos;t be created. Contact
+            support.
+          </FormNotice>
+        )}
         <form className="space-y-4" onSubmit={onSubmit}>
           <Field label="Name" htmlFor="name">
             <Input
