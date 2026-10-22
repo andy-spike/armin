@@ -267,24 +267,26 @@ function SettingsPage() {
             hint="Balanced suits most learners. Aggressive reviews more often. Relaxed reviews less."
             last
           >
-            <Select
-              value={preset}
-              items={PRESET_OPTIONS}
-              onValueChange={(v) => selectPreset(v as SchedulingPreset)}
-            >
-              <SelectTrigger className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
-                <SelectGroup>
-                  {PRESET_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+            {(labelId) => (
+              <Select
+                value={preset}
+                items={PRESET_OPTIONS}
+                onValueChange={(v) => selectPreset(v as SchedulingPreset)}
+              >
+                <SelectTrigger className="w-44" aria-labelledby={labelId}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {PRESET_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            )}
           </Row>
         </Section>
 
@@ -297,50 +299,65 @@ function SettingsPage() {
             hint="Target recall probability. Higher means more frequent reviews."
             {...resetProps("requestRetention")}
           >
-            <RetentionInput
-              value={s.requestRetention}
-              onChange={(v) => set("requestRetention", v)}
-            />
+            {(labelId) => (
+              <RetentionInput
+                value={s.requestRetention}
+                onChange={(v) => set("requestRetention", v)}
+                aria-labelledby={labelId}
+              />
+            )}
           </Row>
           <Row
             label="Maximum interval"
             hint="The longest gap between reviews, in days."
             {...resetProps("maximumInterval")}
           >
-            <MaximumIntervalInput
-              value={s.maximumInterval}
-              onChange={(v) => set("maximumInterval", v)}
-            />
+            {(labelId) => (
+              <MaximumIntervalInput
+                value={s.maximumInterval}
+                onChange={(v) => set("maximumInterval", v)}
+                aria-labelledby={labelId}
+              />
+            )}
           </Row>
           <Row
             label="Learning steps"
             hint="Short steps for brand-new review units."
             {...resetProps("learningSteps")}
           >
-            <StepsInput
-              value={s.learningSteps}
-              onChange={(v) => set("learningSteps", v)}
-            />
+            {(labelId) => (
+              <StepsInput
+                value={s.learningSteps}
+                onChange={(v) => set("learningSteps", v)}
+                aria-labelledby={labelId}
+              />
+            )}
           </Row>
           <Row
             label="Relearning steps"
             hint="Steps after you forget a review unit."
             {...resetProps("relearningSteps")}
           >
-            <StepsInput
-              value={s.relearningSteps}
-              onChange={(v) => set("relearningSteps", v)}
-            />
+            {(labelId) => (
+              <StepsInput
+                value={s.relearningSteps}
+                onChange={(v) => set("relearningSteps", v)}
+                aria-labelledby={labelId}
+              />
+            )}
           </Row>
           <Row
             label="Interval fuzz"
             hint="Scatter due dates slightly so reviews don't clump."
             {...resetProps("enableFuzz")}
           >
-            <Switch
-              checked={s.enableFuzz}
-              onCheckedChange={(v) => set("enableFuzz", v)}
-            />
+            {(labelId) => (
+              <Switch
+                checked={s.enableFuzz}
+                onCheckedChange={(v) => set("enableFuzz", v)}
+                aria-labelledby={labelId}
+              />
+            )}
           </Row>
           <Row
             label="Short-term scheduling"
@@ -348,10 +365,13 @@ function SettingsPage() {
             last
             {...resetProps("enableShortTerm")}
           >
-            <Switch
-              checked={s.enableShortTerm}
-              onCheckedChange={(v) => set("enableShortTerm", v)}
-            />
+            {(labelId) => (
+              <Switch
+                checked={s.enableShortTerm}
+                onCheckedChange={(v) => set("enableShortTerm", v)}
+                aria-labelledby={labelId}
+              />
+            )}
           </Row>
         </Section>
 
@@ -364,20 +384,26 @@ function SettingsPage() {
             hint="Required for initial access to dependents. Once earned, access stays unlocked."
             {...resetProps("prereqStabilityFloor")}
           >
-            <StabilityFloorInput
-              value={s.prereqStabilityFloor}
-              onChange={(v) => set("prereqStabilityFloor", v)}
-            />
+            {(labelId) => (
+              <StabilityFloorInput
+                value={s.prereqStabilityFloor}
+                onChange={(v) => set("prereqStabilityFloor", v)}
+                aria-labelledby={labelId}
+              />
+            )}
           </Row>
           <Row
             label="New review units per day"
             hint="Maximum brand-new review units introduced across all your decks each day, counted in your account time zone."
             {...resetProps("newReviewUnitsPerDay")}
           >
-            <NewCardsPerDayInput
-              value={s.newReviewUnitsPerDay}
-              onChange={(v) => set("newReviewUnitsPerDay", v)}
-            />
+            {(labelId) => (
+              <NewCardsPerDayInput
+                value={s.newReviewUnitsPerDay}
+                onChange={(v) => set("newReviewUnitsPerDay", v)}
+                aria-labelledby={labelId}
+              />
+            )}
           </Row>
           <Row
             label="Keep siblings together"
@@ -385,10 +411,13 @@ function SettingsPage() {
             last
             {...resetProps("keepSiblingReviewUnitsTogether")}
           >
-            <Switch
-              checked={s.keepSiblingReviewUnitsTogether}
-              onCheckedChange={(v) => set("keepSiblingReviewUnitsTogether", v)}
-            />
+            {(labelId) => (
+              <Switch
+                checked={s.keepSiblingReviewUnitsTogether}
+                onCheckedChange={(v) => set("keepSiblingReviewUnitsTogether", v)}
+                aria-labelledby={labelId}
+              />
+            )}
           </Row>
         </Section>
 
@@ -434,24 +463,26 @@ function SettingsPage() {
             hint="Flexoki light, Flexoki dark, or match your system setting."
             last
           >
-            <Select
-              value={themePreference}
-              items={THEME_OPTIONS}
-              onValueChange={(v) => setThemePreference(v as ThemePreference)}
-            >
-              <SelectTrigger className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
-                <SelectGroup>
-                  {THEME_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+            {(labelId) => (
+              <Select
+                value={themePreference}
+                items={THEME_OPTIONS}
+                onValueChange={(v) => setThemePreference(v as ThemePreference)}
+              >
+                <SelectTrigger className="w-44" aria-labelledby={labelId}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {THEME_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            )}
           </Row>
         </Section>
         </TabsPanel>

@@ -30,9 +30,14 @@ function UnitLabel({ children }: { children: string }) {
 type RetentionInputProps = {
   value: number;
   onChange: (value: number) => void;
+  "aria-labelledby"?: string;
 };
 
-export function RetentionInput({ value, onChange }: RetentionInputProps) {
+export function RetentionInput({
+  value,
+  onChange,
+  "aria-labelledby": labelledBy,
+}: RetentionInputProps) {
   const [draft, setDraft] = useState(formatRetentionPercent(value));
   const [invalid, setInvalid] = useState(false);
 
@@ -63,6 +68,7 @@ export function RetentionInput({ value, onChange }: RetentionInputProps) {
           setDraft(event.target.value.replace(/[^\d]/g, ""));
         }}
         onBlur={handleBlur}
+        aria-labelledby={labelledBy}
         aria-invalid={invalid}
         className={cn(
           "w-16 text-right tabular-nums",
@@ -77,11 +83,13 @@ export function RetentionInput({ value, onChange }: RetentionInputProps) {
 type MaximumIntervalInputProps = {
   value: number;
   onChange: (value: number) => void;
+  "aria-labelledby"?: string;
 };
 
 export function MaximumIntervalInput({
   value,
   onChange,
+  "aria-labelledby": labelledBy,
 }: MaximumIntervalInputProps) {
   const [draft, setDraft] = useState(formatDays(value));
   const [invalid, setInvalid] = useState(false);
@@ -113,6 +121,7 @@ export function MaximumIntervalInput({
           setDraft(event.target.value.replace(/[^\d,]/g, ""));
         }}
         onBlur={handleBlur}
+        aria-labelledby={labelledBy}
         aria-invalid={invalid}
         className={cn(
           "w-24 text-right tabular-nums",
@@ -127,9 +136,14 @@ export function MaximumIntervalInput({
 type DurationStepFieldsProps = {
   step: StepDuration;
   onChange: (step: StepDuration) => void;
+  labelledBy?: string;
 };
 
-function DurationStepFields({ step, onChange }: DurationStepFieldsProps) {
+function DurationStepFields({
+  step,
+  onChange,
+  labelledBy,
+}: DurationStepFieldsProps) {
   const [minutesDraft, setMinutesDraft] = useState(String(step.minutes));
   const [secondsDraft, setSecondsDraft] = useState(String(step.seconds));
   const [invalid, setInvalid] = useState(false);
@@ -175,7 +189,11 @@ function DurationStepFields({ step, onChange }: DurationStepFieldsProps) {
   };
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div
+      role="group"
+      aria-labelledby={labelledBy}
+      className="flex items-center gap-1.5"
+    >
       <Input
         inputMode="numeric"
         value={minutesDraft}
@@ -215,9 +233,14 @@ function DurationStepFields({ step, onChange }: DurationStepFieldsProps) {
 type StepsInputProps = {
   value: string;
   onChange: (value: string) => void;
+  "aria-labelledby"?: string;
 };
 
-export function StepsInput({ value, onChange }: StepsInputProps) {
+export function StepsInput({
+  value,
+  onChange,
+  "aria-labelledby": labelledBy,
+}: StepsInputProps) {
   const step = parseStepsString(value)?.[0] ?? { minutes: 1, seconds: 0 };
 
   const handleChange = (next: StepDuration) => {
@@ -226,17 +249,25 @@ export function StepsInput({ value, onChange }: StepsInputProps) {
     if (formatted) onChange(formatted);
   };
 
-  return <DurationStepFields step={step} onChange={handleChange} />;
+  return (
+    <DurationStepFields
+      step={step}
+      onChange={handleChange}
+      labelledBy={labelledBy}
+    />
+  );
 }
 
 type StabilityFloorInputProps = {
   value: number;
   onChange: (value: number) => void;
+  "aria-labelledby"?: string;
 };
 
 export function StabilityFloorInput({
   value,
   onChange,
+  "aria-labelledby": labelledBy,
 }: StabilityFloorInputProps) {
   const [draft, setDraft] = useState(String(value));
   const [invalid, setInvalid] = useState(false);
@@ -268,6 +299,7 @@ export function StabilityFloorInput({
           setDraft(event.target.value.replace(/[^\d.]/g, ""));
         }}
         onBlur={handleBlur}
+        aria-labelledby={labelledBy}
         aria-invalid={invalid}
         className={cn(
           "w-16 text-right tabular-nums",
@@ -282,11 +314,13 @@ export function StabilityFloorInput({
 type NewCardsPerDayInputProps = {
   value: number;
   onChange: (value: number) => void;
+  "aria-labelledby"?: string;
 };
 
 export function NewCardsPerDayInput({
   value,
   onChange,
+  "aria-labelledby": labelledBy,
 }: NewCardsPerDayInputProps) {
   const [draft, setDraft] = useState(String(value));
   const [invalid, setInvalid] = useState(false);
@@ -318,6 +352,7 @@ export function NewCardsPerDayInput({
           setDraft(event.target.value.replace(/[^\d]/g, ""));
         }}
         onBlur={handleBlur}
+        aria-labelledby={labelledBy}
         aria-invalid={invalid}
         className={cn(
           "w-16 text-right tabular-nums",

@@ -1,5 +1,5 @@
 import { armin } from "@/lib/armin-client";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RotateCcw, X } from "lucide-react";
 import {
@@ -116,7 +116,7 @@ export function DeckSettingsDialog({
   return (
     <Dialog open={open} onClose={onClose} className="max-w-xl p-0">
       <div className="flex max-h-[min(80vh,46rem)] flex-col">
-        <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+        <header className="flex items-start justify-between gap-4 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-ink">Deck settings</h2>
             <p className="mt-0.5 truncate text-sm text-muted">{deckName}</p>
@@ -139,7 +139,7 @@ export function DeckSettingsDialog({
           <div
             role="status"
             aria-busy
-            className="armin-scrollbar flex-1 space-y-8 overflow-hidden px-6 py-6"
+            className="armin-scrollbar flex-1 space-y-8 overflow-hidden px-4 py-6 sm:px-6"
           >
             <span className="sr-only">Loading settings…</span>
             <Section
@@ -150,7 +150,7 @@ export function DeckSettingsDialog({
             </Section>
           </div>
         ) : (
-          <div className="armin-scrollbar flex-1 space-y-8 overflow-y-auto px-6 py-6">
+          <div className="armin-scrollbar flex-1 space-y-8 overflow-y-auto px-4 py-6 sm:px-6">
             <Section
               title="Scheduling"
               description="How FSRS schedules reviews for cards in this deck."
@@ -161,10 +161,13 @@ export function DeckSettingsDialog({
                 overridden={localOverrides.requestRetention !== null}
                 onRevert={() => clearField("requestRetention")}
               >
-                <RetentionInput
-                  value={effective.requestRetention}
-                  onChange={(value) => setField("requestRetention", value)}
-                />
+                {(labelId) => (
+                  <RetentionInput
+                    value={effective.requestRetention}
+                    onChange={(value) => setField("requestRetention", value)}
+                    aria-labelledby={labelId}
+                  />
+                )}
               </OverrideRow>
               <OverrideRow
                 label="Maximum interval"
@@ -172,10 +175,13 @@ export function DeckSettingsDialog({
                 overridden={localOverrides.maximumInterval !== null}
                 onRevert={() => clearField("maximumInterval")}
               >
-                <MaximumIntervalInput
-                  value={effective.maximumInterval}
-                  onChange={(value) => setField("maximumInterval", value)}
-                />
+                {(labelId) => (
+                  <MaximumIntervalInput
+                    value={effective.maximumInterval}
+                    onChange={(value) => setField("maximumInterval", value)}
+                    aria-labelledby={labelId}
+                  />
+                )}
               </OverrideRow>
               <OverrideRow
                 label="Learning steps"
@@ -183,10 +189,13 @@ export function DeckSettingsDialog({
                 overridden={localOverrides.learningSteps !== null}
                 onRevert={() => clearField("learningSteps")}
               >
-                <StepsInput
-                  value={effective.learningSteps}
-                  onChange={(value) => setField("learningSteps", value)}
-                />
+                {(labelId) => (
+                  <StepsInput
+                    value={effective.learningSteps}
+                    onChange={(value) => setField("learningSteps", value)}
+                    aria-labelledby={labelId}
+                  />
+                )}
               </OverrideRow>
               <OverrideRow
                 label="Relearning steps"
@@ -194,10 +203,13 @@ export function DeckSettingsDialog({
                 overridden={localOverrides.relearningSteps !== null}
                 onRevert={() => clearField("relearningSteps")}
               >
-                <StepsInput
-                  value={effective.relearningSteps}
-                  onChange={(value) => setField("relearningSteps", value)}
-                />
+                {(labelId) => (
+                  <StepsInput
+                    value={effective.relearningSteps}
+                    onChange={(value) => setField("relearningSteps", value)}
+                    aria-labelledby={labelId}
+                  />
+                )}
               </OverrideRow>
               <OverrideRow
                 label="Interval fuzz"
@@ -205,10 +217,13 @@ export function DeckSettingsDialog({
                 overridden={localOverrides.enableFuzz !== null}
                 onRevert={() => clearField("enableFuzz")}
               >
-                <Switch
-                  checked={effective.enableFuzz}
-                  onCheckedChange={(value) => setField("enableFuzz", value)}
-                />
+                {(labelId) => (
+                  <Switch
+                    checked={effective.enableFuzz}
+                    onCheckedChange={(value) => setField("enableFuzz", value)}
+                    aria-labelledby={labelId}
+                  />
+                )}
               </OverrideRow>
               <OverrideRow
                 label="Short-term scheduling"
@@ -217,12 +232,15 @@ export function DeckSettingsDialog({
                 onRevert={() => clearField("enableShortTerm")}
                 last
               >
-                <Switch
-                  checked={effective.enableShortTerm}
-                  onCheckedChange={(value) =>
-                    setField("enableShortTerm", value)
-                  }
-                />
+                {(labelId) => (
+                  <Switch
+                    checked={effective.enableShortTerm}
+                    onCheckedChange={(value) =>
+                      setField("enableShortTerm", value)
+                    }
+                    aria-labelledby={labelId}
+                  />
+                )}
               </OverrideRow>
             </Section>
 
@@ -236,12 +254,15 @@ export function DeckSettingsDialog({
                 overridden={localOverrides.prereqStabilityFloor !== null}
                 onRevert={() => clearField("prereqStabilityFloor")}
               >
-                <StabilityFloorInput
-                  value={effective.prereqStabilityFloor}
-                  onChange={(value) =>
-                    setField("prereqStabilityFloor", value)
-                  }
-                />
+                {(labelId) => (
+                  <StabilityFloorInput
+                    value={effective.prereqStabilityFloor}
+                    onChange={(value) =>
+                      setField("prereqStabilityFloor", value)
+                    }
+                    aria-labelledby={labelId}
+                  />
+                )}
               </OverrideRow>
               <OverrideRow
                 label="Keep siblings together"
@@ -252,18 +273,21 @@ export function DeckSettingsDialog({
                 onRevert={() => clearField("keepSiblingReviewUnitsTogether")}
                 last
               >
-                <Switch
-                  checked={effective.keepSiblingReviewUnitsTogether}
-                  onCheckedChange={(value) =>
-                    setField("keepSiblingReviewUnitsTogether", value)
-                  }
-                />
+                {(labelId) => (
+                  <Switch
+                    checked={effective.keepSiblingReviewUnitsTogether}
+                    onCheckedChange={(value) =>
+                      setField("keepSiblingReviewUnitsTogether", value)
+                    }
+                    aria-labelledby={labelId}
+                  />
+                )}
               </OverrideRow>
             </Section>
           </div>
         )}
 
-        <footer className="flex items-center justify-between gap-2 border-t border-border px-6 py-4">
+        <footer className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 border-t border-border px-4 py-4 sm:px-6">
           <Button
             variant="ghost"
             size="sm"
@@ -273,7 +297,7 @@ export function DeckSettingsDialog({
             <RotateCcw className="h-4 w-4" />
             Reset all to inherited
           </Button>
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
@@ -344,20 +368,23 @@ function OverrideRow({
   overridden: boolean;
   onRevert: () => void;
   last?: boolean;
-  children: ReactNode;
+  children: ReactNode | ((labelId: string) => ReactNode);
 }) {
+  const labelId = useId();
   return (
     <div
       className={cn(
-        "grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-6 px-4 py-3.5",
+        "grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-6 gap-y-2 px-4 py-3.5 max-sm:grid-cols-1",
         !last && "border-b border-border",
       )}
     >
       <div className="min-w-0">
-        <p className="text-sm font-medium text-ink">{label}</p>
+        <p id={labelId} className="text-sm font-medium text-ink">
+          {label}
+        </p>
         <p className="mt-0.5 text-[0.8125rem] leading-snug text-muted">{hint}</p>
       </div>
-      <div className="flex min-h-9 shrink-0 items-center justify-end gap-1.5">
+      <div className="flex min-h-9 shrink-0 items-center justify-end gap-1.5 max-sm:justify-start">
         {overridden && (
           <Button
             variant="ghost"
@@ -369,7 +396,7 @@ function OverrideRow({
             <RotateCcw className="h-4 w-4" />
           </Button>
         )}
-        {children}
+        {typeof children === "function" ? children(labelId) : children}
       </div>
     </div>
   );

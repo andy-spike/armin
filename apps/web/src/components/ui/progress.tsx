@@ -6,11 +6,13 @@ export function Progress({
   max = 100,
   className,
   tone = "accent",
+  "aria-label": ariaLabel,
 }: {
   value: number;
   max?: number;
   className?: string;
   tone?: "accent" | "good" | "ink";
+  "aria-label"?: string;
 }) {
   const pct = max <= 0 ? 0 : Math.min(100, Math.max(0, (value / max) * 100));
   const fill =
@@ -22,6 +24,7 @@ export function Progress({
         className,
       )}
       role="progressbar"
+      aria-label={ariaLabel}
       aria-valuenow={Math.round(pct)}
       aria-valuemin={0}
       aria-valuemax={100}
