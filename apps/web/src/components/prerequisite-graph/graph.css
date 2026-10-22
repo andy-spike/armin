@@ -1,0 +1,15 @@
+/*
+ * React Flow makes each card a focusable `.react-flow__node` wrapper but
+ * suppresses the browser outline on it. Draw the keyboard focus ring on the
+ * card surface instead so focused cards are visible.
+ */
+.react-flow__node.selectable:focus-visible > div {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Match the app's themed surfaces instead of React Flow's light defaults. */
+.react-flow__minimap {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
