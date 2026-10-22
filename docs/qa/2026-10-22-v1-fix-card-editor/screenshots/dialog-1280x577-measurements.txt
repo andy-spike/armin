@@ -1,0 +1,8 @@
+{
+  "viewport": { "width": 1280, "height": 577 },
+  "panel": { "top": 16, "bottom": 561, "height": 545 },
+  "title": { "top": 41, "bottom": 69 },
+  "close": { "top": 35, "bottom": 67 },
+  "body": { "clientHeight": 406, "scrollHeight": 495 },
+  "primaryAction": { "top": 508, "bottom": 544 }
+}
