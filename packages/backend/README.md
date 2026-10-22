@@ -41,9 +41,11 @@ Client entry points (see `package.json` `exports`):
   marks the library `deleting` in the same transaction as the auth user removal,
   so access ends immediately; `deletion.cleanupLibrary` then removes rows and
   files in bounded batches.
-- A rating validates the displayed review-unit version and current eligibility
-  (locks, archive, due time, the account-wide Frontier cap in the account
-  timezone), runs FSRS at server time, and writes the schedule, the review log,
+- The account-wide Frontier cap (in the account timezone) limits which new
+  units the review queue admits. A rating validates the displayed review-unit
+  version and current eligibility (locks, archive, due time), but not the cap,
+  so an answer to a card already admitted to a session is never discarded
+  when the budget runs out mid-session. It runs FSRS at server time, and writes the schedule, the review log,
   and prerequisite lock changes in one mutation. Undo restores the exact saved
   pre-review schedule only while that review is still the unit's latest. Earned
   prerequisite access is permanent and survives lapses, Undo, and authoring changes.

@@ -35,7 +35,6 @@ function ReviewsPage() {
     () => (queueQuery.data?.items ?? []).map(toUiReviewUnit),
     [queueQuery.data],
   );
-  const dueCount = queue.length;
 
   const deckOptions = useMemo(
     () => [
@@ -68,7 +67,7 @@ function ReviewsPage() {
         >
           <SelectTrigger
             size="sm"
-            className="min-w-[10rem] border-border-strong"
+            className="w-full min-w-0 border-border-strong sm:w-auto sm:max-w-[20rem] [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:truncate"
             aria-label="Deck to review"
           >
             <Layers className="h-3.5 w-3.5 shrink-0 text-muted" />
@@ -94,9 +93,9 @@ function ReviewsPage() {
           Review
         </h1>
       }
-      subtitle={
-        dueCount > 0
-          ? `${plural(dueCount, "review unit")} due today across your decks.`
+      subtitle={(remaining) =>
+        remaining > 0
+          ? `${plural(remaining, "review unit")} due today across your decks.`
           : "Everything due across your decks, in one queue."
       }
       doneAction={

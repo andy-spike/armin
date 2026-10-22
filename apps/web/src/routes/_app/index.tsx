@@ -448,7 +448,7 @@ function DeckTile({
                 max={deck.total}
                 tone="good"
                 className="mt-1.5"
-                aria-label={`${deck.name} learned`}
+                label={`${deck.name} learned`}
               />
               <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                 {deck.due > 0 && (
