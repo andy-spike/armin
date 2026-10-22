@@ -59,13 +59,18 @@ function ReviewPage() {
       }}
       {...actions}
       header={
-        <Link
-          to="/deck/$deckId"
-          params={{ deckId }}
-          className="inline-flex items-center gap-1 rounded-sm text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back to deck
-        </Link>
+        <div className="min-w-0">
+          <Link
+            to="/deck/$deckId"
+            params={{ deckId }}
+            className="inline-flex items-center gap-1 rounded-sm text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to deck
+          </Link>
+          <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">
+            Review
+          </h1>
+        </div>
       }
       doneAction={
         <Link to="/deck/$deckId" params={{ deckId }}>
