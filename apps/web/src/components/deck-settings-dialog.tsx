@@ -114,7 +114,12 @@ export function DeckSettingsDialog({
   const ready = !query.isLoading && data && localOverrides && effective;
 
   return (
-    <Dialog open={open} onClose={onClose} className="max-w-xl p-0">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      ariaLabel={`Deck settings: ${deckName}`}
+      className="max-w-xl p-0"
+    >
       <div className="flex max-h-[min(80vh,46rem)] flex-col">
         <header className="flex items-start justify-between gap-4 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
           <div className="min-w-0">

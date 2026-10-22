@@ -68,6 +68,7 @@ export function Dialog({
   children,
   footer,
   className,
+  ariaLabel,
 }: {
   open: boolean;
   onClose: () => void;
@@ -77,6 +78,8 @@ export function Dialog({
   children: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
+  /** Accessible name for dialogs that render their own heading instead of `title`. */
+  ariaLabel?: string;
 }) {
   installFocusTracking();
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -230,6 +233,7 @@ export function Dialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={content.title ? titleId : undefined}
+        aria-label={content.title ? undefined : ariaLabel}
         tabIndex={-1}
         className={cn(
           "relative z-10 w-full max-w-md max-h-[calc(100dvh-2rem)] rounded-lg border border-border bg-surface shadow-overlay outline-none",
