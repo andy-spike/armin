@@ -139,7 +139,7 @@ export const armin = {
         limit: offset + input.limit,
         now: nowTick(),
       });
-      if (!page) return { flashcards: [], filteredTotal: 0, libraryTotal: 0 };
+      if (!page) return { flashcards: [], filteredTotal: 0, filteredArchived: 0, libraryTotal: 0, libraryArchived: 0 };
       return { ...page, flashcards: page.flashcards.slice(offset) };
     },
     listTags: async () => (await q().query(api.flashcards.listTags, {})) ?? [],
