@@ -29,26 +29,52 @@ function hex(buffer: ArrayBuffer) {
     .join("");
 }
 
+/**
+ * Read and discard a request body. Rejecting an oversized upload before the
+ * client has finished sending closes the connection mid-write, which HTTP
+ * proxies surface as an EPIPE and a 500. Draining lets the caller receive the
+ * intended 413 instead.
+ */
+async function drainBody(body: ReadableStream<Uint8Array> | null) {
+  if (!body) return;
+  const reader = body.getReader();
+  try {
+    for (;;) {
+      const { done } = await reader.read();
+      if (done) return;
+    }
+  } catch {
+    // The client stopped sending; the response status still explains why.
+  }
+}
+
 /** Authenticated raw bytes, stored by this action. Clients cannot name a blob. */
 export async function uploadImage(ctx: ActionCtx, request: Request) {
   const libraryId = await ctx.runQuery(internal.media.uploaderLibrary, {});
   if (!libraryId) return new Response("Sign in with a verified account.", { status: 401 });
   const declared = Number(request.headers.get("content-length"));
-  if (declared > MAX_MEDIA_FILE_BYTES) return new Response("Image too large.", { status: 413 });
+  if (declared > MAX_MEDIA_FILE_BYTES) {
+    await drainBody(request.body);
+    return new Response("Image too large.", { status: 413 });
+  }
   const reader = request.body?.getReader();
   if (!reader) return new Response("Image is empty.", { status: 400 });
   const chunks: Uint8Array[] = [];
   let size = 0;
+  let tooLarge = false;
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
+    if (tooLarge) continue;
     size += value.byteLength;
     if (size > MAX_MEDIA_FILE_BYTES) {
-      await reader.cancel();
-      return new Response("Image too large.", { status: 413 });
+      tooLarge = true;
+      chunks.length = 0;
+      continue;
     }
     chunks.push(value);
   }
+  if (tooLarge) return new Response("Image too large.", { status: 413 });
   const bytes = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }

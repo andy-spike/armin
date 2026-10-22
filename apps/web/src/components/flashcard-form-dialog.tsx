@@ -61,6 +61,44 @@ const TYPE_OPTIONS: { value: FlashcardType; label: string }[] = [
   { value: "type_answer", label: "Type answer" },
 ];
 
+const EMPTY_FORM = {
+  front: "",
+  back: "",
+  clozeText: "",
+  prompt: "",
+  answer: "",
+  acceptedAnswers: [] as string[],
+};
+
+/** Stable snapshot of the editable fields, used to detect unsaved changes. */
+function formSnapshot(
+  type: FlashcardType,
+  content: FlashcardContent | null,
+  tags: string[],
+) {
+  const values = content
+    ? type === "basic" || type === "basic_reversed"
+      ? {
+          ...EMPTY_FORM,
+          front: (content as { front: string }).front,
+          back: (content as { back: string }).back,
+        }
+      : type === "cloze"
+        ? { ...EMPTY_FORM, clozeText: (content as { text: string }).text }
+        : type === "type_answer"
+          ? {
+              ...EMPTY_FORM,
+              prompt: (content as { prompt: string }).prompt,
+              answer: (content as { answer: string }).answer,
+              acceptedAnswers:
+                (content as { acceptedAnswers?: string[] }).acceptedAnswers ??
+                [],
+            }
+          : EMPTY_FORM
+    : EMPTY_FORM;
+  return JSON.stringify({ type, ...values, tags });
+}
+
 export function FlashcardFormDialog({
   open,
   onClose,
@@ -93,6 +131,9 @@ export function FlashcardFormDialog({
   });
   const [createSession, setCreateSession] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const initialSnapshotRef = useRef<string | null>(null);
+  const keepEditingRef = useRef<HTMLButtonElement>(null);
   // Starts closed even when mounted open: the lazy wrapper first mounts this
   // dialog already open, and that first open must hydrate like any other.
   const wasOpenRef = useRef(false);
@@ -136,11 +177,27 @@ export function FlashcardFormDialog({
     if (open && !wasOpenRef.current) {
       hydrateFrom(initialType, initialContent);
       setTags(initialTags);
+      initialSnapshotRef.current = formSnapshot(
+        initialType,
+        initialContent,
+        initialTags,
+      );
+      setDiscardOpen(false);
       setDisplaySession({ mode, reviewUnitId: reviewUnitId ?? null });
       if (mode === "create") setCreateSession(0);
     }
     wasOpenRef.current = open;
   }, [open, initialType, initialContent, initialTags, reviewUnitId, mode]);
+
+  useEffect(() => {
+    if (!open) setDiscardOpen(false);
+  }, [open]);
+
+  useEffect(() => {
+    if (!discardOpen) return;
+    const frame = requestAnimationFrame(() => keepEditingRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [discardOpen]);
 
   const displayMode = open ? mode : displaySession.mode;
   const displayCardId = open
@@ -155,7 +212,13 @@ export function FlashcardFormDialog({
         return { front: front.trim(), back: back.trim() };
       }
       case "cloze": {
-        if (clozeClusters(clozeText).length === 0) return null;
+        const deletions = parseClozes(clozeText);
+        if (
+          deletions.length === 0 ||
+          deletions.some((deletion) => deletion.answer.trim().length === 0)
+        ) {
+          return null;
+        }
         return { text: clozeText };
       }
       case "type_answer": {
@@ -178,6 +241,33 @@ export function FlashcardFormDialog({
   const { online } = useConnection();
   const canSubmit = content !== null && !submitting && online;
 
+  const currentSnapshot = JSON.stringify({
+    type,
+    front,
+    back,
+    clozeText,
+    prompt,
+    answer,
+    acceptedAnswers,
+    tags,
+  });
+  const dirty =
+    initialSnapshotRef.current !== null &&
+    currentSnapshot !== initialSnapshotRef.current;
+
+  const requestClose = () => {
+    if (dirty) {
+      setDiscardOpen(true);
+      return;
+    }
+    onClose();
+  };
+
+  const discardChanges = () => {
+    setDiscardOpen(false);
+    onClose();
+  };
+
   const handleSubmit = async () => {
     const built = buildContent();
     if (!built || submitting || !online) return;
@@ -187,6 +277,11 @@ export function FlashcardFormDialog({
       if (mode === "create") {
         resetFields();
         setCreateSession((session) => session + 1);
+        initialSnapshotRef.current = JSON.stringify({
+          type,
+          ...EMPTY_FORM,
+          tags,
+        });
       }
     } finally {
       setSubmitting(false);
@@ -196,7 +291,7 @@ export function FlashcardFormDialog({
   handleSubmitRef.current = handleSubmit;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || discardOpen) return;
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Enter" && event.ctrlKey) {
         event.preventDefault();
@@ -205,174 +300,212 @@ export function FlashcardFormDialog({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  }, [open, discardOpen]);
 
   const editorKey = displayCardId ?? `new-${createSession}`;
 
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={() => {
+        if (discardOpen) {
+          setDiscardOpen(false);
+          return;
+        }
+        requestClose();
+      }}
       onExitComplete={onExitComplete}
-      title={displayMode === "edit" ? "Edit flashcard" : "Add card"}
+      title={
+        discardOpen
+          ? "Discard changes?"
+          : displayMode === "edit"
+            ? "Edit flashcard"
+            : "Add card"
+      }
+      description={
+        discardOpen ? "Your edits to this card haven't been saved." : undefined
+      }
       className="max-w-[35rem]"
-    >
-      <div className="space-y-4">
-        {displayMode === "create" &&
-          decks &&
-          decks.length > 0 &&
-          onDeckChange && (
-            <Field label="Deck" hint="Which deck this card is filed under.">
-              <Select
-                value={deckId ?? undefined}
-                items={decks.map((deck) => ({
-                  value: deck.id,
-                  label: deck.name,
-                }))}
-                onValueChange={(next) => onDeckChange(next as string)}
-              >
-                <SelectTrigger className="w-full" aria-label="Deck">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
-                  <SelectGroup>
-                    {decks.map((deck) => (
-                      <SelectItem key={deck.id} value={deck.id}>
-                        {deck.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-          )}
-        <Field label="Type">
-          <div className="flex w-full gap-1.5">
-            {TYPE_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setType(option.value)}
-                aria-pressed={type === option.value}
-                className={cn(
-                  "min-w-0 flex-1 rounded-md border px-2.5 py-1.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
-                  type === option.value
-                    ? "border-accent bg-accent text-on-accent"
-                    : "border-border-strong bg-surface text-muted hover:text-ink",
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
+      footer={
+        discardOpen ? (
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              ref={keepEditingRef}
+              variant="ghost"
+              onClick={() => setDiscardOpen(false)}
+            >
+              Keep editing
+            </Button>
+            <Button variant="destructive" onClick={discardChanges}>
+              Discard changes
+            </Button>
           </div>
-        </Field>
-
-        {(type === "basic" || type === "basic_reversed") && (
-          <>
-            <Field label="Front" hint="The prompt or question.">
-              <MarkdownEditor
-                key={`front-${editorKey}`}
-                autoFocus
-                aria-label="Flashcard front"
-                value={front}
-                onChange={setFront}
-                placeholder="What does `typeof null` return?"
-              />
-            </Field>
-            <Field
-              label="Back"
-              hint={
-                type === "basic_reversed"
-                  ? "Creates 2 reviews — one each direction."
-                  : "The answer to recall."
-              }
-            >
-              <MarkdownEditor
-                key={`back-${editorKey}`}
-                aria-label="Flashcard back"
-                value={back}
-                onChange={setBack}
-                placeholder={
-                  '`"object"` — a historical bug kept for compatibility.'
-                }
-              />
-            </Field>
-          </>
-        )}
-
-        {type === "cloze" && (
-          <ClozeField
-            key={`cloze-${editorKey}`}
-            value={clozeText}
-            onChange={setClozeText}
-          />
-        )}
-
-        {type === "type_answer" && (
-          <>
-            <Field label="Prompt" hint="The question to answer.">
-              <MarkdownEditor
-                key={`prompt-${editorKey}`}
-                autoFocus
-                aria-label="Prompt"
-                value={prompt}
-                onChange={setPrompt}
-                placeholder="Capital of France?"
-              />
-            </Field>
-            <Field label="Answer" hint="The expected typed answer.">
-              <Input
-                key={`answer-${editorKey}`}
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                aria-label="Answer"
-                placeholder="Paris"
-              />
-            </Field>
-            <Field
-              label="Accepted answers"
-              hint="Other answers counted as correct. Press Enter to add."
-            >
-              <TagsInput
-                key={`accepted-${editorKey}`}
-                value={acceptedAnswers}
-                onChange={setAcceptedAnswers}
-                placeholder="e.g. paris, ville de paris"
-              />
-            </Field>
-          </>
-        )}
-
-        {type === "image_occlusion" && (
-          <Field label="Image occlusion">
-            <div className="rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-muted">
-              Image occlusion authoring is not available in this editor yet.
-              Existing masks are preserved when saving tags or other metadata.
+        ) : (
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="ghost" onClick={requestClose}>
+              Cancel
+              <Kbd>Esc</Kbd>
+            </Button>
+            <Button disabled={!canSubmit} onClick={() => void handleSubmit()}>
+              {displayMode === "edit" ? "Save changes" : "Add card"}
+              <Kbd className="border-on-accent/25 bg-on-accent/10 text-on-accent shadow-none">
+                Ctrl+Enter
+              </Kbd>
+            </Button>
+          </div>
+        )
+      }
+    >
+      {discardOpen ? (
+        <p className="text-sm text-muted">
+          Discarding removes everything you changed since opening this card.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {displayMode === "create" &&
+            decks &&
+            decks.length > 0 &&
+            onDeckChange && (
+              <Field label="Deck" hint="Which deck this card is filed under.">
+                <Select
+                  value={deckId ?? undefined}
+                  items={decks.map((deck) => ({
+                    value: deck.id,
+                    label: deck.name,
+                  }))}
+                  onValueChange={(next) => onDeckChange(next as string)}
+                >
+                  <SelectTrigger className="w-full" aria-label="Deck">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    <SelectGroup>
+                      {decks.map((deck) => (
+                        <SelectItem key={deck.id} value={deck.id}>
+                          {deck.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+          <Field label="Type">
+            <div className="grid w-full grid-cols-2 gap-1.5 sm:grid-cols-4">
+              {TYPE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setType(option.value)}
+                  aria-pressed={type === option.value}
+                  className={cn(
+                    "min-w-0 rounded-md border px-2.5 py-1.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                    type === option.value
+                      ? "border-accent bg-accent text-on-accent"
+                      : "border-border-strong bg-surface text-muted hover:text-ink",
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
           </Field>
-        )}
 
-        <Field label="Tags" hint="Press Enter or comma to add.">
-          <TagsInput
-            key={`tags-${editorKey}`}
-            value={tags}
-            onChange={setTags}
-          />
-        </Field>
+          {(type === "basic" || type === "basic_reversed") && (
+            <>
+              <Field label="Front" hint="The prompt or question.">
+                <MarkdownEditor
+                  key={`front-${editorKey}`}
+                  autoFocus
+                  aria-label="Flashcard front"
+                  value={front}
+                  onChange={setFront}
+                  placeholder="What does `typeof null` return?"
+                />
+              </Field>
+              <Field
+                label="Back"
+                hint={
+                  type === "basic_reversed"
+                    ? "Creates 2 reviews — one each direction."
+                    : "The answer to recall."
+                }
+              >
+                <MarkdownEditor
+                  key={`back-${editorKey}`}
+                  aria-label="Flashcard back"
+                  value={back}
+                  onChange={setBack}
+                  placeholder={
+                    '`"object"` — a historical bug kept for compatibility.'
+                  }
+                />
+              </Field>
+            </>
+          )}
 
-        <div className="flex justify-end gap-2 pt-1">
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-            <Kbd>Esc</Kbd>
-          </Button>
-          <Button disabled={!canSubmit} onClick={() => void handleSubmit()}>
-            {displayMode === "edit" ? "Save changes" : "Add card"}
-            <Kbd className="border-on-accent/25 bg-on-accent/10 text-on-accent shadow-none">
-              Ctrl+Enter
-            </Kbd>
-          </Button>
+          {type === "cloze" && (
+            <ClozeField
+              key={`cloze-${editorKey}`}
+              value={clozeText}
+              onChange={setClozeText}
+            />
+          )}
+
+          {type === "type_answer" && (
+            <>
+              <Field label="Prompt" hint="The question to answer.">
+                <MarkdownEditor
+                  key={`prompt-${editorKey}`}
+                  autoFocus
+                  aria-label="Prompt"
+                  value={prompt}
+                  onChange={setPrompt}
+                  placeholder="Capital of France?"
+                />
+              </Field>
+              <Field label="Answer" hint="The expected typed answer.">
+                <Input
+                  key={`answer-${editorKey}`}
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  aria-label="Answer"
+                  placeholder="Paris"
+                />
+              </Field>
+              <Field
+                label="Accepted answers"
+                hint="Other answers counted as correct. Press Enter to add."
+              >
+                <TagsInput
+                  key={`accepted-${editorKey}`}
+                  ariaLabel="Add accepted answer"
+                  value={acceptedAnswers}
+                  onChange={setAcceptedAnswers}
+                  placeholder="e.g. paris, ville de paris"
+                />
+              </Field>
+            </>
+          )}
+
+          {type === "image_occlusion" && (
+            <Field label="Image occlusion">
+              <div className="rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-muted">
+                Image occlusion authoring is not available in this editor yet.
+                Existing masks are preserved when saving tags or other metadata.
+              </div>
+            </Field>
+          )}
+
+          <Field label="Tags" hint="Press Enter or comma to add.">
+            <TagsInput
+              key={`tags-${editorKey}`}
+              value={tags}
+              onChange={setTags}
+            />
+          </Field>
         </div>
-      </div>
+      )}
     </Dialog>
   );
 }
@@ -386,6 +519,9 @@ function ClozeField({
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const deletions = parseClozes(value);
+  const emptyDeletion = deletions.find(
+    (deletion) => deletion.answer.trim().length === 0,
+  );
 
   const wrapSelection = () => {
     const el = ref.current;
@@ -440,6 +576,7 @@ function ClozeField({
           ref={ref}
           autoFocus
           aria-label="Cloze text"
+          aria-invalid={emptyDeletion ? true : undefined}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
@@ -447,6 +584,12 @@ function ClozeField({
           minHeight={120}
           maxHeight={300}
         />
+        {emptyDeletion && (
+          <p role="alert" className="text-xs text-relearning">
+            Every cloze deletion needs an answer. Fill in c
+            {emptyDeletion.cluster} or remove its blank.
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
@@ -461,7 +604,12 @@ function ClozeField({
               {deletions.map((d, i) => (
                 <li
                   key={`${d.cluster}-${i}`}
-                  className="rounded-sm bg-surface-sunken px-1.5 py-0.5 text-[0.6875rem] font-medium text-muted"
+                  className={cn(
+                    "rounded-sm px-1.5 py-0.5 text-[0.6875rem] font-medium",
+                    d.answer.trim()
+                      ? "bg-surface-sunken text-muted"
+                      : "bg-relearning-bg text-relearning",
+                  )}
                 >
                   c{d.cluster}: {d.answer || "—"}
                 </li>
@@ -480,10 +628,12 @@ function TagsInput({
   value,
   onChange,
   placeholder,
+  ariaLabel = "Add tag",
 }: {
   value: string[];
   onChange: (tags: string[]) => void;
   placeholder?: string;
+  ariaLabel?: string;
 }) {
   const [draft, setDraft] = useState("");
 
@@ -534,7 +684,7 @@ function TagsInput({
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={() => addTag(draft)}
-        aria-label="Add tag"
+        aria-label={ariaLabel}
         placeholder={
           value.length === 0 ? (placeholder ?? "e.g. closures, async") : ""
         }

@@ -101,6 +101,13 @@ export function clozeClusters(text: string): number[] {
   return [...clusters].sort((a, b) => a - b);
 }
 
+/** True when any `{{…}}` wrapper has no answer text to hide. */
+export function hasEmptyClozeDeletion(text: string): boolean {
+  return parseClozes(text).some(
+    (deletion) => deletion.answer.trim().length === 0,
+  );
+}
+
 function formatClozeDeletion(deletion: ClozeDeletion) {
   return deletion.hint
     ? `{{${deletion.cluster}::${deletion.answer}::${deletion.hint}}}`
