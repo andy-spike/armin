@@ -1,0 +1,11 @@
+{
+  "viewport": { "width": 320, "height": 844 },
+  "cancel": { "left": 41, "right": 279 },
+  "save": { "left": 41, "right": 279 },
+  "tabs": [
+    { "label": "Basic", "width": 116, "scrollWidth": 114 },
+    { "label": "Reversed", "width": 116, "scrollWidth": 114 },
+    { "label": "Cloze", "width": 116, "scrollWidth": 114 },
+    { "label": "Type answer", "width": 116, "scrollWidth": 114 }
+  ]
+}

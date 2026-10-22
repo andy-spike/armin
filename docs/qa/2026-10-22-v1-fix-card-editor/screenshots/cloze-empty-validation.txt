@@ -1,0 +1,5 @@
+{
+  "addDisabled": true,
+  "message": "Every cloze deletion needs an answer. Fill in c1 or remove its blank.",
+  "ariaInvalid": "true"
+}

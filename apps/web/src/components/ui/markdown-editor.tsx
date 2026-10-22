@@ -1,9 +1,16 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { ImagePlus } from "lucide-react";
+import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT } from "@armin/core/media";
 import { cn } from "@/lib/utils";
 import {
   mediaDisplayUrl,
@@ -13,7 +20,81 @@ import {
 import { ImageZoomDialog } from "@/components/ui/image-zoom-dialog";
 import { ResizableImage } from "@/components/ui/markdown-image";
 import { useToast } from "@/components/ui/toast";
-import { armin, errorMessage } from "@/lib/armin-client";
+import { armin } from "@/lib/armin-client";
+
+// SVG is intentionally not offered: uploaded images are served from an
+// authenticated route, and SVG can carry script. The server sniffs uploaded
+// bytes and rejects it too; keeping the picker honest avoids a pointless round
+// trip. Derive the rest from the shared media rules so the two stay in sync.
+const UPLOAD_MIME_TYPES = Object.values(MIME_BY_EXT).filter(
+  (mime) => mime !== MIME_BY_EXT.svg,
+);
+const UPLOAD_ACCEPT = UPLOAD_MIME_TYPES.join(",");
+const MAX_UPLOAD_MB = Math.round(MAX_MEDIA_FILE_BYTES / (1024 * 1024));
+const UNSUPPORTED_IMAGE_MESSAGE =
+  "Use a PNG, JPG, GIF, WebP, BMP, or AVIF image.";
+const NETWORK_ERROR_MESSAGE =
+  "Couldn't reach the server. Check your connection and try again.";
+
+/** Turn an upload failure into the most specific message we can. */
+function uploadErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    if (/network|fetch|connection|aborted|EPIPE/i.test(error.message)) {
+      return NETWORK_ERROR_MESSAGE;
+    }
+    if (error.message.trim()) return error.message;
+  }
+  return "The image upload failed.";
+}
+
+function megabytes(bytes: number) {
+  return Math.max(1, Math.round(bytes / (1024 * 1024)));
+}
+
+/**
+ * Markdown that the editor schema cannot represent directly (an unsupported
+ * GFM construct, for example) must still be visible. Falling back to literal
+ * paragraph text prevents a stored field from opening empty and being
+ * overwritten by the next save.
+ */
+function plainTextContent(markdown: string) {
+  return {
+    type: "doc",
+    content: markdown.split("\n").map((line) => ({
+      type: "paragraph",
+      ...(line ? { content: [{ type: "text" as const, text: line }] } : {}),
+    })),
+  };
+}
+
+function parseMarkdown(editor: Editor, markdown: string) {
+  const resolved = resolveMediaRefsInMarkdown(markdown);
+  if (!resolved.trim()) return resolved;
+  try {
+    const parsed = editor.markdown?.parse(resolved);
+    if (parsed?.content?.length) return parsed;
+  } catch {
+    // Fall through to literal text: keeping the content visible matters more
+    // than preserving formatting we cannot represent.
+  }
+  return plainTextContent(resolved);
+}
+
+function setMarkdownContent(
+  editor: Editor,
+  markdown: string,
+  emitUpdate = false,
+) {
+  const content = parseMarkdown(editor, markdown);
+  try {
+    editor.commands.setContent(content, { emitUpdate });
+  } catch {
+    editor.commands.setContent(
+      plainTextContent(resolveMediaRefsInMarkdown(markdown)),
+      { emitUpdate },
+    );
+  }
+}
 
 type MarkdownEditorProps = {
   value: string;
@@ -57,11 +138,21 @@ export function MarkdownEditor({
       if (!editor) return;
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
+        if (!UPLOAD_MIME_TYPES.includes(file.type)) {
+          onUploadError(UNSUPPORTED_IMAGE_MESSAGE);
+          continue;
+        }
+        if (file.size > MAX_MEDIA_FILE_BYTES) {
+          onUploadError(
+            `That image is ${megabytes(file.size)} MB. Images must be ${MAX_UPLOAD_MB} MB or smaller.`,
+          );
+          continue;
+        }
         let stored;
         try {
           stored = await armin.media.importImage({ file, fileName: file.name });
         } catch (error) {
-          onUploadError(errorMessage(error, "The image upload failed."));
+          onUploadError(uploadErrorMessage(error));
           continue;
         }
         editor
@@ -77,11 +168,10 @@ export function MarkdownEditor({
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit.configure({
-        heading: false,
-        blockquote: false,
-        codeBlock: false,
-      }),
+      // Every StarterKit block type is enabled: the Markdown parser can emit
+      // headings, blockquotes, code blocks, and lists from stored cards, and a
+      // node missing from the schema makes the whole field fail to load.
+      StarterKit,
       Markdown,
       ResizableImage.configure({
         allowBase64: false,
@@ -96,7 +186,9 @@ export function MarkdownEditor({
     contentType: "markdown",
     editorProps: {
       attributes: {
-        class: "tiptap outline-none",
+        // `markdown-content` reuses the read-only renderer's list, quote, and
+        // code styles so authored blocks look the same before and after save.
+        class: "tiptap markdown-content outline-none",
         spellcheck: "false",
         autocorrect: "off",
         autocapitalize: "off",
@@ -140,6 +232,9 @@ export function MarkdownEditor({
       requestAnimationFrame(syncScrollOverflow);
     },
     onCreate: ({ editor: current }) => {
+      // Re-apply the initial value through the fallback-aware loader; the
+      // editor's own markdown parsing drops constructs it cannot represent.
+      setMarkdownContent(current, value);
       if (autoFocus) {
         current.commands.focus("end");
       }
@@ -158,10 +253,7 @@ export function MarkdownEditor({
     if (!editor) return;
     const current = persistMediaRefsInMarkdown(editor.getMarkdown());
     if (value !== current) {
-      editor.commands.setContent(resolveMediaRefsInMarkdown(value), {
-        contentType: "markdown",
-        emitUpdate: false,
-      });
+      setMarkdownContent(editor, value);
     }
   }, [editor, value]);
 
@@ -203,7 +295,7 @@ export function MarkdownEditor({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept={UPLOAD_ACCEPT}
           multiple
           className="hidden"
           onChange={handlePick}

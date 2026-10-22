@@ -7,8 +7,57 @@ import { useModalIsolation } from "@/keybindings/keybindings-provider";
 const EXIT_MS = 200;
 
 /**
+ * Recent focus targets outside dialogs. A dialog opened from a dropdown menu
+ * loses its opener when the menu unmounts, so fall back to the last connected
+ * trigger in this history when restoring focus.
+ */
+const recentFocus: HTMLElement[] = [];
+let focusTrackingInstalled = false;
+
+function findLastExternalFocus() {
+  for (let index = recentFocus.length - 1; index >= 0; index -= 1) {
+    const element = recentFocus[index];
+    if (element.isConnected) return element;
+  }
+  return null;
+}
+
+function installFocusTracking() {
+  if (focusTrackingInstalled || typeof document === "undefined") return;
+  focusTrackingInstalled = true;
+  document.addEventListener(
+    "focusin",
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target === document.body) return;
+      if (target.closest('[role="dialog"]')) return;
+      if (recentFocus.at(-1) === target) return;
+      recentFocus.push(target);
+      if (recentFocus.length > 8) recentFocus.shift();
+    },
+    true,
+  );
+}
+
+function captureReturnFocus() {
+  if (typeof document === "undefined") return null;
+  const active = document.activeElement;
+  if (
+    active instanceof HTMLElement &&
+    active !== document.body &&
+    !active.closest('[role="dialog"]')
+  ) {
+    return active;
+  }
+  return findLastExternalFocus();
+}
+
+/**
  * Accessible modal: portaled to <body> (escapes stacking contexts), focus is
  * trapped while open and restored on close, Escape and backdrop-click dismiss.
+ * The panel never exceeds the viewport; with a `footer`, the header and footer
+ * stay fixed while the body scrolls.
  */
 export function Dialog({
   open,
@@ -17,6 +66,7 @@ export function Dialog({
   title,
   description,
   children,
+  footer,
   className,
 }: {
   open: boolean;
@@ -25,17 +75,30 @@ export function Dialog({
   title?: string;
   description?: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   className?: string;
 }) {
+  installFocusTracking();
   const panelRef = React.useRef<HTMLDivElement>(null);
   const onCloseRef = React.useRef(onClose);
   const onExitCompleteRef = React.useRef(onExitComplete);
-  const previouslyFocusedRef = React.useRef<HTMLElement | null>(null);
+  const returnFocusRef = React.useRef<HTMLElement | null>(null);
+  const capturedOpenRef = React.useRef(false);
   const titleId = React.useId();
   const [present, setPresent] = React.useState(open);
   const [closing, setClosing] = React.useState(false);
-  const snapshotRef = React.useRef({ title, description, children });
+  const snapshotRef = React.useRef({ title, description, children, footer });
   const exiting = closing || (present && !open);
+
+  // Capture the opener before the dialog content (and its autoFocus) mounts.
+  // This must happen during render: React applies native `autoFocus` during
+  // commit, before effects run.
+  if (open && !capturedOpenRef.current && typeof document !== "undefined") {
+    capturedOpenRef.current = true;
+    returnFocusRef.current = captureReturnFocus();
+  } else if (!open) {
+    capturedOpenRef.current = false;
+  }
 
   // While a dialog is mounted, isolate app-level keybindings beneath it so a
   // stray chord or rating key can't fire behind the modal. The dialog's own
@@ -43,12 +106,12 @@ export function Dialog({
   useModalIsolation(present);
 
   if (open && !exiting) {
-    snapshotRef.current = { title, description, children };
+    snapshotRef.current = { title, description, children, footer };
   }
 
   const content = exiting
     ? snapshotRef.current
-    : { title, description, children };
+    : { title, description, children, footer };
 
   React.useEffect(() => {
     onCloseRef.current = onClose;
@@ -79,11 +142,10 @@ export function Dialog({
         panel?.querySelector<HTMLElement>('[contenteditable="true"]') ??
         panel?.querySelector<HTMLElement>(
           "[autofocus], input, textarea, select",
-        );
+        ) ??
+        panel;
       target?.focus();
     });
-
-    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -124,7 +186,13 @@ export function Dialog({
     const finishClose = () => {
       if (finished) return;
       finished = true;
-      previouslyFocusedRef.current?.focus?.();
+      const preferred = returnFocusRef.current;
+      const target =
+        preferred && preferred.isConnected && preferred !== document.body
+          ? preferred
+          : findLastExternalFocus();
+      target?.focus?.();
+      returnFocusRef.current = null;
       setPresent(false);
       setClosing(false);
       onExitCompleteRef.current?.();
@@ -162,14 +230,25 @@ export function Dialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={content.title ? titleId : undefined}
+        tabIndex={-1}
         className={cn(
-          "relative z-10 w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-overlay",
+          "relative z-10 w-full max-w-md max-h-[calc(100dvh-2rem)] rounded-lg border border-border bg-surface shadow-overlay outline-none",
+          content.footer
+            ? "flex flex-col overflow-hidden"
+            : "overflow-y-auto overscroll-contain p-6",
           exiting ? "animate-pop-out" : "animate-pop",
           className,
         )}
       >
         {content.title && (
-          <div className="mb-4 flex items-start justify-between gap-4">
+          <div
+            className={cn(
+              "flex items-start justify-between gap-4",
+              content.footer
+                ? "shrink-0 px-6 pt-6 pb-4"
+                : "sticky top-0 z-10 -mx-6 -mt-6 mb-4 rounded-t-lg bg-surface px-6 pt-6 pb-4",
+            )}
+          >
             <div>
               <h2 id={titleId} className="text-lg font-semibold text-ink">
                 {content.title}
@@ -187,7 +266,23 @@ export function Dialog({
             </button>
           </div>
         )}
-        {content.children}
+        {content.footer ? (
+          <>
+            <div
+              className={cn(
+                "min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6",
+                !content.title && "pt-6",
+              )}
+            >
+              {content.children}
+            </div>
+            <div className="shrink-0 border-t border-border px-6 py-4">
+              {content.footer}
+            </div>
+          </>
+        ) : (
+          content.children
+        )}
       </div>
     </div>,
     document.body,
