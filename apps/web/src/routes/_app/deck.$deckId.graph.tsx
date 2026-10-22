@@ -1,9 +1,12 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { deckQuery as deckQueryOptions, prefetchGraphPage } from "@/lib/queries";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import {
+  deckQuery as deckQueryOptions,
+  prefetchGraphPage,
+} from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { GitBranch } from "lucide-react";
+import { ArrowLeft, GitBranch, Layers } from "lucide-react";
 import type { Viewport, XYPosition } from "@xyflow/react";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { PrerequisiteGraph } from "@/components/prerequisite-graph/prerequisite-graph";
@@ -119,6 +122,9 @@ function DeckGraphPage() {
 
   const deckQuery = useQuery(deckQueryOptions(deckId));
 
+  // A deleted or malformed deck id resolves to no deck, so don't ask for a
+  // graph in that case: the graph query would come back empty and look like a
+  // real deck with no cards.
   const graphQuery = useQuery({
     queryKey: graphKeys.deck(deckId),
     queryFn: async () => {
@@ -128,6 +134,7 @@ function DeckGraphPage() {
       measureGraphPerf("getDeck", "getDeck:start", "getDeck:end");
       return graph;
     },
+    enabled: Boolean(deckQuery.data),
   });
 
   const persistedGraph = useMemo(() => {
@@ -238,14 +245,50 @@ function DeckGraphPage() {
   });
 
   const confirmGraphDelete = async () => {
-    if (await graphEdits.confirmGraphDelete(deleteId)) {
-      setDeleteId(null);
+    try {
+      if (await graphEdits.confirmGraphDelete(deleteId)) {
+        setDeleteId(null);
+      }
+    } catch {
+      // The mutation already reported the failure and refetched the graph.
     }
   };
 
+  const graphError = deckQuery.isError || graphQuery.isError;
+
+  if (deckQuery.isSuccess && !deckQuery.data) {
+    return (
+      <div>
+        <h1 className="sr-only">Deck not found</h1>
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1 rounded-sm text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <ArrowLeft className="h-4 w-4" /> All decks
+        </Link>
+        <EmptyState
+          className="mt-8"
+          icon={Layers}
+          title="Deck not found"
+          description="This deck doesn't exist in your library. It may have been removed or the link is stale."
+          action={
+            <Link to="/">
+              <Button variant="outline">Back to decks</Button>
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
   return (
     <div data-fullbleed className="relative h-full w-full">
-      {!graphQuery.isError && (
+      <h1 className="sr-only">
+        {deckQuery.data
+          ? `${deckQuery.data.name} prerequisite graph`
+          : "Prerequisite graph"}
+      </h1>
+      {!graphError && (
         <div
           aria-hidden={canvasReady}
           className={cn(
@@ -257,21 +300,24 @@ function DeckGraphPage() {
           <GraphSkeleton />
         </div>
       )}
-      {graphQuery.isError && (
+      {graphError && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-bg">
           <div className="pointer-events-auto flex flex-col items-center border border-border bg-bg-2 px-6 py-5 text-center shadow-overlay">
             <p className="text-sm font-medium text-ink">Couldn’t load graph</p>
             <Button
               variant="outline"
               className="mt-4"
-              onClick={() => void graphQuery.refetch()}
+              onClick={() => {
+                void deckQuery.refetch();
+                void graphQuery.refetch();
+              }}
             >
               Try again
             </Button>
           </div>
         </div>
       )}
-      {canvasMounted && !graphQuery.isError && graph.nodes.length === 0 ? (
+      {canvasMounted && !graphError && graph.nodes.length === 0 ? (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-bg">
           <EmptyState
             icon={GitBranch}
@@ -347,7 +393,8 @@ function DeckGraphPage() {
           </ul>
         </div>
         <div className="mt-5 flex flex-wrap justify-end gap-2 pt-1">
-          <Button variant="ghost" onClick={() => setDeleteId(null)}>
+          {/* Focus the safe action when the dialog opens from a key press. */}
+          <Button variant="ghost" autoFocus onClick={() => setDeleteId(null)}>
             Cancel
           </Button>
           <Button
@@ -365,7 +412,16 @@ function DeckGraphPage() {
 }
 
 export const Route = createFileRoute("/_app/deck/$deckId/graph")({
-  loader: ({ context, params }) => prefetchGraphPage(context.queryClient, params.deckId),
+  loader: ({ context, params }) => {
+    // Resolve the deck before asking for its graph, so an unknown id never
+    // looks like an empty deck or reaches graph writes.
+    const deckOptions = deckQueryOptions(params.deckId);
+    void context.queryClient.prefetchQuery(deckOptions).then(() => {
+      if (context.queryClient.getQueryData(deckOptions.queryKey)) {
+        prefetchGraphPage(context.queryClient, params.deckId);
+      }
+    });
+  },
   head: () => ({ meta: [{ title: "Graph · Armin" }] }),
   component: DeckGraphPage,
 });

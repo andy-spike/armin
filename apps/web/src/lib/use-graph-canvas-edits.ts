@@ -163,7 +163,7 @@ export function useGraphCanvasEdits({
       armin.flashcards.delete(id),
     onSuccess: (_result, { deckId }) => {
       invalidateCoreData(queryClient, deckId);
-      toast({ tone: "error", title: "Flashcard deleted" });
+      toast({ tone: "success", title: "Flashcard deleted" });
     },
     onError: () => {
       toast({ tone: "error", title: "Couldn’t delete flashcard" });
