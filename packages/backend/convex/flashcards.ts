@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { dueSortPriority, BROWSE_PAGE_SIZE, type BrowseSortKey } from "@armin/core/study";
+import type { TypeAnswerContent } from "@armin/core/flashcard-types";
 import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
@@ -66,6 +67,12 @@ export const get = query({
     return hydrateFlashcard(ctx, flashcard, deck?.name);
   },
 });
+
+/** Text that Browse search matches beyond the tile's front, back, and tags. */
+function searchExtraText(flashcard: HydratedFlashcard) {
+  if (flashcard.type !== "type_answer") return "";
+  return (flashcard.content as TypeAnswerContent).acceptedAnswers.join("\n");
+}
 
 function sortBrowse(items: HydratedFlashcard[], sort: BrowseSortKey, now: number) {
   const byFront = (a: HydratedFlashcard, b: HydratedFlashcard) =>
@@ -149,7 +156,9 @@ export const browse = query({
     }
     const tagKeys = new Set((args.tags ?? []).map((tag) => tag.toLocaleLowerCase()));
     const deckFilter = args.deckId ? ctx.db.normalizeId("decks", args.deckId) : null;
+    const libraryArchived = all.filter((flashcard) => flashcard.archived).length;
     const filtered: HydratedFlashcard[] = [];
+    let filteredArchived = 0;
     for (const flashcard of all) {
       if (deckFilter && flashcard.deckId !== deckFilter) continue;
       if (
@@ -165,9 +174,12 @@ export const browse = query({
       const hydrated = hydrateFromUnits(flashcard, units, deckNames.get(flashcard.deckId));
       if (args.search) {
         const needle = args.search.toLocaleLowerCase();
-        const haystack = `${hydrated.front}\n${hydrated.back}\n${hydrated.tags.join(" ")}`;
-        if (!haystack.toLocaleLowerCase().includes(needle)) continue;
+        const haystack =
+          `${hydrated.front}\n${hydrated.back}\n${hydrated.tags.join(" ")}\n${searchExtraText(hydrated)}`
+            .toLocaleLowerCase();
+        if (!haystack.includes(needle)) continue;
       }
+      if (hydrated.archived) filteredArchived += 1;
       filtered.push(hydrated);
     }
     const sorted = sortBrowse(filtered, args.sort as BrowseSortKey, Date.now());
@@ -175,7 +187,9 @@ export const browse = query({
     return {
       flashcards: sorted.slice(0, limit),
       filteredTotal: filtered.length,
+      filteredArchived,
       libraryTotal: all.length,
+      libraryArchived,
     };
   },
 });
@@ -185,11 +199,17 @@ export const listTags = query({
   handler: async (ctx) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const tags = await ctx.db
-      .query("tags")
-      .withIndex("by_library_key", (q) => q.eq("libraryId", library._id))
+    // Derive options from the cards that currently carry each tag rather than
+    // the library's remembered tag names, so a removed tag leaves the filter.
+    const flashcards = await ctx.db
+      .query("flashcards")
+      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
       .collect();
-    return tags.map((tag) => tag.name).sort((a, b) => a.localeCompare(b));
+    const names = new Map<string, string>();
+    for (const flashcard of flashcards) {
+      for (const tag of flashcard.tags) names.set(tag.toLocaleLowerCase(), tag);
+    }
+    return [...names.values()].sort((a, b) => a.localeCompare(b));
   },
 });
 

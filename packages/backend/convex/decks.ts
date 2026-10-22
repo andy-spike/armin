@@ -20,6 +20,11 @@ async function deckStats(
     .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
     .collect();
   const active = units.filter((unit) => !unit.archived);
+  // Archived cards stay out of the deck's card and progress totals, but the
+  // header names their count separately so the footer and tile grid agree.
+  const archived = new Set(
+    units.filter((unit) => unit.archived).map((unit) => unit.flashcardId),
+  ).size;
   // Progress is counted in flashcards: a flashcard is learned only when every
   // review unit it generates (both directions, every cloze deletion) is in
   // FSRS Review state, so `learned` never exceeds `total`.
@@ -37,6 +42,7 @@ async function deckStats(
     createdAt: deck.createdAt,
     updatedAt: deck.updatedAt,
     total: learnedByFlashcard.size,
+    archived,
     due: session.reviews.length + session.frontier.length,
     newCount: active.filter((unit) => unit.state === State.New).length,
     learning: active.filter(

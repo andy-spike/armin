@@ -16,7 +16,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Tag, Layers, AlertTriangle, Library, CircleDot } from "lucide-react";
+import { Tag, Layers, AlertTriangle, Library, CircleDot, Search } from "lucide-react";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import {
   FlashcardDeleteDialog,
@@ -25,6 +25,7 @@ import {
 } from "@/components/flashcard-tile";
 import { MoveFlashcardDialog } from "@/components/move-flashcard-dialog";
 import { SortControl } from "@/components/sort-control";
+import { Input } from "@/components/ui/input";
 import {
   SearchableMultiSelect,
   SearchableSelect,
@@ -52,12 +53,18 @@ import {
   toUiBrowseFlashcard,
   type UiBrowseFlashcard,
 } from "@/types/view-models";
-import { BROWSE_SORT_OPTIONS, type BrowseSortKey } from "@/lib/browse";
+import {
+  BROWSE_SORT_OPTIONS,
+  buildDeckFilterOptions,
+  formatCardCounts,
+  type BrowseSortKey,
+} from "@/lib/browse";
 import { STATE_OPTIONS } from "@/lib/flashcard-filters";
-import { cn, plural } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { FlashcardDeleteConsequences } from "@/types/window";
 
 const ALL_STATES = "all";
+const SEARCH_DEBOUNCE_MS = 250;
 
 function BrowsePage() {
   const queryClient = useQueryClient();
@@ -68,6 +75,8 @@ function BrowsePage() {
   const [stateFilter, setStateFilter] = useState<string>(ALL_STATES);
   const [deckFilter, setDeckFilter] = useState("");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<UiBrowseFlashcard | null>(null);
   const [moveTarget, setMoveTarget] = useState<UiBrowseFlashcard | null>(null);
@@ -77,6 +86,14 @@ function BrowsePage() {
     useState<FlashcardDeleteConsequences | null>(null);
   const [deleteConsequencesError, setDeleteConsequencesError] = useState(false);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(
+      () => setSearch(searchInput.trim()),
+      SEARCH_DEBOUNCE_MS,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [searchInput]);
+
   const browseFilters = useMemo(() => {
     const filters: BrowseQueryFilters = { sort };
     if (stateFilter !== ALL_STATES) {
@@ -85,8 +102,9 @@ function BrowsePage() {
     }
     if (deckFilter) filters.deckId = deckFilter;
     if (tagFilter.length > 0) filters.tags = tagFilter;
+    if (search) filters.search = search;
     return filters;
-  }, [sort, stateFilter, deckFilter, tagFilter]);
+  }, [sort, stateFilter, deckFilter, tagFilter, search]);
 
   const decksQuery = useQuery(decksQueryOptions());
   const tagsQuery = useQuery(tagsQueryOptions());
@@ -105,7 +123,15 @@ function BrowsePage() {
   );
 
   const filteredTotal = browseQuery.data?.pages[0]?.filteredTotal ?? 0;
+  const filteredArchived = browseQuery.data?.pages[0]?.filteredArchived ?? 0;
   const libraryTotal = browseQuery.data?.pages[0]?.libraryTotal ?? 0;
+  const libraryArchived = browseQuery.data?.pages[0]?.libraryArchived ?? 0;
+  const filteredActive = Math.max(0, filteredTotal - filteredArchived);
+  const libraryActive = Math.max(0, libraryTotal - libraryArchived);
+  const countSummary =
+    filteredTotal === libraryTotal
+      ? formatCardCounts(filteredActive, filteredArchived)
+      : `${formatCardCounts(filteredActive, filteredArchived)} of ${formatCardCounts(libraryActive, libraryArchived)}`;
   const hasMore = browseQuery.hasNextPage ?? false;
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -217,13 +243,7 @@ function BrowsePage() {
   const allTags = tagsQuery.data ?? [];
 
   const deckOptions = useMemo(
-    () => [
-      { value: "", label: "All decks" },
-      ...(decksQuery.data ?? [])
-        .slice()
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((deck) => ({ value: deck.id, label: deck.name })),
-    ],
+    () => buildDeckFilterOptions(decksQuery.data ?? []),
     [decksQuery.data],
   );
 
@@ -254,7 +274,8 @@ function BrowsePage() {
           Browse
         </h1>
         <p className="mt-1.5 text-sm text-muted">
-          Every flashcard across your decks. Filter and sort to find anything.
+          Every flashcard across your decks. Search, filter, and sort to find
+          anything.
         </p>
       </header>
 
@@ -299,6 +320,24 @@ function BrowsePage() {
           <div className="mb-5 border border-border bg-bg-2 px-4 py-3">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div className="flex flex-wrap items-end gap-4">
+                <FilterField
+                  className="w-full sm:w-64"
+                  label={
+                    <>
+                      <Search className="h-3.5 w-3.5" aria-hidden /> Search
+                    </>
+                  }
+                >
+                  <Input
+                    type="search"
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    placeholder="Front, back, or answer…"
+                    aria-label="Search flashcards"
+                    autoComplete="off"
+                  />
+                </FilterField>
+
                 <FilterField
                   className="w-36"
                   label={
@@ -398,8 +437,8 @@ function BrowsePage() {
 
           <p className="mb-3 text-xs text-muted">
             {hasMore
-              ? `Showing ${displayed.length} of ${filteredTotal} flashcards (${libraryTotal} total)`
-              : `${filteredTotal} of ${plural(libraryTotal, "flashcard")}`}
+              ? `Showing ${displayed.length} of ${filteredTotal} matching cards · ${countSummary}`
+              : countSummary}
           </p>
 
           {filteredTotal > 0 ? (
@@ -449,9 +488,22 @@ function BrowsePage() {
               ) : null}
             </>
           ) : (
-            <p className="border border-border bg-bg-2 px-6 py-10 text-center text-sm text-muted">
-              No flashcards match the current filters.
-            </p>
+            <div className="border border-border bg-bg-2 px-6 py-10 text-center">
+              <p className="text-sm text-muted">
+                {search
+                  ? `No flashcards match “${search}”.`
+                  : "No flashcards match the current filters."}
+              </p>
+              {search && (
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => setSearchInput("")}
+                >
+                  Clear search
+                </Button>
+              )}
+            </div>
           )}
         </>
       )}
