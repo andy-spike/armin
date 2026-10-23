@@ -852,11 +852,13 @@ export function ReviewSession({
             )}
           </div>
 
-          <div className="mt-6 flex items-stretch gap-2">
+          {/* One height for both states, sized to the two-line rating buttons, so
+              revealing the answer doesn't grow the row. */}
+          <div className="mt-6 flex items-stretch gap-2 sm:h-15">
             <Button
               variant="outline"
               size="lg"
-              className="shrink-0 px-3"
+              className="h-auto shrink-0 px-3"
               disabled={index === 0 || rating !== null || undoing}
               onClick={goPrev}
               aria-label="Previous review unit"
@@ -866,21 +868,21 @@ export function ReviewSession({
 
             <div className="min-w-0 flex-1">
               {!flipped ? (
-                <Button size="lg" className="w-full" onClick={reveal}>
+                <Button size="lg" className="h-15 w-full sm:h-full" onClick={reveal}>
                   {isTypeAnswer ? "Check answer" : "Show answer"}
-                  <Kbd className="ml-1 border-on-accent/25 bg-ink/10 text-on-accent shadow-none">
+                  <Kbd className="ml-1 border-on-accent/25 bg-ink/10 text-on-accent shadow-none max-sm:hidden">
                     {isTypeAnswer ? "Enter" : "Space"}
                   </Kbd>
                 </Button>
               ) : (
-                <div className="grid h-full grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="grid h-full grid-cols-4 gap-2">
                   {RATINGS.map((r) => (
                     <button
                       key={r.grade}
                       onClick={() => void rate(r.grade)}
                       disabled={card.reviewed || rating !== null || undoing || Boolean(staleCard) || (!online && !pending)}
                       className={cn(
-                        "flex flex-col items-center justify-center gap-0.5 rounded-md px-3 py-2.5 text-sm font-medium text-on-accent transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
+                        "flex h-15 min-w-0 flex-col items-center justify-center gap-0.5 rounded-md px-1 text-sm sm:h-full sm:px-3 font-medium text-on-accent transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
                         r.bg,
                         isTypeAnswer &&
                           ((isCorrect && r.grade === 3) ||
@@ -891,7 +893,8 @@ export function ReviewSession({
                     >
                       <span className="flex items-center gap-1.5">
                         {r.label}
-                        <Kbd className="border-on-accent/25 bg-ink/10 text-on-accent shadow-none">
+                        {/* Shortcut hints only where there's room, and a keyboard. */}
+                        <Kbd className="border-on-accent/25 bg-ink/10 text-on-accent shadow-none max-sm:hidden">
                           {r.grade}
                         </Kbd>
                       </span>
@@ -907,7 +910,7 @@ export function ReviewSession({
             <Button
               variant="outline"
               size="lg"
-              className="shrink-0 px-3"
+              className="h-auto shrink-0 px-3"
               disabled={index >= cards.length - 1 || rating !== null || undoing}
               onClick={goNext}
               aria-label="Next review unit"
