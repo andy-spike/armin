@@ -32,7 +32,6 @@
     "start:tunnel": "expo start --go --tunnel",
     "android": "expo start --go --android",
     "ios": "expo start --go --ios",
-    "typecheck": "tsc --noEmit",
     "check:bundle": "expo export --platform android --platform ios",
     "check:expo": "expo-doctor"
   },

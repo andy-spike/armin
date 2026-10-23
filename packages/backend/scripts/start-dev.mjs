@@ -32,11 +32,14 @@ try {
     ],
     all: [
       "exec",
-      "turbo",
+      "vp",
       "run",
+      "--parallel",
+      "--filter",
+      "@armin/backend",
+      "--filter",
+      "@armin/web",
       "dev",
-      "--filter=@armin/backend",
-      "--filter=@armin/web",
     ],
   };
   if (!commands[mode]) throw new Error(`Unknown dev target: ${mode}`);

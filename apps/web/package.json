@@ -6,13 +6,12 @@
   "description": "Armin web app: TanStack Start client and auth/media/export proxy for the Convex backend.",
   "license": "MIT",
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "start": "vite preview --port 3000 --strictPort",
-    "build:cloudflare": "vite build --mode cloudflare",
-    "preview:cloudflare": "vite build --mode cloudflare && vite preview --mode cloudflare",
-    "deploy": "vite build --mode cloudflare && wrangler deploy",
-    "typecheck": "tsc --noEmit"
+    "dev": "vp dev",
+    "build": "vp build",
+    "start": "vp preview --port 3000 --strictPort",
+    "build:cloudflare": "vp build --mode cloudflare",
+    "preview:cloudflare": "vp build --mode cloudflare && vp preview --mode cloudflare",
+    "deploy": "vp build --mode cloudflare && wrangler deploy"
   },
   "dependencies": {
     "@armin/backend": "workspace:*",
@@ -60,7 +59,8 @@
     "@vitejs/plugin-react": "^6.1.2",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.9.3",
-    "vite": "^8.3.4",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
     "wrangler": "^4.151.3"
   }
 }

@@ -13,9 +13,6 @@
     "./media": "./src/media.ts",
     "./media-ref": "./src/media-ref.ts"
   },
-  "scripts": {
-    "typecheck": "tsc --noEmit"
-  },
   "dependencies": {
     "ts-fsrs": "^5.4.1",
     "zod": "^4.4.3"
