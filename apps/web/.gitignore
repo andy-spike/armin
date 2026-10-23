@@ -2,3 +2,4 @@
 .output/
 .tanstack/
 dist/
+.wrangler/

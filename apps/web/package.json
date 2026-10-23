@@ -9,6 +9,9 @@
     "dev": "vite dev",
     "build": "vite build",
     "start": "vite preview --port 3000 --strictPort",
+    "build:cloudflare": "vite build --mode cloudflare",
+    "preview:cloudflare": "vite build --mode cloudflare && vite preview --mode cloudflare",
+    "deploy": "vite build --mode cloudflare && wrangler deploy",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -49,6 +52,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.64.0",
     "@tailwindcss/vite": "^4.3.0",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.16",
@@ -56,6 +60,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.9.3",
-    "vite": "^8.3.4"
+    "vite": "^8.3.4",
+    "wrangler": "^4.151.3"
   }
 }

@@ -20,7 +20,8 @@ FSRS continues scheduling that prerequisite for practice.
   with account-owned libraries, server-side scheduling, images, and ZIP export.
 - [`packages/core`](packages/core): portable study types and rules.
 
-The web app is in development and is not deployed publicly yet. The Electron
+The web app deploys to [armincards.app](https://armincards.app) on Cloudflare
+Workers, with its backend on Convex cloud. The Electron
 desktop app, its local MCP server, and the old sync service have been retired.
 Their source and release tooling remain available in Git history.
 
@@ -70,8 +71,9 @@ up to date before merging, including for administrators. Direct pushes, force
 pushes, and deletion of `master` are blocked. See
 [agent worktree setup](docs/dev-worktrees.md) for isolated development environments.
 
-`master` is the release source. Merging a PR does not currently deploy the app;
-production hosting and deployment automation still need to be configured.
+`master` is the release source. Merging a PR does not deploy; deploy the
+backend and web app from `master` as described in
+[production deployment](docs/deploy-cloudflare.md).
 
 ## Card-writing skill
 
