@@ -83,6 +83,20 @@ pushes, and deletion of `master` are blocked. See
 backend and web app from `master` as described in
 [production deployment](docs/deploy-cloudflare.md).
 
+## AI assistant connections
+
+Settings → AI assistants connects ChatGPT, Claude, Claude Code, and Codex to
+Armin's hosted MCP server through Armin sign-in. Assistants can generate text
+cards and prerequisite graphs from material the user provides, save decks, and
+manage authorized content. New connections can only access decks they create;
+sharing existing decks and allowing edits are explicit choices. Agent tools
+cannot permanently delete content or remove review history through structural
+card edits.
+
+See [AI assistant connections](docs/agent-connections.md) for the permission
+model, OAuth/MCP endpoints, operation limits, and deployment verification needs.
+Provider account restrictions apply, and public directory listings are separate.
+
 ## Card-writing skill
 
 Agents need guidance on how to structure flashcard content — how to chunk a topic, what belongs in a single card, or how cards

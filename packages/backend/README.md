@@ -14,6 +14,9 @@ generated API.
   adapter, email verification and password reset through Resend, Google sign-in,
   verified account linking, and the authenticated `/media/*` and `/export/*`
   HTTP routes and authenticated raw-byte image upload.
+- `convex/agents.ts`, `agentHttp.ts`, `agentAuthoring.ts` — scoped OAuth grants,
+  hosted MCP transport, and atomic agent authoring. See
+  [AI assistant connections](../../docs/agent-connections.md).
 - `convex/account.ts` — viewer, idempotent library provisioning, account
   timezone, and the library revision clients subscribe to.
 - `convex/decks.ts`, `flashcards.ts`, `graph.ts`, `settings.ts` — authoring,
@@ -33,10 +36,14 @@ Client entry points (see `package.json` `exports`):
 
 ## Rules every function follows
 
-- Ownership comes from the authenticated session and its library mapping
+- First-party ownership comes from the authenticated session and its library mapping
   (`model/access.ts`), never from a caller-supplied account ID. Lookups by ID
   check `libraryId` before returning or changing anything; a foreign ID behaves
   as "not found".
+- External MCP calls use a separate OAuth grant derived from a verified Armin
+  session at consent. Agent functions recheck the active grant, resource audience,
+  active library, and deck permissions. Agent tokens never impersonate a user in
+  first-party Convex functions. Account deletion invalidates grants immediately.
 - Writes require a verified email and an `active` library. Account deletion
   marks the library `deleting` in the same transaction as the auth user removal,
   so access ends immediately; `deletion.cleanupLibrary` then removes rows and
