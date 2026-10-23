@@ -25,13 +25,7 @@ import {
 // Loaded with the graph page's code instead of on every page.
 import "@xyflow/react/dist/style.css";
 import "./graph.css";
-import {
-  Link2,
-  Pencil,
-  Plus,
-  Unlink,
-  Trash2,
-} from "lucide-react";
+import { Link2, Pencil, Plus, Unlink, Trash2 } from "lucide-react";
 import type { UiDeckGraph } from "@/types/view-models";
 import { createGraphCycleIndex, linkProblem } from "@/lib/graph-cycle";
 import {
@@ -46,10 +40,6 @@ import {
   toFlowNode,
 } from "@/lib/graph-flow";
 import { layoutGraph } from "@/lib/graph-layout";
-import type {
-  GraphLayoutWorkerRequest,
-  GraphLayoutWorkerResponse,
-} from "@/lib/graph-layout-worker";
 import { cn } from "@/lib/utils";
 import { FloatingEdge } from "./floating-edge";
 import {
@@ -62,10 +52,10 @@ import {
   afterCanvasPaint,
   markGraphPerf,
   measureGraphPerf,
-  scheduleGraphWork,
 } from "@/lib/graph-perf";
 import { GraphContextMenu } from "./graph-context-menu";
 import { GraphToolbar } from "./graph-toolbar";
+import { useBackgroundLayout } from "./use-background-layout";
 import { useGraphSearch } from "./use-graph-search";
 import { MAX_ZOOM, MIN_ZOOM, ZoomControl } from "./zoom-control";
 import {
@@ -86,7 +76,6 @@ const defaultEdgeOptions = {
   style: { stroke: EDGE_STROKE, strokeWidth: 1.5 },
   markerEnd: EDGE_MARKER_END,
 };
-
 
 // First-open framing when there's no saved viewport. We deliberately do NOT
 // fit the whole graph on open: fitting a large Deck brings every node on-screen,
@@ -145,8 +134,6 @@ function cardIdAtScreenPoint(point: { x: number; y: number }) {
   return card?.dataset.id ?? null;
 }
 
-
-
 function PaneDoubleClickListener({
   onDoubleClick,
 }: {
@@ -176,7 +163,6 @@ function PaneDoubleClickListener({
   return null;
 }
 
-
 function PrerequisiteGraphCanvas({
   graph,
   deckName,
@@ -198,9 +184,6 @@ function PrerequisiteGraphCanvas({
   // Set once the async builder commits the first real graph; the incremental
   // sync effects below stay dormant until then so they don't fight the build.
   const initialFlowLoaded = useRef(false);
-  const backgroundLaidOutIds = useRef(new Set<string>());
-  const layoutWorker = useRef<Worker | null>(null);
-  const layoutRequestId = useRef(0);
   const cancelReadySignal = useRef<(() => void) | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
   const [connectMenu, setConnectMenu] = useState<ConnectMenuState>(null);
@@ -233,14 +216,7 @@ function PrerequisiteGraphCanvas({
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
 
-  useEffect(
-    () => () => {
-      cancelReadySignal.current?.();
-      layoutWorker.current?.terminate();
-      layoutWorker.current = null;
-    },
-    [],
-  );
+  useEffect(() => () => cancelReadySignal.current?.(), []);
 
   // Convert the persisted graph into ReactFlow elements off the render path, in
   // an abortable chunked task. Runs once for the initial graph; afterwards the
@@ -421,101 +397,14 @@ function PrerequisiteGraphCanvas({
     });
   }, [graph.edges, nodeById, setNodes]);
 
-  useEffect(() => {
-    if (!interactive || graph.nodes.length === 0) return;
-    const placedIds = new Set(
-      graph.nodes
-        .filter(
-          (node) =>
-            (node.x != null && node.y != null) || nodePlacements?.[node.id],
-        )
-        .map((node) => node.id),
-    );
-    const unplacedIds = graph.nodes
-      .filter(
-        (node) =>
-          !placedIds.has(node.id) && !backgroundLaidOutIds.current.has(node.id),
-      )
-      .map((node) => node.id);
-    if (unplacedIds.length === 0) return;
-
-    let cancelled = false;
-    const cancelScheduled = scheduleGraphWork(() => {
-      if (cancelled) return;
-      markGraphPerf("backgroundLayout:start");
-      const worker =
-        layoutWorker.current ??
-        new Worker(
-          new URL("../../lib/graph-layout.worker.ts", import.meta.url),
-          {
-            type: "module",
-          },
-        );
-      layoutWorker.current = worker;
-      const requestId = ++layoutRequestId.current;
-      const request: GraphLayoutWorkerRequest = {
-        requestId,
-        nodes: nodesRef.current.map((node) => ({
-          id: node.id,
-          position: node.position,
-          placed: placedIds.has(node.id),
-        })),
-        edges: graph.edges.map((edge) => ({
-          source: edge.prereqId,
-          target: edge.dependentId,
-        })),
-      };
-
-      worker.onmessage = (event: MessageEvent<GraphLayoutWorkerResponse>) => {
-        if (cancelled || event.data.requestId !== layoutRequestId.current) {
-          return;
-        }
-        const placements = event.data.placements;
-        if (placements.length > 0) {
-          for (const placement of placements) {
-            backgroundLaidOutIds.current.add(placement.flashcardId);
-          }
-          const placementById = new Map(
-            placements.map((placement) => [placement.flashcardId, placement]),
-          );
-          setNodes((current) =>
-            current.map((node) => {
-              const placement = placementById.get(node.id);
-              return placement
-                ? { ...node, position: { x: placement.x, y: placement.y } }
-                : node;
-            }),
-          );
-          onPersistLayout?.(placements);
-        }
-        markGraphPerf("backgroundLayout:end");
-        measureGraphPerf(
-          "backgroundLayout",
-          "backgroundLayout:start",
-          "backgroundLayout:end",
-        );
-      };
-
-      worker.onerror = () => {
-        worker.terminate();
-        if (layoutWorker.current === worker) layoutWorker.current = null;
-      };
-
-      worker.postMessage(request);
-    });
-
-    return () => {
-      cancelled = true;
-      cancelScheduled();
-    };
-  }, [
-    graph.edges,
-    graph.nodes,
-    interactive,
+  useBackgroundLayout({
+    graph,
+    nodesRef,
     nodePlacements,
-    onPersistLayout,
+    interactive,
     setNodes,
-  ]);
+    onPersistLayout,
+  });
 
   // Re-derive selection/filter emphasis for every node and edge whenever the
   // selection or lens changes. Selected card + its incident edges + direct
@@ -589,7 +478,6 @@ function PrerequisiteGraphCanvas({
     setNodes,
     setEdges,
   ]);
-
 
   const onSelectionChange: OnSelectionChangeFunc = useCallback(
     ({ nodes: selectedNodes }) => {
@@ -879,7 +767,8 @@ function PrerequisiteGraphCanvas({
     : [];
 
   const linkPickerConfig = useMemo(
-    () => (linkPicker ? linkPickerContent(linkPicker, graph, graphIndex) : null),
+    () =>
+      linkPicker ? linkPickerContent(linkPicker, graph, graphIndex) : null,
     [graph, graphIndex, linkPicker],
   );
 

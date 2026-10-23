@@ -12,7 +12,10 @@ const REVEAL_DELAY_MS = 300;
  * view frames every match; Enter and Shift+Enter then step through them one
  * at a time.
  */
-export function useGraphSearch(nodes: UiDeckGraph["nodes"], interactive: boolean) {
+export function useGraphSearch(
+  nodes: UiDeckGraph["nodes"],
+  interactive: boolean,
+) {
   const { fitView } = useReactFlow();
   const [search, setSearch] = useState("");
   // The match Enter/Shift+Enter last moved to, or null while every match is
