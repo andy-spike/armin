@@ -63,13 +63,10 @@ function googleConfigured() {
 /**
  * A production deployment without optional auth providers still serves
  * existing verified accounts, but sign-up and password reset cannot work.
- * Warn once per process so the gap shows up in deployment logs. Local
+ * Warn when the module loads so the gap shows up in deployment logs. Local
  * development intentionally runs without them.
  */
-const authConfigWarnings = globalThis as { __arminAuthConfigWarned?: boolean };
-const localDevelopment = siteUrl().includes("localhost") || siteUrl().includes("127.0.0.1");
-if (!localDevelopment && !authConfigWarnings.__arminAuthConfigWarned) {
-  authConfigWarnings.__arminAuthConfigWarned = true;
+if (!/localhost|127\.0\.0\.1/.test(siteUrl())) {
   if (!emailConfigured()) {
     console.warn(
       "[auth] RESEND_API_KEY is not set: sign-up and password reset are disabled, and verification resends report email as unavailable.",

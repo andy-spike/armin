@@ -7,50 +7,20 @@ import { useModalIsolation } from "@/keybindings/keybindings-provider";
 const EXIT_MS = 200;
 
 /**
- * Recent focus targets outside dialogs. A dialog opened from a dropdown menu
- * loses its opener when the menu unmounts, so fall back to the last connected
- * trigger in this history when restoring focus.
+ * The element focus returns to when the dialog closes. A dialog opened from a
+ * dropdown item would lose its opener when the menu unmounts, so use the
+ * menu's trigger instead.
  */
-const recentFocus: HTMLElement[] = [];
-let focusTrackingInstalled = false;
-
-function findLastExternalFocus() {
-  for (let index = recentFocus.length - 1; index >= 0; index -= 1) {
-    const element = recentFocus[index];
-    if (element.isConnected) return element;
-  }
-  return null;
-}
-
-function installFocusTracking() {
-  if (focusTrackingInstalled || typeof document === "undefined") return;
-  focusTrackingInstalled = true;
-  document.addEventListener(
-    "focusin",
-    (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      if (target === document.body) return;
-      if (target.closest('[role="dialog"]')) return;
-      if (recentFocus.at(-1) === target) return;
-      recentFocus.push(target);
-      if (recentFocus.length > 8) recentFocus.shift();
-    },
-    true,
-  );
-}
-
 function captureReturnFocus() {
-  if (typeof document === "undefined") return null;
   const active = document.activeElement;
-  if (
-    active instanceof HTMLElement &&
-    active !== document.body &&
-    !active.closest('[role="dialog"]')
-  ) {
-    return active;
+  if (!(active instanceof HTMLElement) || active === document.body) return null;
+  const menu = active.closest<HTMLElement>('[role="menu"]');
+  if (menu?.id) {
+    return document.querySelector<HTMLElement>(
+      `[aria-controls="${CSS.escape(menu.id)}"]`,
+    );
   }
-  return findLastExternalFocus();
+  return active;
 }
 
 /**
@@ -81,7 +51,6 @@ export function Dialog({
   /** Accessible name for dialogs that render their own heading instead of `title`. */
   ariaLabel?: string;
 }) {
-  installFocusTracking();
   const panelRef = React.useRef<HTMLDivElement>(null);
   const onCloseRef = React.useRef(onClose);
   const onExitCompleteRef = React.useRef(onExitComplete);
@@ -138,6 +107,9 @@ export function Dialog({
 
     const panel = panelRef.current;
     const focusFrame = requestAnimationFrame(() => {
+      // React applies `autoFocus` itself (no DOM attribute), so keep any
+      // focus it already placed inside the panel.
+      if (panel?.contains(document.activeElement)) return;
       const autofocusHost =
         panel?.querySelector<HTMLElement>("[data-autofocus]");
       const target =
@@ -189,12 +161,8 @@ export function Dialog({
     const finishClose = () => {
       if (finished) return;
       finished = true;
-      const preferred = returnFocusRef.current;
-      const target =
-        preferred && preferred.isConnected && preferred !== document.body
-          ? preferred
-          : findLastExternalFocus();
-      target?.focus?.();
+      const target = returnFocusRef.current;
+      if (target?.isConnected) target.focus();
       returnFocusRef.current = null;
       setPresent(false);
       setClosing(false);
