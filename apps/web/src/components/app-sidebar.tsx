@@ -278,7 +278,7 @@ function ReviewItem({
       : `${plural(dueCount, "review unit")} due`;
 
   return (
-    <SidebarMenuItem className="mb-2">
+    <SidebarMenuItem>
       <SidebarMenuButton
         isActive={active}
         tooltip={statusLabel ? `Review · ${statusLabel}` : "Review"}
