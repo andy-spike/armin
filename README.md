@@ -27,7 +27,15 @@ Their source and release tooling remain available in Git history.
 
 ## Development
 
-Quick start from the repository root, using the pinned Node (24) and pnpm versions:
+The toolchain is [Vite+](https://viteplus.dev) (`vp`). Install its global CLI
+once; it selects the Node version pinned in `.node-version` and the pnpm version
+pinned in `package.json`:
+
+```bash
+curl -fsSL https://vite.plus | bash   # Windows: irm https://vite.plus/ps1 | iex
+```
+
+Quick start from the repository root:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -62,8 +70,8 @@ does. Mobile URLs use this machine's LAN address, so a phone on the same network
 can connect; a phone that cannot reach this machine needs a cloud deployment.
 Sign into mobile with the sample account or one created in the web app.
 See [mobile setup](apps/mobile/README.md) for Expo Go, emulator, and networking
-requirements. Stop each command with Ctrl+C;
-Turborepo stops both watchers started by `pnpm dev`.
+requirements. Stop each command with Ctrl+C; it stops both watchers started by
+`pnpm dev`.
 
 Make every repository change on a task branch in a T3 Code worktree, then open a
 PR against `master`. GitHub requires the PR's `Verify` check to pass with the branch
@@ -107,10 +115,13 @@ The `skills` CLI discovers skills under `.agents/skills/`, so it picks up
 
 ## Validation
 
-Run `pnpm typecheck`, `pnpm lint`, `pnpm --filter @armin/web build`, and
-`pnpm --filter @armin/mobile check:bundle`. Web, backend, and mobile changes use
-running-app walkthroughs recorded in [`docs/qa/`](docs/qa/), without new automated
-test suites. `pnpm test` remains the workspace task runner for test scripts.
+Run `pnpm check`, `pnpm --filter @armin/web build`, and
+`pnpm --filter @armin/mobile check:bundle`. `pnpm check` runs `vp check`, which
+checks formatting (Oxfmt), lints (Oxlint), and type checks every workspace in one
+pass; `pnpm format` fixes formatting. Lint and format settings live in the root
+`vite.config.ts` ([ADR 0003](docs/adr/0003-vite-plus-toolchain.md)). Web, backend,
+and mobile changes use running-app walkthroughs recorded in [`docs/qa/`](docs/qa/),
+without automated test suites.
 
 ## Contributions
 
