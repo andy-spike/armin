@@ -38,16 +38,9 @@ export function SortControl<T extends string>({
   const items = options.map((opt) => ({ value: opt.value, label: opt.label }));
 
   const select = (
-    <Select
-      value={value}
-      items={items}
-      onValueChange={(next) => onChange(next as T)}
-    >
+    <Select value={value} items={items} onValueChange={(next) => onChange(next as T)}>
       <SelectTrigger
-        className={cn(
-          "w-full min-w-[11rem] border-border-strong bg-surface",
-          triggerClassName,
-        )}
+        className={cn("w-full min-w-[11rem] border-border-strong bg-surface", triggerClassName)}
         aria-label="Sort by"
       >
         <SelectValue />

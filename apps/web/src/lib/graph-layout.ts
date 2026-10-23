@@ -143,8 +143,7 @@ export function layoutGraph<T extends Record<string, unknown>>(
   // Pack components into rows, wrapping once a row exceeds a target width that
   // keeps the overall arrangement roughly square.
   const totalArea = laidOut.reduce(
-    (sum, c) =>
-      sum + (c.width + COMPONENT_GAP_X) * (c.height + COMPONENT_GAP_Y),
+    (sum, c) => sum + (c.width + COMPONENT_GAP_X) * (c.height + COMPONENT_GAP_Y),
     0,
   );
   const widestComponent = laidOut.reduce((m, c) => Math.max(m, c.width), 0);

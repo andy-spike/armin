@@ -57,27 +57,17 @@ type SettingsState = Pick<
 
 type NamedSchedulingPreset = Exclude<SchedulingPreset, "custom">;
 
-const SETTINGS_TABS = [
-  "scheduling",
-  "keyboard",
-  "account",
-  "data",
-  "appearance",
-] as const;
+const SETTINGS_TABS = ["scheduling", "keyboard", "account", "data", "appearance"] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 type SettingsSearch = { tab?: SettingsTab };
 
 function isSettingsTab(value: unknown): value is SettingsTab {
-  return (
-    typeof value === "string" &&
-    (SETTINGS_TABS as readonly string[]).includes(value)
-  );
+  return typeof value === "string" && (SETTINGS_TABS as readonly string[]).includes(value);
 }
 
 const NAMED_PRESET_OPTIONS = PRESET_OPTIONS.filter(
-  (option): option is { value: NamedSchedulingPreset; label: string } =>
-    option.value !== "custom",
+  (option): option is { value: NamedSchedulingPreset; label: string } => option.value !== "custom",
 );
 
 const initial: SettingsState = {
@@ -103,9 +93,7 @@ function toSettingsState(settings: Settings): SettingsState {
 }
 
 function settingsEqual(a: SettingsState, b: SettingsState): boolean {
-  return (Object.keys(a) as (keyof SettingsState)[]).every(
-    (key) => a[key] === b[key],
-  );
+  return (Object.keys(a) as (keyof SettingsState)[]).every((key) => a[key] === b[key]);
 }
 
 function SettingsPage() {
@@ -114,8 +102,7 @@ function SettingsPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const activeTab = search.tab ?? "scheduling";
-  const { preference: themePreference, setPreference: setThemePreference } =
-    useTheme();
+  const { preference: themePreference, setPreference: setThemePreference } = useTheme();
   const [s, setS] = useState(initial);
   const currentRef = useRef(initial);
   const settingsLoadedRef = useRef(false);
@@ -171,9 +158,7 @@ function SettingsPage() {
     flushSaveQueue();
   };
 
-  const applySettingsState = (
-    updater: (current: SettingsState) => SettingsState,
-  ) => {
+  const applySettingsState = (updater: (current: SettingsState) => SettingsState) => {
     const current = currentRef.current;
     const next = updater(current);
     if (settingsEqual(next, current)) return;
@@ -181,10 +166,8 @@ function SettingsPage() {
     saveAutomatically(next);
   };
 
-  const set = <K extends keyof SettingsState>(
-    key: K,
-    value: SettingsState[K],
-  ) => applySettingsState((current) => ({ ...current, [key]: value }));
+  const set = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) =>
+    applySettingsState((current) => ({ ...current, [key]: value }));
 
   useEffect(() => {
     if (!settingsQuery.data || savingRef.current || queuedSaveRef.current) {
@@ -241,18 +224,13 @@ function SettingsPage() {
   return (
     <div className="pb-24">
       <header className="mb-8">
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">
-          Settings
-        </h1>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">Settings</h1>
       </header>
 
       {settingsQuery.isError && (
         <div className="mb-8 flex items-center justify-between gap-4 border border-border bg-surface px-4 py-3">
           <p className="text-sm text-muted">Couldn&apos;t load settings.</p>
-          <Button
-            variant="outline"
-            onClick={() => void settingsQuery.refetch()}
-          >
+          <Button variant="outline" onClick={() => void settingsQuery.refetch()}>
             Try again
           </Button>
         </div>
@@ -268,208 +246,206 @@ function SettingsPage() {
         </TabsList>
 
         <TabsPanel value="scheduling" className="space-y-10">
-        <Section
-          title="Scheduling profile"
-          description="Pick a profile for a tuned set of spaced-repetition settings, or use Custom and fill it from a preset."
-          action={
-            preset === "custom" ? (
-              <div className="space-y-1.5">
-                <p className="text-xs font-medium text-muted">
-                  Fill fields from
-                </p>
-                <div className="grid gap-1.5">
-                  {NAMED_PRESET_OPTIONS.map((option) => (
-                    <Button
-                      key={option.value}
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-center"
-                      onClick={() => fillCustomFromPreset(option.value)}
-                    >
-                      {option.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            ) : undefined
-          }
-        >
-          <Row
-            label="Preset"
-            hint="Balanced suits most learners. Aggressive reviews more often. Relaxed reviews less."
-            last
-          >
-            {(labelId) => (
-              <Select
-                value={preset}
-                items={PRESET_OPTIONS}
-                onValueChange={(v) => selectPreset(v as SchedulingPreset)}
-              >
-                <SelectTrigger className="w-44" aria-labelledby={labelId}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
-                  <SelectGroup>
-                    {PRESET_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
+          <Section
+            title="Scheduling profile"
+            description="Pick a profile for a tuned set of spaced-repetition settings, or use Custom and fill it from a preset."
+            action={
+              preset === "custom" ? (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted">Fill fields from</p>
+                  <div className="grid gap-1.5">
+                    {NAMED_PRESET_OPTIONS.map((option) => (
+                      <Button
+                        key={option.value}
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-center"
+                        onClick={() => fillCustomFromPreset(option.value)}
+                      >
                         {option.label}
-                      </SelectItem>
+                      </Button>
                     ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            )}
-          </Row>
-        </Section>
+                  </div>
+                </div>
+              ) : undefined
+            }
+          >
+            <Row
+              label="Preset"
+              hint="Balanced suits most learners. Aggressive reviews more often. Relaxed reviews less."
+              last
+            >
+              {(labelId) => (
+                <Select
+                  value={preset}
+                  items={PRESET_OPTIONS}
+                  onValueChange={(v) => selectPreset(v as SchedulingPreset)}
+                >
+                  <SelectTrigger className="w-44" aria-labelledby={labelId}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    <SelectGroup>
+                      {PRESET_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              )}
+            </Row>
+          </Section>
 
-        <Section
-          title="Scheduling"
-          description="Tune how FSRS schedules reviews for the selected profile."
-        >
-          <Row
-            label="Desired retention"
-            hint="Target recall probability. Higher means more frequent reviews."
-            {...resetProps("requestRetention")}
+          <Section
+            title="Scheduling"
+            description="Tune how FSRS schedules reviews for the selected profile."
           >
-            {(labelId) => (
-              <RetentionInput
-                value={s.requestRetention}
-                onChange={(v) => set("requestRetention", v)}
-                aria-labelledby={labelId}
-              />
-            )}
-          </Row>
-          <Row
-            label="Maximum interval"
-            hint="The longest gap between reviews, in days."
-            {...resetProps("maximumInterval")}
-          >
-            {(labelId) => (
-              <MaximumIntervalInput
-                value={s.maximumInterval}
-                onChange={(v) => set("maximumInterval", v)}
-                aria-labelledby={labelId}
-              />
-            )}
-          </Row>
-          <Row
-            label="Learning steps"
-            hint="Short steps for brand-new review units."
-            {...resetProps("learningSteps")}
-          >
-            {(labelId) => (
-              <StepsInput
-                value={s.learningSteps}
-                onChange={(v) => set("learningSteps", v)}
-                aria-labelledby={labelId}
-              />
-            )}
-          </Row>
-          <Row
-            label="Relearning steps"
-            hint="Steps after you forget a review unit."
-            {...resetProps("relearningSteps")}
-          >
-            {(labelId) => (
-              <StepsInput
-                value={s.relearningSteps}
-                onChange={(v) => set("relearningSteps", v)}
-                aria-labelledby={labelId}
-              />
-            )}
-          </Row>
-          <Row
-            label="Interval fuzz"
-            hint="Scatter due dates slightly so reviews don't clump."
-            {...resetProps("enableFuzz")}
-          >
-            {(labelId) => (
-              <Switch
-                checked={s.enableFuzz}
-                onCheckedChange={(v) => set("enableFuzz", v)}
-                aria-labelledby={labelId}
-              />
-            )}
-          </Row>
-          <Row
-            label="Short-term scheduling"
-            hint="Use same-day learning steps for new and lapsed review units."
-            last
-            {...resetProps("enableShortTerm")}
-          >
-            {(labelId) => (
-              <Switch
-                checked={s.enableShortTerm}
-                onCheckedChange={(v) => set("enableShortTerm", v)}
-                aria-labelledby={labelId}
-              />
-            )}
-          </Row>
-        </Section>
+            <Row
+              label="Desired retention"
+              hint="Target recall probability. Higher means more frequent reviews."
+              {...resetProps("requestRetention")}
+            >
+              {(labelId) => (
+                <RetentionInput
+                  value={s.requestRetention}
+                  onChange={(v) => set("requestRetention", v)}
+                  aria-labelledby={labelId}
+                />
+              )}
+            </Row>
+            <Row
+              label="Maximum interval"
+              hint="The longest gap between reviews, in days."
+              {...resetProps("maximumInterval")}
+            >
+              {(labelId) => (
+                <MaximumIntervalInput
+                  value={s.maximumInterval}
+                  onChange={(v) => set("maximumInterval", v)}
+                  aria-labelledby={labelId}
+                />
+              )}
+            </Row>
+            <Row
+              label="Learning steps"
+              hint="Short steps for brand-new review units."
+              {...resetProps("learningSteps")}
+            >
+              {(labelId) => (
+                <StepsInput
+                  value={s.learningSteps}
+                  onChange={(v) => set("learningSteps", v)}
+                  aria-labelledby={labelId}
+                />
+              )}
+            </Row>
+            <Row
+              label="Relearning steps"
+              hint="Steps after you forget a review unit."
+              {...resetProps("relearningSteps")}
+            >
+              {(labelId) => (
+                <StepsInput
+                  value={s.relearningSteps}
+                  onChange={(v) => set("relearningSteps", v)}
+                  aria-labelledby={labelId}
+                />
+              )}
+            </Row>
+            <Row
+              label="Interval fuzz"
+              hint="Scatter due dates slightly so reviews don't clump."
+              {...resetProps("enableFuzz")}
+            >
+              {(labelId) => (
+                <Switch
+                  checked={s.enableFuzz}
+                  onCheckedChange={(v) => set("enableFuzz", v)}
+                  aria-labelledby={labelId}
+                />
+              )}
+            </Row>
+            <Row
+              label="Short-term scheduling"
+              hint="Use same-day learning steps for new and lapsed review units."
+              last
+              {...resetProps("enableShortTerm")}
+            >
+              {(labelId) => (
+                <Switch
+                  checked={s.enableShortTerm}
+                  onCheckedChange={(v) => set("enableShortTerm", v)}
+                  aria-labelledby={labelId}
+                />
+              )}
+            </Row>
+          </Section>
 
-        <Section
-          title="Learning path"
-          description="How prerequisite flashcards unlock and how many new review units enter each day."
-        >
-          <Row
-            label="Prerequisite stability"
-            hint="Required for initial access to dependents. Once earned, access stays unlocked."
-            {...resetProps("prereqStabilityFloor")}
+          <Section
+            title="Learning path"
+            description="How prerequisite flashcards unlock and how many new review units enter each day."
           >
-            {(labelId) => (
-              <StabilityFloorInput
-                value={s.prereqStabilityFloor}
-                onChange={(v) => set("prereqStabilityFloor", v)}
-                aria-labelledby={labelId}
-              />
-            )}
-          </Row>
-          <Row
-            label="New review units per day"
-            hint="Maximum brand-new review units introduced across all your decks each day, counted in your account time zone."
-            {...resetProps("newReviewUnitsPerDay")}
-          >
-            {(labelId) => (
-              <NewCardsPerDayInput
-                value={s.newReviewUnitsPerDay}
-                onChange={(v) => set("newReviewUnitsPerDay", v)}
-                aria-labelledby={labelId}
-              />
-            )}
-          </Row>
-          <Row
-            label="Keep siblings together"
-            hint="Introduce all eligible directions or clozes for a flashcard in the same session."
-            last
-            {...resetProps("keepSiblingReviewUnitsTogether")}
-          >
-            {(labelId) => (
-              <Switch
-                checked={s.keepSiblingReviewUnitsTogether}
-                onCheckedChange={(v) => set("keepSiblingReviewUnitsTogether", v)}
-                aria-labelledby={labelId}
-              />
-            )}
-          </Row>
-        </Section>
+            <Row
+              label="Prerequisite stability"
+              hint="Required for initial access to dependents. Once earned, access stays unlocked."
+              {...resetProps("prereqStabilityFloor")}
+            >
+              {(labelId) => (
+                <StabilityFloorInput
+                  value={s.prereqStabilityFloor}
+                  onChange={(v) => set("prereqStabilityFloor", v)}
+                  aria-labelledby={labelId}
+                />
+              )}
+            </Row>
+            <Row
+              label="New review units per day"
+              hint="Maximum brand-new review units introduced across all your decks each day, counted in your account time zone."
+              {...resetProps("newReviewUnitsPerDay")}
+            >
+              {(labelId) => (
+                <NewCardsPerDayInput
+                  value={s.newReviewUnitsPerDay}
+                  onChange={(v) => set("newReviewUnitsPerDay", v)}
+                  aria-labelledby={labelId}
+                />
+              )}
+            </Row>
+            <Row
+              label="Keep siblings together"
+              hint="Introduce all eligible directions or clozes for a flashcard in the same session."
+              last
+              {...resetProps("keepSiblingReviewUnitsTogether")}
+            >
+              {(labelId) => (
+                <Switch
+                  checked={s.keepSiblingReviewUnitsTogether}
+                  onCheckedChange={(v) => set("keepSiblingReviewUnitsTogether", v)}
+                  aria-labelledby={labelId}
+                />
+              )}
+            </Row>
+          </Section>
 
-        {preset !== "custom" && hasPresetOverrides && (
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={resetToPreset}>
-              <RotateCcw className="h-4 w-4" />
-              Reset to {presetLabel(preset)} default settings
-            </Button>
-          </div>
-        )}
+          {preset !== "custom" && hasPresetOverrides && (
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={resetToPreset}>
+                <RotateCcw className="h-4 w-4" />
+                Reset to {presetLabel(preset)} default settings
+              </Button>
+            </div>
+          )}
         </TabsPanel>
 
         <TabsPanel value="keyboard" className="space-y-10">
-        <Section
-          title="Keyboard shortcuts"
-          description="Rebind app-wide shortcuts for navigation and review. Only the ones you change are saved to your account."
-        >
-          <KeybindingSettings />
-        </Section>
+          <Section
+            title="Keyboard shortcuts"
+            description="Rebind app-wide shortcuts for navigation and review. Only the ones you change are saved to your account."
+          >
+            <KeybindingSettings />
+          </Section>
         </TabsPanel>
 
         <TabsPanel value="account" className="space-y-10">
@@ -477,46 +453,43 @@ function SettingsPage() {
         </TabsPanel>
 
         <TabsPanel value="data" className="space-y-10">
-        <Section
-          title="Export"
-          description="Download your library as a ZIP: decks, flashcards, prerequisites, schedules, review history, settings, and images."
-        >
-          <ExportSettings />
-        </Section>
+          <Section
+            title="Export"
+            description="Download your library as a ZIP: decks, flashcards, prerequisites, schedules, review history, settings, and images."
+          >
+            <ExportSettings />
+          </Section>
         </TabsPanel>
 
         <TabsPanel value="appearance" className="space-y-10">
-        <Section
-          title="Appearance"
-          description="How Armin looks on this device."
-        >
-          <Row
-            label="Theme"
-            hint="Flexoki light, Flexoki dark, or match your system setting."
-            last
-          >
-            {(labelId) => (
-              <Select
-                value={themePreference}
-                items={THEME_OPTIONS}
-                onValueChange={(v) => setThemePreference(v as ThemePreference)}
-              >
-                <SelectTrigger className="w-44" aria-labelledby={labelId}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
-                  <SelectGroup>
-                    {THEME_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            )}
-          </Row>
-        </Section>
+          <Section title="Appearance" description="How Armin looks on this device.">
+            <Row
+              label="Theme"
+              hint="Flexoki light, Flexoki dark, or match your system setting."
+              last
+            >
+              {(labelId) => (
+                <Select
+                  value={themePreference}
+                  items={THEME_OPTIONS}
+                  onValueChange={(v) => setThemePreference(v as ThemePreference)}
+                >
+                  <SelectTrigger className="w-44" aria-labelledby={labelId}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    <SelectGroup>
+                      {THEME_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              )}
+            </Row>
+          </Section>
         </TabsPanel>
       </Tabs>
     </div>

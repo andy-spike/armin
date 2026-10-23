@@ -9,15 +9,8 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { KeybindingHint } from "@/components/keybinding-hint";
-import {
-  useKeybindings,
-  useScope,
-} from "@/keybindings/keybindings-provider";
-import {
-  COMMANDS,
-  COMMAND_BY_ID,
-  type CommandDef,
-} from "@/lib/keybindings/registry";
+import { useKeybindings, useScope } from "@/keybindings/keybindings-provider";
+import { COMMANDS, COMMAND_BY_ID, type CommandDef } from "@/lib/keybindings/registry";
 
 /**
  * Mounts the discoverability surfaces and the global Commands that open them:
@@ -43,13 +36,7 @@ export function KeyboardOverlays() {
 
 type PaletteItem = { value: string; label: string };
 
-function CommandPalette({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { keymap, activeScopes, runCommand } = useKeybindings();
 
   // Palette lists every non-hidden Command; ones whose Scope isn't active right
@@ -72,12 +59,7 @@ function CommandPalette({
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      ariaLabel="Command palette"
-      className="max-w-xl p-0"
-    >
+    <Dialog open={open} onClose={onClose} ariaLabel="Command palette" className="max-w-xl p-0">
       <Command items={items} aria-label="Command palette">
         <CommandInput placeholder="Type a command…" autoFocus />
         <CommandEmpty>No commands found.</CommandEmpty>
@@ -126,12 +108,7 @@ function Cheatsheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   }, []);
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title="Keyboard shortcuts"
-      className="max-w-2xl"
-    >
+    <Dialog open={open} onClose={onClose} title="Keyboard shortcuts" className="max-w-2xl">
       <div className="grid gap-x-10 gap-y-6 sm:grid-cols-2">
         {groups.map(([group, cmds]) => {
           const active = activeScopes.has(cmds[0].scope);
@@ -140,9 +117,7 @@ function Cheatsheet({ open, onClose }: { open: boolean; onClose: () => void }) {
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
                 {group}
                 {!active && (
-                  <span className="ml-2 font-normal normal-case opacity-70">
-                    (inactive)
-                  </span>
+                  <span className="ml-2 font-normal normal-case opacity-70">(inactive)</span>
                 )}
               </h3>
               <ul className={active ? undefined : "opacity-50"}>

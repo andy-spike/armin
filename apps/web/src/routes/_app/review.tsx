@@ -52,9 +52,7 @@ function ReviewsPage() {
     [decksQuery.data],
   );
 
-  const actions = useReviewActions(
-    selectedDeckId === ALL_DECKS ? undefined : selectedDeckId,
-  );
+  const actions = useReviewActions(selectedDeckId === ALL_DECKS ? undefined : selectedDeckId);
 
   return (
     <ReviewSession
@@ -93,11 +91,7 @@ function ReviewsPage() {
           </SelectContent>
         </Select>
       }
-      header={
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">
-          Review
-        </h1>
-      }
+      header={<h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">Review</h1>}
       subtitle={(remaining) =>
         remaining > 0
           ? `${plural(remaining, "review unit")} due today across your decks.`

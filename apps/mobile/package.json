@@ -1,7 +1,17 @@
 {
   "name": "@armin/mobile",
   "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
   "main": "index.ts",
+  "scripts": {
+    "start": "expo start --go --lan",
+    "start:tunnel": "expo start --go --tunnel",
+    "android": "expo start --go --android",
+    "ios": "expo start --go --ios",
+    "check:bundle": "expo export --platform android --platform ios",
+    "check:expo": "expo-doctor"
+  },
   "dependencies": {
     "@armin/backend": "workspace:*",
     "@armin/core": "workspace:*",
@@ -27,16 +37,6 @@
     "expo-doctor": "1.20.4",
     "typescript": "~6.0.3"
   },
-  "scripts": {
-    "start": "expo start --go --lan",
-    "start:tunnel": "expo start --go --tunnel",
-    "android": "expo start --go --android",
-    "ios": "expo start --go --ios",
-    "check:bundle": "expo export --platform android --platform ios",
-    "check:expo": "expo-doctor"
-  },
-  "private": true,
-  "license": "MIT",
   "expo": {
     "install": {
       "exclude": [

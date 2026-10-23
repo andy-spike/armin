@@ -16,15 +16,7 @@ export default defineConfig({
     ignorePatterns: ignored,
   },
   lint: {
-    plugins: [
-      "eslint",
-      "typescript",
-      "import",
-      "unicorn",
-      "oxc",
-      "react",
-      "jsx-a11y",
-    ],
+    plugins: ["eslint", "typescript", "import", "unicorn", "oxc", "react", "jsx-a11y"],
     categories: { correctness: "error" },
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {

@@ -47,10 +47,7 @@ export function TruncatedLabel({
   const { ref, truncated } = useIsTruncated<HTMLSpanElement>();
 
   const span = (
-    <span
-      ref={ref}
-      className={cn("block min-w-0 flex-1 truncate text-left", className)}
-    >
+    <span ref={ref} className={cn("block min-w-0 flex-1 truncate text-left", className)}>
       {label}
     </span>
   );

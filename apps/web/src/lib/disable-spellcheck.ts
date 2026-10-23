@@ -1,5 +1,4 @@
-const NO_SPELLCHECK_SELECTOR =
-  'input, textarea, [contenteditable="true"], [contenteditable=""]';
+const NO_SPELLCHECK_SELECTOR = 'input, textarea, [contenteditable="true"], [contenteditable=""]';
 
 function applyNoSpellcheck(element: Element) {
   if (!(element instanceof HTMLElement)) return;
@@ -11,10 +10,7 @@ function applyNoSpellcheck(element: Element) {
   element.setAttribute("data-gramm_editor", "false");
   element.setAttribute("data-enable-grammarly", "false");
 
-  if (
-    element instanceof HTMLInputElement ||
-    element instanceof HTMLTextAreaElement
-  ) {
+  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
     element.spellcheck = false;
   }
 }

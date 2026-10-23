@@ -12,10 +12,7 @@ const REVEAL_DELAY_MS = 300;
  * view frames every match; Enter and Shift+Enter then step through them one
  * at a time.
  */
-export function useGraphSearch(
-  nodes: UiDeckGraph["nodes"],
-  interactive: boolean,
-) {
+export function useGraphSearch(nodes: UiDeckGraph["nodes"], interactive: boolean) {
   const { fitView } = useReactFlow();
   const [search, setSearch] = useState("");
   // The match Enter/Shift+Enter last moved to, or null while every match is
@@ -29,17 +26,12 @@ export function useGraphSearch(
       query === ""
         ? []
         : nodes
-            .filter((node) =>
-              `${node.front} ${node.back}`.toLowerCase().includes(query),
-            )
+            .filter((node) => `${node.front} ${node.back}`.toLowerCase().includes(query))
             .map((node) => node.id),
     [nodes, query],
   );
   // Null while not searching, so callers can tell "no query" from "no matches".
-  const matches = useMemo(
-    () => (query === "" ? null : new Set(matchIds)),
-    [matchIds, query],
-  );
+  const matches = useMemo(() => (query === "" ? null : new Set(matchIds)), [matchIds, query]);
   const currentMatchId = step === null ? null : (matchIds[step] ?? null);
 
   // A new query starts back at the overview of all matches.

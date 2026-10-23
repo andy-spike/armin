@@ -25,9 +25,7 @@ export function formatCardCounts(active: number, archived: number) {
  * duplicate gets a leading number so the difference survives label
  * truncation; unique names stay clean.
  */
-export function buildDeckFilterOptions(
-  decks: { id: string; name: string }[],
-) {
+export function buildDeckFilterOptions(decks: { id: string; name: string }[]) {
   const nameCounts = new Map<string, number>();
   for (const deck of decks) {
     nameCounts.set(deck.name, (nameCounts.get(deck.name) ?? 0) + 1);
@@ -36,10 +34,7 @@ export function buildDeckFilterOptions(
   return [
     { value: "", label: "All decks" },
     ...[...decks]
-      .sort(
-        (a, b) =>
-          a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
-      )
+      .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
       .map((deck) => {
         if ((nameCounts.get(deck.name) ?? 0) <= 1) {
           return { value: deck.id, label: deck.name };

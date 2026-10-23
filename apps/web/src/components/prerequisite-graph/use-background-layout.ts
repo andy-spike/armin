@@ -1,20 +1,10 @@
-import {
-  useEffect,
-  useRef,
-  type Dispatch,
-  type RefObject,
-  type SetStateAction,
-} from "react";
+import { useEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { XYPosition } from "@xyflow/react";
 import type {
   GraphLayoutWorkerRequest,
   GraphLayoutWorkerResponse,
 } from "@/lib/graph-layout-worker";
-import {
-  markGraphPerf,
-  measureGraphPerf,
-  scheduleGraphWork,
-} from "@/lib/graph-perf";
+import { markGraphPerf, measureGraphPerf, scheduleGraphWork } from "@/lib/graph-perf";
 import type { UiDeckGraph } from "@/types/view-models";
 import type { CardFlowNode } from "./flashcard-node";
 
@@ -58,17 +48,11 @@ export function useBackgroundLayout({
     if (!interactive || graph.nodes.length === 0) return;
     const placedIds = new Set(
       graph.nodes
-        .filter(
-          (node) =>
-            (node.x != null && node.y != null) || nodePlacements?.[node.id],
-        )
+        .filter((node) => (node.x != null && node.y != null) || nodePlacements?.[node.id])
         .map((node) => node.id),
     );
     const unplacedIds = graph.nodes
-      .filter(
-        (node) =>
-          !placedIds.has(node.id) && !backgroundLaidOutIds.current.has(node.id),
-      )
+      .filter((node) => !placedIds.has(node.id) && !backgroundLaidOutIds.current.has(node.id))
       .map((node) => node.id);
     if (unplacedIds.length === 0) return;
 
@@ -78,12 +62,9 @@ export function useBackgroundLayout({
       markGraphPerf("backgroundLayout:start");
       const worker =
         layoutWorker.current ??
-        new Worker(
-          new URL("../../lib/graph-layout.worker.ts", import.meta.url),
-          {
-            type: "module",
-          },
-        );
+        new Worker(new URL("../../lib/graph-layout.worker.ts", import.meta.url), {
+          type: "module",
+        });
       layoutWorker.current = worker;
       const requestId = ++layoutRequestId.current;
       const request: GraphLayoutWorkerRequest = {
@@ -114,19 +95,13 @@ export function useBackgroundLayout({
           setNodes((current) =>
             current.map((node) => {
               const placement = placementById.get(node.id);
-              return placement
-                ? { ...node, position: { x: placement.x, y: placement.y } }
-                : node;
+              return placement ? { ...node, position: { x: placement.x, y: placement.y } } : node;
             }),
           );
           onPersistLayout?.(placements);
         }
         markGraphPerf("backgroundLayout:end");
-        measureGraphPerf(
-          "backgroundLayout",
-          "backgroundLayout:start",
-          "backgroundLayout:end",
-        );
+        measureGraphPerf("backgroundLayout", "backgroundLayout:start", "backgroundLayout:end");
       };
 
       worker.onerror = () => {
@@ -144,12 +119,5 @@ export function useBackgroundLayout({
     // `nodesRef` is a ref passed in by the caller. The worker reads its
     // latest value when the job runs, so it is deliberately not a dependency.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    graph.edges,
-    graph.nodes,
-    interactive,
-    nodePlacements,
-    onPersistLayout,
-    setNodes,
-  ]);
+  }, [graph.edges, graph.nodes, interactive, nodePlacements, onPersistLayout, setNodes]);
 }

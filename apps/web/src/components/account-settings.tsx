@@ -79,7 +79,10 @@ export function AccountSettings() {
 
   return (
     <>
-      <Section title="Account" description="Your sign-in details. One account owns one private library.">
+      <Section
+        title="Account"
+        description="Your sign-in details. One account owns one private library."
+      >
         <Row label="Email" hint={viewer.data?.name || undefined}>
           <span className="max-w-[14rem] truncate text-sm text-ink">{viewer.data?.email}</span>
         </Row>
@@ -157,11 +160,7 @@ export function AccountSettings() {
 
       <Section title="Sessions" description="Signing out ends access on that device immediately.">
         <Row label="This device">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={signOutToSignIn}
-          >
+          <Button variant="outline" size="sm" onClick={signOutToSignIn}>
             Sign out
           </Button>
         </Row>

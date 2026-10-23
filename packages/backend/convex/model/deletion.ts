@@ -7,10 +7,7 @@ import type { DataModel } from "../_generated/dataModel";
  * the Better Auth user-delete trigger, so access ends in the same transaction
  * that removes the user; reads and writes check `status === "active"`.
  */
-export async function markLibraryDeleting(
-  ctx: GenericMutationCtx<DataModel>,
-  ownerId: string,
-) {
+export async function markLibraryDeleting(ctx: GenericMutationCtx<DataModel>, ownerId: string) {
   const library = await ctx.db
     .query("libraries")
     .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))

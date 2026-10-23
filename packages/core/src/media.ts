@@ -4,11 +4,7 @@
  * Free of Node `Buffer` so it runs in Convex and React Native.
  */
 
-import type {
-  FlashcardContent,
-  FlashcardType,
-  ImageOcclusionContent,
-} from "./flashcard-types";
+import type { FlashcardContent, FlashcardType, ImageOcclusionContent } from "./flashcard-types";
 import { isMediaRef, parseMediaRef } from "./media-ref";
 
 export type ImageExt = "png" | "jpg" | "gif" | "webp" | "svg" | "bmp" | "avif";
@@ -63,10 +59,7 @@ const MARKDOWN_IMAGE_RE = /!\[[^\]]*\]\(([^)\s]+)(?:\s+["'][^)]*["'])?\)/g;
 const HTML_IMAGE_SRC_RE = /<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
 
 /** The Markdown-bearing fields of a flashcard's content. */
-export function markdownFieldsFor(
-  type: FlashcardType,
-  content: FlashcardContent,
-): string[] {
+export function markdownFieldsFor(type: FlashcardType, content: FlashcardContent): string[] {
   switch (type) {
     case "basic":
     case "basic_reversed": {
@@ -88,10 +81,7 @@ export function markdownFieldsFor(
  * Every media file name referenced by the content. Throws when an image
  * source is not an `armin-media:` reference (inline data or remote URLs).
  */
-export function contentMediaFileNames(
-  type: FlashcardType,
-  content: FlashcardContent,
-): string[] {
+export function contentMediaFileNames(type: FlashcardType, content: FlashcardContent): string[] {
   const names = new Set<string>();
   const accept = (value: string, label: string) => {
     const fileName = parseMediaRef(value);

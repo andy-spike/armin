@@ -75,9 +75,8 @@ function SignUpPage() {
         title="Check your email"
         subtitle={
           <>
-            If this email can be used to create an account, we&apos;ve sent a verification
-            link to <strong className="text-ink">{sentTo}</strong>. Open it to finish creating
-            your account.
+            If this email can be used to create an account, we&apos;ve sent a verification link to{" "}
+            <strong className="text-ink">{sentTo}</strong>. Open it to finish creating your account.
           </>
         }
         footer={

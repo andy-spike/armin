@@ -83,31 +83,32 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      {mounted && createPortal(
-        <div className="pointer-events-none fixed inset-x-0 bottom-4 z-60 flex flex-col items-center gap-2 px-4">
-          {items.map(({ id, title, description, tone, exiting }) => {
-            const { Icon, color } = TONE[tone];
-            return (
-              <ToastNotice
-                key={id}
-                exiting={exiting ?? false}
-                onExitComplete={() => remove(id)}
-                onDismiss={() => dismiss(id)}
-                icon={
-                  <Icon
-                    className={cn("mt-0.5 h-4.5 w-4.5 shrink-0", color)}
-                    style={{ height: "1.125rem", width: "1.125rem" }}
-                    aria-hidden
-                  />
-                }
-                title={title}
-                description={description}
-              />
-            );
-          })}
-        </div>,
-        document.body,
-      )}
+      {mounted &&
+        createPortal(
+          <div className="pointer-events-none fixed inset-x-0 bottom-4 z-60 flex flex-col items-center gap-2 px-4">
+            {items.map(({ id, title, description, tone, exiting }) => {
+              const { Icon, color } = TONE[tone];
+              return (
+                <ToastNotice
+                  key={id}
+                  exiting={exiting ?? false}
+                  onExitComplete={() => remove(id)}
+                  onDismiss={() => dismiss(id)}
+                  icon={
+                    <Icon
+                      className={cn("mt-0.5 h-4.5 w-4.5 shrink-0", color)}
+                      style={{ height: "1.125rem", width: "1.125rem" }}
+                      aria-hidden
+                    />
+                  }
+                  title={title}
+                  description={description}
+                />
+              );
+            })}
+          </div>,
+          document.body,
+        )}
     </ToastContext.Provider>
   );
 }
@@ -166,9 +167,7 @@ function ToastNotice({
       {icon}
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-ink">{title}</p>
-        {description && (
-          <p className="mt-0.5 text-[0.8125rem] text-muted">{description}</p>
-        )}
+        {description && <p className="mt-0.5 text-[0.8125rem] text-muted">{description}</p>}
       </div>
       <button
         onClick={onDismiss}

@@ -12,7 +12,7 @@ becomes "Deleting…".
 animation and renders a **snapshot** of its content while closing, so the content
 can't shift mid-animation. That snapshot is captured from the last open render.
 When a button swaps its label to a busy verb on `mutation.isPending`, the close is
-triggered from inside that pending render, so the snapshot freezes the *"Deleting…"*
+triggered from inside that pending render, so the snapshot freezes the _"Deleting…"_
 text and shows it for the whole fade-out. The result is a visible flash: the label
 changes for an instant and then the dialog disappears. Local mutations (SQLite)
 resolve so fast that the busy verb adds no useful feedback — it only flashes.

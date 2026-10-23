@@ -43,11 +43,7 @@ export function parseDays(input: string): number | null {
 }
 
 export function isValidMaximumInterval(value: number): boolean {
-  return (
-    Number.isInteger(value) &&
-    value >= MAX_INTERVAL_MIN &&
-    value <= MAX_INTERVAL_MAX
-  );
+  return Number.isInteger(value) && value >= MAX_INTERVAL_MIN && value <= MAX_INTERVAL_MAX;
 }
 
 export function parseStepsString(csv: string): StepDuration[] | null {
@@ -125,18 +121,12 @@ function formatStepToken(step: StepDuration): string | null {
 }
 
 export function isValidStabilityFloor(value: number): boolean {
-  return (
-    Number.isFinite(value) &&
-    value >= STABILITY_FLOOR_MIN &&
-    value <= STABILITY_FLOOR_MAX
-  );
+  return Number.isFinite(value) && value >= STABILITY_FLOOR_MIN && value <= STABILITY_FLOOR_MAX;
 }
 
 export function isValidNewCardsPerDay(value: number): boolean {
   return (
-    Number.isInteger(value) &&
-    value >= NEW_CARDS_PER_DAY_MIN &&
-    value <= NEW_CARDS_PER_DAY_MAX
+    Number.isInteger(value) && value >= NEW_CARDS_PER_DAY_MIN && value <= NEW_CARDS_PER_DAY_MAX
   );
 }
 

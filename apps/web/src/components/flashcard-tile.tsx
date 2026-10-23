@@ -58,9 +58,7 @@ export type FlashcardDeleteRequest = {
   preview: string;
   exiting: boolean;
   canArchive: boolean;
-  loadDeleteConsequences?: (
-    flashcardId: string,
-  ) => Promise<FlashcardDeleteConsequences>;
+  loadDeleteConsequences?: (flashcardId: string) => Promise<FlashcardDeleteConsequences>;
   archiveInstead: () => Promise<void>;
   confirmDelete: () => void;
 };
@@ -90,17 +88,15 @@ export function FlashcardDeleteDialog({
       description={
         cardPreview
           ? `“${
-              cardPreview.length > 100
-                ? `${cardPreview.slice(0, 100)}…`
-                : cardPreview
+              cardPreview.length > 100 ? `${cardPreview.slice(0, 100)}…` : cardPreview
             }” will be permanently hard-deleted.`
           : "This flashcard will be permanently hard-deleted."
       }
     >
       <div className="space-y-3 text-sm text-muted">
         <p>
-          Archive is the reversible way to set this aside. Delete removes the
-          flashcard, its review units, and its review history permanently.
+          Archive is the reversible way to set this aside. Delete removes the flashcard, its review
+          units, and its review history permanently.
         </p>
         <ul className="space-y-1 rounded-md border border-border bg-surface-sunken p-3">
           <li>
@@ -128,10 +124,7 @@ export function FlashcardDeleteDialog({
         )}
         <Button
           variant="destructive"
-          disabled={
-            request?.exiting ||
-            Boolean(request?.loadDeleteConsequences && !consequences)
-          }
+          disabled={request?.exiting || Boolean(request?.loadDeleteConsequences && !consequences)}
           onClick={onConfirm}
         >
           Delete flashcard
@@ -180,11 +173,7 @@ function CardActionItems({
       )}
       {onArchiveToggle && (
         <Item onClick={onArchiveToggle}>
-          {archived ? (
-            <ArchiveRestore className="h-4 w-4" />
-          ) : (
-            <Archive className="h-4 w-4" />
-          )}
+          {archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
           {archived ? "Unarchive" : "Archive"}
         </Item>
       )}
@@ -197,13 +186,7 @@ function CardActionItems({
   );
 }
 
-function CardPreviewText({
-  content,
-  className,
-}: {
-  content: string;
-  className?: string;
-}) {
+function CardPreviewText({ content, className }: { content: string; className?: string }) {
   const text = useMemo(() => stripMarkdownForPreview(content), [content]);
   return <p className={className}>{text || "\u00a0"}</p>;
 }
@@ -272,12 +255,7 @@ function DeferredCardActionsMenu({
   archived?: boolean;
 }) {
   if (!ready) {
-    return (
-      <div
-        className="pointer-events-none -mr-2 h-8 w-8 shrink-0"
-        aria-hidden
-      />
-    );
+    return <div className="pointer-events-none -mr-2 h-8 w-8 shrink-0" aria-hidden />;
   }
 
   return <CardActionsMenu {...props} />;
@@ -309,16 +287,11 @@ function FlashcardTileBody({
       onDelete={onDelete}
       onGoToDeck={onGoToDeck}
       onMove={onMove}
-      onArchiveToggle={
-        onArchiveToggle ? () => void onArchiveToggle() : undefined
-      }
+      onArchiveToggle={onArchiveToggle ? () => void onArchiveToggle() : undefined}
       archived={card.archived}
     />
   );
-  const frontPreview = useMemo(
-    () => stripMarkdownForPreview(card.front),
-    [card.front],
-  );
+  const frontPreview = useMemo(() => stripMarkdownForPreview(card.front), [card.front]);
 
   return (
     <div
@@ -346,18 +319,9 @@ function FlashcardTileBody({
           </div>
         ) : null}
 
-        <div
-          className={cn(
-            "flex items-center justify-between gap-2",
-            deckName && "mt-2",
-          )}
-        >
+        <div className={cn("flex items-center justify-between gap-2", deckName && "mt-2")}>
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <StateBadge
-              state={card.state}
-              locked={card.locked}
-              className="min-w-0 shrink-0"
-            />
+            <StateBadge state={card.state} locked={card.locked} className="min-w-0 shrink-0" />
             {card.archived && (
               <Badge className="min-w-0 shrink-0 bg-surface-sunken text-muted">
                 <Archive className="h-3 w-3" aria-hidden />
@@ -385,8 +349,7 @@ function FlashcardTileBody({
             <div
               className={cn(
                 "mt-auto flex items-end gap-3 pt-3",
-                showDueLabel(card) &&
-                  (card.tags?.length ? "justify-between" : "justify-end"),
+                showDueLabel(card) && (card.tags?.length ? "justify-between" : "justify-end"),
               )}
             >
               {card.tags?.length > 0 && (
@@ -439,9 +402,7 @@ export const FlashcardTile = memo(function FlashcardTile({
   onMove?: () => void;
   /** Toggle archive state for this card. */
   onArchiveToggle?: () => void | Promise<void>;
-  loadDeleteConsequences?: (
-    flashcardId: string,
-  ) => Promise<FlashcardDeleteConsequences>;
+  loadDeleteConsequences?: (flashcardId: string) => Promise<FlashcardDeleteConsequences>;
   onDeleteRequest: (request: FlashcardDeleteRequest) => void;
   /** When set (e.g. on the Browse grid), shows the card's deck for context. */
   deckName?: string;
@@ -451,10 +412,7 @@ export const FlashcardTile = memo(function FlashcardTile({
   const flippedSiblingsRef = useRef<HTMLElement[]>([]);
   const [exiting, setExiting] = useState(false);
   const [actionsReady, setActionsReady] = useState(false);
-  const cardPreview = useMemo(
-    () => stripMarkdownForPreview(card.front),
-    [card.front],
-  );
+  const cardPreview = useMemo(() => stripMarkdownForPreview(card.front), [card.front]);
 
   useEffect(() => {
     onDeleteRef.current = onDelete;
@@ -467,8 +425,7 @@ export const FlashcardTile = memo(function FlashcardTile({
       ((callback: IdleRequestCallback) =>
         window.setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 0 }), 120));
     const cancelIdle =
-      window.cancelIdleCallback ??
-      ((handle: number) => window.clearTimeout(handle));
+      window.cancelIdleCallback ?? ((handle: number) => window.clearTimeout(handle));
     const handle = scheduleIdle(() => setActionsReady(true), {
       timeout: 500,
     });
@@ -539,10 +496,7 @@ export const FlashcardTile = memo(function FlashcardTile({
     };
 
     tile?.addEventListener("transitionend", onTransitionEnd);
-    const fallback = window.setTimeout(
-      () => void finish(),
-      FLASHCARD_TILE_EXIT_MS + 50,
-    );
+    const fallback = window.setTimeout(() => void finish(), FLASHCARD_TILE_EXIT_MS + 50);
 
     return () => {
       tile?.removeEventListener("transitionend", onTransitionEnd);
@@ -579,9 +533,7 @@ export const FlashcardTile = memo(function FlashcardTile({
               onDelete={openDeleteConfirm}
               onGoToDeck={onGoToDeck}
               onMove={onMove}
-              onArchiveToggle={
-                onArchiveToggle ? () => void onArchiveToggle() : undefined
-              }
+              onArchiveToggle={onArchiveToggle ? () => void onArchiveToggle() : undefined}
               archived={card.archived}
               Item={ContextMenuItem}
               Separator={ContextMenuSeparator}

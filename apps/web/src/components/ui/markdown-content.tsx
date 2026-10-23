@@ -80,11 +80,7 @@ function createComponents(
  * Read-only Markdown renderer for the same content cards are authored in.
  * Uses react-markdown + GFM; styling lives under `.markdown-content`.
  */
-export function MarkdownContent({
-  content,
-  className,
-  images = "show",
-}: MarkdownContentProps) {
+export function MarkdownContent({ content, className, images = "show" }: MarkdownContentProps) {
   const imageIndexRef = useRef(0);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const components = useMemo(

@@ -22,9 +22,7 @@ export function parseImageWidth(title: string | null | undefined): number | null
 }
 
 /** Return the title with its width token removed (the human caption), if any. */
-export function stripImageWidth(
-  title: string | null | undefined,
-): string | undefined {
+export function stripImageWidth(title: string | null | undefined): string | undefined {
   if (!title) return undefined;
   const caption = title.replace(WIDTH_TOKEN_RE, " ").replace(/\s+/g, " ").trim();
   return caption.length > 0 ? caption : undefined;

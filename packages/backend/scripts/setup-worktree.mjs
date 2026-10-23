@@ -25,14 +25,7 @@ import {
 function startBackend(state) {
   const child = spawn(
     "pnpm",
-    [
-      "exec",
-      "convex",
-      "dev",
-      "--tail-logs",
-      "disable",
-      ...convexPortArgs(state),
-    ],
+    ["exec", "convex", "dev", "--tail-logs", "disable", ...convexPortArgs(state)],
     {
       cwd: backend,
       env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
@@ -48,8 +41,7 @@ function startBackend(state) {
     });
   const ready = new Promise((resolve, reject) => {
     const timer = setTimeout(
-      () =>
-        reject(new Error("Convex functions were not ready within 5 minutes.")),
+      () => reject(new Error("Convex functions were not ready within 5 minutes.")),
       300_000,
     );
     let output = "";
@@ -82,33 +74,19 @@ try {
     if (process.env[key]) throw new Error(`Unset shell ${key} before setup.`);
   }
   const main = isMainCheckout();
-  const state = existsSync(statePath)
-    ? readState()
-    : main
-      ? mainState()
-      : await allocate();
+  const state = existsSync(statePath) ? readState() : main ? mainState() : await allocate();
   saveState(state);
   const envFile = join(backend, ".env.local");
   const values = readEnv(envFile);
-  if (
-    values.CONVEX_DEPLOYMENT &&
-    !values.CONVEX_DEPLOYMENT.startsWith("anonymous:")
-  ) {
+  if (values.CONVEX_DEPLOYMENT && !values.CONVEX_DEPLOYMENT.startsWith("anonymous:")) {
     if (!main)
       throw new Error(
         "Found a Convex cloud selection in packages/backend/.env.local. Start with a fresh worktree instead of copying backend .env.local.",
       );
     // The main checkout moves from its cloud dev deployment to a local one.
     copyFileSync(envFile, `${envFile}.cloud-backup`);
-    unsetEnv(envFile, [
-      "CONVEX_DEPLOYMENT",
-      "CONVEX_URL",
-      "CONVEX_SITE_URL",
-      "CONVEX_DEPLOY_KEY",
-    ]);
-    console.log(
-      "Moved the cloud selection to packages/backend/.env.local.cloud-backup.",
-    );
+    unsetEnv(envFile, ["CONVEX_DEPLOYMENT", "CONVEX_URL", "CONVEX_SITE_URL", "CONVEX_DEPLOY_KEY"]);
+    console.log("Moved the cloud selection to packages/backend/.env.local.cloud-backup.");
   }
   backendProcess = startBackend(state);
   await backendProcess.ready;

@@ -62,9 +62,7 @@ export async function getSettingsRow(
   };
 }
 
-export function overridesFrom(
-  row: Doc<"deckSettings"> | null,
-): DeckSettingsOverrides {
+export function overridesFrom(row: Doc<"deckSettings"> | null): DeckSettingsOverrides {
   if (!row) return emptyDeckOverrides();
   return {
     requestRetention: row.requestRetention,
@@ -272,8 +270,10 @@ export async function deleteReviewUnit(ctx: MutationCtx, id: Id<"reviewUnits">) 
 
 /** Preserve access already earned, including currently unlocked legacy cards. */
 function hasPrerequisiteAccess(flashcard: Doc<"flashcards">) {
-  return flashcard.prerequisiteAccessGranted === true ||
-    (flashcard.prerequisiteAccessGranted === undefined && !flashcard.locked);
+  return (
+    flashcard.prerequisiteAccessGranted === true ||
+    (flashcard.prerequisiteAccessGranted === undefined && !flashcard.locked)
+  );
 }
 
 async function dependentsOf(ctx: QueryCtx, flashcardId: Id<"flashcards">) {
@@ -325,8 +325,7 @@ async function computeLocked(
       .query("reviewUnits")
       .withIndex("by_flashcard", (q) => q.eq("flashcardId", prereq._id))
       .collect();
-    const secured =
-      units.length > 0 && units.every((unit) => isPrereqSecured(unit, floor));
+    const secured = units.length > 0 && units.every((unit) => isPrereqSecured(unit, floor));
     if (!secured) return true;
   }
   return false;
@@ -392,9 +391,8 @@ export async function migratePrerequisiteAccess(
     .query("reviewUnits")
     .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcard._id))
     .collect();
-  const granted = !flashcard.locked || units.some(
-    (unit) => unit.reps > 0 || unit.lastReview != null,
-  );
+  const granted =
+    !flashcard.locked || units.some((unit) => unit.reps > 0 || unit.lastReview != null);
   await applyLockState(ctx, flashcard, !granted, now, units);
   return true;
 }
@@ -449,14 +447,32 @@ export async function refreshAllLocks(
   const [edges, flashcards, units] =
     "deckId" in scope
       ? await Promise.all([
-          ctx.db.query("prereqs").withIndex("by_deck", (q) => q.eq("deckId", scope.deckId)).collect(),
-          ctx.db.query("flashcards").withIndex("by_deck", (q) => q.eq("deckId", scope.deckId)).collect(),
-          ctx.db.query("reviewUnits").withIndex("by_deck", (q) => q.eq("deckId", scope.deckId)).collect(),
+          ctx.db
+            .query("prereqs")
+            .withIndex("by_deck", (q) => q.eq("deckId", scope.deckId))
+            .collect(),
+          ctx.db
+            .query("flashcards")
+            .withIndex("by_deck", (q) => q.eq("deckId", scope.deckId))
+            .collect(),
+          ctx.db
+            .query("reviewUnits")
+            .withIndex("by_deck", (q) => q.eq("deckId", scope.deckId))
+            .collect(),
         ])
       : await Promise.all([
-          ctx.db.query("prereqs").withIndex("by_library", (q) => q.eq("libraryId", scope.libraryId)).collect(),
-          ctx.db.query("flashcards").withIndex("by_library", (q) => q.eq("libraryId", scope.libraryId)).collect(),
-          ctx.db.query("reviewUnits").withIndex("by_library", (q) => q.eq("libraryId", scope.libraryId)).collect(),
+          ctx.db
+            .query("prereqs")
+            .withIndex("by_library", (q) => q.eq("libraryId", scope.libraryId))
+            .collect(),
+          ctx.db
+            .query("flashcards")
+            .withIndex("by_library", (q) => q.eq("libraryId", scope.libraryId))
+            .collect(),
+          ctx.db
+            .query("reviewUnits")
+            .withIndex("by_library", (q) => q.eq("libraryId", scope.libraryId))
+            .collect(),
         ]);
   const cards = new Map(flashcards.map((card) => [card._id, card]));
   const unitsOf = new Map<Id<"flashcards">, Doc<"reviewUnits">[]>();
@@ -475,15 +491,16 @@ export async function refreshAllLocks(
     const dependent = cards.get(dependentId);
     if (!dependent) continue;
     const floor = (await settings.forDeck(dependent.deckId)).prereqStabilityFloor;
-    const locked = !hasPrerequisiteAccess(dependent) && prereqIds.some((prereqId) => {
-      const prereq = cards.get(prereqId);
-      if (!prereq || prereq.archived) return false;
-      const prereqUnits = unitsOf.get(prereqId) ?? [];
-      return !(
-        prereqUnits.length > 0 &&
-        prereqUnits.every((unit) => isPrereqSecured(unit, floor))
-      );
-    });
+    const locked =
+      !hasPrerequisiteAccess(dependent) &&
+      prereqIds.some((prereqId) => {
+        const prereq = cards.get(prereqId);
+        if (!prereq || prereq.archived) return false;
+        const prereqUnits = unitsOf.get(prereqId) ?? [];
+        return !(
+          prereqUnits.length > 0 && prereqUnits.every((unit) => isPrereqSecured(unit, floor))
+        );
+      });
     await applyLockState(ctx, dependent, locked, now, unitsOf.get(dependentId) ?? []);
   }
 }
@@ -514,9 +531,7 @@ export async function findRequest(
   if (!requestId) return null;
   return ctx.db
     .query("requests")
-    .withIndex("by_library_request", (q) =>
-      q.eq("libraryId", libraryId).eq("requestId", requestId),
-    )
+    .withIndex("by_library_request", (q) => q.eq("libraryId", libraryId).eq("requestId", requestId))
     .unique();
 }
 
@@ -540,11 +555,7 @@ export async function recordRequest(
 
 // --- Tags ---
 
-export async function rememberTags(
-  ctx: MutationCtx,
-  libraryId: Id<"libraries">,
-  tags: string[],
-) {
+export async function rememberTags(ctx: MutationCtx, libraryId: Id<"libraries">, tags: string[]) {
   for (const name of tags) {
     const key = name.toLocaleLowerCase();
     const existing = await ctx.db
@@ -556,11 +567,7 @@ export async function rememberTags(
 }
 
 /** Use the library's existing casing for tags that already exist. */
-export async function canonicalTags(
-  ctx: QueryCtx,
-  libraryId: Id<"libraries">,
-  tags: string[],
-) {
+export async function canonicalTags(ctx: QueryCtx, libraryId: Id<"libraries">, tags: string[]) {
   const out: string[] = [];
   for (const name of tags) {
     const existing = await ctx.db

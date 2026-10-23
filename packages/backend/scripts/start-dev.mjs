@@ -9,27 +9,9 @@ try {
   const commands = {
     web: ["--filter", "@armin/web", "dev"],
     backend: ["--filter", "@armin/backend", "dev"],
-    mobile: [
-      "--filter",
-      "@armin/mobile",
-      "start",
-      "--port",
-      String(state.mobilePort),
-    ],
-    android: [
-      "--filter",
-      "@armin/mobile",
-      "android",
-      "--port",
-      String(state.mobilePort),
-    ],
-    ios: [
-      "--filter",
-      "@armin/mobile",
-      "ios",
-      "--port",
-      String(state.mobilePort),
-    ],
+    mobile: ["--filter", "@armin/mobile", "start", "--port", String(state.mobilePort)],
+    android: ["--filter", "@armin/mobile", "android", "--port", String(state.mobilePort)],
+    ios: ["--filter", "@armin/mobile", "ios", "--port", String(state.mobilePort)],
     all: [
       "exec",
       "vp",
@@ -44,16 +26,13 @@ try {
   };
   if (!commands[mode]) throw new Error(`Unknown dev target: ${mode}`);
   const env = { ...process.env, ARMIN_WEB_PORT: String(state.webPort) };
-  console.log(
-    `Web: ${state.siteUrl}\nConvex: http://127.0.0.1:${state.convexPort} (local)`,
-  );
+  console.log(`Web: ${state.siteUrl}\nConvex: http://127.0.0.1:${state.convexPort} (local)`);
   const child = spawn("pnpm", [...commands[mode], ...extra], {
     cwd: root,
     env,
     stdio: "inherit",
   });
-  for (const signal of ["SIGINT", "SIGTERM"])
-    process.on(signal, () => child.kill(signal));
+  for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => child.kill(signal));
   child.on("error", (error) => {
     console.error(error.message);
     process.exitCode = 1;

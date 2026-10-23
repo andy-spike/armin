@@ -1,11 +1,7 @@
 import { betterAuth, type BetterAuthOptions } from "better-auth/minimal";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { expo } from "@better-auth/expo";
-import {
-  createClient,
-  type AuthFunctions,
-  type GenericCtx,
-} from "@convex-dev/better-auth";
+import { createClient, type AuthFunctions, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { Resend } from "@convex-dev/resend";
 import authConfig from "./auth.config";
@@ -208,5 +204,4 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     plugins: [expo(), convex({ authConfig })],
   }) satisfies BetterAuthOptions;
 
-export const createAuth = (ctx: GenericCtx<DataModel>) =>
-  betterAuth(createAuthOptions(ctx));
+export const createAuth = (ctx: GenericCtx<DataModel>) => betterAuth(createAuthOptions(ctx));

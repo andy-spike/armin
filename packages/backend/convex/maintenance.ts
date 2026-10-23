@@ -18,7 +18,7 @@ export const grantLegacyPrerequisiteAccess = internalMutation({
     const now = Date.now();
     for (const flashcard of page.page) {
       const library = await ctx.db.get(flashcard.libraryId);
-      if (library?.status === "active" && await migratePrerequisiteAccess(ctx, flashcard, now)) {
+      if (library?.status === "active" && (await migratePrerequisiteAccess(ctx, flashcard, now))) {
         await bumpRevision(ctx, flashcard.libraryId);
         migrated++;
       }

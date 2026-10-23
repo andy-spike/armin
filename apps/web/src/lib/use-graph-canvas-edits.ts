@@ -50,9 +50,7 @@ export function useGraphCanvasEdits({
   toast,
 }: UseGraphCanvasEditsInput) {
   const queryClient = useQueryClient();
-  const [nodePlacements, setNodePlacements] = useState<
-    Record<string, XYPosition>
-  >({});
+  const [nodePlacements, setNodePlacements] = useState<Record<string, XYPosition>>({});
 
   const revision = useRef(graph.version ?? 0);
   const pending = useRef(0);
@@ -65,7 +63,7 @@ export function useGraphCanvasEdits({
     const result = queue.current.then(async () => {
       const saved = await write(revision.current);
       revision.current = saved.version;
-      setGraph(current => ({ ...current, version: saved.version }));
+      setGraph((current) => ({ ...current, version: saved.version }));
       return saved;
     });
     queue.current = result.then(() => undefined);
@@ -81,7 +79,7 @@ export function useGraphCanvasEdits({
 
   const addPrereq = useMutation({
     mutationFn: (edge: GraphEdge) =>
-      writeGraph(version => armin.graph.addPrereq(edge.prereqId, edge.dependentId, version)),
+      writeGraph((version) => armin.graph.addPrereq(edge.prereqId, edge.dependentId, version)),
     onSuccess: () => invalidateCoreData(queryClient),
     onError: (error) => {
       toast({
@@ -95,7 +93,7 @@ export function useGraphCanvasEdits({
 
   const removePrereq = useMutation({
     mutationFn: (edge: GraphEdge) =>
-      writeGraph(version => armin.graph.removePrereq(edge.prereqId, edge.dependentId, version)),
+      writeGraph((version) => armin.graph.removePrereq(edge.prereqId, edge.dependentId, version)),
     onSuccess: () => invalidateCoreData(queryClient),
     onError: () => {
       toast({ tone: "error", title: "Couldn’t remove link" });
@@ -105,8 +103,11 @@ export function useGraphCanvasEdits({
 
   const saveLayout = useMutation({
     mutationFn: (placements: GraphLayoutPlacement[]) =>
-      writeGraph(version => armin.graph.saveLayout(deckId, placements, version)),
-    onError: (error) => { toast({ tone: "error", title: "Couldn’t save layout", description: errorMessage(error) }); refetchGraph(); },
+      writeGraph((version) => armin.graph.saveLayout(deckId, placements, version)),
+    onError: (error) => {
+      toast({ tone: "error", title: "Couldn’t save layout", description: errorMessage(error) });
+      refetchGraph();
+    },
   });
 
   const createCard = useMutation({
@@ -159,8 +160,7 @@ export function useGraphCanvasEdits({
   });
 
   const deleteCard = useMutation({
-    mutationFn: ({ id }: { id: string; deckId?: string }) =>
-      armin.flashcards.delete(id),
+    mutationFn: ({ id }: { id: string; deckId?: string }) => armin.flashcards.delete(id),
     onSuccess: (_result, { deckId }) => {
       invalidateCoreData(queryClient, deckId);
       toast({ tone: "success", title: "Flashcard deleted" });

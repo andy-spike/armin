@@ -48,21 +48,13 @@ import {
   type CardNodeData,
   type NodeEmphasis,
 } from "./flashcard-node";
-import {
-  afterCanvasPaint,
-  markGraphPerf,
-  measureGraphPerf,
-} from "@/lib/graph-perf";
+import { afterCanvasPaint, markGraphPerf, measureGraphPerf } from "@/lib/graph-perf";
 import { GraphContextMenu, type GraphMenuItem } from "./graph-context-menu";
 import { GraphToolbar } from "./graph-toolbar";
 import { useBackgroundLayout } from "./use-background-layout";
 import { useGraphSearch } from "./use-graph-search";
 import { MAX_ZOOM, MIN_ZOOM, ZoomControl } from "./zoom-control";
-import {
-  GraphLinkPicker,
-  linkPickerContent,
-  type LinkPickerRequest,
-} from "./graph-link-picker";
+import { GraphLinkPicker, linkPickerContent, type LinkPickerRequest } from "./graph-link-picker";
 
 const nodeTypes = { card: FlashcardNode };
 const edgeTypes = { floating: FloatingEdge };
@@ -105,10 +97,7 @@ type PrerequisiteGraphProps = {
   onEdgesChange: (edges: UiDeckGraph["edges"]) => void;
   onConnectError?: (message: string) => void;
   nodePlacements?: Record<string, XYPosition>;
-  onCreateCardRequest?: (
-    flowPosition: XYPosition,
-    connectFromNodeId?: string,
-  ) => void;
+  onCreateCardRequest?: (flowPosition: XYPosition, connectFromNodeId?: string) => void;
   onEditCardRequest?: (nodeId: string) => void;
   onDeleteCardRequest: (nodeId: string) => void;
   onPersistLayout?: (placements: NodePlacement[]) => void;
@@ -235,11 +224,7 @@ function PrerequisiteGraphCanvas({
     }).then((result) => {
       if (!result || signal.aborted) return;
       markGraphPerf("buildFlowElements:end");
-      measureGraphPerf(
-        "buildFlowElements",
-        "buildFlowElements:start",
-        "buildFlowElements:end",
-      );
+      measureGraphPerf("buildFlowElements", "buildFlowElements:start", "buildFlowElements:end");
       setNodes(result.nodes);
       setEdges(result.edges);
       knownNodeIds.current = new Set(graph.nodes.map((n) => n.id));
@@ -269,14 +254,8 @@ function PrerequisiteGraphCanvas({
     };
   }, [flowReady, reactFlowReady, interactive]);
 
-  const nodeById = useMemo(
-    () => new Map(graph.nodes.map((n) => [n.id, n])),
-    [graph.nodes],
-  );
-  const graphIndex = useMemo(
-    () => createGraphCycleIndex(graph.edges),
-    [graph.edges],
-  );
+  const nodeById = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph.nodes]);
+  const graphIndex = useMemo(() => createGraphCycleIndex(graph.edges), [graph.edges]);
 
   // Incrementally add/remove nodes as the underlying deck changes, preserving
   // the positions of cards that are already on the canvas.
@@ -284,17 +263,13 @@ function PrerequisiteGraphCanvas({
     if (!initialFlowLoaded.current) return;
     const currentIds = new Set(graph.nodes.map((n) => n.id));
     const added = graph.nodes.filter((n) => !knownNodeIds.current.has(n.id));
-    const removed = [...knownNodeIds.current].filter(
-      (id) => !currentIds.has(id),
-    );
+    const removed = [...knownNodeIds.current].filter((id) => !currentIds.has(id));
 
     if (removed.length > 0) {
       const removedIds = new Set(removed);
       setNodes((current) => current.filter((n) => !removedIds.has(n.id)));
       setEdges((current) =>
-        current.filter(
-          (e) => !removedIds.has(e.source) && !removedIds.has(e.target),
-        ),
+        current.filter((e) => !removedIds.has(e.source) && !removedIds.has(e.target)),
       );
     }
 
@@ -308,10 +283,7 @@ function PrerequisiteGraphCanvas({
       setNodes((current) => [
         ...current,
         ...added.map((node, index) => {
-          const saved =
-            node.x != null && node.y != null
-              ? { x: node.x, y: node.y }
-              : undefined;
+          const saved = node.x != null && node.y != null ? { x: node.x, y: node.y } : undefined;
           const placement = saved ?? nodePlacements?.[node.id];
           return toFlowNode(
             node,
@@ -326,23 +298,14 @@ function PrerequisiteGraphCanvas({
     }
 
     knownNodeIds.current = currentIds;
-  }, [
-    graph.edges,
-    graph.nodes,
-    nodePlacements,
-    screenToFlowPosition,
-    setEdges,
-    setNodes,
-  ]);
+  }, [graph.edges, graph.nodes, nodePlacements, screenToFlowPosition, setEdges, setNodes]);
 
   // Keep the rendered edges in sync with the persisted prerequisite edges so
   // arrows survive a reload of the graph.
   useEffect(() => {
     if (!initialFlowLoaded.current) return;
     setEdges((current) => {
-      const desiredIds = new Set(
-        graph.edges.map((e) => `${e.prereqId}-${e.dependentId}`),
-      );
+      const desiredIds = new Set(graph.edges.map((e) => `${e.prereqId}-${e.dependentId}`));
       const currentIds = new Set(current.map((e) => e.id));
       const kept = current.filter((e) => desiredIds.has(e.id));
       const additions = graph.edges
@@ -389,10 +352,7 @@ function PrerequisiteGraphCanvas({
           },
         };
       });
-      const withIsolation = refreshNodeData(
-        changed ? updated : current,
-        graph.edges,
-      );
+      const withIsolation = refreshNodeData(changed ? updated : current, graph.edges);
       return changed || withIsolation !== current ? withIsolation : current;
     });
   }, [graph.edges, nodeById, setNodes]);
@@ -442,8 +402,7 @@ function PrerequisiteGraphCanvas({
     });
 
     const searchMatches = search.matches;
-    const inScope = (id: string) =>
-      nodeById.has(id) && (!searchMatches || searchMatches.has(id));
+    const inScope = (id: string) => nodeById.has(id) && (!searchMatches || searchMatches.has(id));
     setEdges((current) => {
       let changed = false;
       const nextEdges = current.map((edge) => {
@@ -451,9 +410,7 @@ function PrerequisiteGraphCanvas({
         if (selectedId) {
           next = styleEdgeForEmphasis(
             edge,
-            edge.source === selectedId || edge.target === selectedId
-              ? "active"
-              : "dimmed",
+            edge.source === selectedId || edge.target === selectedId ? "active" : "dimmed",
           );
         } else if (searchMatches) {
           next = styleEdgeForEmphasis(
@@ -479,12 +436,9 @@ function PrerequisiteGraphCanvas({
     setEdges,
   ]);
 
-  const onSelectionChange: OnSelectionChangeFunc = useCallback(
-    ({ nodes: selectedNodes }) => {
-      setSelectedId(selectedNodes.length === 1 ? selectedNodes[0].id : null);
-    },
-    [],
-  );
+  const onSelectionChange: OnSelectionChangeFunc = useCallback(({ nodes: selectedNodes }) => {
+    setSelectedId(selectedNodes.length === 1 ? selectedNodes[0].id : null);
+  }, []);
 
   const persistLayout = useCallback(
     (flowNodes: CardFlowNode[]) => {
@@ -523,9 +477,7 @@ function PrerequisiteGraphCanvas({
         onConnectError?.(problem);
         return false;
       }
-      setEdges((current) =>
-        addEdge(makeFlowEdge(prereqId, dependentId), current),
-      );
+      setEdges((current) => addEdge(makeFlowEdge(prereqId, dependentId), current));
       syncEdges([...graph.edges, { prereqId, dependentId }]);
       return true;
     },
@@ -562,8 +514,7 @@ function PrerequisiteGraphCanvas({
       // card's body carries the same intent, so resolve the card under the
       // pointer and run it through the shared link validation instead of
       // treating it as an empty-pane release.
-      const targetId =
-        connectionState.toNode?.id ?? cardIdAtScreenPoint(screen);
+      const targetId = connectionState.toNode?.id ?? cardIdAtScreenPoint(screen);
 
       if (targetId) {
         // A valid handle drop already reached onConnect; only rejected drops
@@ -599,8 +550,7 @@ function PrerequisiteGraphCanvas({
   const removeLink = useCallback(
     (prereqId: string, dependentId: string) => {
       const edge = edges.find(
-        (candidate) =>
-          candidate.source === prereqId && candidate.target === dependentId,
+        (candidate) => candidate.source === prereqId && candidate.target === dependentId,
       );
       if (edge) onEdgesDelete([edge]);
     },
@@ -619,13 +569,10 @@ function PrerequisiteGraphCanvas({
     [],
   );
 
-  const onEdgeContextMenu = useCallback(
-    (event: React.MouseEvent, edge: Edge) => {
-      event.preventDefault();
-      setMenu({ kind: "edge", x: event.clientX, y: event.clientY, edge });
-    },
-    [],
-  );
+  const onEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.preventDefault();
+    setMenu({ kind: "edge", x: event.clientX, y: event.clientY, edge });
+  }, []);
 
   const onPaneDoubleClick = useCallback(
     (_screen: { x: number; y: number }, flowPosition: XYPosition) => {
@@ -634,26 +581,21 @@ function PrerequisiteGraphCanvas({
     [onCreateCardRequest],
   );
 
-  const onNodeContextMenu = useCallback(
-    (event: React.MouseEvent, node: CardFlowNode) => {
-      event.preventDefault();
-      setMenu({
-        kind: "node",
-        x: event.clientX,
-        y: event.clientY,
-        nodeId: node.id,
-      });
-    },
-    [],
-  );
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: CardFlowNode) => {
+    event.preventDefault();
+    setMenu({
+      kind: "node",
+      x: event.clientX,
+      y: event.clientY,
+      nodeId: node.id,
+    });
+  }, []);
 
   // Focusable cards support the same actions from the keyboard: Enter opens the
   // editor, and Shift+F10 or the Context Menu key opens the node menu.
   const onCanvasKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      const nodeElement = (event.target as HTMLElement).closest<HTMLElement>(
-        ".react-flow__node",
-      );
+      const nodeElement = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node");
       if (!nodeElement) return;
       const nodeId = nodeElement.dataset.id;
       if (!nodeId) return;
@@ -661,10 +603,7 @@ function PrerequisiteGraphCanvas({
       if (event.key === "Enter") {
         event.preventDefault();
         onEditCardRequest?.(nodeId);
-      } else if (
-        (event.key === "F10" && event.shiftKey) ||
-        event.key === "ContextMenu"
-      ) {
+      } else if ((event.key === "F10" && event.shiftKey) || event.key === "ContextMenu") {
         event.preventDefault();
         const rect = nodeElement.getBoundingClientRect();
         setMenu({
@@ -690,16 +629,11 @@ function PrerequisiteGraphCanvas({
   }, [persistLayout]);
 
   const onTidy = useCallback(() => {
-    const { nodes: laidOut } = layoutGraph<CardNodeData>(
-      nodesRef.current,
-      edges,
-    );
+    const { nodes: laidOut } = layoutGraph<CardNodeData>(nodesRef.current, edges);
     const typed = laidOut as CardFlowNode[];
     setNodes(typed);
     persistLayout(typed);
-    requestAnimationFrame(() =>
-      fitView({ padding: 0.2, maxZoom: 1, duration: 300 }),
-    );
+    requestAnimationFrame(() => fitView({ padding: 0.2, maxZoom: 1, duration: 300 }));
   }, [edges, fitView, persistLayout, setNodes]);
 
   function menuItemsFor(current: MenuState): GraphMenuItem[] {
@@ -756,15 +690,13 @@ function PrerequisiteGraphCanvas({
         {
           label: "Add connected flashcard",
           icon: <Plus className="h-4 w-4" />,
-          onClick: () =>
-            onCreateCardRequest?.(connectMenu.flow, connectMenu.sourceId),
+          onClick: () => onCreateCardRequest?.(connectMenu.flow, connectMenu.sourceId),
         },
       ]
     : [];
 
   const linkPickerConfig = useMemo(
-    () =>
-      linkPicker ? linkPickerContent(linkPicker, graph, graphIndex) : null,
+    () => (linkPicker ? linkPickerContent(linkPicker, graph, graphIndex) : null),
     [graph, graphIndex, linkPicker],
   );
 
@@ -778,12 +710,7 @@ function PrerequisiteGraphCanvas({
 
   return (
     <>
-      <GraphToolbar
-        deckName={deckName}
-        onBack={onBack}
-        search={search}
-        onTidy={onTidy}
-      />
+      <GraphToolbar deckName={deckName} onBack={onBack} search={search} onTidy={onTidy} />
       <ReactFlow
         className={cn(
           isConnecting && "graph-connecting",

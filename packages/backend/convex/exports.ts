@@ -117,7 +117,9 @@ export const revision = internalQuery({
 export const snapshotCore = internalQuery({
   args: { libraryId: v.id("libraries") },
   handler: async (ctx, { libraryId }) => {
-    const byLibrary = <T extends "decks" | "flashcards" | "reviewUnits" | "prereqs" | "deckSettings" | "media">(
+    const byLibrary = <
+      T extends "decks" | "flashcards" | "reviewUnits" | "prereqs" | "deckSettings" | "media",
+    >(
       table: T,
     ) =>
       ctx.db

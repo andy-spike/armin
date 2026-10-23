@@ -1,10 +1,4 @@
-import {
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type PointerEvent,
-  type ReactNode,
-} from "react";
+import { useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
@@ -186,7 +180,12 @@ function BrandHeader({ linkProps }: { linkProps: LinkProps }) {
         {...linkProps}
       >
         <Brain className="size-4 shrink-0 text-accent" strokeWidth={1.75} aria-hidden />
-        <span className={cn(fade, "font-serif text-lg leading-none font-semibold tracking-tight whitespace-nowrap")}>
+        <span
+          className={cn(
+            fade,
+            "font-serif text-lg leading-none font-semibold tracking-tight whitespace-nowrap",
+          )}
+        >
           Armin
         </span>
       </Link>
@@ -325,11 +324,7 @@ function ReviewItem({
               dueCount > 0 ? "bg-on-accent/15" : "text-accent",
             )}
           >
-            {dueCount > 0 ? (
-              dueCount
-            ) : (
-              <Check className="size-3.5" strokeWidth={2} />
-            )}
+            {dueCount > 0 ? dueCount : <Check className="size-3.5" strokeWidth={2} />}
           </span>
         )}
         {dueCount > 0 && (
@@ -516,9 +511,7 @@ function AccountItem() {
             <DropdownMenuLabel className="truncate">{email}</DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={signOutToSignIn}
-          >
+          <DropdownMenuItem onClick={signOutToSignIn}>
             <LogOut strokeWidth={1.5} />
             Sign out
           </DropdownMenuItem>

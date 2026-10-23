@@ -32,11 +32,7 @@ export function wouldCreateCycle(
   prereqId: string,
   dependentId: string,
 ): boolean {
-  return wouldCreateCycleIndexed(
-    createGraphCycleIndex(edges),
-    prereqId,
-    dependentId,
-  );
+  return wouldCreateCycleIndexed(createGraphCycleIndex(edges), prereqId, dependentId);
 }
 
 export function wouldCreateCycleIndexed(
@@ -62,11 +58,7 @@ export function wouldCreateCycleIndexed(
  * way of linking cards (dragging, the card menu, the keyboard picker) uses
  * this, so they reject the same links with the same explanation.
  */
-export function linkProblem(
-  index: GraphCycleIndex,
-  prereqId: string,
-  dependentId: string,
-) {
+export function linkProblem(index: GraphCycleIndex, prereqId: string, dependentId: string) {
   if (prereqId === dependentId) return "A flashcard can’t depend on itself.";
   if (index.edgeKeys.has(graphEdgeKey(prereqId, dependentId))) {
     return "Those flashcards are already linked.";

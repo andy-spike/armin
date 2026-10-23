@@ -70,19 +70,13 @@ export function ImageOcclusionReview({
       </div>
       {!flipped && (
         <p className="mt-4 text-sm text-muted">
-          {target?.hint
-            ? `What is hidden here? (${target.hint})`
-            : "What is hidden here?"}
+          {target?.hint ? `What is hidden here? (${target.hint})` : "What is hidden here?"}
         </p>
       )}
       {flipped && (
         <div className="mt-4 space-y-2 text-center">
-          {target?.label && (
-            <p className="text-lg font-medium text-ink">{target.label}</p>
-          )}
-          {content.extra && (
-            <p className="text-sm text-muted">{content.extra}</p>
-          )}
+          {target?.label && <p className="text-lg font-medium text-ink">{target.label}</p>}
+          {content.extra && <p className="text-sm text-muted">{content.extra}</p>}
         </div>
       )}
     </div>

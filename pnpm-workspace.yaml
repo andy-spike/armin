@@ -29,26 +29,26 @@ minimumReleaseAgeExclude:
   - expo-crypto@57.0.4
   - miniflare@5.20261006.2-beta
   - wrangler@4.150.0
-  - '@voidzero-dev/vite-plus-core@1.4.0'
-  - '@voidzero-dev/vite-plus-darwin-arm64@1.4.0'
-  - '@voidzero-dev/vite-plus-darwin-x64@1.4.0'
-  - '@voidzero-dev/vite-plus-linux-arm64-gnu@1.4.0'
-  - '@voidzero-dev/vite-plus-linux-arm64-musl@1.4.0'
-  - '@voidzero-dev/vite-plus-linux-x64-gnu@1.4.0'
-  - '@voidzero-dev/vite-plus-linux-x64-musl@1.4.0'
-  - '@voidzero-dev/vite-plus-win32-arm64-msvc@1.4.0'
-  - '@voidzero-dev/vite-plus-win32-x64-msvc@1.4.0'
+  - "@voidzero-dev/vite-plus-core@1.4.0"
+  - "@voidzero-dev/vite-plus-darwin-arm64@1.4.0"
+  - "@voidzero-dev/vite-plus-darwin-x64@1.4.0"
+  - "@voidzero-dev/vite-plus-linux-arm64-gnu@1.4.0"
+  - "@voidzero-dev/vite-plus-linux-arm64-musl@1.4.0"
+  - "@voidzero-dev/vite-plus-linux-x64-gnu@1.4.0"
+  - "@voidzero-dev/vite-plus-linux-x64-musl@1.4.0"
+  - "@voidzero-dev/vite-plus-win32-arm64-msvc@1.4.0"
+  - "@voidzero-dev/vite-plus-win32-x64-msvc@1.4.0"
   - vite-plus@1.4.0
 
 patchedDependencies:
-  '@tanstack/start-server-core': patches/@tanstack__start-server-core.patch
+  "@tanstack/start-server-core": patches/@tanstack__start-server-core.patch
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.4.0
   vite-plus: 1.4.0
 overrides:
-  vite@*: 'catalog:'
+  vite@*: "catalog:"
 peerDependencyRules:
   allowAny:
     - vite
   allowedVersions:
-    vite: '*'
+    vite: "*"

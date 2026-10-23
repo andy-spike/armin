@@ -12,8 +12,7 @@ const FORMAT = "armin-library-export";
 const FORMAT_VERSION = 1;
 const MAX_ATTEMPTS = 3;
 
-const iso = (ms: number | null | undefined) =>
-  ms == null ? null : new Date(ms).toISOString();
+const iso = (ms: number | null | undefined) => (ms == null ? null : new Date(ms).toISOString());
 
 const README = `# Armin library export
 
@@ -98,9 +97,10 @@ export const build = internalAction({
           snapshot = core;
           // History of a just-deleted deck may still be awaiting cleanup.
           const unitIds = new Set<string>(core.reviewUnits.map((unit) => unit._id));
-          const currentDeck = new Map(core.reviewUnits.map(unit => [unit._id, unit.deckId]));
-          logs = pages.filter((log) => unitIds.has(log.reviewUnitId))
-            .map(log => ({ ...log, deckId: currentDeck.get(log.reviewUnitId)! }));
+          const currentDeck = new Map(core.reviewUnits.map((unit) => [unit._id, unit.deckId]));
+          logs = pages
+            .filter((log) => unitIds.has(log.reviewUnitId))
+            .map((log) => ({ ...log, deckId: currentDeck.get(log.reviewUnitId)! }));
         }
       }
       if (!snapshot) {
@@ -179,7 +179,8 @@ export const build = internalAction({
         })),
       );
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { libraryId, updatedAt, _id, _creationTime, ...settings } = snapshot.settings as Snapshot["settings"] & { _id?: string; _creationTime?: number };
+      const { libraryId, updatedAt, _id, _creationTime, ...settings } =
+        snapshot.settings as Snapshot["settings"] & { _id?: string; _creationTime?: number };
       files["data/settings.json"] = json({
         timeZone: job.timeZone,
         study: { ...settings, updatedAt: iso(updatedAt) },
@@ -231,9 +232,7 @@ export const build = internalAction({
       if (zip.byteLength > MAX_EXPORT_BYTES) {
         throw new Error("This library is too large to export in one file during the beta.");
       }
-      const storageId = await ctx.storage.store(
-        new Blob([zip], { type: "application/zip" }),
-      );
+      const storageId = await ctx.storage.store(new Blob([zip], { type: "application/zip" }));
       await ctx.runMutation(internal.exports.markResult, {
         exportId,
         storageId,

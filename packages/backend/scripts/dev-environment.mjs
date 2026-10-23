@@ -1,12 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  rmSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { networkInterfaces } from "node:os";
 import { dirname, join } from "node:path";
@@ -73,11 +67,10 @@ export function isMainCheckout() {
     cwd: root,
     stdio: "pipe",
   });
-  const common = run(
-    "git",
-    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    { cwd: root, stdio: "pipe" },
-  );
+  const common = run("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
+    cwd: root,
+    stdio: "pipe",
+  });
   return gitDir === common;
 }
 
@@ -99,10 +92,7 @@ export function updateEnv(path, values) {
 
 export function unsetEnv(path, keys) {
   const text = readFileSync(path, "utf8");
-  const pattern = new RegExp(
-    `^\\s*(?:export\\s+)?(?:${keys.join("|")})\\s*=.*\\n?`,
-    "gm",
-  );
+  const pattern = new RegExp(`^\\s*(?:export\\s+)?(?:${keys.join("|")})\\s*=.*\\n?`, "gm");
   writeFileSync(path, text.replace(pattern, ""), { mode: 0o600 });
 }
 
@@ -141,9 +131,7 @@ export function assertTarget(state) {
     "CONVEX_SELF_HOSTED_ADMIN_KEY",
   ]) {
     if (process.env[name])
-      throw new Error(
-        `Unset shell ${name}; this environment uses its own backend .env.local.`,
-      );
+      throw new Error(`Unset shell ${name}; this environment uses its own backend .env.local.`);
   }
   return values;
 }
@@ -178,11 +166,10 @@ export function mainState() {
 }
 
 export async function allocate() {
-  const common = run(
-    "git",
-    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    { cwd: root, stdio: "pipe" },
-  );
+  const common = run("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
+    cwd: root,
+    stdio: "pipe",
+  });
   const lock = join(common, "armin-environments.lock");
   const registryPath = join(common, "armin-environments.json");
   let locked = false;
@@ -201,11 +188,8 @@ export async function allocate() {
       `Environment allocation is locked. If no setup is running, remove ${lock} and retry.`,
     );
   try {
-    const registry = existsSync(registryPath)
-      ? JSON.parse(readFileSync(registryPath, "utf8"))
-      : {};
-    for (const path of Object.keys(registry))
-      if (!existsSync(path)) delete registry[path];
+    const registry = existsSync(registryPath) ? JSON.parse(readFileSync(registryPath, "utf8")) : {};
+    for (const path of Object.keys(registry)) if (!existsSync(path)) delete registry[path];
     if (registry[root]?.version === 2) return registry[root];
     const id = createHash("sha256").update(root).digest("hex").slice(0, 10);
     const taken = new Set(

@@ -75,8 +75,7 @@ function searchExtraText(flashcard: HydratedFlashcard) {
 }
 
 function sortBrowse(items: HydratedFlashcard[], sort: BrowseSortKey, now: number) {
-  const byFront = (a: HydratedFlashcard, b: HydratedFlashcard) =>
-    a.front.localeCompare(b.front);
+  const byFront = (a: HydratedFlashcard, b: HydratedFlashcard) => a.front.localeCompare(b.front);
   const next = [...items];
   switch (sort) {
     case "due-soon":
@@ -161,10 +160,7 @@ export const browse = query({
     let filteredArchived = 0;
     for (const flashcard of all) {
       if (deckFilter && flashcard.deckId !== deckFilter) continue;
-      if (
-        tagKeys.size > 0 &&
-        !flashcard.tags.some((tag) => tagKeys.has(tag.toLocaleLowerCase()))
-      ) {
+      if (tagKeys.size > 0 && !flashcard.tags.some((tag) => tagKeys.has(tag.toLocaleLowerCase()))) {
         continue;
       }
       const units = unitsByFlashcard.get(flashcard._id) ?? [];
@@ -175,8 +171,7 @@ export const browse = query({
       if (args.search) {
         const needle = args.search.toLocaleLowerCase();
         const haystack =
-          `${hydrated.front}\n${hydrated.back}\n${hydrated.tags.join(" ")}\n${searchExtraText(hydrated)}`
-            .toLocaleLowerCase();
+          `${hydrated.front}\n${hydrated.back}\n${hydrated.tags.join(" ")}\n${searchExtraText(hydrated)}`.toLocaleLowerCase();
         if (!haystack.includes(needle)) continue;
       }
       if (hydrated.archived) filteredArchived += 1;
@@ -401,12 +396,16 @@ export const deleteConsequences = query({
       .collect();
     // FSRS reps counts accepted reviews, and undo restores the previous reps.
     // Read only the two boundary logs per unit, never its lifetime history.
-    const boundaries = await Promise.all(units.map(async unit => {
-      const history = () => ctx.db.query("reviewLogs")
-        .withIndex("by_unit_review", q => q.eq("reviewUnitId", unit._id));
-      return [await history().first(), await history().order("desc").first()];
-    }));
-    const times = boundaries.flat().flatMap(log => log ? [log.review] : []);
+    const boundaries = await Promise.all(
+      units.map(async (unit) => {
+        const history = () =>
+          ctx.db
+            .query("reviewLogs")
+            .withIndex("by_unit_review", (q) => q.eq("reviewUnitId", unit._id));
+        return [await history().first(), await history().order("desc").first()];
+      }),
+    );
+    const times = boundaries.flat().flatMap((log) => (log ? [log.review] : []));
     return {
       dependentCount: dependents.length,
       reviewUnitCount: units.length,

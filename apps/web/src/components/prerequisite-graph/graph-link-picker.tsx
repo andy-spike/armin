@@ -125,20 +125,13 @@ export function GraphLinkPicker({
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return options;
-    return options.filter((option) =>
-      option.label.toLowerCase().includes(needle),
-    );
+    return options.filter((option) => option.label.toLowerCase().includes(needle));
   }, [options, query]);
 
   const shown = filtered.slice(0, MAX_RESULTS);
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title={title}
-      description={description}
-    >
+    <Dialog open={open} onClose={onClose} title={title} description={description}>
       <label className="flex h-9 items-center gap-2 border border-border-strong bg-surface px-2.5 focus-within:ring-2 focus-within:ring-accent">
         <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
         <span className="sr-only">Search cards</span>
@@ -158,9 +151,7 @@ export function GraphLinkPicker({
                 onClick={() => onPick(option.id)}
                 className="w-full cursor-pointer px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-sunken focus-visible:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
               >
-                <span className="line-clamp-2 whitespace-pre-wrap break-words">
-                  {option.label}
-                </span>
+                <span className="line-clamp-2 whitespace-pre-wrap break-words">{option.label}</span>
               </button>
             </li>
           ))}

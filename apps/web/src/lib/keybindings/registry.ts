@@ -9,12 +9,7 @@
  * docs/adr/0018-keybindings-central-dispatcher-and-command-registry.md.
  */
 
-import {
-  isStepsPrefix,
-  parseBinding,
-  serializeSteps,
-  type ChordStep,
-} from "./keys";
+import { isStepsPrefix, parseBinding, serializeSteps, type ChordStep } from "./keys";
 
 /** Logical scope a Command lives in. Route scopes are active only on their screen. */
 export type CommandScope = "global" | "review" | "cram";
@@ -42,25 +37,108 @@ export type CommandDef = {
  */
 export const COMMANDS: readonly CommandDef[] = [
   // Navigation
-  { id: "nav.decks", scope: "global", group: "Navigation", label: "Go to Decks", defaultBinding: "g d" },
-  { id: "nav.browse", scope: "global", group: "Navigation", label: "Go to Browse", defaultBinding: "g b" },
-  { id: "nav.review", scope: "global", group: "Navigation", label: "Go to Review", defaultBinding: "g r" },
-  { id: "nav.settings", scope: "global", group: "Navigation", label: "Go to Settings", defaultBinding: "g s" },
+  {
+    id: "nav.decks",
+    scope: "global",
+    group: "Navigation",
+    label: "Go to Decks",
+    defaultBinding: "g d",
+  },
+  {
+    id: "nav.browse",
+    scope: "global",
+    group: "Navigation",
+    label: "Go to Browse",
+    defaultBinding: "g b",
+  },
+  {
+    id: "nav.review",
+    scope: "global",
+    group: "Navigation",
+    label: "Go to Review",
+    defaultBinding: "g r",
+  },
+  {
+    id: "nav.settings",
+    scope: "global",
+    group: "Navigation",
+    label: "Go to Settings",
+    defaultBinding: "g s",
+  },
 
   // General
-  { id: "palette.open", scope: "global", group: "General", label: "Open command palette", defaultBinding: "Mod+k" },
-  { id: "cheatsheet.open", scope: "global", group: "General", label: "Show keyboard shortcuts", defaultBinding: "?" },
-  { id: "sidebar.toggle", scope: "global", group: "General", label: "Toggle sidebar", defaultBinding: "[" },
+  {
+    id: "palette.open",
+    scope: "global",
+    group: "General",
+    label: "Open command palette",
+    defaultBinding: "Mod+k",
+  },
+  {
+    id: "cheatsheet.open",
+    scope: "global",
+    group: "General",
+    label: "Show keyboard shortcuts",
+    defaultBinding: "?",
+  },
+  {
+    id: "sidebar.toggle",
+    scope: "global",
+    group: "General",
+    label: "Toggle sidebar",
+    defaultBinding: "[",
+  },
 
   // Review session
-  { id: "review.flip", scope: "review", group: "Review", label: "Show answer", defaultBinding: "Space" },
-  { id: "review.rate.again", scope: "review", group: "Review", label: "Rate Again", defaultBinding: "1" },
-  { id: "review.rate.hard", scope: "review", group: "Review", label: "Rate Hard", defaultBinding: "2" },
-  { id: "review.rate.good", scope: "review", group: "Review", label: "Rate Good", defaultBinding: "3" },
-  { id: "review.rate.easy", scope: "review", group: "Review", label: "Rate Easy", defaultBinding: "4" },
-  { id: "review.prev", scope: "review", group: "Review", label: "Previous card", defaultBinding: "ArrowLeft" },
-  { id: "review.next", scope: "review", group: "Review", label: "Next card", defaultBinding: "ArrowRight" },
-
+  {
+    id: "review.flip",
+    scope: "review",
+    group: "Review",
+    label: "Show answer",
+    defaultBinding: "Space",
+  },
+  {
+    id: "review.rate.again",
+    scope: "review",
+    group: "Review",
+    label: "Rate Again",
+    defaultBinding: "1",
+  },
+  {
+    id: "review.rate.hard",
+    scope: "review",
+    group: "Review",
+    label: "Rate Hard",
+    defaultBinding: "2",
+  },
+  {
+    id: "review.rate.good",
+    scope: "review",
+    group: "Review",
+    label: "Rate Good",
+    defaultBinding: "3",
+  },
+  {
+    id: "review.rate.easy",
+    scope: "review",
+    group: "Review",
+    label: "Rate Easy",
+    defaultBinding: "4",
+  },
+  {
+    id: "review.prev",
+    scope: "review",
+    group: "Review",
+    label: "Previous card",
+    defaultBinding: "ArrowLeft",
+  },
+  {
+    id: "review.next",
+    scope: "review",
+    group: "Review",
+    label: "Next card",
+    defaultBinding: "ArrowRight",
+  },
 ] as const;
 
 export const COMMAND_BY_ID: ReadonlyMap<CommandId, CommandDef> = new Map(
@@ -127,11 +205,7 @@ function scopesCoActive(a: CommandScope, b: CommandScope): boolean {
  *   `g d` exists in `global` — would never fire, so it must be rejected.
  * Reserved keys (bare Escape/Tab/Enter, owned by intrinsic handlers) are blocked.
  */
-export function findConflict(
-  keymap: Keymap,
-  target: CommandDef,
-  binding: string,
-): Conflict | null {
+export function findConflict(keymap: Keymap, target: CommandDef, binding: string): Conflict | null {
   const steps = parseBinding(binding);
   if (steps.length === 0) return null;
   if (isReserved(steps)) return { kind: "reserved" };
@@ -176,7 +250,5 @@ export function findSharedBindingCommands(
 const RESERVED_BARE = new Set(["Escape", "Tab", "Enter"]);
 
 function isReserved(steps: ChordStep[]): boolean {
-  return steps.some(
-    (s) => !s.mod && !s.alt && RESERVED_BARE.has(s.key),
-  );
+  return steps.some((s) => !s.mod && !s.alt && RESERVED_BARE.has(s.key));
 }

@@ -81,29 +81,15 @@ export function VirtualFlashcardGrid({
 
   useEffect(() => {
     const lastItem = virtualRows[virtualRows.length - 1];
-    if (
-      !lastItem ||
-      !hasMore ||
-      isFetchingNextPage ||
-      lastItem.index < loaderRowIndex
-    ) {
+    if (!lastItem || !hasMore || isFetchingNextPage || lastItem.index < loaderRowIndex) {
       return;
     }
     fetchNextPage();
-  }, [
-    fetchNextPage,
-    hasMore,
-    isFetchingNextPage,
-    loaderRowIndex,
-    virtualRows,
-  ]);
+  }, [fetchNextPage, hasMore, isFetchingNextPage, loaderRowIndex, virtualRows]);
 
   return (
     <div ref={parentRef} className="relative w-full">
-      <div
-        className="relative w-full"
-        style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
-      >
+      <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
         {virtualRows.map((virtualRow) => {
           const isLoaderRow = virtualRow.index === loaderRowIndex;
 

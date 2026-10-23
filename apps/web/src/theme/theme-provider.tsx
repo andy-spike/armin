@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   applyThemePreference,
   readStoredThemePreference,
@@ -45,14 +38,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => media.removeEventListener("change", onChange);
   }, [preference]);
 
-  const value = useMemo(
-    () => ({ preference, resolved, setPreference }),
-    [preference, resolved],
-  );
+  const value = useMemo(() => ({ preference, resolved, setPreference }), [preference, resolved]);
 
-  return (
-    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {

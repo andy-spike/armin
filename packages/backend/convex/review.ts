@@ -1,11 +1,6 @@
 import { v } from "convex/values";
 import { Rating, type Grade } from "ts-fsrs";
-import {
-  fsrsFieldsFromMs,
-  fsrsFieldsToMs,
-  fromFsrsCard,
-  toFsrsCard,
-} from "@armin/core/scheduler";
+import { fsrsFieldsFromMs, fsrsFieldsToMs, fromFsrsCard, toFsrsCard } from "@armin/core/scheduler";
 import { formatInterval } from "@armin/core/study";
 import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -109,11 +104,7 @@ async function nextDueAfter(
     : await ctx.db
         .query("reviewUnits")
         .withIndex("by_library_eligible_due", (q) =>
-          q
-            .eq("libraryId", library._id)
-            .eq("locked", false)
-            .eq("archived", false)
-            .gt("due", now),
+          q.eq("libraryId", library._id).eq("locked", false).eq("archived", false).gt("due", now),
         )
         .first();
   return next?.due ?? null;

@@ -60,8 +60,20 @@ export const Route = createRootRouteWithContext<{
     links: [
       // The stylesheet only reveals these fonts once parsed; preloading the
       // Latin files used above the fold starts them with the document instead.
-      { rel: "preload", href: interLatin, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
-      { rel: "preload", href: sourceSerifLatin, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
+      {
+        rel: "preload",
+        href: interLatin,
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "preload",
+        href: sourceSerifLatin,
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
       { rel: "stylesheet", href: appCss },
       { rel: "icon", type: "image/png", href: "/favicon.png" },
     ],

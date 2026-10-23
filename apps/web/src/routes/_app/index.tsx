@@ -4,14 +4,7 @@ import { armin, errorMessage, newRequestId } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Layers,
-  Plus,
-  AlertTriangle,
-  Ellipsis,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { Layers, Plus, AlertTriangle, Ellipsis, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
@@ -35,17 +28,14 @@ import { DeckGridSkeleton } from "@/components/page-skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SortControl } from "@/components/sort-control";
 import { useToast } from "@/components/ui/toast";
-import {
-  DECK_SORT_OPTIONS,
-  sortDecks,
-  type DeckSortKey,
-} from "@/lib/sort-decks";
-import {
-  deckKeys,
-  invalidateDeckScopedData,
-} from "@/lib/armin-query";
+import { DECK_SORT_OPTIONS, sortDecks, type DeckSortKey } from "@/lib/sort-decks";
+import { deckKeys, invalidateDeckScopedData } from "@/lib/armin-query";
 import type { UiDeck } from "@/types/view-models";
-import { decksQuery as decksQueryOptions, prefetchDeckPage, prefetchDecksPage } from "@/lib/queries";
+import {
+  decksQuery as decksQueryOptions,
+  prefetchDeckPage,
+  prefetchDecksPage,
+} from "@/lib/queries";
 
 function DecksPage() {
   const queryClient = useQueryClient();
@@ -89,8 +79,7 @@ function DecksPage() {
   });
 
   const updateDeck = useMutation({
-    mutationFn: (input: { id: string; version: number; name: string }) =>
-      armin.decks.update(input),
+    mutationFn: (input: { id: string; version: number; name: string }) => armin.decks.update(input),
     onSuccess: (_result, deck) => {
       invalidateDeckScopedData(queryClient, deck.id);
       toast({ tone: "success", title: "Deck renamed", description: deck.name });
@@ -149,9 +138,7 @@ function DecksPage() {
     <div>
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">
-            Decks
-          </h1>
+          <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">Decks</h1>
           <p className="mt-1.5 text-sm text-muted">
             {!decksQuery.isLoading
               ? `${decks.length} ${decks.length === 1 ? "deck" : "decks"}, building toward what's next.`
@@ -172,17 +159,11 @@ function DecksPage() {
           <div className="mb-4 flex h-12 w-12 items-center justify-center bg-relearning-bg text-relearning">
             <AlertTriangle className="h-6 w-6" strokeWidth={1.5} />
           </div>
-          <h3 className="text-base font-semibold text-ink">
-            Couldn&apos;t load your decks
-          </h3>
+          <h3 className="text-base font-semibold text-ink">Couldn&apos;t load your decks</h3>
           <p className="mt-1 max-w-[40ch] text-sm text-muted">
             Check your connection and try again. Your saved data is safe.
           </p>
-          <Button
-            variant="outline"
-            className="mt-5"
-            onClick={() => void decksQuery.refetch()}
-          >
+          <Button variant="outline" className="mt-5" onClick={() => void decksQuery.refetch()}>
             Try again
           </Button>
         </div>
@@ -203,11 +184,7 @@ function DecksPage() {
 
       {!decksQuery.isLoading && !decksQuery.isError && decks.length > 0 && (
         <div className="mb-4 flex justify-end">
-          <SortControl
-            value={sort}
-            onChange={setSort}
-            options={DECK_SORT_OPTIONS}
-          />
+          <SortControl value={sort} onChange={setSort} options={DECK_SORT_OPTIONS} />
         </div>
       )}
 
@@ -302,10 +279,7 @@ function DecksPage() {
               Cancel
             </Button>
             <Button
-              disabled={
-                !renameName.trim() ||
-                renameName.trim() === renamingDeck?.name
-              }
+              disabled={!renameName.trim() || renameName.trim() === renamingDeck?.name}
               busy={updateDeck.isPending || closingAfterRename}
               onClick={() => {
                 if (!renamingDeck || !renameName.trim()) return;
@@ -390,8 +364,7 @@ function DeckTile({
   onRename: () => void;
   onDelete: () => void;
 }) {
-  const pct =
-    deck.total > 0 ? Math.round((deck.learned / deck.total) * 100) : 0;
+  const pct = deck.total > 0 ? Math.round((deck.learned / deck.total) * 100) : 0;
 
   return (
     <ContextMenu>
@@ -439,9 +412,7 @@ function DeckTile({
           </div>
           <div className="mt-1 flex flex-1 flex-col">
             {deck.description && (
-              <p className="line-clamp-2 text-sm text-muted">
-                {deck.description}
-              </p>
+              <p className="line-clamp-2 text-sm text-muted">{deck.description}</p>
             )}
             <div className="mt-4 flex flex-1 flex-col justify-end">
               <div className="flex items-center justify-between text-xs text-muted">
@@ -456,17 +427,10 @@ function DeckTile({
                 label={`${deck.name} learned`}
               />
               <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                {deck.due > 0 && (
-                  <Stat color="bg-accent" label={`${deck.due} due`} emphatic />
-                )}
-                {deck.newCount > 0 && (
-                  <Stat color="bg-new" label={`${deck.newCount} new`} />
-                )}
+                {deck.due > 0 && <Stat color="bg-accent" label={`${deck.due} due`} emphatic />}
+                {deck.newCount > 0 && <Stat color="bg-new" label={`${deck.newCount} new`} />}
                 {deck.learning > 0 && (
-                  <Stat
-                    color="bg-learning"
-                    label={`${deck.learning} learning`}
-                  />
+                  <Stat color="bg-learning" label={`${deck.learning} learning`} />
                 )}
                 {deck.due === 0 && deck.newCount === 0 && (
                   <span className="text-muted">All caught up</span>
@@ -489,15 +453,7 @@ function DeckTile({
   );
 }
 
-function Stat({
-  color,
-  label,
-  emphatic,
-}: {
-  color: string;
-  label: string;
-  emphatic?: boolean;
-}) {
+function Stat({ color, label, emphatic }: { color: string; label: string; emphatic?: boolean }) {
   return (
     <span
       className={

@@ -4,15 +4,14 @@
   "private": true,
   "description": "Armin web and Expo mobile applications, Convex backend, and shared study code.",
   "homepage": "https://github.com/andy-spike/armin#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/andy-spike/armin.git"
-  },
   "bugs": {
     "url": "https://github.com/andy-spike/armin/issues"
   },
   "license": "MIT",
-  "packageManager": "pnpm@12.4.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andy-spike/armin.git"
+  },
   "scripts": {
     "dev": "node packages/backend/scripts/start-dev.mjs all",
     "dev:setup": "pnpm --filter @armin/backend dev:setup",
@@ -31,5 +30,6 @@
   "devDependencies": {
     "typescript": "^5.9.3",
     "vite-plus": "catalog:"
-  }
+  },
+  "packageManager": "pnpm@12.4.1"
 }

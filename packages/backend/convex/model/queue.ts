@@ -18,11 +18,7 @@ function rank(text: string) {
  * Distinct review units first rated today (account time zone), across all
  * decks, plus the flashcards they belong to. This is the shared Frontier.
  */
-export async function introducedToday(
-  ctx: QueryCtx,
-  library: Doc<"libraries">,
-  now: number,
-) {
+export async function introducedToday(ctx: QueryCtx, library: Doc<"libraries">, now: number) {
   const since = startOfStudyDayMs(now, library.timeZone);
   const logs = await ctx.db
     .query("reviewLogs")
@@ -58,16 +54,10 @@ export async function dueEligibleUnits(
     : await ctx.db
         .query("reviewUnits")
         .withIndex("by_library_eligible_due", (q) =>
-          q
-            .eq("libraryId", library._id)
-            .eq("locked", false)
-            .eq("archived", false)
-            .lte("due", now),
+          q.eq("libraryId", library._id).eq("locked", false).eq("archived", false).lte("due", now),
         )
         .collect();
-  return units.filter(
-    (unit) => unit.libraryId === library._id && !isPendingSchedule(unit),
-  );
+  return units.filter((unit) => unit.libraryId === library._id && !isPendingSchedule(unit));
 }
 
 export type SessionSelection = {
@@ -87,24 +77,16 @@ export async function selectSession(
   now: number,
 ): Promise<SessionSelection> {
   const units = await dueEligibleUnits(ctx, library, deckId, now);
-  const reviews = units
-    .filter((unit) => unit.state !== State.New)
-    .sort((a, b) => a.due - b.due);
-  const newUnits = units.filter(
-    (unit) => unit.state === State.New && unit.lastReview == null,
-  );
+  const reviews = units.filter((unit) => unit.state !== State.New).sort((a, b) => a.due - b.due);
+  const newUnits = units.filter((unit) => unit.state === State.New && unit.lastReview == null);
 
   const settings = new SettingsCache(ctx, library._id);
   const global = await settings.globalSettings();
   const siblingGrouping = new Map<Id<"decks">, boolean>();
   for (const id of new Set(newUnits.map((unit) => unit.deckId))) {
-    siblingGrouping.set(
-      id,
-      (await settings.forDeck(id)).keepSiblingReviewUnitsTogether,
-    );
+    siblingGrouping.set(id, (await settings.forDeck(id)).keepSiblingReviewUnitsTogether);
   }
-  const keepSiblings = (unit: Doc<"reviewUnits">) =>
-    siblingGrouping.get(unit.deckId) ?? false;
+  const keepSiblings = (unit: Doc<"reviewUnits">) => siblingGrouping.get(unit.deckId) ?? false;
   const today = await introducedToday(ctx, library, now);
   const remaining = Math.max(0, global.newReviewUnitsPerDay - today.units.size);
 
@@ -118,24 +100,16 @@ export async function selectSession(
   // chosen Frontier stays the same all day and rating one unit never
   // reshuffles which other units were admitted.
   const seed = `${library._id}:${today.since}:`;
-  const keyOf = (unit: Doc<"reviewUnits">) =>
-    keepSiblings(unit) ? unit.flashcardId : unit._id;
+  const keyOf = (unit: Doc<"reviewUnits">) => (keepSiblings(unit) ? unit.flashcardId : unit._id);
   const ordered = [...candidates].sort(
-    (a, b) =>
-      rank(seed + keyOf(a)) - rank(seed + keyOf(b)) ||
-      a.subKey.localeCompare(b.subKey),
+    (a, b) => rank(seed + keyOf(a)) - rank(seed + keyOf(b)) || a.subKey.localeCompare(b.subKey),
   );
   // Represent each deck's grouping choice as a batch identity. Selecting all
   // batches together keeps one shared budget, including mixed deck settings.
   const batches = ordered.map((unit) => ({ flashcardId: keyOf(unit), unit }));
   const frontier = [
     ...continuing,
-    ...selectFrontier(
-      batches,
-      remaining,
-      true,
-      (items) => items,
-    ).map(({ unit }) => unit),
+    ...selectFrontier(batches, remaining, true, (items) => items).map(({ unit }) => unit),
   ];
   return { reviews, frontier };
 }
@@ -150,10 +124,7 @@ export async function selectSession(
  * change exhausts the budget (ADR 0021 keeps the cap account-wide and lets the
  * chosen view consume what remains).
  */
-export async function checkEligible(
-  unit: Doc<"reviewUnits">,
-  now: number,
-): Promise<string | null> {
+export async function checkEligible(unit: Doc<"reviewUnits">, now: number): Promise<string | null> {
   if (unit.archived) return "This flashcard was archived.";
   if (unit.locked || isPendingSchedule(unit)) {
     return "This flashcard is locked until its prerequisites are secured.";

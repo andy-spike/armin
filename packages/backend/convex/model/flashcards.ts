@@ -49,11 +49,7 @@ export function validateFlashcardInput(type: string, content: unknown) {
   return { type: type as FlashcardType, content: parsed, serialized, mediaFiles };
 }
 
-export async function prepareTags(
-  ctx: QueryCtx,
-  libraryId: Id<"libraries">,
-  tags: string[],
-) {
+export async function prepareTags(ctx: QueryCtx, libraryId: Id<"libraries">, tags: string[]) {
   const normalized = normalizeTags(tags);
   if (normalized.length > MAX_TAGS_PER_FLASHCARD) {
     fail("INVALID", `A flashcard can have at most ${MAX_TAGS_PER_FLASHCARD} tags.`);

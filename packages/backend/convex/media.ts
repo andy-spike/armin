@@ -7,10 +7,7 @@ import {
 } from "@armin/core/media";
 import { mediaRefFromFileName } from "@armin/core/media-ref";
 import { internal } from "./_generated/api";
-import {
-  internalMutation,
-  internalQuery,
-} from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import type { ActionCtx } from "./_generated/server";
 import { getViewer } from "./model/access";
 
@@ -24,9 +21,7 @@ export const uploaderLibrary = internalQuery({
 });
 
 function hex(buffer: ArrayBuffer) {
-  return [...new Uint8Array(buffer)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+  return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 /**
@@ -77,7 +72,10 @@ export async function uploadImage(ctx: ActionCtx, request: Request) {
   if (tooLarge) return new Response("Image too large.", { status: 413 });
   const bytes = new Uint8Array(size);
   let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
   const ext = sniffImageExt(bytes);
   if (!ext) return new Response("Use a PNG, JPG, GIF, WebP, BMP, or AVIF image.", { status: 400 });
   const sha = hex(await crypto.subtle.digest("SHA-256", bytes));
@@ -86,10 +84,15 @@ export async function uploadImage(ctx: ActionCtx, request: Request) {
   const storageId = await ctx.storage.store(new Blob([bytes], { type: mime }));
   try {
     const result = await ctx.runMutation(internal.media.recordUpload, {
-      libraryId, storageId, fileName, mime, size,
+      libraryId,
+      storageId,
+      fileName,
+      mime,
+      size,
     });
     if (result.status !== "stored") await ctx.storage.delete(storageId);
-    if (result.status === "quota") return new Response("Your image storage is full.", { status: 413 });
+    if (result.status === "quota")
+      return new Response("Your image storage is full.", { status: 413 });
     if (result.status === "claimed") return new Response("Upload failed.", { status: 409 });
     return Response.json({ ref: mediaRefFromFileName(fileName), fileName, mime, bytes: size });
   } catch (error) {
@@ -156,16 +159,12 @@ export const collectUnreferenced = internalMutation({
     for (const fileName of fileNames) {
       const reference = await ctx.db
         .query("flashcardMedia")
-        .withIndex("by_library_file", (q) =>
-          q.eq("libraryId", libraryId).eq("fileName", fileName),
-        )
+        .withIndex("by_library_file", (q) => q.eq("libraryId", libraryId).eq("fileName", fileName))
         .first();
       if (reference) continue;
       const media = await ctx.db
         .query("media")
-        .withIndex("by_library_file", (q) =>
-          q.eq("libraryId", libraryId).eq("fileName", fileName),
-        )
+        .withIndex("by_library_file", (q) => q.eq("libraryId", libraryId).eq("fileName", fileName))
         .unique();
       if (!media) continue;
       // Keep recent uploads that an open editor may be about to save.

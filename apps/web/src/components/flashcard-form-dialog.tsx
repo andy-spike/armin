@@ -14,19 +14,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import {
-  hasEmptyClozeDeletion,
-  parseClozes,
-} from "@armin/core/flashcard-rules";
-import {
-  ClozeField,
-  Field,
-  TagsInput,
-} from "@/components/flashcard-form-fields";
-import type {
-  FlashcardContent,
-  FlashcardType,
-} from "@armin/core/flashcard-types";
+import { hasEmptyClozeDeletion, parseClozes } from "@armin/core/flashcard-rules";
+import { ClozeField, Field, TagsInput } from "@/components/flashcard-form-fields";
+import type { FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
 
 export type CardFormValues = {
   type: FlashcardType;
@@ -81,10 +71,7 @@ const EMPTY_FIELDS: FormFields = {
 };
 
 /** The form fields for stored card content (empty for a new card). */
-function fieldsFromContent(
-  type: FlashcardType,
-  content: FlashcardContent | null,
-): FormFields {
+function fieldsFromContent(type: FlashcardType, content: FlashcardContent | null): FormFields {
   if (!content) return EMPTY_FIELDS;
   switch (type) {
     case "basic":
@@ -166,9 +153,7 @@ export function FlashcardFormDialog({
   const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
   // Image occlusion can't be edited here; its content is kept so saving tags
   // preserves the masks.
-  const [imageOcclusion, setImageOcclusion] = useState<FlashcardContent | null>(
-    null,
-  );
+  const [imageOcclusion, setImageOcclusion] = useState<FlashcardContent | null>(null);
   const [tags, setTags] = useState<string[]>(initialTags);
 
   const [displaySession, setDisplaySession] = useState({
@@ -193,15 +178,9 @@ export function FlashcardFormDialog({
       const initialFields = fieldsFromContent(initialType, initialContent);
       setType(initialType);
       setFields(initialFields);
-      setImageOcclusion(
-        initialType === "image_occlusion" ? initialContent : null,
-      );
+      setImageOcclusion(initialType === "image_occlusion" ? initialContent : null);
       setTags(initialTags);
-      initialSnapshotRef.current = formSnapshot(
-        initialType,
-        initialFields,
-        initialTags,
-      );
+      initialSnapshotRef.current = formSnapshot(initialType, initialFields, initialTags);
       setDiscardOpen(false);
       setDisplaySession({ mode, reviewUnitId: reviewUnitId ?? null });
       if (mode === "create") setCreateSession(0);
@@ -220,9 +199,7 @@ export function FlashcardFormDialog({
   }, [discardOpen]);
 
   const displayMode = open ? mode : displaySession.mode;
-  const displayCardId = open
-    ? (reviewUnitId ?? null)
-    : displaySession.reviewUnitId;
+  const displayCardId = open ? (reviewUnitId ?? null) : displaySession.reviewUnitId;
 
   const content = contentFromFields(type, fields, imageOcclusion);
   // Disconnected: keep the draft but don't start a save whose outcome
@@ -292,24 +269,14 @@ export function FlashcardFormDialog({
       }}
       onExitComplete={onExitComplete}
       title={
-        discardOpen
-          ? "Discard changes?"
-          : displayMode === "edit"
-            ? "Edit flashcard"
-            : "Add card"
+        discardOpen ? "Discard changes?" : displayMode === "edit" ? "Edit flashcard" : "Add card"
       }
-      description={
-        discardOpen ? "Your edits to this card haven't been saved." : undefined
-      }
+      description={discardOpen ? "Your edits to this card haven't been saved." : undefined}
       className="max-w-[35rem]"
       footer={
         discardOpen ? (
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button
-              ref={keepEditingRef}
-              variant="ghost"
-              onClick={() => setDiscardOpen(false)}
-            >
+            <Button ref={keepEditingRef} variant="ghost" onClick={() => setDiscardOpen(false)}>
               Keep editing
             </Button>
             <Button variant="destructive" onClick={discardChanges}>
@@ -338,34 +305,31 @@ export function FlashcardFormDialog({
         </p>
       ) : (
         <div className="space-y-4">
-          {displayMode === "create" &&
-            decks &&
-            decks.length > 0 &&
-            onDeckChange && (
-              <Field label="Deck" hint="Which deck this card is filed under.">
-                <Select
-                  value={deckId ?? undefined}
-                  items={decks.map((deck) => ({
-                    value: deck.id,
-                    label: deck.name,
-                  }))}
-                  onValueChange={(next) => onDeckChange(next as string)}
-                >
-                  <SelectTrigger className="w-full" aria-label="Deck">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent alignItemWithTrigger={false}>
-                    <SelectGroup>
-                      {decks.map((deck) => (
-                        <SelectItem key={deck.id} value={deck.id}>
-                          {deck.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-            )}
+          {displayMode === "create" && decks && decks.length > 0 && onDeckChange && (
+            <Field label="Deck" hint="Which deck this card is filed under.">
+              <Select
+                value={deckId ?? undefined}
+                items={decks.map((deck) => ({
+                  value: deck.id,
+                  label: deck.name,
+                }))}
+                onValueChange={(next) => onDeckChange(next as string)}
+              >
+                <SelectTrigger className="w-full" aria-label="Deck">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {decks.map((deck) => (
+                      <SelectItem key={deck.id} value={deck.id}>
+                        {deck.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
           <Field label="Type">
             <div className="grid w-full grid-cols-2 gap-1.5 sm:grid-cols-4">
               {TYPE_OPTIONS.map((option) => (
@@ -412,9 +376,7 @@ export function FlashcardFormDialog({
                   aria-label="Flashcard back"
                   value={fields.back}
                   onChange={(value) => setField("back", value)}
-                  placeholder={
-                    '`"object"` — a historical bug kept for compatibility.'
-                  }
+                  placeholder={'`"object"` — a historical bug kept for compatibility.'}
                 />
               </Field>
             </>
@@ -467,18 +429,14 @@ export function FlashcardFormDialog({
           {type === "image_occlusion" && (
             <Field label="Image occlusion">
               <div className="rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-muted">
-                Image occlusion authoring is not available in this editor yet.
-                Existing masks are preserved when saving tags or other metadata.
+                Image occlusion authoring is not available in this editor yet. Existing masks are
+                preserved when saving tags or other metadata.
               </div>
             </Field>
           )}
 
           <Field label="Tags" hint="Press Enter or comma to add.">
-            <TagsInput
-              key={`tags-${editorKey}`}
-              value={tags}
-              onChange={setTags}
-            />
+            <TagsInput key={`tags-${editorKey}`} value={tags} onChange={setTags} />
           </Field>
         </div>
       )}

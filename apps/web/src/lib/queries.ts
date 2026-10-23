@@ -1,8 +1,4 @@
-import {
-  infiniteQueryOptions,
-  queryOptions,
-  type QueryClient,
-} from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import { BROWSE_PAGE_SIZE } from "@armin/core/study";
 import { armin } from "@/lib/armin-client";
 import {
@@ -53,10 +49,7 @@ export const browseQuery = (filters: BrowseQueryFilters) =>
       }),
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
-      const loaded = allPages.reduce(
-        (count, page) => count + page.flashcards.length,
-        0,
-      );
+      const loaded = allPages.reduce((count, page) => count + page.flashcards.length, 0);
       return loaded < lastPage.filteredTotal ? loaded : undefined;
     },
   });

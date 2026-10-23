@@ -1,10 +1,5 @@
 import { memo } from "react";
-import {
-  BaseEdge,
-  getBezierPath,
-  useInternalNode,
-  type EdgeProps,
-} from "@xyflow/react";
+import { BaseEdge, getBezierPath, useInternalNode, type EdgeProps } from "@xyflow/react";
 import { getEdgeParams } from "@/lib/graph-geometry";
 
 /**
@@ -25,10 +20,7 @@ function FloatingEdgeComponent({
 
   if (!sourceNode || !targetNode) return null;
 
-  const { sx, sy, tx, ty, sourcePos, targetPos } = getEdgeParams(
-    sourceNode,
-    targetNode,
-  );
+  const { sx, sy, tx, ty, sourcePos, targetPos } = getEdgeParams(sourceNode, targetNode);
 
   const [path] = getBezierPath({
     sourceX: sx,

@@ -15,10 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
 import { settingsKeys } from "@/lib/armin-query";
 import { cn } from "@/lib/utils";
-import type {
-  DeckSettingsOverrides,
-  SchedulingSettings,
-} from "@armin/core/study";
+import type { DeckSettingsOverrides, SchedulingSettings } from "@armin/core/study";
 
 type SchedulingKey = keyof SchedulingSettings;
 
@@ -61,8 +58,7 @@ export function DeckSettingsDialog({
   }, [query.data]);
 
   const mutation = useMutation({
-    mutationFn: (patch: DeckSettingsOverrides) =>
-      armin.settings.updateDeck(deckId, patch),
+    mutationFn: (patch: DeckSettingsOverrides) => armin.settings.updateDeck(deckId, patch),
     onSuccess: (saved) => {
       setOverrides(saved.overrides);
       void queryClient.invalidateQueries({ queryKey: settingsKeys.deck(deckId) });
@@ -74,18 +70,12 @@ export function DeckSettingsDialog({
 
   const data = query.data;
   const localOverrides = overrides ?? data?.overrides ?? null;
-  const effective =
-    data && localOverrides
-      ? resolveEffective(data.global, localOverrides)
-      : null;
+  const effective = data && localOverrides ? resolveEffective(data.global, localOverrides) : null;
 
   // Editing a field stores it as an override only when it diverges from the
   // global value; setting it back to the global value clears the override
   // (and, with it, the reset affordance) — exactly as if it were never touched.
-  const setField = <K extends SchedulingKey>(
-    key: K,
-    value: SchedulingSettings[K],
-  ) => {
+  const setField = <K extends SchedulingKey>(key: K, value: SchedulingSettings[K]) => {
     if (!localOverrides || !data) return;
     const matchesGlobal = value === data.global[key];
     setOverrides({ ...localOverrides, [key]: matchesGlobal ? null : value });
@@ -240,9 +230,7 @@ export function DeckSettingsDialog({
                 {(labelId) => (
                   <Switch
                     checked={effective.enableShortTerm}
-                    onCheckedChange={(value) =>
-                      setField("enableShortTerm", value)
-                    }
+                    onCheckedChange={(value) => setField("enableShortTerm", value)}
                     aria-labelledby={labelId}
                   />
                 )}
@@ -262,9 +250,7 @@ export function DeckSettingsDialog({
                 {(labelId) => (
                   <StabilityFloorInput
                     value={effective.prereqStabilityFloor}
-                    onChange={(value) =>
-                      setField("prereqStabilityFloor", value)
-                    }
+                    onChange={(value) => setField("prereqStabilityFloor", value)}
                     aria-labelledby={labelId}
                   />
                 )}
@@ -272,18 +258,14 @@ export function DeckSettingsDialog({
               <OverrideRow
                 label="Keep siblings together"
                 hint="Introduce all eligible directions or clozes for a flashcard in the same session."
-                overridden={
-                  localOverrides.keepSiblingReviewUnitsTogether !== null
-                }
+                overridden={localOverrides.keepSiblingReviewUnitsTogether !== null}
                 onRevert={() => clearField("keepSiblingReviewUnitsTogether")}
                 last
               >
                 {(labelId) => (
                   <Switch
                     checked={effective.keepSiblingReviewUnitsTogether}
-                    onCheckedChange={(value) =>
-                      setField("keepSiblingReviewUnitsTogether", value)
-                    }
+                    onCheckedChange={(value) => setField("keepSiblingReviewUnitsTogether", value)}
                     aria-labelledby={labelId}
                   />
                 )}
@@ -329,9 +311,7 @@ function Section({
     <section>
       <h3 className="text-sm font-semibold text-ink">{title}</h3>
       {description && (
-        <p className="mt-1 text-[0.8125rem] leading-snug text-muted">
-          {description}
-        </p>
+        <p className="mt-1 text-[0.8125rem] leading-snug text-muted">{description}</p>
       )}
       <div className="mt-3 border border-border bg-surface">{children}</div>
     </section>
@@ -419,11 +399,9 @@ function resolveEffective(
     learningSteps: overrides.learningSteps ?? global.learningSteps,
     relearningSteps: overrides.relearningSteps ?? global.relearningSteps,
     weights: overrides.weights ?? global.weights,
-    prereqStabilityFloor:
-      overrides.prereqStabilityFloor ?? global.prereqStabilityFloor,
+    prereqStabilityFloor: overrides.prereqStabilityFloor ?? global.prereqStabilityFloor,
     newReviewUnitsPerDay: global.newReviewUnitsPerDay,
     keepSiblingReviewUnitsTogether:
-      overrides.keepSiblingReviewUnitsTogether ??
-      global.keepSiblingReviewUnitsTogether,
+      overrides.keepSiblingReviewUnitsTogether ?? global.keepSiblingReviewUnitsTogether,
   };
 }

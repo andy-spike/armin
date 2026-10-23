@@ -2,10 +2,10 @@
 
 Production has two parts, deployed separately from `master`:
 
-| Part | Where | URL |
-| --- | --- | --- |
-| Backend (Convex functions, data, auth) | Convex cloud, prod deployment `intent-bullfrog-922` | `https://intent-bullfrog-922.convex.cloud` |
-| Web app (TanStack Start, server-rendered) | Cloudflare Workers, Worker `armin-web` | `https://armincards.app` |
+| Part                                      | Where                                               | URL                                        |
+| ----------------------------------------- | --------------------------------------------------- | ------------------------------------------ |
+| Backend (Convex functions, data, auth)    | Convex cloud, prod deployment `intent-bullfrog-922` | `https://intent-bullfrog-922.convex.cloud` |
+| Web app (TanStack Start, server-rendered) | Cloudflare Workers, Worker `armin-web`              | `https://armincards.app`                   |
 
 Deploy the backend first when a change touches both, so the web app never
 calls functions that don't exist yet.

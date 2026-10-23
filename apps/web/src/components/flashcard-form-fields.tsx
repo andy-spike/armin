@@ -1,9 +1,4 @@
-import {
-  useRef,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
-} from "react";
+import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
@@ -22,9 +17,7 @@ export function ClozeField({
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const deletions = parseClozes(value);
-  const emptyDeletion = deletions.find(
-    (deletion) => deletion.answer.trim().length === 0,
-  );
+  const emptyDeletion = deletions.find((deletion) => deletion.answer.trim().length === 0);
 
   const wrapSelection = () => {
     const el = ref.current;
@@ -53,11 +46,7 @@ export function ClozeField({
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     // Ctrl/Cmd+Shift+C wraps the current selection as a cloze (matches Anki).
-    if (
-      (event.metaKey || event.ctrlKey) &&
-      event.shiftKey &&
-      event.key.toLowerCase() === "c"
-    ) {
+    if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "c") {
       event.preventDefault();
       wrapSelection();
     }
@@ -69,8 +58,8 @@ export function ClozeField({
         <>
           Select text, then <Kbd>Ctrl/⌘</Kbd>
           <Kbd>Shift</Kbd>
-          <Kbd>C</Kbd> or Make cloze. Reuse a number to blank together;{" "}
-          {"{{1::answer::hint}}"} for hints.
+          <Kbd>C</Kbd> or Make cloze. Reuse a number to blank together; {"{{1::answer::hint}}"} for
+          hints.
         </>
       }
     >
@@ -89,17 +78,12 @@ export function ClozeField({
         />
         {emptyDeletion && (
           <p role="alert" className="text-xs text-relearning">
-            Every cloze deletion needs an answer. Fill in c
-            {emptyDeletion.cluster} or remove its blank.
+            Every cloze deletion needs an answer. Fill in c{emptyDeletion.cluster} or remove its
+            blank.
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={wrapSelection}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={wrapSelection}>
             Make cloze
           </Button>
           {deletions.length > 0 ? (
@@ -188,9 +172,7 @@ export function TagsInput({
         onKeyDown={handleKeyDown}
         onBlur={() => addTag(draft)}
         aria-label={ariaLabel}
-        placeholder={
-          value.length === 0 ? (placeholder ?? "e.g. closures, async") : ""
-        }
+        placeholder={value.length === 0 ? (placeholder ?? "e.g. closures, async") : ""}
         spellCheck={false}
         autoCorrect="off"
         autoCapitalize="off"
@@ -213,9 +195,7 @@ export function Field({
     <div className="block">
       {(label || hint) && (
         <span className="mb-1.5 flex items-baseline gap-2">
-          {label && (
-            <span className="text-sm font-medium text-ink">{label}</span>
-          )}
+          {label && <span className="text-sm font-medium text-ink">{label}</span>}
           {hint && <span className="text-xs text-muted">{hint}</span>}
         </span>
       )}

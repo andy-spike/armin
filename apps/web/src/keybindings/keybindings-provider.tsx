@@ -29,10 +29,7 @@ import {
   stepHasStrongModifier,
   type ChordStep,
 } from "@/lib/keybindings/keys";
-import {
-  resolve,
-  type FireableCommand,
-} from "@/lib/keybindings/dispatcher";
+import { resolve, type FireableCommand } from "@/lib/keybindings/dispatcher";
 import {
   COMMAND_BY_ID,
   diffFromFactory,
@@ -65,11 +62,7 @@ type KeybindingsContextValue = {
   /** Invoke a Command's handler directly (e.g. from the command palette), bypassing key matching and modal isolation. */
   runCommand: (commandId: CommandId) => boolean;
   /** @internal — used by {@link useScope}. */
-  _register: (
-    scope: CommandScope,
-    modal: boolean,
-    getHandlers: () => CommandHandlers,
-  ) => number;
+  _register: (scope: CommandScope, modal: boolean, getHandlers: () => CommandHandlers) => number;
   /** @internal — used by {@link useScope}. */
   _unregister: (id: number) => void;
 };
@@ -112,9 +105,7 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
   const bufferRef = useRef<ChordStep[]>([]);
   const timeoutRef = useRef<number | null>(null);
 
-  const [activeScopes, setActiveScopes] = useState<ReadonlySet<CommandScope>>(
-    new Set(),
-  );
+  const [activeScopes, setActiveScopes] = useState<ReadonlySet<CommandScope>>(new Set());
   const [pendingChord, setPendingChord] = useState<ChordStep[]>([]);
 
   const recomputeActiveScopes = useCallback(() => {
@@ -186,10 +177,7 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fire = useCallback(
-    (
-      commandId: CommandId,
-      instances: { instance: ScopeInstance; depth: number }[],
-    ) => {
+    (commandId: CommandId, instances: { instance: ScopeInstance; depth: number }[]) => {
       // Call the deepest instance that owns a handler for this Command.
       for (let i = instances.length - 1; i >= 0; i--) {
         const handler = instances[i].instance.getHandlers()[commandId];
@@ -221,9 +209,7 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
       let fireable = allFireable;
       if (editable && !strong) {
         // Bare keys are suppressed while typing unless the Command opts in.
-        fireable = fireable.filter(
-          (c) => COMMAND_BY_ID.get(c.commandId)?.allowInInput,
-        );
+        fireable = fireable.filter((c) => COMMAND_BY_ID.get(c.commandId)?.allowInInput);
       }
 
       const tryBuffer = (buffer: ChordStep[]): boolean => {
@@ -260,25 +246,20 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
       armin.settings.update({
         keybindings: Object.keys(next).length ? JSON.stringify(next) : null,
       }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: settingsKeys.current }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKeys.current }),
   });
 
   const commitKeymap = useCallback(
     (next: Keymap) => {
       const diff = diffFromFactory(next);
       // Optimistic local update so keys respond before the round-trip settles.
-      queryClient.setQueryData(
-        settingsKeys.current,
-        (prev: typeof settingsQuery.data) =>
-          prev
-            ? {
-                ...prev,
-                keybindings: Object.keys(diff).length
-                  ? JSON.stringify(diff)
-                  : null,
-              }
-            : prev,
+      queryClient.setQueryData(settingsKeys.current, (prev: typeof settingsQuery.data) =>
+        prev
+          ? {
+              ...prev,
+              keybindings: Object.keys(diff).length ? JSON.stringify(diff) : null,
+            }
+          : prev,
       );
       if (hasBackend) persistOverrides.mutate(diff);
     },

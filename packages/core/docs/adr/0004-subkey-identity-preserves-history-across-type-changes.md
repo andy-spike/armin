@@ -9,7 +9,7 @@ conceptually change.
 The primary (front→back) direction uses subKey `""` across `basic`, `type_answer`,
 and `basic_reversed`; the reverse direction of `basic_reversed` uses `"rev"`. So
 `basic → basic_reversed` keeps the original review unit as the forward unit and
-merely *adds* the reverse, instead of deleting the mastered review unit and
+merely _adds_ the reverse, instead of deleting the mastered review unit and
 starting both directions from zero. We chose `""` as the canonical forward key because `basic`
 and `type_answer` already use it, minimizing migration to a one-time rename of
 existing `basic_reversed` forward units (`"fwd"` → `""`).

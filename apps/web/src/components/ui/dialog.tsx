@@ -16,9 +16,7 @@ function captureReturnFocus() {
   if (!(active instanceof HTMLElement) || active === document.body) return null;
   const menu = active.closest<HTMLElement>('[role="menu"]');
   if (menu?.id) {
-    return document.querySelector<HTMLElement>(
-      `[aria-controls="${CSS.escape(menu.id)}"]`,
-    );
+    return document.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(menu.id)}"]`);
   }
   return active;
 }
@@ -81,9 +79,7 @@ export function Dialog({
     snapshotRef.current = { title, description, children, footer };
   }
 
-  const content = exiting
-    ? snapshotRef.current
-    : { title, description, children, footer };
+  const content = exiting ? snapshotRef.current : { title, description, children, footer };
 
   React.useEffect(() => {
     onCloseRef.current = onClose;
@@ -110,14 +106,11 @@ export function Dialog({
       // React applies `autoFocus` itself (no DOM attribute), so keep any
       // focus it already placed inside the panel.
       if (panel?.contains(document.activeElement)) return;
-      const autofocusHost =
-        panel?.querySelector<HTMLElement>("[data-autofocus]");
+      const autofocusHost = panel?.querySelector<HTMLElement>("[data-autofocus]");
       const target =
         autofocusHost?.querySelector<HTMLElement>('[contenteditable="true"]') ??
         panel?.querySelector<HTMLElement>('[contenteditable="true"]') ??
-        panel?.querySelector<HTMLElement>(
-          "[autofocus], input, textarea, select",
-        ) ??
+        panel?.querySelector<HTMLElement>("[autofocus], input, textarea, select") ??
         panel;
       target?.focus();
     });
@@ -248,9 +241,7 @@ export function Dialog({
             >
               {content.children}
             </div>
-            <div className="shrink-0 border-t border-border px-6 py-4">
-              {content.footer}
-            </div>
+            <div className="shrink-0 border-t border-border px-6 py-4">{content.footer}</div>
           </>
         ) : (
           content.children

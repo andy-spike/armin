@@ -20,11 +20,7 @@
   /* Cyan 700 keeps paper text on primary actions above AA (6.0:1) while the
      deeper hover stays visibly darker than the resting accent. */
   --armin-accent: var(--flexoki-cyan-700);
-  --armin-accent-deep: color-mix(
-    in srgb,
-    var(--flexoki-cyan-700) 82%,
-    var(--flexoki-black)
-  );
+  --armin-accent-deep: color-mix(in srgb, var(--flexoki-cyan-700) 82%, var(--flexoki-black));
   --armin-accent-tint: var(--flexoki-cyan-50);
   --armin-on-accent: var(--flexoki-paper);
 

@@ -51,7 +51,12 @@ function message(error: unknown) {
 
 function Root() {
   const session = authClient.useSession();
-  if (session.isPending) return <Centered><ActivityIndicator /></Centered>;
+  if (session.isPending)
+    return (
+      <Centered>
+        <ActivityIndicator />
+      </Centered>
+    );
   if (!session.data) return <SignIn />;
   return <Library />;
 }
@@ -157,8 +162,18 @@ function Library() {
   const now = useNow();
   const decks = useQuery(api.decks.list, viewer?.library ? { now } : "skip");
 
-  if (viewer === undefined) return <Centered><ActivityIndicator /></Centered>;
-  if (viewer === null) return <Centered><Text>Your session ended.</Text></Centered>;
+  if (viewer === undefined)
+    return (
+      <Centered>
+        <ActivityIndicator />
+      </Centered>
+    );
+  if (viewer === null)
+    return (
+      <Centered>
+        <Text>Your session ended.</Text>
+      </Centered>
+    );
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
@@ -168,9 +183,7 @@ function Library() {
       </View>
       <Text style={styles.muted}>{viewer.email}</Text>
       {!viewer.library ? (
-        <Text style={styles.muted}>
-          Open Armin on the web once to set up your library.
-        </Text>
+        <Text style={styles.muted}>Open Armin on the web once to set up your library.</Text>
       ) : (
         <>
           <Text style={styles.heading}>Decks</Text>
@@ -228,7 +241,16 @@ function Study({ now }: { now: number }) {
     return (
       <View>
         <Text style={styles.muted}>All caught up.</Text>
-        {last && <UndoButton last={last} undo={undo} onDone={setNotice} pending={pending} setPending={setPending} clear={() => setLast(null)} />}
+        {last && (
+          <UndoButton
+            last={last}
+            undo={undo}
+            onDone={setNotice}
+            pending={pending}
+            setPending={setPending}
+            clear={() => setLast(null)}
+          />
+        )}
         {notice && <Text style={styles.muted}>{notice}</Text>}
       </View>
     );
@@ -293,7 +315,19 @@ function Study({ now }: { now: number }) {
           ))}
         </View>
       )}
-      {last && <UndoButton last={last} undo={undo} onDone={setNotice} pending={pending} setPending={setPending} clear={() => { setLast(null); setShown(null); }} />}
+      {last && (
+        <UndoButton
+          last={last}
+          undo={undo}
+          onDone={setNotice}
+          pending={pending}
+          setPending={setPending}
+          clear={() => {
+            setLast(null);
+            setShown(null);
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -443,7 +477,13 @@ const styles = StyleSheet.create({
   buttonOutlineText: { color: "#100f0f", fontWeight: "500" },
   deck: { borderWidth: 1, borderColor: "#e6e4d9", backgroundColor: "#ffffff", padding: 12, gap: 4 },
   deckName: { fontSize: 16, fontWeight: "600", color: "#100f0f" },
-  card: { borderWidth: 1, borderColor: "#e6e4d9", backgroundColor: "#ffffff", padding: 16, gap: 12 },
+  card: {
+    borderWidth: 1,
+    borderColor: "#e6e4d9",
+    backgroundColor: "#ffffff",
+    padding: 16,
+    gap: 12,
+  },
   side: { gap: 8 },
   cardText: { fontSize: 18, color: "#100f0f" },
   divider: { height: 1, backgroundColor: "#e6e4d9" },

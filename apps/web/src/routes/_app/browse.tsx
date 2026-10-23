@@ -26,10 +26,7 @@ import {
 import { MoveFlashcardDialog } from "@/components/move-flashcard-dialog";
 import { SortControl } from "@/components/sort-control";
 import { Input } from "@/components/ui/input";
-import {
-  SearchableMultiSelect,
-  SearchableSelect,
-} from "@/components/ui/combobox";
+import { SearchableMultiSelect, SearchableSelect } from "@/components/ui/combobox";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BrowseContentSkeleton } from "@/components/page-skeletons";
@@ -44,15 +41,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
-import {
-  flashcardKeys,
-  invalidateCoreData,
-  type BrowseQueryFilters,
-} from "@/lib/armin-query";
-import {
-  toUiBrowseFlashcard,
-  type UiBrowseFlashcard,
-} from "@/types/view-models";
+import { flashcardKeys, invalidateCoreData, type BrowseQueryFilters } from "@/lib/armin-query";
+import { toUiBrowseFlashcard, type UiBrowseFlashcard } from "@/types/view-models";
 import {
   BROWSE_SORT_OPTIONS,
   buildDeckFilterOptions,
@@ -80,17 +70,14 @@ function BrowsePage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<UiBrowseFlashcard | null>(null);
   const [moveTarget, setMoveTarget] = useState<UiBrowseFlashcard | null>(null);
-  const [deleteRequest, setDeleteRequest] =
-    useState<FlashcardDeleteRequest | null>(null);
-  const [deleteConsequences, setDeleteConsequences] =
-    useState<FlashcardDeleteConsequences | null>(null);
+  const [deleteRequest, setDeleteRequest] = useState<FlashcardDeleteRequest | null>(null);
+  const [deleteConsequences, setDeleteConsequences] = useState<FlashcardDeleteConsequences | null>(
+    null,
+  );
   const [deleteConsequencesError, setDeleteConsequencesError] = useState(false);
 
   useEffect(() => {
-    const timeout = window.setTimeout(
-      () => setSearch(searchInput.trim()),
-      SEARCH_DEBOUNCE_MS,
-    );
+    const timeout = window.setTimeout(() => setSearch(searchInput.trim()), SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timeout);
   }, [searchInput]);
 
@@ -116,9 +103,7 @@ function BrowsePage() {
 
   const displayed = useMemo(
     () =>
-      (browseQuery.data?.pages ?? [])
-        .flatMap((page) => page.flashcards)
-        .map(toUiBrowseFlashcard),
+      (browseQuery.data?.pages ?? []).flatMap((page) => page.flashcards).map(toUiBrowseFlashcard),
     [browseQuery.data],
   );
 
@@ -144,11 +129,7 @@ function BrowsePage() {
     const root = sentinel.closest(".route-scroll");
     const observer = new IntersectionObserver(
       (entries) => {
-        if (
-          entries[0]?.isIntersecting &&
-          hasNextPage &&
-          !isFetchingNextPage
-        ) {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
           void fetchNextPage();
         }
       },
@@ -157,13 +138,7 @@ function BrowsePage() {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [
-    hasMore,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-    browseFilters,
-  ]);
+  }, [hasMore, hasNextPage, isFetchingNextPage, fetchNextPage, browseFilters]);
 
   const openEdit = (card: UiBrowseFlashcard) => {
     setEditing(card);
@@ -199,8 +174,7 @@ function BrowsePage() {
       armin.flashcards.update(values),
     onSuccess: (_card, values) => {
       invalidateCoreData(queryClient, editing?.deckId);
-      if (values.id)
-        void queryClient.invalidateQueries({ queryKey: flashcardKeys.all });
+      if (values.id) void queryClient.invalidateQueries({ queryKey: flashcardKeys.all });
       toast({ tone: "success", title: "Flashcard updated" });
       closeDialog();
     },
@@ -208,8 +182,7 @@ function BrowsePage() {
   });
 
   const deleteCard = useMutation({
-    mutationFn: (card: UiBrowseFlashcard) =>
-      armin.flashcards.delete(card.id).then(() => card),
+    mutationFn: (card: UiBrowseFlashcard) => armin.flashcards.delete(card.id).then(() => card),
     onSuccess: (card) => {
       invalidateCoreData(queryClient, card.deckId);
       toast({ tone: "error", title: "Flashcard deleted" });
@@ -218,13 +191,8 @@ function BrowsePage() {
   });
 
   const archiveCard = useMutation({
-    mutationFn: ({
-      card,
-      archived,
-    }: {
-      card: UiBrowseFlashcard;
-      archived: boolean;
-    }) => armin.flashcards.archive(card.id, archived).then(() => card),
+    mutationFn: ({ card, archived }: { card: UiBrowseFlashcard; archived: boolean }) =>
+      armin.flashcards.archive(card.id, archived).then(() => card),
     onSuccess: (card, { archived }) => {
       invalidateCoreData(queryClient, card.deckId);
       toast({
@@ -232,8 +200,7 @@ function BrowsePage() {
         title: archived ? "Flashcard archived" : "Flashcard unarchived",
       });
     },
-    onError: () =>
-      toast({ tone: "error", title: "Could not update flashcard" }),
+    onError: () => toast({ tone: "error", title: "Could not update flashcard" }),
   });
 
   const saveCard = (values: CardFormValues) => {
@@ -264,19 +231,15 @@ function BrowsePage() {
     [],
   );
 
-  const isInitialLoading =
-    browseQuery.isLoading || decksQuery.isLoading || tagsQuery.isLoading;
+  const isInitialLoading = browseQuery.isLoading || decksQuery.isLoading || tagsQuery.isLoading;
   const hasLibrary = !isInitialLoading && libraryTotal > 0;
 
   return (
     <div>
       <header className="mb-6">
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">
-          Browse
-        </h1>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">Browse</h1>
         <p className="mt-1.5 text-sm text-muted">
-          Every flashcard across your decks. Search, filter, and sort to find
-          anything.
+          Every flashcard across your decks. Search, filter, and sort to find anything.
         </p>
       </header>
 
@@ -287,17 +250,11 @@ function BrowsePage() {
           <div className="mb-4 flex h-12 w-12 items-center justify-center bg-relearning-bg text-relearning">
             <AlertTriangle className="h-6 w-6" strokeWidth={1.5} />
           </div>
-          <h3 className="text-base font-semibold text-ink">
-            Couldn&apos;t load your flashcards
-          </h3>
+          <h3 className="text-base font-semibold text-ink">Couldn&apos;t load your flashcards</h3>
           <p className="mt-1 max-w-[40ch] text-sm text-muted">
             Check your connection and try again. Your saved data is safe.
           </p>
-          <Button
-            variant="outline"
-            className="mt-5"
-            onClick={() => void browseQuery.refetch()}
-          >
+          <Button variant="outline" className="mt-5" onClick={() => void browseQuery.refetch()}>
             Try again
           </Button>
         </div>
@@ -350,9 +307,7 @@ function BrowsePage() {
                   <Select
                     value={stateFilter}
                     items={stateItems}
-                    onValueChange={(value) =>
-                      setStateFilter(value ?? ALL_STATES)
-                    }
+                    onValueChange={(value) => setStateFilter(value ?? ALL_STATES)}
                   >
                     <SelectTrigger
                       className="w-full border-border-strong bg-surface"
@@ -420,9 +375,7 @@ function BrowsePage() {
                       </>
                     }
                   >
-                    <p className="flex h-9 items-center text-sm text-muted">
-                      No tags
-                    </p>
+                    <p className="flex h-9 items-center text-sm text-muted">No tags</p>
                   </FilterField>
                 )}
               </div>
@@ -464,9 +417,7 @@ function BrowsePage() {
                         archived: !card.archived,
                       })
                     }
-                    loadDeleteConsequences={(id) =>
-                      armin.flashcards.deleteConsequences(id)
-                    }
+                    loadDeleteConsequences={(id) => armin.flashcards.deleteConsequences(id)}
                     onDeleteRequest={requestDelete}
                     onDelete={async () => {
                       await deleteCard.mutateAsync(card);
@@ -475,11 +426,7 @@ function BrowsePage() {
                 ))}
               </ul>
               {hasMore || browseQuery.isFetchingNextPage ? (
-                <div
-                  ref={loadMoreRef}
-                  className="mt-4 flex justify-center py-2"
-                  aria-hidden
-                >
+                <div ref={loadMoreRef} className="mt-4 flex justify-center py-2" aria-hidden>
                   {browseQuery.isFetchingNextPage ? (
                     <Skeleton className="h-4 w-28" />
                   ) : (
@@ -496,11 +443,7 @@ function BrowsePage() {
                   : "No flashcards match the current filters."}
               </p>
               {search && (
-                <Button
-                  variant="outline"
-                  className="mt-4"
-                  onClick={() => setSearchInput("")}
-                >
+                <Button variant="outline" className="mt-4" onClick={() => setSearchInput("")}>
                   Clear search
                 </Button>
               )}

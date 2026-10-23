@@ -42,9 +42,7 @@ export function ZoomControl() {
           inputMode="numeric"
           className="w-9 bg-transparent text-right text-xs tabular-nums text-ink outline-none"
           value={draft ?? String(percent)}
-          onChange={(event) =>
-            setDraft(event.target.value.replace(/[^0-9]/g, ""))
-          }
+          onChange={(event) => setDraft(event.target.value.replace(/[^0-9]/g, ""))}
           onFocus={(event) => event.currentTarget.select()}
           onBlur={(event) => commit(event.target.value)}
           onKeyDown={(event) => {

@@ -10,10 +10,13 @@ const BATCH = 400;
 export const cleanupUnitLogs = internalMutation({
   args: { reviewUnitId: v.id("reviewUnits") },
   handler: async (ctx, { reviewUnitId }) => {
-    const logs = await ctx.db.query("reviewLogs")
-      .withIndex("by_unit_review", q => q.eq("reviewUnitId", reviewUnitId)).take(BATCH);
+    const logs = await ctx.db
+      .query("reviewLogs")
+      .withIndex("by_unit_review", (q) => q.eq("reviewUnitId", reviewUnitId))
+      .take(BATCH);
     for (const log of logs) await ctx.db.delete(log._id);
-    if (logs.length === BATCH) await ctx.scheduler.runAfter(0, internal.deletion.cleanupUnitLogs, { reviewUnitId });
+    if (logs.length === BATCH)
+      await ctx.scheduler.runAfter(0, internal.deletion.cleanupUnitLogs, { reviewUnitId });
   },
 });
 
@@ -25,15 +28,20 @@ export const cleanupRemovedUnits = internalMutation({
     let index = 0;
     for (; index < unitIds.length && budget > 0 && index < 20; index++) {
       const id = unitIds[index]!;
-      const logs = await ctx.db.query("reviewLogs")
-        .withIndex("by_unit_review", q => q.eq("reviewUnitId", id)).take(budget);
+      const logs = await ctx.db
+        .query("reviewLogs")
+        .withIndex("by_unit_review", (q) => q.eq("reviewUnitId", id))
+        .take(budget);
       for (const log of logs) await ctx.db.delete(log._id);
       budget -= logs.length;
       // If we filled the batch, revisit this unit to catch any remaining logs.
       if (budget === 0) break;
     }
     const remaining = unitIds.slice(index);
-    if (remaining.length) await ctx.scheduler.runAfter(0, internal.deletion.cleanupRemovedUnits, { unitIds: remaining });
+    if (remaining.length)
+      await ctx.scheduler.runAfter(0, internal.deletion.cleanupRemovedUnits, {
+        unitIds: remaining,
+      });
   },
 });
 

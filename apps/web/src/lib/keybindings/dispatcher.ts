@@ -8,12 +8,7 @@
  * function so the precedence and chord rules are unit-testable.
  */
 
-import {
-  isStepsPrefix,
-  parseBinding,
-  stepsEqual,
-  type ChordStep,
-} from "./keys";
+import { isStepsPrefix, parseBinding, stepsEqual, type ChordStep } from "./keys";
 import type { CommandId } from "./registry";
 
 /** A Command eligible to fire right now (scope active, handler present, not modal-isolated). */
@@ -35,10 +30,7 @@ function bindingSteps(c: FireableCommand): ChordStep[] {
 }
 
 function exactlyMatches(buffer: ChordStep[], steps: ChordStep[]): boolean {
-  return (
-    steps.length === buffer.length &&
-    steps.every((s, i) => stepsEqual(s, buffer[i]))
-  );
+  return steps.length === buffer.length && steps.every((s, i) => stepsEqual(s, buffer[i]));
 }
 
 /**
@@ -48,10 +40,7 @@ function exactlyMatches(buffer: ChordStep[], steps: ChordStep[]): boolean {
  * - Else if any fireable binding exactly equals the buffer → `fire` the deepest.
  * - Else → `none`.
  */
-export function resolve(
-  buffer: ChordStep[],
-  fireable: FireableCommand[],
-): Resolution {
+export function resolve(buffer: ChordStep[], fireable: FireableCommand[]): Resolution {
   if (buffer.length === 0) return { type: "none" };
 
   let pending = false;

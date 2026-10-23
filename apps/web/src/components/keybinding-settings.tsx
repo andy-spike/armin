@@ -25,11 +25,7 @@ import {
   type Conflict,
   type Keymap,
 } from "@/lib/keybindings/registry";
-import {
-  serializeSteps,
-  stepFromEvent,
-  type ChordStep,
-} from "@/lib/keybindings/keys";
+import { serializeSteps, stepFromEvent, type ChordStep } from "@/lib/keybindings/keys";
 import { cn } from "@/lib/utils";
 
 /** Commands grouped by their `group` header, preserving registry order. */
@@ -135,9 +131,7 @@ function KeybindingRecorderDialog({
       if (event.key === "Tab") return; // keep focus put; don't record Tab
       const step = stepFromEvent(event);
       if (!step) return; // bare modifier press — wait for the real key
-      setDraft((prev) =>
-        prev.length >= MAX_CHORD_STEPS ? prev : [...prev, step],
-      );
+      setDraft((prev) => (prev.length >= MAX_CHORD_STEPS ? prev : [...prev, step]));
       setError(null);
     };
     window.addEventListener("keydown", onKeyDown, true);
@@ -150,25 +144,19 @@ function KeybindingRecorderDialog({
       onClose={onClose}
       onExitComplete={onExitComplete}
       title="Record shortcut"
-      description={
-        command ? `Set a new shortcut for “${command.label}”.` : undefined
-      }
+      description={command ? `Set a new shortcut for “${command.label}”.` : undefined}
     >
       <div className="space-y-4">
         <div
           className={cn(
             "flex min-h-[3.5rem] items-center justify-center gap-1.5 rounded-md border px-4 py-3",
-            error
-              ? "border-danger/40 bg-danger/5"
-              : "border-border bg-surface-sunken",
+            error ? "border-danger/40 bg-danger/5" : "border-border bg-surface-sunken",
           )}
         >
           {draft.length > 0 ? (
             <KeybindingHint binding={serializeSteps(draft)} />
           ) : (
-            <span className="text-sm text-muted">
-              Press the keys for your shortcut…
-            </span>
+            <span className="text-sm text-muted">Press the keys for your shortcut…</span>
           )}
         </div>
 
@@ -176,8 +164,8 @@ function KeybindingRecorderDialog({
           <p className="text-xs text-danger">{error}</p>
         ) : (
           <p className="text-xs leading-relaxed text-muted">
-            Press a sequence like <Kbd>G</Kbd> then <Kbd>D</Kbd> to record a
-            chord. Press <Kbd>Enter</Kbd> to save or <Kbd>Esc</Kbd> to cancel.
+            Press a sequence like <Kbd>G</Kbd> then <Kbd>D</Kbd> to record a chord. Press{" "}
+            <Kbd>Enter</Kbd> to save or <Kbd>Esc</Kbd> to cancel.
           </p>
         )}
 
@@ -197,12 +185,7 @@ function KeybindingRecorderDialog({
             <Button variant="outline" size="sm" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={confirm}
-              disabled={draft.length === 0}
-            >
+            <Button variant="primary" size="sm" onClick={confirm} disabled={draft.length === 0}>
               Save
             </Button>
           </div>
@@ -241,16 +224,12 @@ export function KeybindingSettings() {
     }
   };
 
-  const overrides = COMMANDS.filter(
-    (c) => keymap[c.id] !== c.defaultBinding,
-  ).length;
+  const overrides = COMMANDS.filter((c) => keymap[c.id] !== c.defaultBinding).length;
 
   return (
     <div className="border border-border bg-surface">
       <div className="flex items-center justify-between gap-4 border-b border-border px-4 py-3">
-        <p className="text-[0.8125rem] text-muted">
-          Click a shortcut to record a new one.
-        </p>
+        <p className="text-[0.8125rem] text-muted">Click a shortcut to record a new one.</p>
         <Button
           variant="outline"
           size="sm"
@@ -270,16 +249,9 @@ export function KeybindingSettings() {
           </h3>
           {commands.map((cmd, index) => {
             const overridden = keymap[cmd.id] !== cmd.defaultBinding;
-            const lastRow =
-              groupIndex === GROUPS.length - 1 && index === commands.length - 1;
+            const lastRow = groupIndex === GROUPS.length - 1 && index === commands.length - 1;
             return (
-              <div
-                key={cmd.id}
-                className={cn(
-                  "px-4 py-3",
-                  !lastRow && "border-b border-border",
-                )}
-              >
+              <div key={cmd.id} className={cn("px-4 py-3", !lastRow && "border-b border-border")}>
                 <div className="flex items-center justify-between gap-4">
                   <p className="text-sm text-ink">{cmd.label}</p>
                   <div className="flex h-8 shrink-0 items-center gap-1.5">

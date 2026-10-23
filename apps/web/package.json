@@ -2,9 +2,9 @@
   "name": "@armin/web",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
   "description": "Armin web app: TanStack Start client and auth/media/export proxy for the Convex backend.",
   "license": "MIT",
+  "type": "module",
   "scripts": {
     "dev": "vp dev",
     "build": "vp build",

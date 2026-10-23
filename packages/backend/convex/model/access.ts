@@ -33,18 +33,14 @@ export async function getViewer(ctx: QueryCtx): Promise<Viewer | null> {
 }
 
 /** Library for reads; null when signed out, unprovisioned, or being deleted. */
-export async function readableLibrary(
-  ctx: QueryCtx,
-): Promise<Doc<"libraries"> | null> {
+export async function readableLibrary(ctx: QueryCtx): Promise<Doc<"libraries"> | null> {
   const viewer = await getViewer(ctx);
   if (!viewer?.library || viewer.library.status !== "active") return null;
   return viewer.library;
 }
 
 /** Library for a write. Throws a coded error when the caller may not write. */
-export async function writableLibrary(
-  ctx: MutationCtx,
-): Promise<Doc<"libraries">> {
+export async function writableLibrary(ctx: MutationCtx): Promise<Doc<"libraries">> {
   const viewer = await getViewer(ctx);
   if (!viewer) fail("UNAUTHENTICATED", "Sign in to continue.");
   if (!viewer.emailVerified) {
@@ -60,11 +56,7 @@ export async function writableLibrary(
 /** Load a document and confirm it belongs to the library. */
 export async function owned<
   T extends "decks" | "flashcards" | "reviewUnits" | "reviewLogs" | "exports",
->(
-  ctx: QueryCtx,
-  library: Doc<"libraries">,
-  id: Id<T>,
-): Promise<Doc<T> | null> {
+>(ctx: QueryCtx, library: Doc<"libraries">, id: Id<T>): Promise<Doc<T> | null> {
   const doc = (await ctx.db.get(id)) as (Doc<T> & { libraryId: Id<"libraries"> }) | null;
   if (!doc || doc.libraryId !== library._id) return null;
   return doc;
@@ -72,12 +64,7 @@ export async function owned<
 
 export async function ownedOrFail<
   T extends "decks" | "flashcards" | "reviewUnits" | "reviewLogs" | "exports",
->(
-  ctx: QueryCtx,
-  library: Doc<"libraries">,
-  id: Id<T>,
-  label: string,
-): Promise<Doc<T>> {
+>(ctx: QueryCtx, library: Doc<"libraries">, id: Id<T>, label: string): Promise<Doc<T>> {
   const doc = await owned(ctx, library, id);
   if (!doc) fail("NOT_FOUND", `${label} not found.`);
   return doc;
