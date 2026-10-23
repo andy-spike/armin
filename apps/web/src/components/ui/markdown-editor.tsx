@@ -106,8 +106,11 @@ export function MarkdownEditor({
   "aria-label": ariaLabel,
 }: MarkdownEditorProps) {
   const toast = useToast();
-  const onUploadError = (message: string) =>
-    toast({ tone: "error", title: "Image not added", description: message });
+  const onUploadError = useCallback(
+    (message: string) =>
+      toast({ tone: "error", title: "Image not added", description: message }),
+    [toast],
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const plainTextRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -193,7 +196,7 @@ export function MarkdownEditor({
           .run();
       }
     },
-    [],
+    [onUploadError],
   );
 
   const editor = useEditor({

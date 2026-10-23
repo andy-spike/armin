@@ -38,7 +38,7 @@ export function ImageOcclusionReview({
       <div className="relative overflow-hidden rounded-md border border-border-strong">
         <img
           src={mediaDisplayUrl(content.baseImage)}
-          alt="Image occlusion"
+          alt="Occlusion diagram"
           className="block max-h-[360px] w-full object-contain"
         />
         {content.masks.map((mask) => {

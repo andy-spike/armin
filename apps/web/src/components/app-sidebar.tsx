@@ -435,6 +435,8 @@ function ThemeItem() {
             event.preventDefault();
             setMenuOpen(true);
           }}
+          // The label is the children below; the rule only sees this element.
+          // oxlint-disable-next-line jsx-a11y/control-has-associated-label
           render={<button ref={buttonRef} type="button" />}
         >
           {/* The row is server-rendered, where the saved theme is unknown, so

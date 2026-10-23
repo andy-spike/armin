@@ -313,6 +313,8 @@ function UndoButton({
   setPending: (value: boolean) => void;
   clear: () => void;
 }) {
+  // A fresh request id for each review that can be undone.
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
   const requestId = useMemo(() => newRequestId(), [last.reviewLogId]);
   return (
     <Button

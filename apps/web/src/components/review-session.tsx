@@ -596,12 +596,12 @@ export function ReviewSession({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Enter" && !flipped) {
         e.preventDefault();
-        reveal();
+        if (card) setFlipped(true);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [reviewActive, flipped]);
+  }, [reviewActive, flipped, card]);
 
   return (
     <div className="mx-auto max-w-2xl">

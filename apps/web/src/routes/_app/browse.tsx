@@ -133,22 +133,23 @@ function BrowsePage() {
       ? formatCardCounts(filteredActive, filteredArchived)
       : `${formatCardCounts(filteredActive, filteredArchived)} of ${formatCardCounts(libraryActive, libraryArchived)}`;
   const hasMore = browseQuery.hasNextPage ?? false;
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = browseQuery;
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const sentinel = loadMoreRef.current;
-    if (!sentinel || !hasMore || browseQuery.isFetchingNextPage) return;
+    if (!sentinel || !hasMore || isFetchingNextPage) return;
 
     const root = sentinel.closest(".route-scroll");
     const observer = new IntersectionObserver(
       (entries) => {
         if (
           entries[0]?.isIntersecting &&
-          browseQuery.hasNextPage &&
-          !browseQuery.isFetchingNextPage
+          hasNextPage &&
+          !isFetchingNextPage
         ) {
-          void browseQuery.fetchNextPage();
+          void fetchNextPage();
         }
       },
       { root, rootMargin: "240px" },
@@ -158,9 +159,9 @@ function BrowsePage() {
     return () => observer.disconnect();
   }, [
     hasMore,
-    browseQuery.hasNextPage,
-    browseQuery.isFetchingNextPage,
-    browseQuery.fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
     browseFilters,
   ]);
 
@@ -248,8 +249,8 @@ function BrowsePage() {
   );
 
   const tagOptions = useMemo(
-    () => allTags.map((tag) => ({ value: tag, label: tag })),
-    [allTags],
+    () => (tagsQuery.data ?? []).map((tag) => ({ value: tag, label: tag })),
+    [tagsQuery.data],
   );
 
   const stateItems = useMemo(

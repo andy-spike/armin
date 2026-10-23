@@ -69,7 +69,10 @@ function DecksPage() {
   const decksQuery = useQuery(decksQueryOptions());
 
   const decks = decksQuery.data ?? [];
-  const sortedDecks = useMemo(() => sortDecks(decks, sort), [decks, sort]);
+  const sortedDecks = useMemo(
+    () => sortDecks(decksQuery.data ?? [], sort),
+    [decksQuery.data, sort],
+  );
 
   const createDeck = useMutation({
     mutationFn: (input: { name: string; description?: string | null }) =>

@@ -103,7 +103,9 @@ function RootComponent() {
   const context = useRouteContext({ from: Route.id });
   // A server-rendered load ran `beforeLoad` on the server, so the browser
   // starts out remembering that answer instead of asking again on first click.
+  // `browserAuth` is a module-level cache shared across renders by design.
   if (typeof window !== "undefined" && !browserAuth && context.isAuthenticated) {
+    // oxlint-disable-next-line react/globals
     browserAuth = Promise.resolve({ isAuthenticated: true, token: context.token });
   }
   return (

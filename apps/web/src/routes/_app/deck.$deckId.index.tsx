@@ -129,8 +129,8 @@ function DeckPage() {
 
   const deckTags = tagsQuery.data ?? [];
   const tagOptions = useMemo(
-    () => deckTags.map((t) => ({ value: t, label: t })),
-    [deckTags],
+    () => (tagsQuery.data ?? []).map((t) => ({ value: t, label: t })),
+    [tagsQuery.data],
   );
 
   const openNew = () => {

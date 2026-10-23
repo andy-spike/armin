@@ -141,6 +141,9 @@ export function useBackgroundLayout({
       cancelled = true;
       cancelScheduled();
     };
+    // `nodesRef` is a ref passed in by the caller. The worker reads its
+    // latest value when the job runs, so it is deliberately not a dependency.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [
     graph.edges,
     graph.nodes,

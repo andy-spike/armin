@@ -42,7 +42,7 @@ function startBackend(state) {
   );
   const stop = () =>
     new Promise((done) => {
-      if (child.exitCode !== null) return done();
+      if (child.exitCode !== null || child.pid === undefined) return done();
       child.once("exit", done);
       process.kill(-child.pid, "SIGINT");
     });

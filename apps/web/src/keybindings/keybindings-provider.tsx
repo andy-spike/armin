@@ -282,7 +282,7 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
       );
       if (hasBackend) persistOverrides.mutate(diff);
     },
-    [hasBackend, persistOverrides, queryClient, settingsQuery.data],
+    [hasBackend, persistOverrides, queryClient],
   );
 
   const setBinding = useCallback(
