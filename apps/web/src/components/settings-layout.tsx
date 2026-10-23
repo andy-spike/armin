@@ -19,9 +19,7 @@ export function Section({
       <div className="pt-0.5">
         <h2 className="text-sm font-semibold text-ink">{title}</h2>
         {description && (
-          <p className="mt-1 text-[0.8125rem] leading-snug text-muted">
-            {description}
-          </p>
+          <p className="mt-1 text-[0.8125rem] leading-snug text-muted">{description}</p>
         )}
         {action && <div className="mt-3">{action}</div>}
       </div>

@@ -12,9 +12,12 @@ and an `armin-<id>.localhost` origin.
 
 ## Requirements
 
-- Node 20, 22, or 24 on `PATH`. The repository pins 24 in `.nvmrc`. The local
-  backend runs `"use node"` actions with that Node and rejects other majors, so
-  setup stops early on Node 26. With mise: `mise exec node@24 -- pnpm dev:setup`.
+- The Vite+ global CLI (see the root README). Its `vp env` shims select the
+  Node version pinned in `.node-version` (24). The local backend runs
+  `"use node"` actions with that Node and rejects majors other than 20, 22, and
+  24, so setup stops early on Node 26. If another version manager (such as mise)
+  puts its own `node` earlier on `PATH`, it wins over Vite+; move the Vite+ shims
+  first or remove that manager's global Node.
 - No Convex login or network access to Convex cloud. Setup creates an anonymous
   local deployment (`CONVEX_AGENT_MODE=anonymous`), so no team, project, or
   account limits are involved. The first run downloads the backend binary into

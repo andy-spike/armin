@@ -3,13 +3,7 @@ import { parseBinding, stepLabels } from "@/lib/keybindings/keys";
 import { cn } from "@/lib/utils";
 
 /** Render a binding string ("g d", "Mod+k", "Space") as a row of <Kbd> chips. */
-export function KeybindingHint({
-  binding,
-  className,
-}: {
-  binding: string;
-  className?: string;
-}) {
+export function KeybindingHint({ binding, className }: { binding: string; className?: string }) {
   const steps = parseBinding(binding);
   if (steps.length === 0) {
     return <span className={cn("text-xs text-muted", className)}>Unbound</span>;

@@ -13,7 +13,6 @@
     "dev": "node scripts/convex-dev.mjs",
     "dev:once": "node scripts/convex-dev.mjs --once",
     "codegen": "convex codegen",
-    "typecheck": "tsc --noEmit -p convex",
     "dev:setup": "node scripts/setup-dev.mjs",
     "dev:clients": "node scripts/configure-clients.mjs",
     "worktree:setup": "node scripts/setup-worktree.mjs",

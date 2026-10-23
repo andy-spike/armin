@@ -12,10 +12,7 @@ import type {
   ReviewQueueItem,
   AccountSettings,
 } from "@armin/backend/types";
-import type {
-  FlashcardContent,
-  FlashcardType,
-} from "@armin/core/flashcard-types";
+import type { FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
 
 export type Grade = 1 | 2 | 3 | 4;
 

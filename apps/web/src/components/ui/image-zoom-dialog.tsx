@@ -6,8 +6,7 @@ const MIN_SCALE = 0.25;
 const MAX_SCALE = 8;
 const STEP = 1.2;
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value));
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 /**
  * Centered modal that shows a card image at full size with zoom in/out, reset,
@@ -49,9 +48,7 @@ export function ImageZoomDialog({
     // parent dialog (e.g. the flashcard form) would otherwise keep it.
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const focusFrame = requestAnimationFrame(() => {
-      panelRef.current
-        ?.querySelector<HTMLElement>("button:not([disabled])")
-        ?.focus();
+      panelRef.current?.querySelector<HTMLElement>("button:not([disabled])")?.focus();
     });
 
     const onKey = (event: KeyboardEvent) => {
@@ -116,8 +113,7 @@ export function ImageZoomDialog({
 
   if (!open || !src) return null;
 
-  const zoomBy = (factor: number) =>
-    setScale((s) => clamp(s * factor, MIN_SCALE, MAX_SCALE));
+  const zoomBy = (factor: number) => setScale((s) => clamp(s * factor, MIN_SCALE, MAX_SCALE));
   const reset = () => {
     setScale(1);
     setOffset({ x: 0, y: 0 });

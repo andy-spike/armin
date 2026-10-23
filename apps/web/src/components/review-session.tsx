@@ -34,17 +34,10 @@ import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
 import { reviewKeys } from "@/lib/armin-query";
 import { useScope } from "@/keybindings/keybindings-provider";
-import type {
-  FlashcardDeleteConsequences,
-  Grade,
-  PreviewOption,
-} from "@/types/window";
+import type { FlashcardDeleteConsequences, Grade, PreviewOption } from "@/types/window";
 import type { UiFlashcard, UiReviewUnit } from "@/types/view-models";
 import { matchesTypeAnswer } from "@armin/core/flashcard-rules";
-import type {
-  ImageOcclusionContent,
-  TypeAnswerContent,
-} from "@armin/core/flashcard-types";
+import type { ImageOcclusionContent, TypeAnswerContent } from "@armin/core/flashcard-types";
 import { cn } from "@/lib/utils";
 
 /*
@@ -137,10 +130,7 @@ function reconcileSessionCards(
   const reviewedVersions = new Map<string, number>();
   for (const c of current) {
     if (c.reviewed) {
-      reviewedVersions.set(
-        c.id,
-        Math.max(reviewedVersions.get(c.id) ?? 0, c.version),
-      );
+      reviewedVersions.set(c.id, Math.max(reviewedVersions.get(c.id) ?? 0, c.version));
     }
   }
   let staleActive: UiReviewUnit | null = null;
@@ -157,13 +147,9 @@ function reconcileSessionCards(
   // A completed occurrence stays in history. A newly due occurrence belongs
   // ahead of the cursor, but an old queue response must not resurrect it.
   const appended = incoming
-    .filter((c) =>
-      !pendingIds.has(c.id) && c.version >= (reviewedVersions.get(c.id) ?? 0),
-    )
+    .filter((c) => !pendingIds.has(c.id) && c.version >= (reviewedVersions.get(c.id) ?? 0))
     .map(sessionReviewUnit);
-  const missing = current.filter(
-    (c) => !c.reviewed && !incomingById.has(c.id),
-  );
+  const missing = current.filter((c) => !c.reviewed && !incomingById.has(c.id));
   return { cards: [...updated, ...appended], staleActive, missing };
 }
 
@@ -201,21 +187,18 @@ export type ReviewSessionProps = {
   isLoading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
-  loadPreview: (reviewUnitId: string) => Promise<{ version: number; options: PreviewOption[] } | null>;
+  loadPreview: (
+    reviewUnitId: string,
+  ) => Promise<{ version: number; options: PreviewOption[] } | null>;
   onRate: (card: UiReviewUnit, rating: Grade, requestId: string) => Promise<RateResult>;
   onUndo?: (entry: HistoryEntry, requestId: string) => Promise<UndoResult>;
   /** False while disconnected: no new answers are submitted. */
   online?: boolean;
   loadCard?: (flashcardId: string) => Promise<UiFlashcard | undefined>;
-  onEditFlashcard?: (
-    flashcard: UiFlashcard,
-    values: CardFormValues,
-  ) => Promise<void>;
+  onEditFlashcard?: (flashcard: UiFlashcard, values: CardFormValues) => Promise<void>;
   onArchiveFlashcard?: (flashcardId: string) => Promise<void>;
   onDeleteFlashcard?: (flashcardId: string) => Promise<void>;
-  loadDeleteConsequences?: (
-    flashcardId: string,
-  ) => Promise<FlashcardDeleteConsequences>;
+  loadDeleteConsequences?: (flashcardId: string) => Promise<FlashcardDeleteConsequences>;
 };
 
 export function ReviewSession({
@@ -247,50 +230,42 @@ export function ReviewSession({
   const [sessionCards, setSessionCards] = useState<SessionReviewUnit[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [pending, setPending] = useState<PendingRating | null>(null);
-  const [staleCard, setStaleCard] = useState<{ next: UiReviewUnit | null; message: string } | null>(null);
+  const [staleCard, setStaleCard] = useState<{ next: UiReviewUnit | null; message: string } | null>(
+    null,
+  );
   const [notice, setNotice] = useState<string | null>(null);
   const [undoing, setUndoing] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editCard, setEditCard] = useState<UiFlashcard | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteConsequences, setDeleteConsequences] =
-    useState<FlashcardDeleteConsequences | null>(null);
+  const [deleteConsequences, setDeleteConsequences] = useState<FlashcardDeleteConsequences | null>(
+    null,
+  );
   const [deleteConsequencesError, setDeleteConsequencesError] = useState(false);
   const [flashcardActionPending, setCardActionPending] = useState(false);
 
   const cards = isLoading || isError ? [] : sessionCards;
   const card = cards[index];
   const remaining = cards.filter((c) => !c.reviewed).length;
-  const subtitleContent =
-    typeof subtitle === "function" ? subtitle(remaining) : subtitle;
-  const done =
-    !isLoading && !isError && index >= cards.length && cards.length > 0;
+  const subtitleContent = typeof subtitle === "function" ? subtitle(remaining) : subtitle;
+  const done = !isLoading && !isError && index >= cards.length && cards.length > 0;
   const empty = !isLoading && !isError && cards.length === 0;
 
   const isTypeAnswer = card?.type === "type_answer";
   const typeAnswerContent =
     card?.type === "type_answer" ? (card.content as TypeAnswerContent) : null;
   const imageOcclusionContent =
-    card?.type === "image_occlusion"
-      ? (card.content as ImageOcclusionContent)
-      : null;
-  const isCorrect = typeAnswerContent
-    ? matchesTypeAnswer(typed, typeAnswerContent)
-    : false;
+    card?.type === "image_occlusion" ? (card.content as ImageOcclusionContent) : null;
+  const isCorrect = typeAnswerContent ? matchesTypeAnswer(typed, typeAnswerContent) : false;
 
   const preview = useQuery({
-    queryKey: card
-      ? [...reviewKeys.preview(card.id), card.version]
-      : ["review", "preview", "none"],
+    queryKey: card ? [...reviewKeys.preview(card.id), card.version] : ["review", "preview", "none"],
     queryFn: () => loadPreview(card!.id),
     enabled: Boolean(card && !card.reviewed),
   });
 
   const intervalLabels = new Map<Grade, string>(
-    (preview.data?.options ?? []).map((option) => [
-      option.rating as Grade,
-      option.label,
-    ]),
+    (preview.data?.options ?? []).map((option) => [option.rating as Grade, option.label]),
   );
 
   const reveal = () => {
@@ -346,12 +321,14 @@ export function ReviewSession({
             version: result.version,
           },
         ]);
-        const updated = cards.map((c) => c.turnId === card.turnId
-          ? { ...c, version: result.version, reviewed: true }
-          : c);
-        setSessionCards((prev) => prev.map((c) => c.turnId === card.turnId
-          ? { ...c, version: result.version, reviewed: true }
-          : c));
+        const updated = cards.map((c) =>
+          c.turnId === card.turnId ? { ...c, version: result.version, reviewed: true } : c,
+        );
+        setSessionCards((prev) =>
+          prev.map((c) =>
+            c.turnId === card.turnId ? { ...c, version: result.version, reviewed: true } : c,
+          ),
+        );
         setFlipped(false);
         setTyped("");
         setIndex(nextUnreviewedIndex(updated, index));
@@ -374,7 +351,9 @@ export function ReviewSession({
     if (!card || !staleCard) return;
     if (staleCard.next) {
       const next = staleCard.next;
-      setSessionCards((prev) => prev.map((c) => (c.turnId === card.turnId ? { ...c, ...next } : c)));
+      setSessionCards((prev) =>
+        prev.map((c) => (c.turnId === card.turnId ? { ...c, ...next } : c)),
+      );
     } else {
       removeFromSession(card.id);
     }
@@ -407,9 +386,9 @@ export function ReviewSession({
         // any waiting repeat of that unit so it cannot appear twice.
         const restored = sessionCards
           .filter((c) => c.id !== last.reviewUnitId || c.reviewed)
-          .map((c) => c.turnId === last.turnId
-            ? { ...c, version: result.version, reviewed: false }
-            : c);
+          .map((c) =>
+            c.turnId === last.turnId ? { ...c, version: result.version, reviewed: false } : c,
+          );
         setSessionCards(restored);
         const idx = restored.findIndex((c) => c.turnId === last.turnId);
         if (idx >= 0) setIndex(idx);
@@ -477,9 +456,7 @@ export function ReviewSession({
     }
   };
 
-  const hasCardActions = Boolean(
-    onEditFlashcard || onArchiveFlashcard || onDeleteFlashcard,
-  );
+  const hasCardActions = Boolean(onEditFlashcard || onArchiveFlashcard || onDeleteFlashcard);
 
   const sessionRef = useRef<{
     cards: SessionReviewUnit[];
@@ -523,9 +500,7 @@ export function ReviewSession({
     for (const id of missingCheckedRef.current) {
       if (incomingIds.has(id)) missingCheckedRef.current.delete(id);
     }
-    const unchecked = merged.missing.filter(
-      (c) => !missingCheckedRef.current.has(c.id),
-    );
+    const unchecked = merged.missing.filter((c) => !missingCheckedRef.current.has(c.id));
     if (unchecked.length > 0) {
       void Promise.all(
         unchecked.map(async (missingCard) => {
@@ -543,9 +518,7 @@ export function ReviewSession({
         const deleted = checked.filter((c) => c.deleted).map((c) => c.id);
         if (deleted.length === 0) return;
         for (const id of deleted) removeFromSession(id);
-        setNotice(
-          "This card was deleted in another tab. It was removed from the session.",
-        );
+        setNotice("This card was deleted in another tab. It was removed from the session.");
       });
     }
   }, [isLoading, isError, queue, rating, undoing, removeFromSession]);
@@ -596,27 +569,23 @@ export function ReviewSession({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Enter" && !flipped) {
         e.preventDefault();
-        reveal();
+        if (card) setFlipped(true);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [reviewActive, flipped]);
+  }, [reviewActive, flipped, card]);
 
   return (
     <div className="mx-auto max-w-2xl">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="min-w-0 sm:flex-1 [&_h1]:m-0">{header}</div>
-        {deckSelector && (
-          <div className="min-w-0 w-full sm:w-auto sm:shrink-0">{deckSelector}</div>
-        )}
+        {deckSelector && <div className="min-w-0 w-full sm:w-auto sm:shrink-0">{deckSelector}</div>}
       </div>
 
       {(subtitleContent || card || isLoading) && (
         <div className="mt-1.5 flex flex-col gap-1 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-          {subtitleContent && (
-            <p className="min-w-0 text-pretty text-muted">{subtitleContent}</p>
-          )}
+          {subtitleContent && <p className="min-w-0 text-pretty text-muted">{subtitleContent}</p>}
           {isLoading && <ReviewMetaSkeleton />}
           {card && (
             <div
@@ -665,18 +634,26 @@ export function ReviewSession({
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-review-bg text-good">
             <CheckCircle2 className="h-7 w-7" strokeWidth={1.5} />
           </div>
-          <h2 className="text-xl font-semibold tracking-tight">
-            All caught up
-          </h2>
+          <h2 className="text-xl font-semibold tracking-tight">All caught up</h2>
           <p className="mt-1.5 max-w-[44ch] text-pretty text-sm text-muted">
             {done ? doneDescription : emptyDescription}
           </p>
-          {notice && <p role="alert" className="mt-4 text-sm text-muted">{notice}</p>}
+          {notice && (
+            <p role="alert" className="mt-4 text-sm text-muted">
+              {notice}
+            </p>
+          )}
           {onUndo && history.length > 0 && (
-            <Button variant="outline" className="mt-5" busy={undoing}
-              disabled={undoing || !online} onClick={() => void undoLast()}
-              aria-label="Undo last review">
-              <Undo2 className="h-4 w-4" />Undo
+            <Button
+              variant="outline"
+              className="mt-5"
+              busy={undoing}
+              disabled={undoing || !online}
+              onClick={() => void undoLast()}
+              aria-label="Undo last review"
+            >
+              <Undo2 className="h-4 w-4" />
+              Undo
             </Button>
           )}
           <div className="mt-6">{doneAction}</div>
@@ -711,9 +688,7 @@ export function ReviewSession({
               role="alert"
               className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-hard/50 bg-hard/10 px-4 py-3 text-sm"
             >
-              <span>
-                {staleCard.message} Your answer wasn&apos;t saved.
-              </span>
+              <span>{staleCard.message} Your answer wasn&apos;t saved.</span>
               <Button size="sm" variant="outline" onClick={acceptStaleCard}>
                 {staleCard.next ? "Show the updated card" : "Skip this card"}
               </Button>
@@ -729,7 +704,12 @@ export function ReviewSession({
           )}
           {pending && rating === null && !staleCard && (
             <div className="mb-4 flex justify-end">
-              <Button size="sm" variant="outline" disabled={!online} onClick={() => void rate(pending.rating)}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!online}
+                onClick={() => void rate(pending.rating)}
+              >
                 Try again
               </Button>
             </div>
@@ -746,11 +726,7 @@ export function ReviewSession({
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Flashcard actions"
-                      />
+                      <Button variant="ghost" size="icon-sm" aria-label="Flashcard actions" />
                     }
                   >
                     <EllipsisVertical className="h-4 w-4" />
@@ -829,9 +805,7 @@ export function ReviewSession({
                       <div
                         className={cn(
                           "mb-3 inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-sm font-medium",
-                          isCorrect
-                            ? "bg-review-bg text-good"
-                            : "bg-relearning-bg text-relearning",
+                          isCorrect ? "bg-review-bg text-good" : "bg-relearning-bg text-relearning",
                         )}
                       >
                         {isCorrect ? (
@@ -880,13 +854,18 @@ export function ReviewSession({
                     <button
                       key={r.grade}
                       onClick={() => void rate(r.grade)}
-                      disabled={card.reviewed || rating !== null || undoing || Boolean(staleCard) || (!online && !pending)}
+                      disabled={
+                        card.reviewed ||
+                        rating !== null ||
+                        undoing ||
+                        Boolean(staleCard) ||
+                        (!online && !pending)
+                      }
                       className={cn(
                         "flex h-15 min-w-0 flex-col items-center justify-center gap-0.5 rounded-md px-1 text-sm sm:h-full sm:px-3 font-medium text-on-accent transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
                         r.bg,
                         isTypeAnswer &&
-                          ((isCorrect && r.grade === 3) ||
-                            (!isCorrect && r.grade === 1))
+                          ((isCorrect && r.grade === 3) || (!isCorrect && r.grade === 1))
                           ? "ring-2 ring-ink ring-offset-2 ring-offset-bg"
                           : undefined,
                       )}
@@ -919,7 +898,9 @@ export function ReviewSession({
             </Button>
           </div>
           {card.reviewed && (
-            <p className="mt-3 text-center text-sm text-muted">Already reviewed. Use Undo to change your last answer.</p>
+            <p className="mt-3 text-center text-sm text-muted">
+              Already reviewed. Use Undo to change your last answer.
+            </p>
           )}
         </div>
       )}
@@ -946,8 +927,8 @@ export function ReviewSession({
       >
         <div className="space-y-3 text-sm text-muted">
           <p>
-            Archive is the reversible way to set this aside. Delete removes the
-            flashcard, its review units, and its review history permanently.
+            Archive is the reversible way to set this aside. Delete removes the flashcard, its
+            review units, and its review history permanently.
           </p>
           <ul className="space-y-1 rounded-md border border-border bg-surface-sunken p-3">
             <li>
@@ -969,18 +950,14 @@ export function ReviewSession({
             Cancel
           </Button>
           {onArchiveFlashcard && card && (
-            <Button
-              disabled={flashcardActionPending}
-              onClick={() => void handleArchive()}
-            >
+            <Button disabled={flashcardActionPending} onClick={() => void handleArchive()}>
               Archive instead
             </Button>
           )}
           <Button
             variant="destructive"
             disabled={
-              flashcardActionPending ||
-              Boolean(loadDeleteConsequences && !deleteConsequences)
+              flashcardActionPending || Boolean(loadDeleteConsequences && !deleteConsequences)
             }
             onClick={() => void handleDelete()}
           >

@@ -16,13 +16,7 @@ type GraphContextMenuProps = {
   onClose: () => void;
 };
 
-export function GraphContextMenu({
-  open,
-  x,
-  y,
-  items,
-  onClose,
-}: GraphContextMenuProps) {
+export function GraphContextMenu({ open, x, y, items, onClose }: GraphContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,14 +26,10 @@ export function GraphContextMenu({
     // the arrow keys move between items, and give focus back on close.
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const focusFrame = requestAnimationFrame(() => {
-      ref.current
-        ?.querySelector<HTMLElement>('[role="menuitem"]')
-        ?.focus();
+      ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
     });
     const menuItems = () =>
-      Array.from(
-        ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [],
-      );
+      Array.from(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
 
     const onPointerDown = (event: PointerEvent) => {
       if (ref.current?.contains(event.target as Node)) return;

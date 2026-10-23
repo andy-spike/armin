@@ -90,7 +90,7 @@ their own local deployment. New flashcards record their access state immediately
 
 Development uses a local Convex deployment per checkout, never a cloud dev
 deployment. Run `pnpm dev:setup` from the repository root (with Node 20, 22, or
-24 on `PATH`; local `"use node"` actions need it) to create it, push, set
+24; `vp env` selects the pinned 24, and local `"use node"` actions need it) to create it, push, set
 `SITE_URL`, `MOBILE_TRUSTED_ORIGINS`, and `BETTER_AUTH_SECRET`, seed the sample
 account, and copy its URLs into the web and mobile `.env.local` files. Then
 `pnpm dev` runs the local backend and web client together. Email and Google
@@ -108,7 +108,8 @@ pnpm --filter @armin/backend dev
 # Regenerate convex/_generated without watching (commit the result).
 pnpm --filter @armin/backend codegen
 
-pnpm --filter @armin/backend typecheck
+# Type check every workspace, including Convex functions (from the root).
+pnpm typecheck
 ```
 
 `convex dev` pushes code on save. Add `--typecheck disable` if you want pushes

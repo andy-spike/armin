@@ -57,9 +57,7 @@ export function SearchableSelect({
             val ? (
               <TruncatedLabel label={val.label} />
             ) : (
-              <span className="min-w-0 flex-1 truncate text-left text-muted">
-                {placeholder}
-              </span>
+              <span className="min-w-0 flex-1 truncate text-left text-muted">{placeholder}</span>
             )
           }
         </Combobox.Value>
@@ -135,15 +133,10 @@ export function SearchableMultiSelect({
 }: SearchableMultiSelectProps) {
   const [open, setOpen] = useState(false);
 
-  const selected = useMemo(
-    () => options.filter((o) => value.includes(o.value)),
-    [options, value],
-  );
+  const selected = useMemo(() => options.filter((o) => value.includes(o.value)), [options, value]);
 
   const triggerLabel =
-    selected.length === 0
-      ? placeholder
-      : selected.map((o) => o.label).join(", ");
+    selected.length === 0 ? placeholder : selected.map((o) => o.label).join(", ");
 
   return (
     <Combobox.Root<ComboboxOption, true>
@@ -165,9 +158,7 @@ export function SearchableMultiSelect({
         )}
       >
         {selected.length === 0 ? (
-          <span className="min-w-0 flex-1 truncate text-left text-muted">
-            {triggerLabel}
-          </span>
+          <span className="min-w-0 flex-1 truncate text-left text-muted">{triggerLabel}</span>
         ) : (
           <TruncatedLabel label={triggerLabel} />
         )}

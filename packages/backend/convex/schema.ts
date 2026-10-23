@@ -215,11 +215,7 @@ export default defineSchema({
 
   exports: defineTable({
     libraryId: v.id("libraries"),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("ready"),
-      v.literal("failed"),
-    ),
+    status: v.union(v.literal("pending"), v.literal("ready"), v.literal("failed")),
     storageId: v.optional(v.id("_storage")),
     fileName: v.string(),
     size: v.optional(v.number()),

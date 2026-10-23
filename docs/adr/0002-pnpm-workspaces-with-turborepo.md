@@ -1,6 +1,7 @@
 > Historical document. The desktop app and old sync service were retired on
 > 2026-10-20. Paths below describe the repository at the time of writing;
 > consult README.md for the current web and mobile workspace layout.
+> Turborepo was replaced by Vite+ on 2026-10-23; see ADR 0003.
 
 # The monorepo uses pnpm workspaces with Turborepo and a shared core package
 

@@ -17,8 +17,7 @@ export const flashcardKeys = {
   all: ["flashcards"] as const,
   deck: (deckId: string) => ["flashcards", "deck", deckId] as const,
   deckTags: (deckId: string) => ["flashcards", "deck-tags", deckId] as const,
-  browse: (filters: BrowseQueryFilters) =>
-    ["flashcards", "browse", filters] as const,
+  browse: (filters: BrowseQueryFilters) => ["flashcards", "browse", filters] as const,
   tags: ["flashcards", "tags"] as const,
 };
 
@@ -44,10 +43,7 @@ function browseQueryIncludesDeck(queryKey: readonly unknown[], deckId: string) {
   return !filters?.deckId || filters.deckId === deckId;
 }
 
-export function invalidateDeckScopedData(
-  queryClient: QueryClient,
-  deckId: string,
-) {
+export function invalidateDeckScopedData(queryClient: QueryClient, deckId: string) {
   void queryClient.invalidateQueries({ queryKey: deckKeys.all });
   void queryClient.invalidateQueries({ queryKey: deckKeys.detail(deckId) });
   void queryClient.invalidateQueries({ queryKey: flashcardKeys.deck(deckId) });

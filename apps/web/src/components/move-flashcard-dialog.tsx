@@ -57,13 +57,9 @@ export function MoveFlashcardDialog({
     enabled: open && Boolean(flashcard),
   });
 
-  const otherDecks = (decksQuery.data ?? []).filter(
-    (deck) => deck.id !== flashcard?.deckId,
-  );
+  const otherDecks = (decksQuery.data ?? []).filter((deck) => deck.id !== flashcard?.deckId);
   // Reuse Browse's numbering so duplicate deck names stay distinguishable.
-  const deckOptions = buildDeckFilterOptions(otherDecks).filter(
-    (option) => option.value !== "",
-  );
+  const deckOptions = buildDeckFilterOptions(otherDecks).filter((option) => option.value !== "");
 
   // Reset the picked deck each time the dialog opens, then default it to the
   // first available target once decks load.
@@ -77,8 +73,7 @@ export function MoveFlashcardDialog({
   }, [open, targetDeckId, otherDecks]);
 
   const move = useMutation({
-    mutationFn: () =>
-      armin.flashcards.move(flashcard!.id, targetDeckId!),
+    mutationFn: () => armin.flashcards.move(flashcard!.id, targetDeckId!),
     onSuccess: () => {
       const sourceDeckId = flashcard!.deckId;
       const destinationDeckId = targetDeckId!;
@@ -92,14 +87,10 @@ export function MoveFlashcardDialog({
   });
 
   const consequences = consequencesQuery.data;
-  const linkCount = consequences
-    ? consequences.prerequisiteCount + consequences.dependentCount
-    : 0;
+  const linkCount = consequences ? consequences.prerequisiteCount + consequences.dependentCount : 0;
   const hasLinks = linkCount > 0;
   const noTargets = !decksQuery.isLoading && otherDecks.length === 0;
-  const preview = flashcard?.front
-    ? stripMarkdownForPreview(flashcard.front)
-    : "";
+  const preview = flashcard?.front ? stripMarkdownForPreview(flashcard.front) : "";
 
   return (
     <Dialog
@@ -114,8 +105,7 @@ export function MoveFlashcardDialog({
     >
       {noTargets ? (
         <p className="text-sm text-muted">
-          There are no other decks to move this flashcard into. Create another
-          deck first.
+          There are no other decks to move this flashcard into. Create another deck first.
         </p>
       ) : (
         <div className="space-y-4">
@@ -141,12 +131,11 @@ export function MoveFlashcardDialog({
           {hasLinks && (
             <div className="rounded-md border border-border bg-surface-sunken p-3 text-sm text-muted">
               <p>
-                Prerequisites only connect cards in the same deck, so moving this
-                flashcard will remove{" "}
+                Prerequisites only connect cards in the same deck, so moving this flashcard will
+                remove{" "}
                 {consequences!.prerequisiteCount > 0 &&
                   plural(consequences!.prerequisiteCount, "prerequisite link")}
-                {consequences!.prerequisiteCount > 0 &&
-                consequences!.dependentCount > 0
+                {consequences!.prerequisiteCount > 0 && consequences!.dependentCount > 0
                   ? " and "
                   : ""}
                 {consequences!.dependentCount > 0 &&

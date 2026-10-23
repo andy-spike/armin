@@ -19,12 +19,9 @@ type SignInSearch = { reset?: boolean; deleted?: boolean; redirect?: string };
 export const Route = createFileRoute("/sign-in")({
   validateSearch: (search: Record<string, unknown>): SignInSearch => ({
     // Validation runs again on its own output, where these are booleans.
-    reset:
-      search.reset === true || search.reset === "1" || search.reset === 1 ? true : undefined,
+    reset: search.reset === true || search.reset === "1" || search.reset === 1 ? true : undefined,
     deleted:
-      search.deleted === true || search.deleted === "1" || search.deleted === 1
-        ? true
-        : undefined,
+      search.deleted === true || search.deleted === "1" || search.deleted === 1 ? true : undefined,
     redirect: safeRedirectPath(search.redirect),
   }),
   beforeLoad: ({ context, search }) => {

@@ -42,10 +42,7 @@ export const PRESET_FIELDS = [
  * prerequisite stability floor (how solid a prereq must be before it unlocks
  * dependents), and how many new review units enter per day.
  */
-export const PRESET_VALUES: Record<
-  Exclude<SchedulingPreset, "custom">,
-  PresetValues
-> = {
+export const PRESET_VALUES: Record<Exclude<SchedulingPreset, "custom">, PresetValues> = {
   balanced: {
     requestRetention: 0.9,
     maximumInterval: 36500,
@@ -88,9 +85,10 @@ export const PRESET_OPTIONS: { value: SchedulingPreset; label: string }[] = [
   { value: "custom", label: "Custom" },
 ];
 
-export const SCHEDULING_PRESET_VALUES = PRESET_OPTIONS.map(
-  (option) => option.value,
-) as [SchedulingPreset, ...SchedulingPreset[]];
+export const SCHEDULING_PRESET_VALUES = PRESET_OPTIONS.map((option) => option.value) as [
+  SchedulingPreset,
+  ...SchedulingPreset[],
+];
 
 export function presetLabel(preset: SchedulingPreset): string {
   return PRESET_OPTIONS.find((option) => option.value === preset)?.label ?? "";
@@ -107,12 +105,7 @@ export function fieldDiffersFromPreset<K extends keyof PresetValues>(
 }
 
 /** True when any preset-controlled field differs from the active named preset. */
-export function presetHasOverrides(
-  preset: SchedulingPreset,
-  values: PresetValues,
-): boolean {
+export function presetHasOverrides(preset: SchedulingPreset, values: PresetValues): boolean {
   if (preset === "custom") return false;
-  return PRESET_FIELDS.some((key) =>
-    fieldDiffersFromPreset(preset, key, values[key]),
-  );
+  return PRESET_FIELDS.some((key) => fieldDiffersFromPreset(preset, key, values[key]));
 }

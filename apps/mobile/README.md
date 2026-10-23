@@ -15,14 +15,12 @@ are later work.
 Run these commands from the repository root:
 
 ```bash
-# This repo pins Node 24 LTS through mise.toml and .nvmrc.
-mise install
+# Vite+ selects the Node version in .node-version and the pinned pnpm version.
 pnpm install --frozen-lockfile
 pnpm --filter ./apps/mobile start
 ```
 
-If you use nvm instead of mise, run `nvm install && nvm use`. Use the pnpm
-version pinned in the root package.json.
+Install the Vite+ global CLI first if you haven't (see the root README).
 
 1. Install or update [Expo Go](https://expo.dev/go) on your Android phone.
    This app needs an Expo Go version that supports SDK 57.
@@ -161,15 +159,14 @@ agent-device open host.exp.exponent exp://localhost:8081 --platform android --se
 ## Verify changes
 
 ```bash
-pnpm typecheck
-pnpm lint
+pnpm check
 pnpm --filter ./apps/mobile check:expo
 pnpm --filter ./apps/mobile check:bundle
 ```
 
 `check:expo` runs Expo Doctor. `check:bundle` exports Android and iOS bundles
-to the ignored `apps/mobile/dist/` folder. CI checks both bundles, and the
-mobile typecheck participates in the root Turborepo command. Bundle checks
+to the ignored `apps/mobile/dist/` folder. CI checks both bundles, and
+`pnpm check` type checks the mobile workspace with the others. Bundle checks
 verify compilation and module resolution; confirm runtime behavior on a phone.
 
 ## Workspace and native boundaries

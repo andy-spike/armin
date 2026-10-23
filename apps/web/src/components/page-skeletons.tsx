@@ -20,11 +20,7 @@ function Line({ box, className }: { box: string; className: string }) {
 }
 
 function PageTitle({ children }: { children: ReactNode }) {
-  return (
-    <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">
-      {children}
-    </h1>
-  );
+  return <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">{children}</h1>;
 }
 
 /** One filter field: a label line above a 36px control. */
@@ -318,13 +314,7 @@ function GraphPageSkeleton() {
 
 /* -------------------------------------------------------------- Settings */
 
-function SettingsSectionSkeleton({
-  rows,
-  hintLines = 1,
-}: {
-  rows: number;
-  hintLines?: number;
-}) {
+function SettingsSectionSkeleton({ rows, hintLines = 1 }: { rows: number; hintLines?: number }) {
   return (
     <section className="grid gap-x-10 gap-y-4 md:grid-cols-[240px_1fr]">
       <div className="pt-0.5">

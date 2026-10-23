@@ -42,14 +42,8 @@ typings/
 # TypeScript cache
 *.tsbuildinfo
 
-# Turborepo cache and task logs
-.turbo/
-
 # Optional npm cache directory
 .npm
-
-# Optional eslint cache
-.eslintcache
 
 # Optional REPL history
 .node_repl_history

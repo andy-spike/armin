@@ -59,8 +59,7 @@ when the host is selected.
 ## Checks
 
 ```bash
-pnpm --filter @armin/web typecheck
-pnpm lint
+pnpm check
 pnpm --filter @armin/web build
 ```
 

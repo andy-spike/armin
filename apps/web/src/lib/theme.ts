@@ -24,9 +24,7 @@ export const TITLEBAR_THEME_OPTIONS: {
 
 export function getSystemTheme(): ResolvedTheme {
   if (typeof window === "undefined") return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 export function resolveTheme(preference: ThemePreference): ResolvedTheme {
@@ -35,14 +33,8 @@ export function resolveTheme(preference: ThemePreference): ResolvedTheme {
   return getSystemTheme();
 }
 
-export function normalizeThemePreference(
-  value: string | null,
-): ThemePreference {
-  if (
-    value === "flexoki-light" ||
-    value === "flexoki-dark" ||
-    value === "system"
-  ) {
+export function normalizeThemePreference(value: string | null): ThemePreference {
+  if (value === "flexoki-light" || value === "flexoki-dark" || value === "system") {
     return value;
   }
   if (value === "light") return "flexoki-light";

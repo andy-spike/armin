@@ -16,7 +16,7 @@
             : "light";
     document.documentElement.dataset.theme = resolved;
     document.documentElement.style.colorScheme = resolved;
-  } catch (e) {
+  } catch {
     document.documentElement.dataset.theme = "light";
     document.documentElement.style.colorScheme = "light";
   }

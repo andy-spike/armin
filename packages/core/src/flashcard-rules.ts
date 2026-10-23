@@ -95,17 +95,13 @@ export function parseClozes(text: string): ClozeDeletion[] {
 
 /** Distinct cluster numbers present in the text, sorted ascending. */
 export function clozeClusters(text: string): number[] {
-  const clusters = new Set(
-    parseClozes(text).map((deletion) => deletion.cluster),
-  );
+  const clusters = new Set(parseClozes(text).map((deletion) => deletion.cluster));
   return [...clusters].sort((a, b) => a - b);
 }
 
 /** True when any `{{…}}` wrapper has no answer text to hide. */
 export function hasEmptyClozeDeletion(text: string): boolean {
-  return parseClozes(text).some(
-    (deletion) => deletion.answer.trim().length === 0,
-  );
+  return parseClozes(text).some((deletion) => deletion.answer.trim().length === 0);
 }
 
 function formatClozeDeletion(deletion: ClozeDeletion) {
@@ -118,9 +114,7 @@ function formatClozeDeletion(deletion: ClozeDeletion) {
 export function normalizeClozeText(text: string): string {
   const deletions = parseClozes(text);
   let i = 0;
-  return text.replace(new RegExp(CLOZE_RE.source, "g"), () =>
-    formatClozeDeletion(deletions[i++]),
-  );
+  return text.replace(new RegExp(CLOZE_RE.source, "g"), () => formatClozeDeletion(deletions[i++]));
 }
 
 function clozeBlank(hint?: string): string {
@@ -128,15 +122,10 @@ function clozeBlank(hint?: string): string {
 }
 
 /** Replace each `{{…}}` in document order, feeding `fn` the resolved deletion. */
-function replaceClozes(
-  text: string,
-  fn: (deletion: ClozeDeletion) => string,
-): string {
+function replaceClozes(text: string, fn: (deletion: ClozeDeletion) => string): string {
   const deletions = parseClozes(text);
   let deletionIndex = 0;
-  return text.replace(new RegExp(CLOZE_RE.source, "g"), () =>
-    fn(deletions[deletionIndex++]),
-  );
+  return text.replace(new RegExp(CLOZE_RE.source, "g"), () => fn(deletions[deletionIndex++]));
 }
 
 /**
@@ -144,14 +133,9 @@ function replaceClozes(
  * replaced with a blank and all other deletions are revealed as their answer;
  * when it is null, every deletion is revealed.
  */
-export function renderClozeText(
-  text: string,
-  blankCluster: number | null,
-): string {
+export function renderClozeText(text: string, blankCluster: number | null): string {
   return replaceClozes(text, (d) =>
-    blankCluster != null && d.cluster === blankCluster
-      ? clozeBlank(d.hint)
-      : d.answer,
+    blankCluster != null && d.cluster === blankCluster ? clozeBlank(d.hint) : d.answer,
   );
 }
 
@@ -194,9 +178,7 @@ export function generateReviewUnits(
     }
     case "type_answer": {
       const typeAnswer = content as TypeAnswerContent;
-      return [
-        { subKey: "", front: typeAnswer.prompt, back: typeAnswer.answer },
-      ];
+      return [{ subKey: "", front: typeAnswer.prompt, back: typeAnswer.answer }];
     }
     case "image_occlusion": {
       const imageOcclusion = content as ImageOcclusionContent;
@@ -255,14 +237,9 @@ export function normalizeAnswer(value: string): string {
 }
 
 /** Does a typed answer match the expected answer or an accepted alternative? */
-export function matchesTypeAnswer(
-  input: string,
-  content: TypeAnswerContent,
-): boolean {
+export function matchesTypeAnswer(input: string, content: TypeAnswerContent): boolean {
   const normalized = normalizeAnswer(input);
   if (!normalized) return false;
   const candidates = [content.answer, ...content.acceptedAnswers];
-  return candidates.some(
-    (candidate) => normalizeAnswer(candidate) === normalized,
-  );
+  return candidates.some((candidate) => normalizeAnswer(candidate) === normalized);
 }

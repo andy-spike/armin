@@ -25,7 +25,10 @@ export const Route = createFileRoute("/media/$")({
         } as RequestInit & { duplex: string });
         return new Response(upstream.body, {
           status: upstream.status,
-          headers: { "Content-Type": upstream.headers.get("content-type") ?? "text/plain", "Cache-Control": "no-store" },
+          headers: {
+            "Content-Type": upstream.headers.get("content-type") ?? "text/plain",
+            "Cache-Control": "no-store",
+          },
         });
       },
       GET: ({ params }) => {

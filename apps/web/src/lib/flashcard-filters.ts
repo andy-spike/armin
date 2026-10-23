@@ -28,9 +28,7 @@ export function matchesDecks(card: UiBrowseFlashcard, selected: string[]): boole
 
 /** Add/remove a value from a selection array (for toggle chips). */
 export function toggleValue<T>(list: T[], value: T): T[] {
-  return list.includes(value)
-    ? list.filter((v) => v !== value)
-    : [...list, value];
+  return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }
 
 export function formatCreatedAt(iso: string): string {

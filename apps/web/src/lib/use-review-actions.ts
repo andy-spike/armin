@@ -33,7 +33,11 @@ export function useReviewActions(deckId?: string) {
       toast({ tone: "success", title: "Flashcard archived" });
     },
     onError: (error) =>
-      toast({ tone: "error", title: "Couldn't archive flashcard", description: errorMessage(error) }),
+      toast({
+        tone: "error",
+        title: "Couldn't archive flashcard",
+        description: errorMessage(error),
+      }),
   });
 
   const deleteCard = useMutation({
@@ -43,7 +47,11 @@ export function useReviewActions(deckId?: string) {
       toast({ tone: "error", title: "Flashcard deleted" });
     },
     onError: (error) =>
-      toast({ tone: "error", title: "Couldn't delete flashcard", description: errorMessage(error) }),
+      toast({
+        tone: "error",
+        title: "Couldn't delete flashcard",
+        description: errorMessage(error),
+      }),
   });
 
   return {
@@ -59,10 +67,7 @@ export function useReviewActions(deckId?: string) {
       refresh();
       return result;
     },
-    onUndo: async (
-      entry: { reviewLogId: string; version: number },
-      requestId: string,
-    ) => {
+    onUndo: async (entry: { reviewLogId: string; version: number }, requestId: string) => {
       const result = await armin.review.undo({
         reviewLogId: entry.reviewLogId,
         version: entry.version,

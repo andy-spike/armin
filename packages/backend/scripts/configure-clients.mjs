@@ -14,13 +14,8 @@ try {
   assertTarget(state);
   const values = readEnv(join(backend, ".env.local"));
   for (const key of ["CONVEX_URL", "CONVEX_SITE_URL"]) {
-    if (
-      !values[key] ||
-      !["http:", "https:"].includes(new URL(values[key]).protocol)
-    ) {
-      throw new Error(
-        `Missing or invalid ${key} in packages/backend/.env.local`,
-      );
+    if (!values[key] || !["http:", "https:"].includes(new URL(values[key]).protocol)) {
+      throw new Error(`Missing or invalid ${key} in packages/backend/.env.local`);
     }
   }
   for (const [path, prefix] of [

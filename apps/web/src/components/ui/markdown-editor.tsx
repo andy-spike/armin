@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
@@ -27,15 +21,11 @@ import { armin } from "@/lib/armin-client";
 // authenticated route, and SVG can carry script. The server sniffs uploaded
 // bytes and rejects it too; keeping the picker honest avoids a pointless round
 // trip. Derive the rest from the shared media rules so the two stay in sync.
-const UPLOAD_MIME_TYPES = Object.values(MIME_BY_EXT).filter(
-  (mime) => mime !== MIME_BY_EXT.svg,
-);
+const UPLOAD_MIME_TYPES = Object.values(MIME_BY_EXT).filter((mime) => mime !== MIME_BY_EXT.svg);
 const UPLOAD_ACCEPT = UPLOAD_MIME_TYPES.join(",");
 const MAX_UPLOAD_MB = Math.round(MAX_MEDIA_FILE_BYTES / (1024 * 1024));
-const UNSUPPORTED_IMAGE_MESSAGE =
-  "Use a PNG, JPG, GIF, WebP, BMP, or AVIF image.";
-const NETWORK_ERROR_MESSAGE =
-  "Couldn't reach the server. Check your connection and try again.";
+const UNSUPPORTED_IMAGE_MESSAGE = "Use a PNG, JPG, GIF, WebP, BMP, or AVIF image.";
+const NETWORK_ERROR_MESSAGE = "Couldn't reach the server. Check your connection and try again.";
 
 /** Turn an upload failure into the most specific message we can. */
 function uploadErrorMessage(error: unknown) {
@@ -106,8 +96,10 @@ export function MarkdownEditor({
   "aria-label": ariaLabel,
 }: MarkdownEditorProps) {
   const toast = useToast();
-  const onUploadError = (message: string) =>
-    toast({ tone: "error", title: "Image not added", description: message });
+  const onUploadError = useCallback(
+    (message: string) => toast({ tone: "error", title: "Image not added", description: message }),
+    [toast],
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const plainTextRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -138,9 +130,7 @@ export function MarkdownEditor({
       const el = plainTextRef.current;
       const current = valueRef.current;
       if (!el) {
-        onChange(
-          `${current}${current && !current.endsWith("\n") ? "\n" : ""}${snippet}`,
-        );
+        onChange(`${current}${current && !current.endsWith("\n") ? "\n" : ""}${snippet}`);
         return;
       }
       const start = el.selectionStart ?? current.length;
@@ -193,7 +183,7 @@ export function MarkdownEditor({
           .run();
       }
     },
-    [],
+    [onUploadError],
   );
 
   const editor = useEditor({
@@ -236,10 +226,7 @@ export function MarkdownEditor({
       },
       handlePaste: (_view, event) => {
         const files = event.clipboardData?.files;
-        if (
-          files?.length &&
-          Array.from(files).some((f) => f.type.startsWith("image/"))
-        ) {
+        if (files?.length && Array.from(files).some((f) => f.type.startsWith("image/"))) {
           void insertImageFiles(editorRef.current, files);
           return true;
         }
@@ -247,10 +234,7 @@ export function MarkdownEditor({
       },
       handleDrop: (_view, event) => {
         const files = (event as DragEvent).dataTransfer?.files;
-        if (
-          files?.length &&
-          Array.from(files).some((f) => f.type.startsWith("image/"))
-        ) {
+        if (files?.length && Array.from(files).some((f) => f.type.startsWith("image/"))) {
           event.preventDefault();
           void insertImageFiles(editorRef.current, files);
           return true;
@@ -354,9 +338,8 @@ export function MarkdownEditor({
       </div>
       {plainTextMode && (
         <p className="border-t border-border px-3 py-1.5 text-xs text-muted">
-          Shown as Markdown source because this field contains formatting the
-          rich editor can&apos;t display, such as a table. Saving keeps the
-          text exactly as written.
+          Shown as Markdown source because this field contains formatting the rich editor can&apos;t
+          display, such as a table. Saving keeps the text exactly as written.
         </p>
       )}
       <div className="flex items-center justify-end border-t border-border px-2 py-1">

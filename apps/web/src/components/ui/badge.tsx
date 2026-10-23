@@ -5,10 +5,7 @@ import { cn } from "@/lib/utils";
 /** FSRS card states: 0=New, 1=Learning, 2=Review, 3=Relearning. */
 export type ReviewState = 0 | 1 | 2 | 3;
 
-export function Badge({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLSpanElement>) {
+export function Badge({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       className={cn(
@@ -20,10 +17,7 @@ export function Badge({
   );
 }
 
-const STATE_CONFIG: Record<
-  ReviewState,
-  { label: string; cls: string; Icon: typeof Plus }
-> = {
+const STATE_CONFIG: Record<ReviewState, { label: string; cls: string; Icon: typeof Plus }> = {
   0: { label: "New", cls: "bg-new-bg text-new", Icon: Plus },
   1: {
     label: "Learning",

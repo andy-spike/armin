@@ -14,17 +14,10 @@ try {
   assertTarget(state);
   const child = spawn(
     "pnpm",
-    [
-      "exec",
-      "convex",
-      "dev",
-      ...convexPortArgs(state),
-      ...process.argv.slice(2),
-    ],
+    ["exec", "convex", "dev", ...convexPortArgs(state), ...process.argv.slice(2)],
     { cwd: backend, stdio: "inherit" },
   );
-  for (const signal of ["SIGINT", "SIGTERM"])
-    process.on(signal, () => child.kill(signal));
+  for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => child.kill(signal));
   child.on("exit", (code, signal) => {
     process.exitCode = signal ? 130 : (code ?? 1);
   });

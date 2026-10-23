@@ -1,9 +1,4 @@
-import {
-  MarkerType,
-  Position,
-  type Edge,
-  type XYPosition,
-} from "@xyflow/react";
+import { MarkerType, Position, type Edge, type XYPosition } from "@xyflow/react";
 import type { UiDeckGraph } from "@/types/view-models";
 import { CARD_NODE_HEIGHT, CARD_NODE_WIDTH } from "@/lib/graph-layout";
 import type { CardFlowNode } from "@/components/prerequisite-graph/flashcard-node";
@@ -53,9 +48,7 @@ export function makeFlowEdge(prereqId: string, dependentId: string): Edge {
  * paint accent, the rest fade back. Returns a new edge so React Flow re-renders.
  */
 export function styleEdgeForEmphasis(edge: Edge, emphasis: EdgeEmphasis): Edge {
-  if (
-    (edge.data as Partial<GraphFlowEdgeData> | undefined)?.emphasis === emphasis
-  ) {
+  if ((edge.data as Partial<GraphFlowEdgeData> | undefined)?.emphasis === emphasis) {
     return edge;
   }
   if (emphasis === "active") {
@@ -177,11 +170,7 @@ export function graphToFlowElements(
 ): { nodes: CardFlowNode[]; edges: Edge[] } {
   const incidentNodeIds = incidentNodeIdsOf(graph.edges);
   const nodes: CardFlowNode[] = graph.nodes.map((n, index) =>
-    toFlowNode(
-      n,
-      incidentNodeIds,
-      savedPositions?.get(n.id) ?? fallbackPositionFor(index),
-    ),
+    toFlowNode(n, incidentNodeIds, savedPositions?.get(n.id) ?? fallbackPositionFor(index)),
   );
   const edges = graph.edges.map((e) => makeFlowEdge(e.prereqId, e.dependentId));
   return { nodes, edges };
@@ -233,11 +222,7 @@ export async function buildGraphFlowElementsAsync(
   for (let index = 0; index < graph.nodes.length; index++) {
     const node = graph.nodes[index];
     nodes.push(
-      toFlowNode(
-        node,
-        incidentNodeIds,
-        savedPositions.get(node.id) ?? fallbackPositionFor(index),
-      ),
+      toFlowNode(node, incidentNodeIds, savedPositions.get(node.id) ?? fallbackPositionFor(index)),
     );
     if ((index + 1) % chunkSize === 0) {
       await yieldToScheduler();

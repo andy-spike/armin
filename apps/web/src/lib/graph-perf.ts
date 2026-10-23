@@ -10,11 +10,7 @@ export function markGraphPerf(name: string) {
 export function measureGraphPerf(name: string, start: string, end: string) {
   if (!import.meta.env.DEV && !window.__ARMIN_E2E__) return;
   try {
-    performance.measure(
-      `armin:graph:${name}`,
-      `armin:graph:${start}`,
-      `armin:graph:${end}`,
-    );
+    performance.measure(`armin:graph:${name}`, `armin:graph:${start}`, `armin:graph:${end}`);
   } catch {
     // Marks are best-effort in development.
   }

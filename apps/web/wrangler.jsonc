@@ -7,5 +7,5 @@
   // Production is served on armincards.app; www redirects there (set up in
   // the Cloudflare dashboard, see docs/deploy-cloudflare.md).
   "routes": [{ "pattern": "armincards.app", "custom_domain": true }],
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
 }

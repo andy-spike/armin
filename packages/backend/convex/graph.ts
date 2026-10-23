@@ -39,8 +39,10 @@ export const getDeck = query({
       .query("prereqs")
       .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
       .collect();
-    const counters = await ctx.db.query("libraryCounters")
-      .withIndex("by_library", q => q.eq("libraryId", library._id)).unique();
+    const counters = await ctx.db
+      .query("libraryCounters")
+      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
+      .unique();
     return {
       version: counters?.revision ?? 0,
       nodes: flashcards.map((flashcard) => {
@@ -67,9 +69,15 @@ export const getDeck = query({
 });
 
 /** Does `from` reach `target` following prerequisite → dependent edges? */
-async function checkVersion(ctx: Parameters<typeof writableLibrary>[0], libraryId: Id<"libraries">, expectedVersion: number) {
-  const counters = await ctx.db.query("libraryCounters")
-    .withIndex("by_library", q => q.eq("libraryId", libraryId)).unique();
+async function checkVersion(
+  ctx: Parameters<typeof writableLibrary>[0],
+  libraryId: Id<"libraries">,
+  expectedVersion: number,
+) {
+  const counters = await ctx.db
+    .query("libraryCounters")
+    .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
+    .unique();
   if ((counters?.revision ?? 0) !== expectedVersion) {
     fail("CONFLICT", "This graph changed elsewhere. Reload it and retry your change.");
   }
@@ -101,7 +109,11 @@ async function reaches(
  * the edge would close a cycle. Every write checks the displayed graph revision.
  */
 export const addPrereq = mutation({
-  args: { prereqId: v.id("flashcards"), dependentId: v.id("flashcards"), expectedVersion: v.number() },
+  args: {
+    prereqId: v.id("flashcards"),
+    dependentId: v.id("flashcards"),
+    expectedVersion: v.number(),
+  },
   handler: async (ctx, { prereqId, dependentId, expectedVersion }) => {
     const library = await writableLibrary(ctx);
     await checkVersion(ctx, library._id, expectedVersion);
@@ -142,7 +154,11 @@ export const addPrereq = mutation({
 });
 
 export const removePrereq = mutation({
-  args: { prereqId: v.id("flashcards"), dependentId: v.id("flashcards"), expectedVersion: v.number() },
+  args: {
+    prereqId: v.id("flashcards"),
+    dependentId: v.id("flashcards"),
+    expectedVersion: v.number(),
+  },
   handler: async (ctx, { prereqId, dependentId, expectedVersion }) => {
     const library = await writableLibrary(ctx);
     await checkVersion(ctx, library._id, expectedVersion);
@@ -150,7 +166,8 @@ export const removePrereq = mutation({
       .query("prereqs")
       .withIndex("by_pair", (q) => q.eq("prereqId", prereqId).eq("dependentId", dependentId))
       .unique();
-    if (!edge || edge.libraryId !== library._id) return { ok: true as const, version: expectedVersion };
+    if (!edge || edge.libraryId !== library._id)
+      return { ok: true as const, version: expectedVersion };
     await ctx.db.delete(edge._id);
     const settings = new SettingsCache(ctx, library._id);
     await refreshDependentSubgraph(ctx, [dependentId], settings, Date.now());
@@ -164,17 +181,17 @@ export const saveLayout = mutation({
   args: {
     deckId: v.id("decks"),
     expectedVersion: v.number(),
-    placements: v.array(
-      v.object({ flashcardId: v.string(), x: v.number(), y: v.number() }),
-    ),
+    placements: v.array(v.object({ flashcardId: v.string(), x: v.number(), y: v.number() })),
   },
   // Positions are last-write-wins and can't break graph rules, so a layout
   // save never conflicts. When the library changed elsewhere, return the
   // caller's version unchanged so its next link edit still detects that.
   handler: async (ctx, { deckId, placements, expectedVersion }) => {
     const library = await writableLibrary(ctx);
-    const counters = await ctx.db.query("libraryCounters")
-      .withIndex("by_library", q => q.eq("libraryId", library._id)).unique();
+    const counters = await ctx.db
+      .query("libraryCounters")
+      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
+      .unique();
     const current = (counters?.revision ?? 0) === expectedVersion;
     const deck = await ownedOrFail(ctx, library, deckId, "Deck");
     if (placements.length > 2000) fail("INVALID", "Too many placements.");

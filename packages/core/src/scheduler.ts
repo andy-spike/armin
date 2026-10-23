@@ -128,15 +128,8 @@ export function isPendingSchedule(reviewUnit: {
   lastReview: Date | number | null;
   reps: number;
 }): boolean {
-  const due =
-    typeof reviewUnit.due === "number"
-      ? reviewUnit.due
-      : reviewUnit.due.getTime();
-  return (
-    reviewUnit.reps === 0 &&
-    reviewUnit.lastReview == null &&
-    due >= PENDING_DUE.getTime()
-  );
+  const due = typeof reviewUnit.due === "number" ? reviewUnit.due : reviewUnit.due.getTime();
+  return reviewUnit.reps === 0 && reviewUnit.lastReview == null && due >= PENDING_DUE.getTime();
 }
 
 /** Epoch-millisecond FSRS state → `Date`-based fields. */
@@ -185,9 +178,7 @@ export function isPrereqSecured(
   reviewUnit: { state: number; stability: number },
   stabilityFloor: number,
 ): boolean {
-  return (
-    reviewUnit.state === State.Review && reviewUnit.stability >= stabilityFloor
-  );
+  return reviewUnit.state === State.Review && reviewUnit.stability >= stabilityFloor;
 }
 
 export { State };

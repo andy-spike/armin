@@ -11,9 +11,7 @@
  * rest of the app never parses `event.key` by hand.
  */
 
-const isMac =
-  typeof navigator !== "undefined" &&
-  navigator.platform.toLowerCase().includes("mac");
+const isMac = typeof navigator !== "undefined" && navigator.platform.toLowerCase().includes("mac");
 
 /** Named keys we keep verbatim (a `Shift` modifier is meaningful on these). */
 const NAMED_KEYS = new Set([

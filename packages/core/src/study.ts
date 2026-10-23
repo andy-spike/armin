@@ -35,10 +35,7 @@ export const SCHEDULING_SETTING_KEYS = [
 ] as const satisfies readonly (keyof SchedulingSettings)[];
 
 /** The Frontier cap is account-wide, so decks cannot override it. */
-export type DeckSettingOverrideKey = Exclude<
-  keyof SchedulingSettings,
-  "newReviewUnitsPerDay"
->;
+export type DeckSettingOverrideKey = Exclude<keyof SchedulingSettings, "newReviewUnitsPerDay">;
 
 export const DECK_SETTING_OVERRIDE_KEYS = SCHEDULING_SETTING_KEYS.filter(
   (key): key is DeckSettingOverrideKey => key !== "newReviewUnitsPerDay",
@@ -106,8 +103,7 @@ function zonedParts(ms: number, timeZone: string) {
     minute: "2-digit",
     second: "2-digit",
   }).formatToParts(ms);
-  const get = (type: string) =>
-    Number(parts.find((part) => part.type === type)?.value ?? 0);
+  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
   return {
     year: get("year"),
     month: get("month"),

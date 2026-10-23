@@ -23,15 +23,9 @@ function decodeHtmlEntities(source: string) {
   return source.replace(
     /&(?:#(\d+)|#x([0-9a-f]+)|([a-z][a-z0-9]+));/gi,
     (match, decimal: string | undefined, hex: string | undefined, named: string | undefined) => {
-      const code = decimal
-        ? Number(decimal)
-        : hex
-          ? Number.parseInt(hex, 16)
-          : undefined;
+      const code = decimal ? Number(decimal) : hex ? Number.parseInt(hex, 16) : undefined;
       if (code !== undefined) {
-        return code >= 0 && code <= 0x10ffff
-          ? String.fromCodePoint(code)
-          : match;
+        return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
       }
       return NAMED_HTML_ENTITIES[(named ?? "").toLowerCase()] ?? match;
     },

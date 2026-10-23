@@ -18,13 +18,10 @@ import {
 } from "@/lib/scheduling-settings";
 import { useEffect, useState } from "react";
 
-const invalidInputClass =
-  "border-again focus-visible:border-again focus-visible:ring-again/30";
+const invalidInputClass = "border-again focus-visible:border-again focus-visible:ring-again/30";
 
 function UnitLabel({ children }: { children: string }) {
-  return (
-    <span className="shrink-0 text-[0.8125rem] text-muted">{children}</span>
-  );
+  return <span className="shrink-0 text-[0.8125rem] text-muted">{children}</span>;
 }
 
 type RetentionInputProps = {
@@ -70,10 +67,7 @@ export function RetentionInput({
         onBlur={handleBlur}
         aria-labelledby={labelledBy}
         aria-invalid={invalid}
-        className={cn(
-          "w-16 text-right tabular-nums",
-          invalid && invalidInputClass,
-        )}
+        className={cn("w-16 text-right tabular-nums", invalid && invalidInputClass)}
       />
       <UnitLabel>%</UnitLabel>
     </div>
@@ -123,10 +117,7 @@ export function MaximumIntervalInput({
         onBlur={handleBlur}
         aria-labelledby={labelledBy}
         aria-invalid={invalid}
-        className={cn(
-          "w-24 text-right tabular-nums",
-          invalid && invalidInputClass,
-        )}
+        className={cn("w-24 text-right tabular-nums", invalid && invalidInputClass)}
       />
       <UnitLabel>days</UnitLabel>
     </div>
@@ -139,11 +130,7 @@ type DurationStepFieldsProps = {
   labelledBy?: string;
 };
 
-function DurationStepFields({
-  step,
-  onChange,
-  labelledBy,
-}: DurationStepFieldsProps) {
+function DurationStepFields({ step, onChange, labelledBy }: DurationStepFieldsProps) {
   const [minutesDraft, setMinutesDraft] = useState(String(step.minutes));
   const [secondsDraft, setSecondsDraft] = useState(String(step.seconds));
   const [invalid, setInvalid] = useState(false);
@@ -189,11 +176,7 @@ function DurationStepFields({
   };
 
   return (
-    <div
-      role="group"
-      aria-labelledby={labelledBy}
-      className="flex items-center gap-1.5"
-    >
+    <div role="group" aria-labelledby={labelledBy} className="flex items-center gap-1.5">
       <Input
         inputMode="numeric"
         value={minutesDraft}
@@ -204,10 +187,7 @@ function DurationStepFields({
         onBlur={handleMinutesBlur}
         aria-label="Minutes"
         aria-invalid={invalid}
-        className={cn(
-          "w-14 text-right tabular-nums",
-          invalid && invalidInputClass,
-        )}
+        className={cn("w-14 text-right tabular-nums", invalid && invalidInputClass)}
       />
       <UnitLabel>min</UnitLabel>
       <Input
@@ -220,10 +200,7 @@ function DurationStepFields({
         onBlur={handleSecondsBlur}
         aria-label="Seconds"
         aria-invalid={invalid}
-        className={cn(
-          "w-14 text-right tabular-nums",
-          invalid && invalidInputClass,
-        )}
+        className={cn("w-14 text-right tabular-nums", invalid && invalidInputClass)}
       />
       <UnitLabel>sec</UnitLabel>
     </div>
@@ -236,11 +213,7 @@ type StepsInputProps = {
   "aria-labelledby"?: string;
 };
 
-export function StepsInput({
-  value,
-  onChange,
-  "aria-labelledby": labelledBy,
-}: StepsInputProps) {
+export function StepsInput({ value, onChange, "aria-labelledby": labelledBy }: StepsInputProps) {
   const step = parseStepsString(value)?.[0] ?? { minutes: 1, seconds: 0 };
 
   const handleChange = (next: StepDuration) => {
@@ -249,13 +222,7 @@ export function StepsInput({
     if (formatted) onChange(formatted);
   };
 
-  return (
-    <DurationStepFields
-      step={step}
-      onChange={handleChange}
-      labelledBy={labelledBy}
-    />
-  );
+  return <DurationStepFields step={step} onChange={handleChange} labelledBy={labelledBy} />;
 }
 
 type StabilityFloorInputProps = {
@@ -301,10 +268,7 @@ export function StabilityFloorInput({
         onBlur={handleBlur}
         aria-labelledby={labelledBy}
         aria-invalid={invalid}
-        className={cn(
-          "w-16 text-right tabular-nums",
-          invalid && invalidInputClass,
-        )}
+        className={cn("w-16 text-right tabular-nums", invalid && invalidInputClass)}
       />
       <UnitLabel>days</UnitLabel>
     </div>
@@ -354,10 +318,7 @@ export function NewCardsPerDayInput({
         onBlur={handleBlur}
         aria-labelledby={labelledBy}
         aria-invalid={invalid}
-        className={cn(
-          "w-16 text-right tabular-nums",
-          invalid && invalidInputClass,
-        )}
+        className={cn("w-16 text-right tabular-nums", invalid && invalidInputClass)}
       />
       <UnitLabel>review units</UnitLabel>
     </div>

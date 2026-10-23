@@ -56,9 +56,7 @@ function ForgotPasswordPage() {
           </FormNotice>
         )}
         {sent && (
-          <FormNotice>
-            If an account exists for {email}, a reset link is on its way.
-          </FormNotice>
+          <FormNotice>If an account exists for {email}, a reset link is on its way.</FormNotice>
         )}
         <Field label="Email" htmlFor="email">
           <Input

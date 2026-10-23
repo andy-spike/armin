@@ -29,22 +29,18 @@ export function computeGraphLayoutResponse(
   now = () => performance.now(),
 ): GraphLayoutWorkerResponse {
   const startedAt = now();
-  const flowNodes: Node<Record<string, unknown>>[] = request.nodes.map(
-    (node) => ({
-      id: node.id,
-      type: "card",
-      position: node.position,
-      data: {},
-    }),
-  );
+  const flowNodes: Node<Record<string, unknown>>[] = request.nodes.map((node) => ({
+    id: node.id,
+    type: "card",
+    position: node.position,
+    data: {},
+  }));
   const flowEdges: Edge[] = request.edges.map((edge) => ({
     id: `${edge.source}-${edge.target}`,
     source: edge.source,
     target: edge.target,
   }));
-  const unplacedIds = new Set(
-    request.nodes.filter((node) => !node.placed).map((node) => node.id),
-  );
+  const unplacedIds = new Set(request.nodes.filter((node) => !node.placed).map((node) => node.id));
   const { nodes } = layoutGraph(flowNodes, flowEdges);
   const finishedAt = now();
 

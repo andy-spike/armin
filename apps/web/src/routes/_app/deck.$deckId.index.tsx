@@ -8,12 +8,7 @@ import {
 } from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
-import {
-  useDeferredValue,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -21,16 +16,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  Plus,
-  Play,
-  Layers,
-  AlertTriangle,
-  Share2,
-  Tag,
-  Settings,
-} from "lucide-react";
+import { ArrowLeft, Plus, Play, Layers, AlertTriangle, Share2, Tag, Settings } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
@@ -43,10 +29,7 @@ import { MoveFlashcardDialog } from "@/components/move-flashcard-dialog";
 import { VirtualFlashcardGrid } from "@/components/virtual-flashcard-grid";
 import { SortControl } from "@/components/sort-control";
 import { SearchableMultiSelect } from "@/components/ui/combobox";
-import {
-  FLASHCARD_SORT_OPTIONS,
-  type FlashcardSortKey,
-} from "@/lib/sort-flashcards";
+import { FLASHCARD_SORT_OPTIONS, type FlashcardSortKey } from "@/lib/sort-flashcards";
 import { formatCardCounts } from "@/lib/browse";
 import { cn } from "@/lib/utils";
 import {
@@ -56,14 +39,8 @@ import {
 } from "@/components/page-skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
-import {
-  invalidateDeckScopedData,
-  type BrowseQueryFilters,
-} from "@/lib/armin-query";
-import {
-  getCachedDeckDetail,
-  getCachedDeckDetailUpdatedAt,
-} from "@/lib/deck-detail-cache";
+import { invalidateDeckScopedData, type BrowseQueryFilters } from "@/lib/armin-query";
+import { getCachedDeckDetail, getCachedDeckDetailUpdatedAt } from "@/lib/deck-detail-cache";
 import { toUiFlashcard, type UiDeck, type UiFlashcard } from "@/types/view-models";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
 import type { FlashcardDeleteConsequences } from "@/types/window";
@@ -77,10 +54,10 @@ function DeckPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editing, setEditing] = useState<UiFlashcard | null>(null);
   const [moveTarget, setMoveTarget] = useState<UiFlashcard | null>(null);
-  const [deleteRequest, setDeleteRequest] =
-    useState<FlashcardDeleteRequest | null>(null);
-  const [deleteConsequences, setDeleteConsequences] =
-    useState<FlashcardDeleteConsequences | null>(null);
+  const [deleteRequest, setDeleteRequest] = useState<FlashcardDeleteRequest | null>(null);
+  const [deleteConsequences, setDeleteConsequences] = useState<FlashcardDeleteConsequences | null>(
+    null,
+  );
   const [deleteConsequencesError, setDeleteConsequencesError] = useState(false);
   const [sort, setSort] = useState<FlashcardSortKey>(DECK_PAGE_SORT);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
@@ -94,8 +71,7 @@ function DeckPage() {
   const deckQuery = useQuery({
     ...deckQueryOptions(deckId),
     initialData: () => getCachedDeckDetail(queryClient, deckId),
-    initialDataUpdatedAt: () =>
-      getCachedDeckDetailUpdatedAt(queryClient, deckId),
+    initialDataUpdatedAt: () => getCachedDeckDetailUpdatedAt(queryClient, deckId),
   });
 
   const tagsQuery = useQuery(deckTagsQuery(deckId));
@@ -106,10 +82,7 @@ function DeckPage() {
   });
 
   const displayed = useMemo(
-    () =>
-      (cardsQuery.data?.pages ?? [])
-        .flatMap((page) => page.flashcards)
-        .map(toUiFlashcard),
+    () => (cardsQuery.data?.pages ?? []).flatMap((page) => page.flashcards).map(toUiFlashcard),
     [cardsQuery.data],
   );
 
@@ -129,8 +102,8 @@ function DeckPage() {
 
   const deckTags = tagsQuery.data ?? [];
   const tagOptions = useMemo(
-    () => deckTags.map((t) => ({ value: t, label: t })),
-    [deckTags],
+    () => (tagsQuery.data ?? []).map((t) => ({ value: t, label: t })),
+    [tagsQuery.data],
   );
 
   const openNew = () => {
@@ -167,8 +140,7 @@ function DeckPage() {
   };
 
   const createCard = useMutation({
-    mutationFn: (values: CardFormValues) =>
-      armin.flashcards.create({ deckId, ...values }),
+    mutationFn: (values: CardFormValues) => armin.flashcards.create({ deckId, ...values }),
     onSuccess: () => {
       invalidateDeckScopedData(queryClient, deckId);
       toast({ tone: "success", title: "Flashcard added" });
@@ -206,15 +178,13 @@ function DeckPage() {
         title: archived ? "Flashcard archived" : "Flashcard unarchived",
       });
     },
-    onError: () =>
-      toast({ tone: "error", title: "Could not update flashcard" }),
+    onError: () => toast({ tone: "error", title: "Could not update flashcard" }),
   });
 
   const saveCard = async (values: CardFormValues) => {
     if (editing) {
       await updateCard.mutateAsync({ id: editing.id, version: editing.version, ...values });
-    }
-    else await createCard.mutateAsync(values);
+    } else await createCard.mutateAsync(values);
   };
 
   const deck = deckQuery.data;
@@ -223,8 +193,7 @@ function DeckPage() {
   // Skeleton covers both the fetch and the deferred tile render that follows it,
   // but only when nothing is on screen yet. Once tiles are rendered, a later
   // data change re-renders them concurrently without flashing back to skeleton.
-  const showCardsSkeleton =
-    (cardsLoading || cardsRendering) && deferredDisplayed.length === 0;
+  const showCardsSkeleton = (cardsLoading || cardsRendering) && deferredDisplayed.length === 0;
   const isError = deckQuery.isError || cardsQuery.isError;
 
   if (isError) {
@@ -339,9 +308,7 @@ function DeckPage() {
                     </>
                   }
                 >
-                  <p className="flex h-9 items-center text-sm text-muted">
-                    No tags
-                  </p>
+                  <p className="flex h-9 items-center text-sm text-muted">No tags</p>
                 </FilterField>
               )}
               <SortControl
@@ -380,9 +347,7 @@ function DeckPage() {
                         archived: !card.archived,
                       })
                     }
-                    loadDeleteConsequences={(id) =>
-                      armin.flashcards.deleteConsequences(id)
-                    }
+                    loadDeleteConsequences={(id) => armin.flashcards.deleteConsequences(id)}
                     onDeleteRequest={requestDelete}
                     onDelete={async () => {
                       await deleteCard.mutateAsync(card.id);
@@ -459,9 +424,7 @@ function DeckHeader({
   return (
     <header className="mb-6 mt-4 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">
-          {deck.name}
-        </h1>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">{deck.name}</h1>
         <p className="mt-1 text-sm text-muted">
           {formatCardCounts(deck.total, deck.archived)}
           <span className="text-border-strong"> · </span>
@@ -492,11 +455,7 @@ function DeckHeader({
           <Settings className="h-4 w-4" />
         </Button>
         {dueCount > 0 && (
-          <Link
-            to="/deck/$deckId/review"
-            params={{ deckId: deck.id }}
-            className={buttonVariants()}
-          >
+          <Link to="/deck/$deckId/review" params={{ deckId: deck.id }} className={buttonVariants()}>
             <Play className="h-4 w-4" /> Review
           </Link>
         )}

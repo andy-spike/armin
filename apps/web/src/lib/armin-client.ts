@@ -2,16 +2,8 @@ import type { ConvexReactClient } from "convex/react";
 import type { FunctionArgs } from "convex/server";
 import { ConvexError } from "convex/values";
 import { api } from "@armin/backend/api";
-import type {
-  Id,
-  RateResult,
-  UndoResult,
-  UpdateResult,
-} from "@armin/backend/types";
-import type {
-  FlashcardContent,
-  FlashcardType,
-} from "@armin/core/flashcard-types";
+import type { Id, RateResult, UndoResult, UpdateResult } from "@armin/backend/types";
+import type { FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
 import type { Grade } from "@/types/window";
 
 /**
@@ -139,14 +131,20 @@ export const armin = {
         limit: offset + input.limit,
         now: nowTick(),
       });
-      if (!page) return { flashcards: [], filteredTotal: 0, filteredArchived: 0, libraryTotal: 0, libraryArchived: 0 };
+      if (!page)
+        return {
+          flashcards: [],
+          filteredTotal: 0,
+          filteredArchived: 0,
+          libraryTotal: 0,
+          libraryArchived: 0,
+        };
       return { ...page, flashcards: page.flashcards.slice(offset) };
     },
     listTags: async () => (await q().query(api.flashcards.listTags, {})) ?? [],
     listDeckTags: async (deckId: string) =>
       (await q().query(api.flashcards.listDeckTags, { deckId })) ?? [],
-    get: async (id: string) =>
-      (await q().query(api.flashcards.get, { flashcardId: id })) ?? null,
+    get: async (id: string) => (await q().query(api.flashcards.get, { flashcardId: id })) ?? null,
     deleteConsequences: async (id: string) => {
       const result = await q().query(api.flashcards.deleteConsequences, {
         flashcardId: id as Id<"flashcards">,
@@ -262,7 +260,12 @@ export const armin = {
       deckId: string,
       placements: { flashcardId: string; x: number; y: number }[],
       expectedVersion: number,
-    ) => q().mutation(api.graph.saveLayout, { deckId: deckId as Id<"decks">, placements, expectedVersion }),
+    ) =>
+      q().mutation(api.graph.saveLayout, {
+        deckId: deckId as Id<"decks">,
+        placements,
+        expectedVersion,
+      }),
   },
   settings: {
     get: async () => {
@@ -292,7 +295,7 @@ export const armin = {
         body: input.file,
       });
       if (!response.ok) throw new Error(await response.text());
-      return await response.json() as ImportedMedia;
+      return (await response.json()) as ImportedMedia;
     },
   },
   exports: {

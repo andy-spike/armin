@@ -3,13 +3,7 @@ import { join } from "node:path";
 import { hashPassword } from "better-auth/crypto";
 import { ConvexHttpClient } from "convex/browser";
 import { anyApi as api } from "convex/server";
-import {
-  assertTarget,
-  convex,
-  readState,
-  root,
-  saveState,
-} from "./dev-environment.mjs";
+import { assertTarget, convex, readState, root, saveState } from "./dev-environment.mjs";
 
 export async function seedWorktree() {
   const state = readState();
@@ -27,16 +21,9 @@ export async function seedWorktree() {
   // No fixture endpoint or verification bypass is added to the application.
   function adapter(name, args) {
     return JSON.parse(
-      convex(
-        [
-          "run",
-          `adapter:${name}`,
-          JSON.stringify(args),
-          "--component",
-          "betterAuth",
-        ],
-        { stdio: ["ignore", "pipe", "inherit"] },
-      ) || "null",
+      convex(["run", `adapter:${name}`, JSON.stringify(args), "--component", "betterAuth"], {
+        stdio: ["ignore", "pipe", "inherit"],
+      }) || "null",
     );
   }
   const now = Date.now();
@@ -83,28 +70,21 @@ export async function seedWorktree() {
     });
   }
 
-  const response = await fetch(
-    `${values.CONVEX_SITE_URL}/api/auth/sign-in/email`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json", origin: state.siteUrl },
-      body: JSON.stringify(credentials),
-    },
-  );
-  if (!response.ok)
-    throw new Error(`Demo sign-in failed with HTTP ${response.status}.`);
+  const response = await fetch(`${values.CONVEX_SITE_URL}/api/auth/sign-in/email`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: state.siteUrl },
+    body: JSON.stringify(credentials),
+  });
+  if (!response.ok) throw new Error(`Demo sign-in failed with HTTP ${response.status}.`);
   const cookie = response.headers
     .getSetCookie()
     .map((entry) => entry.split(";")[0])
     .join("; ");
-  const tokenResponse = await fetch(
-    `${values.CONVEX_SITE_URL}/api/auth/convex/token`,
-    { headers: { cookie, origin: state.siteUrl } },
-  );
+  const tokenResponse = await fetch(`${values.CONVEX_SITE_URL}/api/auth/convex/token`, {
+    headers: { cookie, origin: state.siteUrl },
+  });
   if (!tokenResponse.ok)
-    throw new Error(
-      `Demo token request failed with HTTP ${tokenResponse.status}.`,
-    );
+    throw new Error(`Demo token request failed with HTTP ${tokenResponse.status}.`);
   const { token } = await tokenResponse.json();
   const client = new ConvexHttpClient(values.CONVEX_URL);
   client.setAuth(token);
@@ -130,8 +110,7 @@ export async function seedWorktree() {
       {
         type: "basic",
         content: {
-          front:
-            "When does a card blocked by a prerequisite become eligible for study?",
+          front: "When does a card blocked by a prerequisite become eligible for study?",
           back: "When its active prerequisites are secured.",
         },
       },

@@ -31,9 +31,7 @@ function ReviewPage() {
       <div className="mx-auto max-w-2xl">
         <div className="mt-16 flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
           <h2 className="text-xl font-semibold">Deck not found</h2>
-          <p className="mt-1 text-sm text-muted">
-            This deck isn&apos;t in your library anymore.
-          </p>
+          <p className="mt-1 text-sm text-muted">This deck isn&apos;t in your library anymore.</p>
           <Link to="/" className="mt-6">
             <Button variant="outline">Back to decks</Button>
           </Link>
@@ -62,9 +60,7 @@ function ReviewPage() {
           >
             <ArrowLeft className="h-4 w-4" /> Back to deck
           </Link>
-          <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">
-            Review
-          </h1>
+          <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">Review</h1>
         </div>
       }
       doneAction={
@@ -83,4 +79,3 @@ export const Route = createFileRoute("/_app/deck/$deckId/review")({
   head: () => ({ meta: [{ title: "Deck review · Armin" }] }),
   component: ReviewPage,
 });
-

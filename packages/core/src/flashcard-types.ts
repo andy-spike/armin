@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  clozeClusters,
-  hasEmptyClozeDeletion,
-  normalizeClozeText,
-} from "./flashcard-rules";
+import { clozeClusters, hasEmptyClozeDeletion, normalizeClozeText } from "./flashcard-rules";
 
 export * from "./flashcard-rules";
 
@@ -82,9 +78,7 @@ const imageOcclusionContentSchema = z.object({
 export type BasicContent = z.infer<typeof basicContentSchema>;
 export type ClozeContent = z.infer<typeof clozeContentSchema>;
 export type TypeAnswerContent = z.infer<typeof typeAnswerContentSchema>;
-export type ImageOcclusionGeometry = z.infer<
-  typeof imageOcclusionGeometrySchema
->;
+export type ImageOcclusionGeometry = z.infer<typeof imageOcclusionGeometrySchema>;
 export type ImageOcclusionMask = z.infer<typeof imageOcclusionMaskSchema>;
 export type ImageOcclusionContent = z.infer<typeof imageOcclusionContentSchema>;
 
@@ -113,12 +107,10 @@ const contentSchemaByType = {
  */
 const storedContentSchemaByType = {
   ...contentSchemaByType,
-  cloze: z
-    .object({ text: z.string().min(1) })
-    .refine((c) => clozeClusters(c.text).length > 0, {
-      message: "Cloze text must contain at least one {{…}} deletion.",
-      path: ["text"],
-    }),
+  cloze: z.object({ text: z.string().min(1) }).refine((c) => clozeClusters(c.text).length > 0, {
+    message: "Cloze text must contain at least one {{…}} deletion.",
+    path: ["text"],
+  }),
 } as const;
 
 function normalizeContent<T extends FlashcardType>(
@@ -153,9 +145,7 @@ export function parseStoredContent(
     throw new Error(`Unknown flashcard type: ${type}`);
   }
   const parsed = JSON.parse(raw) as unknown;
-  const content = storedContentSchemaByType[type].parse(
-    parsed,
-  ) as FlashcardContent;
+  const content = storedContentSchemaByType[type].parse(parsed) as FlashcardContent;
   if (type === "cloze") {
     return {
       type,

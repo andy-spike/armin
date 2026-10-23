@@ -16,14 +16,10 @@ export function Progress({
   tone?: "accent" | "good" | "ink";
 }) {
   const pct = max <= 0 ? 0 : Math.min(100, Math.max(0, (value / max) * 100));
-  const fill =
-    tone === "good" ? "bg-good" : tone === "ink" ? "bg-ink" : "bg-accent";
+  const fill = tone === "good" ? "bg-good" : tone === "ink" ? "bg-ink" : "bg-accent";
   return (
     <div
-      className={cn(
-        "h-1.5 w-full overflow-hidden rounded-full bg-border",
-        className,
-      )}
+      className={cn("h-1.5 w-full overflow-hidden rounded-full bg-border", className)}
       role="progressbar"
       aria-label={label}
       aria-valuenow={Math.round(pct)}

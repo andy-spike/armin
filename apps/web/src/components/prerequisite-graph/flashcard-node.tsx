@@ -8,11 +8,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import { Archive } from "lucide-react";
-import {
-  Badge,
-  StateBadge,
-  type ReviewState,
-} from "@/components/ui/badge";
+import { Badge, StateBadge, type ReviewState } from "@/components/ui/badge";
 import { FlashcardTypeBadge } from "@/components/flashcard-type-badge";
 import type { FlashcardType } from "@armin/core/flashcard-types";
 import { cn } from "@/lib/utils";
@@ -87,13 +83,7 @@ function CardNodeComponent({ data, selected }: NodeProps<CardFlowNode>) {
       )}
     >
       {SIDES.map(({ id, position }) => (
-        <Handle
-          key={id}
-          id={id}
-          type="source"
-          position={position}
-          className="card-graph-handle"
-        />
+        <Handle key={id} id={id} type="source" position={position} className="card-graph-handle" />
       ))}
 
       <div className="mb-2 flex flex-wrap items-center gap-1.5">

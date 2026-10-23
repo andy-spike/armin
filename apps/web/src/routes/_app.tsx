@@ -43,9 +43,7 @@ const readSidebarOpen = createIsomorphicFn()
 const readSidebarWidth = createIsomorphicFn()
   .server(() => clampSidebarWidth(Number(getCookie("sidebar_width") ?? Number.NaN)))
   .client(() => {
-    const saved = document.cookie
-      .split("; ")
-      .find((cookie) => cookie.startsWith("sidebar_width="));
+    const saved = document.cookie.split("; ").find((cookie) => cookie.startsWith("sidebar_width="));
     return clampSidebarWidth(Number(saved?.slice("sidebar_width=".length) ?? Number.NaN));
   });
 
@@ -111,9 +109,7 @@ function AppLayout() {
       <FullPageMessage
         title="You're signed out"
         body="Your session ended. Sign in again to continue."
-        action={
-          <Button onClick={() => window.location.assign("/sign-in")}>Sign in</Button>
-        }
+        action={<Button onClick={() => window.location.assign("/sign-in")}>Sign in</Button>}
       />
     );
   }
@@ -138,7 +134,11 @@ function AppLayout() {
   }
   if (!data.library) {
     return provisionError ? (
-      <FullPageMessage title="Couldn't set up your library" body={provisionError} action={<SignOutButton />} />
+      <FullPageMessage
+        title="Couldn't set up your library"
+        body={provisionError}
+        action={<SignOutButton />}
+      />
     ) : (
       <Shell loading="Setting up your library" />
     );
@@ -148,10 +148,7 @@ function AppLayout() {
 
 function SignOutButton() {
   return (
-    <Button
-      variant="outline"
-      onClick={signOutToSignIn}
-    >
+    <Button variant="outline" onClick={signOutToSignIn}>
       Sign out
     </Button>
   );
@@ -169,7 +166,9 @@ function FullPageMessage({
   return (
     <div className="notebook-bg flex min-h-dvh items-center justify-center px-4">
       <div className="w-full max-w-sm border border-border bg-surface px-6 py-10 text-center">
-        <h1 className="text-lg font-semibold" aria-live="polite">{title}</h1>
+        <h1 className="text-lg font-semibold" aria-live="polite">
+          {title}
+        </h1>
         {body && <p className="mt-2 text-sm text-muted">{body}</p>}
         {action && <div className="mt-6 flex justify-center">{action}</div>}
       </div>

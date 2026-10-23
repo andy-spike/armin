@@ -60,8 +60,20 @@ export const Route = createRootRouteWithContext<{
     links: [
       // The stylesheet only reveals these fonts once parsed; preloading the
       // Latin files used above the fold starts them with the document instead.
-      { rel: "preload", href: interLatin, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
-      { rel: "preload", href: sourceSerifLatin, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
+      {
+        rel: "preload",
+        href: interLatin,
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "preload",
+        href: sourceSerifLatin,
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
       { rel: "stylesheet", href: appCss },
       { rel: "icon", type: "image/png", href: "/favicon.png" },
     ],
@@ -103,7 +115,9 @@ function RootComponent() {
   const context = useRouteContext({ from: Route.id });
   // A server-rendered load ran `beforeLoad` on the server, so the browser
   // starts out remembering that answer instead of asking again on first click.
+  // `browserAuth` is a module-level cache shared across renders by design.
   if (typeof window !== "undefined" && !browserAuth && context.isAuthenticated) {
+    // oxlint-disable-next-line react/globals
     browserAuth = Promise.resolve({ isAuthenticated: true, token: context.token });
   }
   return (

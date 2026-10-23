@@ -31,10 +31,7 @@ function Command<ItemValue>({
   );
 }
 
-function CommandInput({
-  className,
-  ...props
-}: React.ComponentProps<typeof Autocomplete.Input>) {
+function CommandInput({ className, ...props }: React.ComponentProps<typeof Autocomplete.Input>) {
   return (
     <div className="flex items-center gap-2 border-b border-border px-3">
       <Search className="size-4 shrink-0 text-muted" aria-hidden />
@@ -50,42 +47,27 @@ function CommandInput({
   );
 }
 
-function CommandList({
-  className,
-  ...props
-}: React.ComponentProps<typeof Autocomplete.List>) {
+function CommandList({ className, ...props }: React.ComponentProps<typeof Autocomplete.List>) {
   return (
     <Autocomplete.List
       data-slot="command-list"
-      className={cn(
-        "armin-scrollbar max-h-80 overflow-y-auto overflow-x-hidden p-1",
-        className,
-      )}
+      className={cn("armin-scrollbar max-h-80 overflow-y-auto overflow-x-hidden p-1", className)}
       {...props}
     />
   );
 }
 
-function CommandEmpty({
-  className,
-  ...props
-}: React.ComponentProps<typeof Autocomplete.Empty>) {
+function CommandEmpty({ className, ...props }: React.ComponentProps<typeof Autocomplete.Empty>) {
   return (
     <Autocomplete.Empty
       data-slot="command-empty"
-      className={cn(
-        "py-6 text-center text-sm text-muted [&:empty]:hidden",
-        className,
-      )}
+      className={cn("py-6 text-center text-sm text-muted [&:empty]:hidden", className)}
       {...props}
     />
   );
 }
 
-function CommandGroup({
-  className,
-  ...props
-}: React.ComponentProps<typeof Autocomplete.Group>) {
+function CommandGroup({ className, ...props }: React.ComponentProps<typeof Autocomplete.Group>) {
   return (
     <Autocomplete.Group
       data-slot="command-group"
@@ -102,19 +84,13 @@ function CommandGroupLabel({
   return (
     <Autocomplete.GroupLabel
       data-slot="command-group-label"
-      className={cn(
-        "px-2 py-1.5 text-xs font-medium text-muted",
-        className,
-      )}
+      className={cn("px-2 py-1.5 text-xs font-medium text-muted", className)}
       {...props}
     />
   );
 }
 
-function CommandItem({
-  className,
-  ...props
-}: React.ComponentProps<typeof Autocomplete.Item>) {
+function CommandItem({ className, ...props }: React.ComponentProps<typeof Autocomplete.Item>) {
   return (
     <Autocomplete.Item
       data-slot="command-item"
@@ -140,10 +116,7 @@ function CommandSeparator({
   );
 }
 
-function CommandShortcut({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLSpanElement>) {
+function CommandShortcut({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       data-slot="command-shortcut"

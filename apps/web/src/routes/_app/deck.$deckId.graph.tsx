@@ -1,8 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import {
-  deckQuery as deckQueryOptions,
-  prefetchGraphPage,
-} from "@/lib/queries";
+import { deckQuery as deckQueryOptions, prefetchGraphPage } from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -18,11 +15,7 @@ import { useToast } from "@/components/ui/toast";
 import { graphKeys } from "@/lib/armin-query";
 import { useGraphCanvasEdits } from "@/lib/use-graph-canvas-edits";
 import { toUiDeckGraph, type UiDeckGraph } from "@/types/view-models";
-import type {
-  FlashcardContent,
-  FlashcardDeleteConsequences,
-  FlashcardType,
-} from "@/types/window";
+import type { FlashcardContent, FlashcardDeleteConsequences, FlashcardType } from "@/types/window";
 import { cn } from "@/lib/utils";
 import { markGraphPerf, measureGraphPerf } from "@/lib/graph-perf";
 
@@ -134,18 +127,13 @@ function DeckGraphPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingVersion, setEditingVersion] = useState<number | null>(null);
   const [editingType, setEditingType] = useState<FlashcardType>("basic");
-  const [editingContent, setEditingContent] = useState<FlashcardContent | null>(
-    null,
-  );
-  const [pendingPlacement, setPendingPlacement] = useState<XYPosition | null>(
-    null,
-  );
-  const [pendingConnectFrom, setPendingConnectFrom] = useState<string | null>(
-    null,
-  );
+  const [editingContent, setEditingContent] = useState<FlashcardContent | null>(null);
+  const [pendingPlacement, setPendingPlacement] = useState<XYPosition | null>(null);
+  const [pendingConnectFrom, setPendingConnectFrom] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleteConsequences, setDeleteConsequences] =
-    useState<FlashcardDeleteConsequences | null>(null);
+  const [deleteConsequences, setDeleteConsequences] = useState<FlashcardDeleteConsequences | null>(
+    null,
+  );
   const [deleteConsequencesError, setDeleteConsequencesError] = useState(false);
 
   const [graphReady, setGraphReady] = useState(false);
@@ -267,9 +255,7 @@ function DeckGraphPage() {
   return (
     <div data-fullbleed className="relative h-full w-full">
       <h1 className="sr-only">
-        {deckQuery.data
-          ? `${deckQuery.data.name} prerequisite graph`
-          : "Prerequisite graph"}
+        {deckQuery.data ? `${deckQuery.data.name} prerequisite graph` : "Prerequisite graph"}
       </h1>
       {!graphError && (
         <div
@@ -307,10 +293,7 @@ function DeckGraphPage() {
             title="No flashcards yet"
             description="Double-click the canvas to add your first card."
             action={
-              <Button
-                className="pointer-events-auto"
-                onClick={() => openCreate()}
-              >
+              <Button className="pointer-events-auto" onClick={() => openCreate()}>
                 Add your first card
               </Button>
             }
@@ -321,9 +304,7 @@ function DeckGraphPage() {
         <PrerequisiteGraph
           graph={graph}
           deckName={deckQuery.data?.name}
-          onBack={() =>
-            void navigate({ to: "/deck/$deckId", params: { deckId } })
-          }
+          onBack={() => void navigate({ to: "/deck/$deckId", params: { deckId } })}
           onEdgesChange={graphEdits.applyEdgeChange}
           nodePlacements={graphEdits.nodePlacements}
           onCreateCardRequest={openCreate}
@@ -356,9 +337,8 @@ function DeckGraphPage() {
       >
         <div className="space-y-3 text-sm text-muted">
           <p>
-            Archive from the deck or browse view if you want a reversible way to
-            set this aside. Delete removes the flashcard, its review units, and
-            its review history permanently.
+            Archive from the deck or browse view if you want a reversible way to set this aside.
+            Delete removes the flashcard, its review units, and its review history permanently.
           </p>
           <ul className="space-y-1 rounded-md border border-border bg-surface-sunken p-3">
             <li>
