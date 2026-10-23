@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { deckKeys, invalidateCoreData } from "@/lib/armin-query";
+import { buildDeckFilterOptions } from "@/lib/browse";
 import { stripMarkdownForPreview } from "@/lib/markdown-preview";
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`) {
@@ -58,6 +59,10 @@ export function MoveFlashcardDialog({
 
   const otherDecks = (decksQuery.data ?? []).filter(
     (deck) => deck.id !== flashcard?.deckId,
+  );
+  // Reuse Browse's numbering so duplicate deck names stay distinguishable.
+  const deckOptions = buildDeckFilterOptions(otherDecks).filter(
+    (option) => option.value !== "",
   );
 
   // Reset the picked deck each time the dialog opens, then default it to the
@@ -116,10 +121,7 @@ export function MoveFlashcardDialog({
         <div className="space-y-4">
           <Select
             value={targetDeckId ?? undefined}
-            items={otherDecks.map((deck) => ({
-              value: deck.id,
-              label: deck.name,
-            }))}
+            items={deckOptions}
             onValueChange={(next) => setTargetDeckId(next as string)}
           >
             <SelectTrigger className="w-full" aria-label="Destination deck">
@@ -127,9 +129,9 @@ export function MoveFlashcardDialog({
             </SelectTrigger>
             <SelectContent alignItemWithTrigger={false}>
               <SelectGroup>
-                {otherDecks.map((deck) => (
-                  <SelectItem key={deck.id} value={deck.id}>
-                    {deck.name}
+                {deckOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
                   </SelectItem>
                 ))}
               </SelectGroup>

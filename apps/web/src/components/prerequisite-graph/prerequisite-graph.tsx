@@ -146,6 +146,13 @@ function savedPositionsOf(graph: UiDeckGraph): Map<string, XYPosition> {
   return map;
 }
 
+/** Card under a screen point, or null when the pointer is on the pane. */
+function cardIdAtScreenPoint(point: { x: number; y: number }) {
+  const element = document.elementFromPoint(point.x, point.y);
+  const card = element?.closest<HTMLElement>(".react-flow__node");
+  return card?.dataset.id ?? null;
+}
+
 function markGraphPerf(name: string) {
   if (!import.meta.env.DEV && !window.__ARMIN_E2E__) return;
   performance.mark(`armin:graph:${name}`);
@@ -342,6 +349,9 @@ function PrerequisiteGraphCanvas({
   // its direct neighbors; search dims everything outside its scope.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  // Index of the match Enter/Shift+Enter last stepped to, or null while the
+  // whole match set is framed.
+  const [searchStep, setSearchStep] = useState<number | null>(null);
 
   // Start ReactFlow empty: the initial conversion happens off the render path in
   // an abortable, chunked effect (see below) so a large Deck graph can't freeze
@@ -556,6 +566,30 @@ function PrerequisiteGraphCanvas({
     }
     return matches;
   }, [graph.nodes, query]);
+  const searchMatchIds = useMemo(
+    () =>
+      searchMatches
+        ? graph.nodes
+            .filter((node) => searchMatches.has(node.id))
+            .map((node) => node.id)
+        : [],
+    [graph.nodes, searchMatches],
+  );
+  const currentSearchMatchId =
+    searchStep === null ? null : (searchMatchIds[searchStep] ?? null);
+
+  // A new query starts back at the full-match overview.
+  useEffect(() => {
+    setSearchStep(null);
+  }, [query]);
+  // Keep the current position valid when matches disappear after an edit.
+  useEffect(() => {
+    setSearchStep((current) => {
+      if (current === null) return current;
+      if (searchMatchIds.length === 0) return null;
+      return Math.min(current, searchMatchIds.length - 1);
+    });
+  }, [searchMatchIds.length]);
 
   useEffect(() => {
     if (!interactive || graph.nodes.length === 0) return;
@@ -674,6 +708,8 @@ function PrerequisiteGraphCanvas({
           if (source.id === selectedId) emphasis = "active";
           else if (neighborIds.has(source.id)) emphasis = "connected";
           else emphasis = "dimmed";
+        } else if (currentSearchMatchId && source.id === currentSearchMatchId) {
+          emphasis = "active";
         } else if (query === "" || searchMatches?.has(source.id)) {
           emphasis = null;
         } else {
@@ -719,6 +755,7 @@ function PrerequisiteGraphCanvas({
     selectedId,
     query,
     searchMatches,
+    currentSearchMatchId,
     nodeById,
     graph.nodes,
     graph.edges,
@@ -756,6 +793,34 @@ function PrerequisiteGraphCanvas({
     }, 300);
     return () => window.clearTimeout(timer);
   }, [interactive, query, revealSearchMatches, searchMatches]);
+
+  // Enter/Shift+Enter step through individual matches, centering each one. The
+  // first Enter jumps to the first match of the current query.
+  const revealSearchMatch = useCallback(
+    (id: string) => {
+      void fitView({
+        nodes: [{ id }],
+        padding: 0.4,
+        maxZoom: 1,
+        duration: 300,
+      });
+    },
+    [fitView],
+  );
+
+  const stepSearch = (direction: 1 | -1) => {
+    if (query === "" || searchMatchIds.length === 0) return;
+    const next =
+      searchStep === null
+        ? direction === 1
+          ? 0
+          : searchMatchIds.length - 1
+        : (searchStep + direction + searchMatchIds.length) %
+          searchMatchIds.length;
+    lastRevealedQuery.current = query;
+    setSearchStep(next);
+    revealSearchMatch(searchMatchIds[next]);
+  };
 
   const onSelectionChange: OnSelectionChangeFunc = useCallback(
     ({ nodes: selectedNodes }) => {
@@ -862,25 +927,26 @@ function PrerequisiteGraphCanvas({
 
       if (!sourceId) return;
 
-      // A drop onto a card is either a valid link (handled by onConnect) or a
-      // rejected one. Rejections used to vanish silently; say why instead.
-      if (connectionState.toNode) {
-        if (connectionState.isValid) return;
-        const targetId = connectionState.toNode.id;
-        if (targetId === sourceId) {
-          onConnectError?.("A flashcard can’t depend on itself.");
-        } else if (graphIndex.edgeKeys.has(graphEdgeKey(sourceId, targetId))) {
-          onConnectError?.("Those flashcards are already linked.");
-        } else if (wouldCreateCycleIndexed(graphIndex, sourceId, targetId)) {
-          onConnectError?.("That link would create a cycle.");
-        }
+      const point = "changedTouches" in event ? event.changedTouches[0] : event;
+      if (!point) return;
+      const screen = { x: point.clientX, y: point.clientY };
+
+      // React Flow only reports `toNode` for a handle target. A release over a
+      // card's body carries the same intent, so resolve the card under the
+      // pointer and run it through the shared link validation instead of
+      // treating it as an empty-pane release.
+      const targetId =
+        connectionState.toNode?.id ?? cardIdAtScreenPoint(screen);
+
+      if (targetId) {
+        // A valid handle drop already reached onConnect; only rejected drops
+        // need the shared validation's toast.
+        if (connectionState.toNode && connectionState.isValid) return;
+        addLink(sourceId, targetId);
         return;
       }
 
       // Only an empty-pane release opens the add-card popup.
-      const point = "changedTouches" in event ? event.changedTouches[0] : event;
-      if (!point) return;
-      const screen = { x: point.clientX, y: point.clientY };
       setConnectMenu({
         x: screen.x,
         y: screen.y,
@@ -888,7 +954,7 @@ function PrerequisiteGraphCanvas({
         sourceId,
       });
     },
-    [graphIndex, onConnectError, screenToFlowPosition],
+    [addLink, screenToFlowPosition],
   );
 
   const onEdgesDelete: OnEdgesDelete = useCallback(
@@ -915,10 +981,15 @@ function PrerequisiteGraphCanvas({
     [edges, onEdgesDelete],
   );
 
-  // Delete and Backspace remove selected links only. Deleting a flashcard
-  // always goes through the confirmation dialog, never a bare keypress.
+  // Delete and Backspace remove links the user explicitly selected. React Flow
+  // also puts every edge attached to a selected card in this candidate set, so
+  // only keep edges with their own selection; the card itself is never deleted
+  // by a keypress (that goes through the confirmation dialog).
   const onBeforeDelete: OnBeforeDelete<CardFlowNode, Edge> = useCallback(
-    async ({ edges: selectedEdges }) => ({ nodes: [], edges: selectedEdges }),
+    async ({ edges: candidates }) => ({
+      nodes: [],
+      edges: candidates.filter((edge) => edge.selected),
+    }),
     [],
   );
 
@@ -1191,8 +1262,7 @@ function PrerequisiteGraphCanvas({
                   searchMatches.size > 0
                 ) {
                   event.preventDefault();
-                  lastRevealedQuery.current = query;
-                  revealSearchMatches([...searchMatches]);
+                  stepSearch(event.shiftKey ? -1 : 1);
                 }
               }}
               className="w-full min-w-0 bg-transparent text-xs text-ink outline-none placeholder:text-muted @xl:w-40"
@@ -1210,10 +1280,17 @@ function PrerequisiteGraphCanvas({
             {query !== "" && (
               <p
                 role="status"
+                title={
+                  searchStep !== null
+                    ? "Shift+Enter for the previous match"
+                    : undefined
+                }
                 className="pointer-events-none absolute top-full left-0 mt-1 w-max max-w-64 border border-border bg-surface px-2 py-1 text-[0.6875rem] leading-snug text-muted shadow-overlay"
               >
                 {searchMatches && searchMatches.size > 0
-                  ? `${searchMatches.size} ${searchMatches.size === 1 ? "match" : "matches"} · Enter to jump`
+                  ? searchStep !== null
+                    ? `${Math.min(searchStep + 1, searchMatchIds.length)} of ${searchMatchIds.length} · Enter for next`
+                    : `${searchMatches.size} ${searchMatches.size === 1 ? "match" : "matches"} · Enter to step through`
                   : `No cards match “${search.trim()}”.`}
               </p>
             )}
@@ -1275,6 +1352,10 @@ function PrerequisiteGraphCanvas({
         nodesDraggable
         nodesConnectable
         elementsSelectable
+        // Links are removable from the card menu pickers, so keeping dozens of
+        // invisible edge stops out of the tab order gets keyboard users to the
+        // cards faster.
+        edgesFocusable={false}
         deleteKeyCode={["Backspace", "Delete"]}
         proOptions={{ hideAttribution: true }}
         connectionLineStyle={connectionLineStyle}

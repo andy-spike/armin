@@ -164,6 +164,22 @@ function DeckGraphPage() {
   const [deleteConsequences, setDeleteConsequences] =
     useState<FlashcardDeleteConsequences | null>(null);
   const [deleteConsequencesError, setDeleteConsequencesError] = useState(false);
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
+
+  // The dialog focuses its panel on the frame it appears. Wait past that frame
+  // and put initial focus on the safe action, so this destructive confirmation
+  // starts on Cancel instead of the panel.
+  useEffect(() => {
+    if (!deleteId) return;
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => cancelDeleteRef.current?.focus());
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+  }, [deleteId]);
 
   const [graphReady, setGraphReady] = useState(false);
   const [canvasMounted, setCanvasMounted] = useState(false);
@@ -393,8 +409,11 @@ function DeckGraphPage() {
           </ul>
         </div>
         <div className="mt-5 flex flex-wrap justify-end gap-2 pt-1">
-          {/* Focus the safe action when the dialog opens from a key press. */}
-          <Button variant="ghost" autoFocus onClick={() => setDeleteId(null)}>
+          <Button
+            ref={cancelDeleteRef}
+            variant="ghost"
+            onClick={() => setDeleteId(null)}
+          >
             Cancel
           </Button>
           <Button
