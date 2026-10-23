@@ -39,11 +39,14 @@
 
   --armin-new: var(--flexoki-blue-600);
   --armin-new-bg: var(--flexoki-blue-50);
-  --armin-learning: var(--flexoki-yellow-600);
+  /* The 600 accents are below AA as 12px state-badge text on their 50 tint
+     (learning 3.01, review 3.81, relearning 4.03). These darker shades keep
+     the same hue and clear 4.5:1 on both the tinted badge and paper. */
+  --armin-learning: #7d6100;
   --armin-learning-bg: var(--flexoki-yellow-50);
-  --armin-review: var(--flexoki-green-600);
+  --armin-review: #4f650a;
   --armin-review-bg: var(--flexoki-green-50);
-  --armin-relearning: var(--flexoki-orange-600);
+  --armin-relearning: #9d4310;
   --armin-relearning-bg: var(--flexoki-orange-50);
 
   --armin-shadow-overlay: 0 12px 40px -8px rgb(16 15 15 / 0.18);
@@ -80,7 +83,7 @@
   --armin-easy: var(--flexoki-blue-400);
   --armin-easy-deep: var(--flexoki-blue-600);
 
-  --armin-new: var(--flexoki-blue-400);
+  --armin-new: #4a8ac2; /* blue-400 on blue-950 is 4.46:1; this is 4.77:1. */
   --armin-new-bg: var(--flexoki-blue-950);
   --armin-learning: var(--flexoki-yellow-400);
   --armin-learning-bg: var(--flexoki-yellow-950);

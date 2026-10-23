@@ -48,9 +48,11 @@ import type {
 import { cn } from "@/lib/utils";
 
 /*
- * Rating colours. The two flags from the QA audit are corrected locally with
- * per-theme shades (WCAG AA 4.5:1): light "Good" on green and dark "Again" on
- * red. Global theme tokens are shared and owned elsewhere.
+ * Rating colours. Every label, interval, and shortcut chip inside these
+ * buttons must clear WCAG AA (4.5:1) in both themes. Light "Good" and dark
+ * "Again" are local per-theme shades; the dark hover shades are lighter than
+ * the resting colours because a darker hover would drop black text below AA.
+ * Global theme tokens are shared and owned elsewhere.
  */
 const RATINGS: {
   grade: Grade;
@@ -60,15 +62,23 @@ const RATINGS: {
   {
     grade: 1,
     label: "Again",
-    bg: "bg-again hover:bg-again-deep [[data-theme=dark]_&]:bg-[#d35347] [[data-theme=dark]_&]:hover:bg-[#d86055]",
+    bg: "bg-again hover:bg-again-deep [[data-theme=dark]_&]:bg-[#d35347] [[data-theme=dark]_&]:hover:bg-[#e0655a]",
   },
-  { grade: 2, label: "Hard", bg: "bg-hard hover:bg-hard-deep" },
+  {
+    grade: 2,
+    label: "Hard",
+    bg: "bg-hard hover:bg-hard-deep [[data-theme=dark]_&]:hover:bg-[#e58a4f]",
+  },
   {
     grade: 3,
     label: "Good",
-    bg: "bg-good hover:bg-good-deep [[data-theme=light]_&]:bg-[#637b0a] [[data-theme=light]_&]:hover:bg-[#5f770a]",
+    bg: "bg-good hover:bg-good-deep [[data-theme=light]_&]:bg-[#637b0a] [[data-theme=light]_&]:hover:bg-[#5f770a] [[data-theme=dark]_&]:hover:bg-[#9aac4a]",
   },
-  { grade: 4, label: "Easy", bg: "bg-easy hover:bg-easy-deep" },
+  {
+    grade: 4,
+    label: "Easy",
+    bg: "bg-easy hover:bg-easy-deep [[data-theme=dark]_&]:hover:bg-[#639fd0]",
+  },
 ];
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`) {
@@ -858,7 +868,7 @@ export function ReviewSession({
               {!flipped ? (
                 <Button size="lg" className="w-full" onClick={reveal}>
                   {isTypeAnswer ? "Check answer" : "Show answer"}
-                  <Kbd className="ml-1 border-on-accent/25 bg-on-accent/10 text-on-accent shadow-none">
+                  <Kbd className="ml-1 border-on-accent/25 bg-ink/10 text-on-accent shadow-none">
                     {isTypeAnswer ? "Enter" : "Space"}
                   </Kbd>
                 </Button>
@@ -881,7 +891,7 @@ export function ReviewSession({
                     >
                       <span className="flex items-center gap-1.5">
                         {r.label}
-                        <Kbd className="border-on-accent/25 bg-on-accent/10 text-on-accent shadow-none">
+                        <Kbd className="border-on-accent/25 bg-ink/10 text-on-accent shadow-none">
                           {r.grade}
                         </Kbd>
                       </span>

@@ -1,29 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { deckQuery as deckQueryOptions, prefetchReviewPage, reviewQueueQuery } from "@/lib/queries";
+import { deckQuery as deckQueryOptions, prefetchReviewPage } from "@/lib/queries";
 import { useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@armin/backend/api";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ReviewSession } from "@/components/review-session";
 import { useReviewActions } from "@/lib/use-review-actions";
-import { reviewKeys } from "@/lib/armin-query";
+import { useNow } from "@/lib/session";
 import { toUiReviewUnit } from "@/types/view-models";
-
-const QUEUE_POLL_MS = 15_000;
 
 function ReviewPage() {
   const { deckId } = Route.useParams();
-  const queryClient = useQueryClient();
+  const now = useNow();
   const actions = useReviewActions(deckId);
 
   const deckQuery = useQuery(deckQueryOptions(deckId));
-  // Re-polled so newly due units (learning steps, local midnight) appear
-  // without any data write.
-  const queueQuery = useQuery({
-    ...reviewQueueQuery(deckId),
-    refetchInterval: QUEUE_POLL_MS,
-    refetchOnWindowFocus: true,
-  });
+  // Live so newly unlocked or newly due units appear without a reload, and
+  // `now` advances so units become due without any data write.
+  const queueQuery = useQuery(convexQuery(api.review.queue, { deckId, now }));
 
   const queue = useMemo(
     () => (queueQuery.data?.items ?? []).map(toUiReviewUnit),
@@ -55,7 +51,6 @@ function ReviewPage() {
       onRetry={() => {
         void deckQuery.refetch();
         void queueQuery.refetch();
-        void queryClient.invalidateQueries({ queryKey: reviewKeys.all });
       }}
       {...actions}
       header={

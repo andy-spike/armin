@@ -11,6 +11,7 @@ import { Markdown } from "@tiptap/markdown";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { ImagePlus } from "lucide-react";
 import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT } from "@armin/core/media";
+import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
 import { cn } from "@/lib/utils";
 import {
   mediaDisplayUrl,
@@ -80,6 +81,51 @@ function parseMarkdown(editor: Editor, markdown: string) {
   return plainTextContent(resolved);
 }
 
+type MarkdownTokenRecord = {
+  type?: unknown;
+  block?: unknown;
+  tokens?: unknown;
+  items?: unknown;
+  header?: unknown;
+  rows?: unknown;
+};
+
+/**
+ * Markdown constructs the editor schema cannot represent. `@tiptap/markdown`
+ * silently drops GFM tables (marked emits a `table` token with no registered
+ * handler) and rewrites raw HTML blocks, so a stored field containing either
+ * must not open in the rich editor: the next save would lose the original
+ * source. Return a short reason, or null when the editor can represent it.
+ */
+function unrepresentableMarkdown(editor: Editor, markdown: string) {
+  const visit = (value: unknown): string | null => {
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        const found = visit(entry);
+        if (found) return found;
+      }
+      return null;
+    }
+    if (!value || typeof value !== "object") return null;
+    const token = value as MarkdownTokenRecord;
+    if (token.type === "table") return "table";
+    if (token.type === "html" && token.block === true) return "HTML block";
+    for (const key of ["tokens", "items", "header", "rows"] as const) {
+      const found = visit(token[key]);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  try {
+    return visit(editor.markdown?.instance.lexer(markdown) ?? []);
+  } catch {
+    // If the source cannot even be tokenized, keep it verbatim rather than
+    // letting the rich editor reinterpret and rewrite it.
+    return "unparsed Markdown";
+  }
+}
+
 function setMarkdownContent(
   editor: Editor,
   markdown: string,
@@ -117,11 +163,20 @@ export function MarkdownEditor({
   const onUploadError = (message: string) =>
     toast({ tone: "error", title: "Image not added", description: message });
   const containerRef = useRef<HTMLDivElement>(null);
+  const plainTextRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [plainTextMode, setPlainTextMode] = useState(false);
+  const [plainTextReason, setPlainTextReason] = useState("unsupported Markdown");
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
-  // The editor is created once, so reach the latest preview handler via a ref.
+  // The editor is created once, so reach the latest handler/value via refs.
   const onPreviewRef = useRef<((src: string) => void) | null>(null);
   onPreviewRef.current = setPreviewSrc;
+  const plainTextModeRef = useRef(plainTextMode);
+  plainTextModeRef.current = plainTextMode;
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const emittedValueRef = useRef<string | null>(null);
+  const initializedRef = useRef(false);
 
   const syncScrollOverflow = useCallback(() => {
     const el = containerRef.current;
@@ -133,9 +188,33 @@ export function MarkdownEditor({
     }
   }, []);
 
+  const insertPlainMarkdown = useCallback(
+    (snippet: string) => {
+      const el = plainTextRef.current;
+      const current = valueRef.current;
+      if (!el) {
+        onChange(
+          `${current}${current && !current.endsWith("\n") ? "\n" : ""}${snippet}`,
+        );
+        return;
+      }
+      const start = el.selectionStart ?? current.length;
+      const end = el.selectionEnd ?? start;
+      onChange(`${current.slice(0, start)}${snippet}${current.slice(end)}`);
+      requestAnimationFrame(() => {
+        el.focus();
+        const caret = start + snippet.length;
+        el.setSelectionRange(caret, caret);
+      });
+    },
+    [onChange],
+  );
+  const insertPlainMarkdownRef = useRef(insertPlainMarkdown);
+  insertPlainMarkdownRef.current = insertPlainMarkdown;
+
   const insertImageFiles = useCallback(
     async (editor: Editor | null, files: Iterable<File>) => {
-      if (!editor) return;
+      if (!editor && !plainTextModeRef.current) return;
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
         if (!UPLOAD_MIME_TYPES.includes(file.type)) {
@@ -155,6 +234,13 @@ export function MarkdownEditor({
           onUploadError(uploadErrorMessage(error));
           continue;
         }
+        if (plainTextModeRef.current) {
+          // Keep the portable `armin-media:` reference in the source; the
+          // read-only renderer resolves it for display.
+          insertPlainMarkdownRef.current(`![${file.name}](${stored.ref})`);
+          continue;
+        }
+        if (!editor) continue;
         editor
           .chain()
           .focus()
@@ -182,7 +268,7 @@ export function MarkdownEditor({
         emptyEditorClass: "is-editor-empty",
       }),
     ],
-    content: resolveMediaRefsInMarkdown(value),
+    content: "",
     contentType: "markdown",
     editorProps: {
       attributes: {
@@ -228,16 +314,27 @@ export function MarkdownEditor({
       },
     },
     onUpdate: ({ editor: current }) => {
-      onChange(persistMediaRefsInMarkdown(current.getMarkdown()));
+      const next = persistMediaRefsInMarkdown(current.getMarkdown());
+      emittedValueRef.current = next;
+      onChange(next);
       requestAnimationFrame(syncScrollOverflow);
     },
     onCreate: ({ editor: current }) => {
-      // Re-apply the initial value through the fallback-aware loader; the
-      // editor's own markdown parsing drops constructs it cannot represent.
-      setMarkdownContent(current, value);
-      if (autoFocus) {
-        current.commands.focus("end");
+      // Detect constructs the schema cannot represent before loading them:
+      // the editor's own Markdown parsing silently drops GFM tables, and a
+      // later save would then overwrite the stored source without them.
+      const reason = unrepresentableMarkdown(current, value);
+      if (reason) {
+        setPlainTextMode(true);
+        setPlainTextReason(reason);
+      } else {
+        // Re-apply the initial value through the fallback-aware loader.
+        setMarkdownContent(current, value);
+        if (autoFocus) {
+          current.commands.focus("end");
+        }
       }
+      initializedRef.current = true;
       requestAnimationFrame(syncScrollOverflow);
     },
   });
@@ -250,12 +347,25 @@ export function MarkdownEditor({
   }, [editor]);
 
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || !initializedRef.current || plainTextMode) return;
+    // Values emitted by this editor are already representable; only an
+    // externally supplied value needs the lossless-mode check.
+    if (value === emittedValueRef.current) return;
+    const reason = unrepresentableMarkdown(editor, value);
+    if (reason) {
+      setPlainTextMode(true);
+      setPlainTextReason(reason);
+      return;
+    }
     const current = persistMediaRefsInMarkdown(editor.getMarkdown());
     if (value !== current) {
       setMarkdownContent(editor, value);
     }
-  }, [editor, value]);
+  }, [editor, value, plainTextMode]);
+
+  useEffect(() => {
+    if (plainTextMode && autoFocus) plainTextRef.current?.focus();
+  }, [plainTextMode, autoFocus]);
 
   useLayoutEffect(() => {
     syncScrollOverflow();
@@ -289,8 +399,28 @@ export function MarkdownEditor({
         {...(autoFocus ? { "data-autofocus": true } : {})}
         className="markdown-editor armin-scrollbar max-h-[220px] min-h-[88px] w-full px-3 py-2 text-sm leading-relaxed text-ink"
       >
-        <EditorContent editor={editor} />
+        {plainTextMode ? (
+          <AutoGrowTextarea
+            ref={plainTextRef}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            minHeight={88}
+            maxHeight={220}
+            placeholder={placeholder}
+            aria-label={ariaLabel}
+            className="armin-scrollbar resize-none rounded-none border-0 bg-transparent px-0 py-0 font-mono text-xs leading-relaxed focus-visible:ring-0"
+          />
+        ) : (
+          <EditorContent editor={editor} />
+        )}
       </div>
+      {plainTextMode && (
+        <p className="border-t border-border px-3 py-1.5 text-xs text-muted">
+          Shown as Markdown source. The rich editor cannot represent this
+          field&apos;s {plainTextReason}. Saving preserves the original text
+          exactly.
+        </p>
+      )}
       <div className="flex items-center justify-end border-t border-border px-2 py-1">
         <input
           ref={fileInputRef}

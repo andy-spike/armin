@@ -1,0 +1,51 @@
+[
+  {
+    "background": "rgb(225, 236, 235)",
+    "color": "rgb(32, 94, 166)",
+    "ratio": 5.42,
+    "state": "New",
+    "theme": "light"
+  },
+  {
+    "background": "rgb(250, 238, 198)",
+    "color": "rgb(125, 97, 0)",
+    "ratio": 5.06,
+    "state": "Learning",
+    "theme": "light"
+  },
+  {
+    "background": "rgb(237, 238, 207)",
+    "color": "rgb(79, 101, 10)",
+    "ratio": 5.54,
+    "state": "Review",
+    "theme": "light"
+  },
+  {
+    "background": "rgb(255, 231, 206)",
+    "color": "rgb(157, 67, 16)",
+    "ratio": 5.42,
+    "state": "Relearning",
+    "theme": "light"
+  },
+  {
+    "background": "rgb(242, 240, 229)",
+    "color": "rgb(87, 86, 83)",
+    "ratio": 6.42,
+    "state": "Locked",
+    "theme": "light"
+  },
+  {
+    "background": "rgb(242, 240, 229)",
+    "color": "rgb(87, 86, 83)",
+    "ratio": 6.42,
+    "state": "Archived",
+    "theme": "light"
+  },
+  {
+    "background": "rgb(255, 252, 240)",
+    "color": "rgb(28, 108, 102)",
+    "ratio": 6.03,
+    "state": "Due",
+    "theme": "light"
+  }
+]
