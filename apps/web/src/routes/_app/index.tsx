@@ -239,6 +239,7 @@ function DecksPage() {
       >
         <div className="space-y-3">
           <Input
+            aria-label="Deck name"
             placeholder="e.g. JavaScript Fundamentals"
             value={name}
             autoFocus
@@ -248,6 +249,7 @@ function DecksPage() {
             }}
           />
           <AutoGrowTextarea
+            aria-label="Deck description"
             placeholder="What this deck covers (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
