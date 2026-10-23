@@ -1,0 +1,24 @@
+Review queue updates are now live Convex queries.
+
+All-decks /review (test account):
+  before API card creation: "7 review units due today across your decks."
+  after creating one card: "8 review units due today across your decks."
+  screenshots: live-append-before.png, live-append-after.png
+
+Deck review with a locked dependent (qa-r2-eleven5, account cap raised to 11 so
+the unlocked dependent is admitted deterministically):
+  before rating the prerequisite: "3 / 10"
+  after rating the prerequisite Easy: "4 / 11"
+  server queue: 10 items, including "Eleven card 11" (the dependent)
+  screenshots: dependent-before.png, dependent-after.png
+
+Why the dependent was not appended in one earlier verification run:
+the page polled `armin.review.queue` through TanStack Query. That call uses
+`ConvexReactClient.query`, which returns the client's local cached result when
+one exists and unsubscribes once its promise resolves. A refetch shortly after
+the rating could therefore read the pre-rating local snapshot (the sidebar's
+live `convexQuery` badge already showed the new count, while the session stayed
+at "2 / 10"). Reloading created a fresh client and showed the admitted unit.
+The fix subscribes through `convexQuery(api.review.queue, ...)` on both review
+routes, so every server queue result updates the session; `useNow` still
+advances the query args so due times re-evaluate without a write.

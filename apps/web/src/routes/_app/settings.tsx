@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { prefetchSettingsPage, settingsQuery as settingsQueryOptions } from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -57,6 +57,24 @@ type SettingsState = Pick<
 
 type NamedSchedulingPreset = Exclude<SchedulingPreset, "custom">;
 
+const SETTINGS_TABS = [
+  "scheduling",
+  "keyboard",
+  "account",
+  "data",
+  "appearance",
+] as const;
+
+type SettingsTab = (typeof SETTINGS_TABS)[number];
+type SettingsSearch = { tab?: SettingsTab };
+
+function isSettingsTab(value: unknown): value is SettingsTab {
+  return (
+    typeof value === "string" &&
+    (SETTINGS_TABS as readonly string[]).includes(value)
+  );
+}
+
 const NAMED_PRESET_OPTIONS = PRESET_OPTIONS.filter(
   (option): option is { value: NamedSchedulingPreset; label: string } =>
     option.value !== "custom",
@@ -93,6 +111,9 @@ function settingsEqual(a: SettingsState, b: SettingsState): boolean {
 function SettingsPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const search = Route.useSearch();
+  const activeTab = search.tab ?? "scheduling";
   const { preference: themePreference, setPreference: setThemePreference } =
     useTheme();
   const [s, setS] = useState(initial);
@@ -100,6 +121,17 @@ function SettingsPage() {
   const settingsLoadedRef = useRef(false);
   const queuedSaveRef = useRef<SettingsState | null>(null);
   const savingRef = useRef(false);
+
+  const selectTab = (value: string | number | null) => {
+    if (!isSettingsTab(value) || value === activeTab) return;
+    // Tab switches are a view change, not a navigation step: replace so Back
+    // returns to the page the user came from.
+    void navigate({
+      to: "/settings",
+      search: (previous) => ({ ...previous, tab: value }),
+      replace: true,
+    });
+  };
 
   const settingsQuery = useQuery(settingsQueryOptions());
 
@@ -226,7 +258,7 @@ function SettingsPage() {
         </div>
       )}
 
-      <Tabs defaultValue="scheduling">
+      <Tabs value={activeTab} onValueChange={selectTab}>
         <TabsList>
           <TabsTab value="scheduling">Scheduling</TabsTab>
           <TabsTab value="keyboard">Keyboard</TabsTab>
@@ -492,6 +524,9 @@ function SettingsPage() {
 }
 
 export const Route = createFileRoute("/_app/settings")({
+  validateSearch: (search: Record<string, unknown>): SettingsSearch => ({
+    tab: isSettingsTab(search.tab) ? search.tab : undefined,
+  }),
   loader: ({ context }) => prefetchSettingsPage(context.queryClient),
   head: () => ({ meta: [{ title: "Settings · Armin" }] }),
   component: SettingsPage,

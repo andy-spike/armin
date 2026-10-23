@@ -1,0 +1,18 @@
+Table/paragraph round-trip, opened and saved unedited in the card editor
+(deck j97c78m7d2d35cj6hh3z3g95nd8gvawj, cards tagged qa-r2):
+
+RT table only
+  before: "| A | B |\n| --- | --- |\n| 1 | 2 |"
+  after:  "| A | B |\n| --- | --- |\n| 1 | 2 |"   IDENTICAL
+
+RT table plus paragraph
+  before: "| A | B |\n| --- | --- |\n| 1 | 2 |\n\nAfter table."
+  after:  "| A | B |\n| --- | --- |\n| 1 | 2 |\n\nAfter table."   IDENTICAL
+
+RT paragraph table paragraph
+  before: "Before table.\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\nAfter table."
+  after:  "Before table.\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\nAfter table."   IDENTICAL
+
+Editing other text preserves the table: appending " extra" to the first
+table-plus-paragraph card saved
+"| A | B |\n| --- | --- |\n| 1 | 2 |\n\nAfter table. extra".
