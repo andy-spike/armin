@@ -26,7 +26,6 @@ import type {
 import { cn } from "@/lib/utils";
 import { markGraphPerf, measureGraphPerf } from "@/lib/graph-perf";
 
-
 function afterRoutePaint(work: () => void) {
   let done = false;
   let inner = 0;
