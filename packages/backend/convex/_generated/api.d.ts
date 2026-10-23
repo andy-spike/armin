@@ -9,6 +9,9 @@
  */
 
 import type * as account from "../account.js";
+import type * as agentAuthoring from "../agentAuthoring.js";
+import type * as agentHttp from "../agentHttp.js";
+import type * as agents from "../agents.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as decks from "../decks.js";
@@ -21,6 +24,8 @@ import type * as http from "../http.js";
 import type * as maintenance from "../maintenance.js";
 import type * as media from "../media.js";
 import type * as model_access from "../model/access.js";
+import type * as model_agentAuth from "../model/agentAuth.js";
+import type * as model_agentTools from "../model/agentTools.js";
 import type * as model_deletion from "../model/deletion.js";
 import type * as model_email from "../model/email.js";
 import type * as model_errors from "../model/errors.js";
@@ -40,6 +45,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   account: typeof account;
+  agentAuthoring: typeof agentAuthoring;
+  agentHttp: typeof agentHttp;
+  agents: typeof agents;
   auth: typeof auth;
   crons: typeof crons;
   decks: typeof decks;
@@ -52,6 +60,8 @@ declare const fullApi: ApiFromModules<{
   maintenance: typeof maintenance;
   media: typeof media;
   "model/access": typeof model_access;
+  "model/agentAuth": typeof model_agentAuth;
+  "model/agentTools": typeof model_agentTools;
   "model/deletion": typeof model_deletion;
   "model/email": typeof model_email;
   "model/errors": typeof model_errors;
