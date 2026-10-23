@@ -52,7 +52,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
 import { armin } from "@/lib/armin-client";
 import { deckKeys } from "@/lib/armin-query";
-import { authClient } from "@/lib/auth-client";
+import { signOutToSignIn } from "@/lib/auth-client";
 import { useNow, useViewer } from "@/lib/session";
 import { TITLEBAR_THEME_OPTIONS } from "@/lib/theme";
 import { cn, plural } from "@/lib/utils";
@@ -114,14 +114,21 @@ export function AppSidebar({
       <BrandHeader linkProps={linkProps("/")} />
 
       <SidebarContent className="armin-scrollbar">
-        <SidebarGroup>
+        <SidebarGroup className="pt-3">
           <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
+            <SidebarMenu>
               <ReviewItem
                 ready={ready}
                 active={isActive("/review")}
                 linkProps={linkProps("/review")}
               />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-0.5">
               <NavItem
                 to="/"
                 label="Decks"
@@ -171,7 +178,7 @@ function BrandHeader({ linkProps }: { linkProps: LinkProps }) {
   const collapsed = state === "collapsed" && !isMobile;
 
   return (
-    <SidebarHeader className="relative h-14 flex-row items-center gap-0 p-2">
+    <SidebarHeader className="relative h-14 flex-row items-center gap-0 overflow-hidden p-2">
       <Link
         to="/"
         tabIndex={collapsed ? -1 : undefined}
@@ -183,7 +190,7 @@ function BrandHeader({ linkProps }: { linkProps: LinkProps }) {
           Armin
         </span>
       </Link>
-      {collapsed ? (
+      {collapsed && (
         <button
           type="button"
           aria-label="Expand sidebar"
@@ -192,27 +199,31 @@ function BrandHeader({ linkProps }: { linkProps: LinkProps }) {
         >
           <PanelLeftOpen className="size-4" strokeWidth={1.5} aria-hidden />
         </button>
-      ) : (
-        !isMobile && (
-          <Tooltip
-            side="bottom"
-            className="px-2.5 py-1.5"
-            content={
-              <span className="flex items-center gap-2">
-                Collapse sidebar <Kbd>[</Kbd>
-              </span>
-            }
+      )}
+      {!isMobile && (
+        <Tooltip
+          side="bottom"
+          className="px-2.5 py-1.5"
+          content={
+            <span className="flex items-center gap-2">
+              Collapse sidebar <Kbd>[</Kbd>
+            </span>
+          }
+        >
+          {/* Stays mounted and pinned to the expanded panel's right edge, so it
+              fades with the labels instead of popping out or sliding across
+              the logo while the panel animates. */}
+          <button
+            type="button"
+            aria-label="Collapse sidebar"
+            onClick={toggleSidebar}
+            tabIndex={collapsed ? -1 : undefined}
+            aria-hidden={collapsed || undefined}
+            className="absolute top-1/2 left-[calc(var(--sidebar-width)-2.5rem)] flex size-8 -translate-y-1/2 items-center justify-center text-muted outline-hidden ring-sidebar-ring transition-[opacity,visibility,background-color,color] duration-150 ease-(--ease-out-quart) delay-75 hover:bg-sidebar-accent hover:text-ink focus-visible:ring-2 group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0"
           >
-            <button
-              type="button"
-              aria-label="Collapse sidebar"
-              onClick={toggleSidebar}
-              className="ml-auto flex size-8 shrink-0 items-center justify-center text-muted outline-hidden ring-sidebar-ring transition-colors duration-150 hover:bg-sidebar-accent hover:text-ink focus-visible:ring-2"
-            >
-              <PanelLeftClose className="size-4" strokeWidth={1.5} aria-hidden />
-            </button>
-          </Tooltip>
-        )
+            <PanelLeftClose className="size-4" strokeWidth={1.5} aria-hidden />
+          </button>
+        </Tooltip>
       )}
     </SidebarHeader>
   );
@@ -278,11 +289,22 @@ function ReviewItem({
       : `${plural(dueCount, "review unit")} due`;
 
   return (
-    <SidebarMenuItem>
+    // A fixed-height slot: the rail shrinks the button to 32px, and centring
+    // it here keeps the rows below from jumping 4px on every toggle.
+    <SidebarMenuItem className="flex h-9 items-center">
       <SidebarMenuButton
         isActive={active}
         tooltip={statusLabel ? `Review · ${statusLabel}` : "Review"}
-        className={cn(navButton, "relative")}
+        className={cn(
+          // Review is the sidebar's main action, so it's drawn as a button
+          // rather than a nav row: taller, raised, with its own fill (reviews
+          // due) or outline (caught up). The padding allows for the border so
+          // the icon and label line up with the rows below.
+          "relative h-9 shrink-0 border px-[7px] font-medium shadow-[0_1px_2px_rgb(0_0_0/0.2)] group-data-[collapsible=icon]:p-[7px]!",
+          dueCount > 0
+            ? "border-transparent bg-accent text-on-accent hover:bg-accent-deep hover:text-on-accent active:bg-accent-deep active:text-on-accent data-active:bg-accent-deep data-active:text-on-accent data-active:hover:bg-accent-deep"
+            : "border-border-strong bg-bg text-ink hover:bg-surface-sunken hover:text-ink active:bg-surface-sunken data-active:bg-surface-sunken data-active:text-ink data-active:hover:bg-surface-sunken [&>svg]:text-accent",
+        )}
         render={
           <Link
             to="/review"
@@ -293,27 +315,30 @@ function ReviewItem({
       >
         <GraduationCap strokeWidth={1.5} />
         <span className={fade}>Review</span>
-        {dueCount > 0 && (
-          // The badge hides with the labels; the rail keeps a due dot instead.
+        {queueQuery.isSuccess && (
+          // The count hides with the labels; the rail keeps a due dot instead.
           <span
             aria-hidden
-            className="absolute top-1.5 right-1.5 size-1.5 bg-accent opacity-0 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-100 group-data-[collapsible=icon]:delay-100"
+            className={cn(
+              fade,
+              "ml-auto flex h-5 min-w-5 items-center justify-center px-1.5 text-xs font-semibold tabular-nums",
+              dueCount > 0 ? "bg-on-accent/15" : "text-accent",
+            )}
+          >
+            {dueCount > 0 ? (
+              dueCount
+            ) : (
+              <Check className="size-3.5" strokeWidth={2} />
+            )}
+          </span>
+        )}
+        {dueCount > 0 && (
+          <span
+            aria-hidden
+            className="absolute top-1.5 right-1.5 size-1.5 bg-on-accent opacity-0 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-100 group-data-[collapsible=icon]:delay-100"
           />
         )}
       </SidebarMenuButton>
-      {queueQuery.isSuccess && (
-        <SidebarMenuBadge
-          aria-hidden
-          className={cn(
-            countBadge,
-            // Due reviews are the one count that asks for attention.
-            dueCount > 0 &&
-              "bg-accent-tint px-1.5 font-semibold text-accent-deep peer-hover/menu-button:text-accent-deep peer-data-active/menu-button:text-accent-deep",
-          )}
-        >
-          {dueCount > 0 ? dueCount : <Check className="size-3.5" strokeWidth={2} />}
-        </SidebarMenuBadge>
-      )}
     </SidebarMenuItem>
   );
 }
@@ -490,9 +515,7 @@ function AccountItem() {
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={() =>
-              void authClient.signOut().finally(() => window.location.assign("/sign-in"))
-            }
+            onClick={signOutToSignIn}
           >
             <LogOut strokeWidth={1.5} />
             Sign out

@@ -218,7 +218,7 @@ export function Dialog({
               "flex items-start justify-between gap-4",
               content.footer
                 ? "shrink-0 px-6 pt-6 pb-4"
-                : "sticky top-0 z-10 -mx-6 -mt-6 mb-4 rounded-t-lg bg-surface px-6 pt-6 pb-4",
+                : "sticky -top-6 z-10 -mx-6 -mt-6 mb-4 rounded-t-lg bg-surface px-6 pt-6 pb-4",
             )}
           >
             <div>

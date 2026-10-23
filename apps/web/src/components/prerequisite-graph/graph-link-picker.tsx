@@ -2,8 +2,95 @@ import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { linkProblem, type GraphCycleIndex } from "@/lib/graph-cycle";
+import { graphNodePreview } from "@/lib/graph-flow";
+import type { UiDeckGraph } from "@/types/view-models";
 
 export type GraphLinkOption = { id: string; label: string };
+
+/** Which picker is open, and for which card. */
+export type LinkPickerRequest = {
+  kind: "add-prereq" | "add-dependent" | "remove-prereq";
+  nodeId: string;
+};
+
+/** The link a picked card stands for. */
+export type PickedLink = {
+  action: "add" | "remove";
+  prereqId: string;
+  dependentId: string;
+};
+
+/**
+ * The picker's text and choices for a request. Add pickers only list cards
+ * that `linkProblem` allows; the remove picker lists the card's current
+ * prerequisites. Returns null when the card no longer exists.
+ */
+export function linkPickerContent(
+  request: LinkPickerRequest,
+  graph: UiDeckGraph,
+  graphIndex: GraphCycleIndex,
+) {
+  const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const node = nodeById.get(request.nodeId);
+  if (!node) return null;
+  const front = graphNodePreview(node.front);
+
+  const optionsFor = (ids: string[]): GraphLinkOption[] =>
+    ids
+      .flatMap((id) => {
+        const card = nodeById.get(id);
+        return card ? [{ id, label: graphNodePreview(card.front) }] : [];
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+  if (request.kind === "remove-prereq") {
+    const prereqIds = graph.edges
+      .filter((edge) => edge.dependentId === request.nodeId)
+      .map((edge) => edge.prereqId);
+    return {
+      title: "Remove prerequisite",
+      description: `Choose the prerequisite link to “${front}” that should be removed.`,
+      options: optionsFor(prereqIds),
+      emptyText: "This card has no prerequisites.",
+      linkFor: (id: string): PickedLink => ({
+        action: "remove",
+        prereqId: id,
+        dependentId: request.nodeId,
+      }),
+    };
+  }
+
+  // The picked card is the prerequisite when adding a prerequisite, and the
+  // dependent when adding a dependent.
+  const linkFor = (id: string): PickedLink =>
+    request.kind === "add-prereq"
+      ? { action: "add", prereqId: id, dependentId: request.nodeId }
+      : { action: "add", prereqId: request.nodeId, dependentId: id };
+  const allowedIds = graph.nodes
+    .map((candidate) => candidate.id)
+    .filter((id) => {
+      const { prereqId, dependentId } = linkFor(id);
+      return linkProblem(graphIndex, prereqId, dependentId) === null;
+    });
+
+  if (request.kind === "add-prereq") {
+    return {
+      title: "Add prerequisite",
+      description: `Choose a card that “${front}” should depend on.`,
+      options: optionsFor(allowedIds),
+      emptyText: "No card can be added as a prerequisite.",
+      linkFor,
+    };
+  }
+  return {
+    title: "Add dependent",
+    description: `Choose a card that should depend on “${front}”.`,
+    options: optionsFor(allowedIds),
+    emptyText: "No card can be added as a dependent.",
+    linkFor,
+  };
+}
 
 const MAX_RESULTS = 100;
 

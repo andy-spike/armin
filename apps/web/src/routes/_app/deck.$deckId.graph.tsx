@@ -24,24 +24,7 @@ import type {
   FlashcardType,
 } from "@/types/window";
 import { cn } from "@/lib/utils";
-
-function markGraphPerf(name: string) {
-  if (!import.meta.env.DEV && !window.__ARMIN_E2E__) return;
-  performance.mark(`armin:graph:${name}`);
-}
-
-function measureGraphPerf(name: string, start: string, end: string) {
-  if (!import.meta.env.DEV && !window.__ARMIN_E2E__) return;
-  try {
-    performance.measure(
-      `armin:graph:${name}`,
-      `armin:graph:${start}`,
-      `armin:graph:${end}`,
-    );
-  } catch {
-    // Marks are best-effort in development.
-  }
-}
+import { markGraphPerf, measureGraphPerf } from "@/lib/graph-perf";
 
 function afterRoutePaint(work: () => void) {
   let done = false;
@@ -341,7 +324,7 @@ function DeckGraphPage() {
           onBack={() =>
             void navigate({ to: "/deck/$deckId", params: { deckId } })
           }
-          onGraphChange={graphEdits.applyGraphChange}
+          onEdgesChange={graphEdits.applyEdgeChange}
           nodePlacements={graphEdits.nodePlacements}
           onCreateCardRequest={openCreate}
           onEditCardRequest={openEdit}

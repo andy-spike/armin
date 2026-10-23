@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/toast";
 import { Row, Section } from "@/components/settings-layout";
 import { GoogleIcon } from "@/components/auth/auth-layout";
 import { armin, errorMessage } from "@/lib/armin-client";
-import { authClient } from "@/lib/auth-client";
+import { authClient, signOutToSignIn } from "@/lib/auth-client";
 import { useAuthFeatures, useViewer } from "@/lib/session";
 
 function timeZoneOptions(current: string) {
@@ -160,9 +160,7 @@ export function AccountSettings() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() =>
-              void authClient.signOut().finally(() => window.location.assign("/sign-in"))
-            }
+            onClick={signOutToSignIn}
           >
             Sign out
           </Button>

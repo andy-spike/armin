@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { convexClient, errorMessage } from "@/lib/armin-client";
-import { authClient } from "@/lib/auth-client";
+import { signOutToSignIn, useSigningOut } from "@/lib/auth-client";
 import { useConnection, useViewer } from "@/lib/session";
 import { installNoSpellcheck } from "@/lib/disable-spellcheck";
 import { api } from "@armin/backend/api";
@@ -82,6 +82,7 @@ function detectTimeZone() {
  */
 function AppLayout() {
   const viewer = useViewer();
+  const signingOut = useSigningOut();
   const [provisionError, setProvisionError] = useState<string | null>(null);
   const provisioning = useRef(false);
 
@@ -101,6 +102,9 @@ function AppLayout() {
       });
   }, [data]);
 
+  // Signing out ends the session before the sign-in page loads, so show a
+  // steady "Signing out" page instead of the signed-out message.
+  if (signingOut) return <FullPageMessage title="Signing out" />;
   if (viewer.isLoading) return <Shell loading="Loading your library" />;
   if (viewer.isError || data === null) {
     return (
@@ -146,9 +150,7 @@ function SignOutButton() {
   return (
     <Button
       variant="outline"
-      onClick={() =>
-        void authClient.signOut().finally(() => window.location.assign("/sign-in"))
-      }
+      onClick={signOutToSignIn}
     >
       Sign out
     </Button>

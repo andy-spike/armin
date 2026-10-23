@@ -179,30 +179,18 @@ export function useGraphCanvasEdits({
     }
   };
 
-  const applyGraphChange = (next: UiDeckGraph) => {
-    const previous = graph;
-    setGraph(next);
+  /** Persist the links the canvas added or removed. */
+  const applyEdgeChange = (nextEdges: GraphEdge[]) => {
+    const previousEdges = graph.edges;
+    setGraph((current) => ({ ...current, edges: nextEdges }));
 
-    const previousNodeById = new Map(
-      previous.nodes.map((node) => [node.id, node]),
-    );
-    const previousNodeIds = new Set(previous.nodes.map((node) => node.id));
-    const nextNodeIds = new Set(next.nodes.map((node) => node.id));
-    for (const nodeId of previousNodeIds) {
-      if (!nextNodeIds.has(nodeId)) {
-        const deckId = previousNodeById.get(nodeId)?.deckId;
-        deleteCard.mutate({ id: nodeId, deckId });
-      }
+    const previousKeys = new Set(previousEdges.map(edgeKey));
+    const nextKeys = new Set(nextEdges.map(edgeKey));
+    for (const edge of nextEdges) {
+      if (!previousKeys.has(edgeKey(edge))) addPrereq.mutate(edge);
     }
-
-    const previousEdges = new Set(previous.edges.map(edgeKey));
-    const nextEdges = new Set(next.edges.map(edgeKey));
-
-    for (const edge of next.edges) {
-      if (!previousEdges.has(edgeKey(edge))) addPrereq.mutate(edge);
-    }
-    for (const edge of previous.edges) {
-      if (!nextEdges.has(edgeKey(edge))) removePrereq.mutate(edge);
+    for (const edge of previousEdges) {
+      if (!nextKeys.has(edgeKey(edge))) removePrereq.mutate(edge);
     }
   };
 
@@ -227,7 +215,7 @@ export function useGraphCanvasEdits({
   return {
     nodePlacements,
     saveCard,
-    applyGraphChange,
+    applyEdgeChange,
     confirmGraphDelete,
     saveLayout: persistLayout,
     deletePending: deleteCard.isPending,

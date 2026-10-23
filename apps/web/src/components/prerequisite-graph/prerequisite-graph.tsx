@@ -11,7 +11,6 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
-  useViewport,
   type Connection,
   type Edge,
   type IsValidConnection,
@@ -26,26 +25,9 @@ import {
 // Loaded with the graph page's code instead of on every page.
 import "@xyflow/react/dist/style.css";
 import "./graph.css";
-import {
-  ArrowLeft,
-  LayoutGrid,
-  Link2,
-  Maximize,
-  Minus,
-  Pencil,
-  Plus,
-  Unlink,
-  RotateCcw,
-  Search,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Link2, Pencil, Plus, Unlink, Trash2 } from "lucide-react";
 import type { UiDeckGraph } from "@/types/view-models";
-import {
-  createGraphCycleIndex,
-  graphEdgeKey,
-  wouldCreateCycleIndexed,
-} from "@/lib/graph-cycle";
+import { createGraphCycleIndex, linkProblem } from "@/lib/graph-cycle";
 import {
   EDGE_MARKER_END,
   EDGE_STROKE,
@@ -58,12 +40,7 @@ import {
   toFlowNode,
 } from "@/lib/graph-flow";
 import { layoutGraph } from "@/lib/graph-layout";
-import type {
-  GraphLayoutWorkerRequest,
-  GraphLayoutWorkerResponse,
-} from "@/lib/graph-layout-worker";
 import { cn } from "@/lib/utils";
-import { TruncatedLabel } from "@/components/ui/truncated-label";
 import { FloatingEdge } from "./floating-edge";
 import {
   FlashcardNode,
@@ -71,8 +48,21 @@ import {
   type CardNodeData,
   type NodeEmphasis,
 } from "./flashcard-node";
-import { GraphContextMenu } from "./graph-context-menu";
-import { GraphLinkPicker, type GraphLinkOption } from "./graph-link-picker";
+import {
+  afterCanvasPaint,
+  markGraphPerf,
+  measureGraphPerf,
+} from "@/lib/graph-perf";
+import { GraphContextMenu, type GraphMenuItem } from "./graph-context-menu";
+import { GraphToolbar } from "./graph-toolbar";
+import { useBackgroundLayout } from "./use-background-layout";
+import { useGraphSearch } from "./use-graph-search";
+import { MAX_ZOOM, MIN_ZOOM, ZoomControl } from "./zoom-control";
+import {
+  GraphLinkPicker,
+  linkPickerContent,
+  type LinkPickerRequest,
+} from "./graph-link-picker";
 
 const nodeTypes = { card: FlashcardNode };
 const edgeTypes = { floating: FloatingEdge };
@@ -86,11 +76,6 @@ const defaultEdgeOptions = {
   style: { stroke: EDGE_STROKE, strokeWidth: 1.5 },
   markerEnd: EDGE_MARKER_END,
 };
-
-// Low enough that Fit view can frame a large deck. The minimap keeps the graph
-// navigable when the fitted cards are too small to read.
-const MIN_ZOOM = 0.1;
-const MAX_ZOOM = 2;
 
 // First-open framing when there's no saved viewport. We deliberately do NOT
 // fit the whole graph on open: fitting a large Deck brings every node on-screen,
@@ -111,17 +96,13 @@ type ConnectMenuState = {
   flow: XYPosition;
   sourceId: string;
 } | null;
-type LinkPickerState =
-  | { kind: "add-prereq"; nodeId: string }
-  | { kind: "add-dependent"; nodeId: string }
-  | { kind: "remove-prereq"; nodeId: string }
-  | null;
 
 type PrerequisiteGraphProps = {
   graph: UiDeckGraph;
   deckName?: string;
   onBack?: () => void;
-  onGraphChange: (graph: UiDeckGraph) => void;
+  /** Called with the full link list after the user adds or removes links. */
+  onEdgesChange: (edges: UiDeckGraph["edges"]) => void;
   onConnectError?: (message: string) => void;
   nodePlacements?: Record<string, XYPosition>;
   onCreateCardRequest?: (
@@ -129,7 +110,7 @@ type PrerequisiteGraphProps = {
     connectFromNodeId?: string,
   ) => void;
   onEditCardRequest?: (nodeId: string) => void;
-  onDeleteCardRequest?: (nodeId: string) => void;
+  onDeleteCardRequest: (nodeId: string) => void;
   onPersistLayout?: (placements: NodePlacement[]) => void;
   initialViewport?: Viewport;
   onViewportChange?: (viewport: Viewport) => void;
@@ -151,53 +132,6 @@ function cardIdAtScreenPoint(point: { x: number; y: number }) {
   const element = document.elementFromPoint(point.x, point.y);
   const card = element?.closest<HTMLElement>(".react-flow__node");
   return card?.dataset.id ?? null;
-}
-
-function markGraphPerf(name: string) {
-  if (!import.meta.env.DEV && !window.__ARMIN_E2E__) return;
-  performance.mark(`armin:graph:${name}`);
-}
-
-function measureGraphPerf(name: string, start: string, end: string) {
-  if (!import.meta.env.DEV && !window.__ARMIN_E2E__) return;
-  try {
-    performance.measure(
-      `armin:graph:${name}`,
-      `armin:graph:${start}`,
-      `armin:graph:${end}`,
-    );
-  } catch {
-    // Marks are best-effort in development.
-  }
-}
-
-function scheduleGraphWork(work: () => void) {
-  if ("requestIdleCallback" in window) {
-    const id = window.requestIdleCallback(work, { timeout: 500 });
-    return () => window.cancelIdleCallback(id);
-  }
-  const id = globalThis.setTimeout(work, 0);
-  return () => globalThis.clearTimeout(id);
-}
-
-function afterCanvasPaint(work: () => void) {
-  let done = false;
-  let inner = 0;
-  const run = () => {
-    if (done) return;
-    done = true;
-    work();
-  };
-  const outer = requestAnimationFrame(() => {
-    inner = requestAnimationFrame(run);
-  });
-  const timeout = window.setTimeout(run, 250);
-  return () => {
-    done = true;
-    cancelAnimationFrame(outer);
-    cancelAnimationFrame(inner);
-    window.clearTimeout(timeout);
-  };
 }
 
 function PaneDoubleClickListener({
@@ -229,91 +163,11 @@ function PaneDoubleClickListener({
   return null;
 }
 
-function ZoomControl() {
-  const { zoom } = useViewport();
-  const { zoomIn, zoomOut, zoomTo, fitView } = useReactFlow();
-  const [draft, setDraft] = useState<string | null>(null);
-  const percent = Math.round(zoom * 100);
-
-  const commit = (raw: string) => {
-    setDraft(null);
-    const parsed = Number.parseInt(raw, 10);
-    if (Number.isNaN(parsed)) return;
-    const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, parsed / 100));
-    void zoomTo(clamped, { duration: 150 });
-  };
-
-  const buttonClass =
-    "flex h-7 w-7 items-center justify-center text-muted transition-colors hover:bg-surface-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent";
-
-  return (
-    <div className="flex items-center border border-border bg-surface shadow-overlay">
-      <button
-        type="button"
-        onClick={() => void zoomOut({ duration: 150 })}
-        aria-label="Zoom out"
-        className={buttonClass}
-      >
-        <Minus className="h-3.5 w-3.5" />
-      </button>
-      <div className="flex items-center border-x border-border px-1">
-        <input
-          aria-label="Zoom level"
-          inputMode="numeric"
-          className="w-9 bg-transparent text-right text-xs tabular-nums text-ink outline-none"
-          value={draft ?? String(percent)}
-          onChange={(event) =>
-            setDraft(event.target.value.replace(/[^0-9]/g, ""))
-          }
-          onFocus={(event) => event.currentTarget.select()}
-          onBlur={(event) => commit(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              commit(event.currentTarget.value);
-              event.currentTarget.blur();
-            }
-            if (event.key === "Escape") {
-              setDraft(null);
-              event.currentTarget.blur();
-            }
-          }}
-        />
-        <span className="pl-0.5 text-xs text-muted">%</span>
-      </div>
-      <button
-        type="button"
-        onClick={() => void zoomIn({ duration: 150 })}
-        aria-label="Zoom in"
-        className={buttonClass}
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        onClick={() => void zoomTo(1, { duration: 150 })}
-        aria-label="Reset zoom to 100%"
-        title="Reset zoom"
-        className={cn(buttonClass, "border-l border-border")}
-      >
-        <RotateCcw className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        onClick={() => void fitView({ padding: 0.2, duration: 300 })}
-        aria-label="Fit view"
-        className={cn(buttonClass, "border-l border-border")}
-      >
-        <Maximize className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
 function PrerequisiteGraphCanvas({
   graph,
   deckName,
   onBack,
-  onGraphChange,
+  onEdgesChange: onGraphEdgesChange,
   onConnectError,
   nodePlacements,
   onCreateCardRequest,
@@ -330,13 +184,10 @@ function PrerequisiteGraphCanvas({
   // Set once the async builder commits the first real graph; the incremental
   // sync effects below stay dormant until then so they don't fight the build.
   const initialFlowLoaded = useRef(false);
-  const backgroundLaidOutIds = useRef(new Set<string>());
-  const layoutWorker = useRef<Worker | null>(null);
-  const layoutRequestId = useRef(0);
   const cancelReadySignal = useRef<(() => void) | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
   const [connectMenu, setConnectMenu] = useState<ConnectMenuState>(null);
-  const [linkPicker, setLinkPicker] = useState<LinkPickerState>(null);
+  const [linkPicker, setLinkPicker] = useState<LinkPickerRequest | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [interactive, setInteractive] = useState(false);
   // Two-part readiness gate: `flowReady` once the async build commits nodes and
@@ -348,10 +199,7 @@ function PrerequisiteGraphCanvas({
   // Selection + search lens. The selected card lights up itself, its edges, and
   // its direct neighbors; search dims everything outside its scope.
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  // Index of the match Enter/Shift+Enter last stepped to, or null while the
-  // whole match set is framed.
-  const [searchStep, setSearchStep] = useState<number | null>(null);
+  const search = useGraphSearch(graph.nodes, interactive);
 
   // Start ReactFlow empty: the initial conversion happens off the render path in
   // an abortable, chunked effect (see below) so a large Deck graph can't freeze
@@ -368,14 +216,7 @@ function PrerequisiteGraphCanvas({
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
 
-  useEffect(
-    () => () => {
-      cancelReadySignal.current?.();
-      layoutWorker.current?.terminate();
-      layoutWorker.current = null;
-    },
-    [],
-  );
+  useEffect(() => () => cancelReadySignal.current?.(), []);
 
   // Convert the persisted graph into ReactFlow elements off the render path, in
   // an abortable chunked task. Runs once for the initial graph; afterwards the
@@ -555,137 +396,15 @@ function PrerequisiteGraphCanvas({
       return changed || withIsolation !== current ? withIsolation : current;
     });
   }, [graph.edges, nodeById, setNodes]);
-  const query = search.trim().toLowerCase();
-  const searchMatches = useMemo(() => {
-    if (query === "") return null;
-    const matches = new Set<string>();
-    for (const node of graph.nodes) {
-      if (`${node.front} ${node.back}`.toLowerCase().includes(query)) {
-        matches.add(node.id);
-      }
-    }
-    return matches;
-  }, [graph.nodes, query]);
-  const searchMatchIds = useMemo(
-    () =>
-      searchMatches
-        ? graph.nodes
-            .filter((node) => searchMatches.has(node.id))
-            .map((node) => node.id)
-        : [],
-    [graph.nodes, searchMatches],
-  );
-  const currentSearchMatchId =
-    searchStep === null ? null : (searchMatchIds[searchStep] ?? null);
 
-  // A new query starts back at the full-match overview.
-  useEffect(() => {
-    setSearchStep(null);
-  }, [query]);
-  // Keep the current position valid when matches disappear after an edit.
-  useEffect(() => {
-    setSearchStep((current) => {
-      if (current === null) return current;
-      if (searchMatchIds.length === 0) return null;
-      return Math.min(current, searchMatchIds.length - 1);
-    });
-  }, [searchMatchIds.length]);
-
-  useEffect(() => {
-    if (!interactive || graph.nodes.length === 0) return;
-    const placedIds = new Set(
-      graph.nodes
-        .filter(
-          (node) =>
-            (node.x != null && node.y != null) || nodePlacements?.[node.id],
-        )
-        .map((node) => node.id),
-    );
-    const unplacedIds = graph.nodes
-      .filter(
-        (node) =>
-          !placedIds.has(node.id) && !backgroundLaidOutIds.current.has(node.id),
-      )
-      .map((node) => node.id);
-    if (unplacedIds.length === 0) return;
-
-    let cancelled = false;
-    const cancelScheduled = scheduleGraphWork(() => {
-      if (cancelled) return;
-      markGraphPerf("backgroundLayout:start");
-      const worker =
-        layoutWorker.current ??
-        new Worker(
-          new URL("../../lib/graph-layout.worker.ts", import.meta.url),
-          {
-            type: "module",
-          },
-        );
-      layoutWorker.current = worker;
-      const requestId = ++layoutRequestId.current;
-      const request: GraphLayoutWorkerRequest = {
-        requestId,
-        nodes: nodesRef.current.map((node) => ({
-          id: node.id,
-          position: node.position,
-          placed: placedIds.has(node.id),
-        })),
-        edges: graph.edges.map((edge) => ({
-          source: edge.prereqId,
-          target: edge.dependentId,
-        })),
-      };
-
-      worker.onmessage = (event: MessageEvent<GraphLayoutWorkerResponse>) => {
-        if (cancelled || event.data.requestId !== layoutRequestId.current) {
-          return;
-        }
-        const placements = event.data.placements;
-        if (placements.length > 0) {
-          for (const placement of placements) {
-            backgroundLaidOutIds.current.add(placement.flashcardId);
-          }
-          const placementById = new Map(
-            placements.map((placement) => [placement.flashcardId, placement]),
-          );
-          setNodes((current) =>
-            current.map((node) => {
-              const placement = placementById.get(node.id);
-              return placement
-                ? { ...node, position: { x: placement.x, y: placement.y } }
-                : node;
-            }),
-          );
-          onPersistLayout?.(placements);
-        }
-        markGraphPerf("backgroundLayout:end");
-        measureGraphPerf(
-          "backgroundLayout",
-          "backgroundLayout:start",
-          "backgroundLayout:end",
-        );
-      };
-
-      worker.onerror = () => {
-        worker.terminate();
-        if (layoutWorker.current === worker) layoutWorker.current = null;
-      };
-
-      worker.postMessage(request);
-    });
-
-    return () => {
-      cancelled = true;
-      cancelScheduled();
-    };
-  }, [
-    graph.edges,
-    graph.nodes,
-    interactive,
+  useBackgroundLayout({
+    graph,
+    nodesRef,
     nodePlacements,
-    onPersistLayout,
+    interactive,
     setNodes,
-  ]);
+    onPersistLayout,
+  });
 
   // Re-derive selection/filter emphasis for every node and edge whenever the
   // selection or lens changes. Selected card + its incident edges + direct
@@ -708,9 +427,9 @@ function PrerequisiteGraphCanvas({
           if (source.id === selectedId) emphasis = "active";
           else if (neighborIds.has(source.id)) emphasis = "connected";
           else emphasis = "dimmed";
-        } else if (currentSearchMatchId && source.id === currentSearchMatchId) {
+        } else if (search.currentMatchId === source.id) {
           emphasis = "active";
-        } else if (query === "" || searchMatches?.has(source.id)) {
+        } else if (!search.matches || search.matches.has(source.id)) {
           emphasis = null;
         } else {
           emphasis = "dimmed";
@@ -722,11 +441,9 @@ function PrerequisiteGraphCanvas({
       return changed ? nextNodes : current;
     });
 
-    const lensActive = query !== "";
-    const inScope = (id: string) => {
-      if (!nodeById.has(id)) return false;
-      return query === "" || searchMatches?.has(id) === true;
-    };
+    const searchMatches = search.matches;
+    const inScope = (id: string) =>
+      nodeById.has(id) && (!searchMatches || searchMatches.has(id));
     setEdges((current) => {
       let changed = false;
       const nextEdges = current.map((edge) => {
@@ -738,7 +455,7 @@ function PrerequisiteGraphCanvas({
               ? "active"
               : "dimmed",
           );
-        } else if (lensActive) {
+        } else if (searchMatches) {
           next = styleEdgeForEmphasis(
             edge,
             inScope(edge.source) && inScope(edge.target) ? null : "dimmed",
@@ -753,74 +470,14 @@ function PrerequisiteGraphCanvas({
     });
   }, [
     selectedId,
-    query,
-    searchMatches,
-    currentSearchMatchId,
+    search.matches,
+    search.currentMatchId,
     nodeById,
     graph.nodes,
     graph.edges,
     setNodes,
     setEdges,
   ]);
-
-  const revealSearchMatches = useCallback(
-    (ids: string[]) => {
-      if (ids.length === 0) return;
-      void fitView({
-        nodes: ids.map((id) => ({ id })),
-        padding: 0.3,
-        maxZoom: 1,
-        duration: 300,
-      });
-    },
-    [fitView],
-  );
-
-  // Move the viewport to the search matches instead of only dimming the cards
-  // already on screen. The search text has to settle briefly so the canvas does
-  // not pan on every keystroke; Enter reveals immediately.
-  const lastRevealedQuery = useRef("");
-  useEffect(() => {
-    if (query === "") {
-      lastRevealedQuery.current = "";
-      return;
-    }
-    if (!interactive || query === lastRevealedQuery.current) return;
-    if (!searchMatches || searchMatches.size === 0) return;
-    const timer = window.setTimeout(() => {
-      lastRevealedQuery.current = query;
-      revealSearchMatches([...searchMatches]);
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [interactive, query, revealSearchMatches, searchMatches]);
-
-  // Enter/Shift+Enter step through individual matches, centering each one. The
-  // first Enter jumps to the first match of the current query.
-  const revealSearchMatch = useCallback(
-    (id: string) => {
-      void fitView({
-        nodes: [{ id }],
-        padding: 0.4,
-        maxZoom: 1,
-        duration: 300,
-      });
-    },
-    [fitView],
-  );
-
-  const stepSearch = (direction: 1 | -1) => {
-    if (query === "" || searchMatchIds.length === 0) return;
-    const next =
-      searchStep === null
-        ? direction === 1
-          ? 0
-          : searchMatchIds.length - 1
-        : (searchStep + direction + searchMatchIds.length) %
-          searchMatchIds.length;
-    lastRevealedQuery.current = query;
-    setSearchStep(next);
-    revealSearchMatch(searchMatchIds[next]);
-  };
 
   const onSelectionChange: OnSelectionChangeFunc = useCallback(
     ({ nodes: selectedNodes }) => {
@@ -844,58 +501,28 @@ function PrerequisiteGraphCanvas({
 
   const syncEdges = useCallback(
     (nextEdges: UiDeckGraph["edges"]) => {
-      onGraphChange({ ...graph, edges: nextEdges });
+      onGraphEdgesChange(nextEdges);
       setNodes((current) => refreshNodeData(current, nextEdges));
     },
-    [graph, onGraphChange, setNodes],
-  );
-
-  const deleteNode = useCallback(
-    (nodeId: string) => {
-      const nextNodes = graph.nodes.filter((n) => n.id !== nodeId);
-      const nextEdges = graph.edges.filter(
-        (e) => e.prereqId !== nodeId && e.dependentId !== nodeId,
-      );
-      setNodes((current) => current.filter((n) => n.id !== nodeId));
-      setEdges((current) =>
-        current.filter((e) => e.source !== nodeId && e.target !== nodeId),
-      );
-      onGraphChange({ nodes: nextNodes, edges: nextEdges });
-      knownNodeIds.current.delete(nodeId);
-    },
-    [graph, onGraphChange, setEdges, setNodes],
+    [onGraphEdgesChange, setNodes],
   );
 
   const isValidConnection: IsValidConnection = useCallback(
     (connection) => {
       const { source, target } = connection;
-      if (!source || !target || source === target) return false;
-      if (graphIndex.edgeKeys.has(graphEdgeKey(source, target))) {
-        return false;
-      }
-      return !wouldCreateCycleIndexed(graphIndex, source, target);
+      if (!source || !target) return false;
+      return linkProblem(graphIndex, source, target) === null;
     },
     [graphIndex],
   );
 
-  // The single validation path for every way a link can be created (drag, the
-  // node context menu, and the keyboard picker), so each rejects the same
-  // self-loops, duplicates, and cycles with the same explanation.
   const addLink = useCallback(
     (prereqId: string, dependentId: string) => {
-      if (prereqId === dependentId) {
-        onConnectError?.("A flashcard can’t depend on itself.");
+      const problem = linkProblem(graphIndex, prereqId, dependentId);
+      if (problem) {
+        onConnectError?.(problem);
         return false;
       }
-      if (graphIndex.edgeKeys.has(graphEdgeKey(prereqId, dependentId))) {
-        onConnectError?.("Those flashcards are already linked.");
-        return false;
-      }
-      if (wouldCreateCycleIndexed(graphIndex, prereqId, dependentId)) {
-        onConnectError?.("That link would create a cycle.");
-        return false;
-      }
-
       setEdges((current) =>
         addEdge(makeFlowEdge(prereqId, dependentId), current),
       );
@@ -964,10 +591,9 @@ function PrerequisiteGraphCanvas({
         (e) => !deletedIds.has(`${e.prereqId}-${e.dependentId}`),
       );
       setEdges((current) => current.filter((e) => !deletedIds.has(e.id)));
-      onGraphChange({ ...graph, edges: nextEdges });
-      setNodes((current) => refreshNodeData(current, nextEdges));
+      syncEdges(nextEdges);
     },
-    [graph, onGraphChange, setEdges, setNodes],
+    [graph.edges, setEdges, syncEdges],
   );
 
   const removeLink = useCallback(
@@ -1076,63 +702,55 @@ function PrerequisiteGraphCanvas({
     );
   }, [edges, fitView, persistLayout, setNodes]);
 
-  const nodeMenuId = menu?.kind === "node" ? menu.nodeId : null;
-  const nodeHasPrerequisites = nodeMenuId
-    ? graph.edges.some((edge) => edge.dependentId === nodeMenuId)
-    : false;
+  function menuItemsFor(current: MenuState): GraphMenuItem[] {
+    if (current?.kind === "edge") {
+      return [
+        {
+          label: "Remove link",
+          icon: <Unlink className="h-4 w-4" />,
+          variant: "destructive",
+          onClick: () => onEdgesDelete([current.edge]),
+        },
+      ];
+    }
+    if (current?.kind !== "node") return [];
 
-  const menuItems = nodeMenuId
-    ? [
-        {
-          label: "Edit flashcard",
-          icon: <Pencil className="h-4 w-4" />,
-          onClick: () => onEditCardRequest?.(nodeMenuId),
-        },
-        {
-          label: "Add prerequisite…",
-          icon: <Link2 className="h-4 w-4" />,
-          onClick: () =>
-            setLinkPicker({ kind: "add-prereq", nodeId: nodeMenuId }),
-        },
-        {
-          label: "Add dependent…",
-          icon: <Link2 className="h-4 w-4" />,
-          onClick: () =>
-            setLinkPicker({ kind: "add-dependent", nodeId: nodeMenuId }),
-        },
-        ...(nodeHasPrerequisites
-          ? [
-              {
-                label: "Remove prerequisite…",
-                icon: <Unlink className="h-4 w-4" />,
-                onClick: () =>
-                  setLinkPicker({ kind: "remove-prereq", nodeId: nodeMenuId }),
-              },
-            ]
-          : []),
-        {
-          label: "Delete flashcard",
-          icon: <Trash2 className="h-4 w-4" />,
-          variant: "destructive" as const,
-          // The confirmation dialog is the only delete path: deleting here
-          // would destroy the card before the user could cancel.
-          onClick: () => {
-            if (onDeleteCardRequest) onDeleteCardRequest(nodeMenuId);
-            else deleteNode(nodeMenuId);
-          },
-        },
-      ]
-    : menu?.kind === "edge"
-      ? [
-          {
-            label: "Remove link",
-            icon: <Unlink className="h-4 w-4" />,
-            variant: "destructive" as const,
-            onClick: () => onEdgesDelete([menu.edge]),
-          },
-        ]
-      : [];
+    const nodeId = current.nodeId;
+    const items: GraphMenuItem[] = [
+      {
+        label: "Edit flashcard",
+        icon: <Pencil className="h-4 w-4" />,
+        onClick: () => onEditCardRequest?.(nodeId),
+      },
+      {
+        label: "Add prerequisite…",
+        icon: <Link2 className="h-4 w-4" />,
+        onClick: () => setLinkPicker({ kind: "add-prereq", nodeId }),
+      },
+      {
+        label: "Add dependent…",
+        icon: <Link2 className="h-4 w-4" />,
+        onClick: () => setLinkPicker({ kind: "add-dependent", nodeId }),
+      },
+    ];
+    if (graph.edges.some((edge) => edge.dependentId === nodeId)) {
+      items.push({
+        label: "Remove prerequisite…",
+        icon: <Unlink className="h-4 w-4" />,
+        onClick: () => setLinkPicker({ kind: "remove-prereq", nodeId }),
+      });
+    }
+    items.push({
+      label: "Delete flashcard",
+      icon: <Trash2 className="h-4 w-4" />,
+      variant: "destructive",
+      // Opens the confirmation dialog; the card is only deleted there.
+      onClick: () => onDeleteCardRequest(nodeId),
+    });
+    return items;
+  }
 
+  const menuItems = menuItemsFor(menu);
   const connectMenuItems = connectMenu
     ? [
         {
@@ -1144,170 +762,28 @@ function PrerequisiteGraphCanvas({
       ]
     : [];
 
-  const linkPickerConfig = useMemo(() => {
-    if (!linkPicker) return null;
-    const picker = linkPicker;
-    const node = nodeById.get(picker.nodeId);
-    if (!node) return null;
-    const front = graphNodePreview(node.front);
+  const linkPickerConfig = useMemo(
+    () =>
+      linkPicker ? linkPickerContent(linkPicker, graph, graphIndex) : null,
+    [graph, graphIndex, linkPicker],
+  );
 
-    const optionsFor = (ids: string[]): GraphLinkOption[] =>
-      ids
-        .map((id) => nodeById.get(id))
-        .filter((candidate) => candidate !== undefined)
-        .map((candidate) => ({
-          id: candidate.id,
-          label: graphNodePreview(candidate.front),
-        }))
-        .sort((a, b) => a.label.localeCompare(b.label));
-
-    if (picker.kind === "remove-prereq") {
-      return {
-        title: "Remove prerequisite",
-        description: `Choose the prerequisite link to “${front}” that should be removed.`,
-        options: optionsFor(
-          graph.edges
-            .filter((edge) => edge.dependentId === picker.nodeId)
-            .map((edge) => edge.prereqId),
-        ),
-        emptyText: "This card has no prerequisites.",
-        onPick: (id: string) => {
-          removeLink(id, picker.nodeId);
-          setLinkPicker(null);
-        },
-      };
-    }
-
-    const candidateIds = graph.nodes
-      .filter((candidate) => candidate.id !== picker.nodeId)
-      .filter((candidate) => {
-        const prereqId =
-          picker.kind === "add-prereq" ? candidate.id : picker.nodeId;
-        const dependentId =
-          picker.kind === "add-prereq" ? picker.nodeId : candidate.id;
-        return (
-          !graphIndex.edgeKeys.has(graphEdgeKey(prereqId, dependentId)) &&
-          !wouldCreateCycleIndexed(graphIndex, prereqId, dependentId)
-        );
-      })
-      .map((candidate) => candidate.id);
-
-    return {
-      title:
-        picker.kind === "add-prereq" ? "Add prerequisite" : "Add dependent",
-      description:
-        picker.kind === "add-prereq"
-          ? `Choose a card that “${front}” should depend on.`
-          : `Choose a card that should depend on “${front}”.`,
-      options: optionsFor(candidateIds),
-      emptyText:
-        picker.kind === "add-prereq"
-          ? "No card can be added as a prerequisite."
-          : "No card can be added as a dependent.",
-      onPick: (id: string) => {
-        addLink(
-          picker.kind === "add-prereq" ? id : picker.nodeId,
-          picker.kind === "add-prereq" ? picker.nodeId : id,
-        );
-        setLinkPicker(null);
-      },
-    };
-  }, [
-    addLink,
-    graph.edges,
-    graph.nodes,
-    graphIndex,
-    linkPicker,
-    nodeById,
-    removeLink,
-  ]);
+  const pickLink = (id: string) => {
+    if (!linkPickerConfig) return;
+    const link = linkPickerConfig.linkFor(id);
+    if (link.action === "add") addLink(link.prereqId, link.dependentId);
+    else removeLink(link.prereqId, link.dependentId);
+    setLinkPicker(null);
+  };
 
   return (
     <>
-      {/* The toolbar lives before the canvas in the DOM so keyboard users reach
-          Search and Tidy before tabbing through every card. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-3 @container">
-        <div className="flex items-center gap-2 *:pointer-events-auto">
-          {(onBack || deckName) && (
-            <button
-              type="button"
-              onClick={onBack}
-              disabled={!onBack}
-              aria-label={deckName ? `Back to ${deckName}` : "Back to deck"}
-              className="flex h-8 min-w-0 items-center gap-1.5 border border-border bg-surface px-2 text-xs font-medium text-ink shadow-overlay transition-colors hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default disabled:hover:bg-surface"
-            >
-              {onBack && (
-                <ArrowLeft className="h-3.5 w-3.5 shrink-0 text-muted" />
-              )}
-              {deckName && (
-                <TruncatedLabel
-                  label={deckName}
-                  side="bottom"
-                  className="max-w-44"
-                />
-              )}
-            </button>
-          )}
-          <div className="relative flex h-8 min-w-28 flex-1 items-center gap-1.5 border border-border bg-surface px-2 shadow-overlay focus-within:ring-2 focus-within:ring-accent @xl:flex-none">
-            <Search className="h-3.5 w-3.5 shrink-0 text-muted" />
-            <input
-              aria-label="Search flashcards"
-              placeholder="Search cards…"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" &&
-                  searchMatches &&
-                  searchMatches.size > 0
-                ) {
-                  event.preventDefault();
-                  stepSearch(event.shiftKey ? -1 : 1);
-                }
-              }}
-              className="w-full min-w-0 bg-transparent text-xs text-ink outline-none placeholder:text-muted @xl:w-40"
-            />
-            {search && (
-              <button
-                type="button"
-                aria-label="Clear search"
-                onClick={() => setSearch("")}
-                className="text-muted transition-colors hover:text-ink"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {query !== "" && (
-              <p
-                role="status"
-                title={
-                  searchStep !== null
-                    ? "Shift+Enter for the previous match"
-                    : undefined
-                }
-                className="pointer-events-none absolute top-full left-0 mt-1 w-max max-w-64 border border-border bg-surface px-2 py-1 text-[0.6875rem] leading-snug text-muted shadow-overlay"
-              >
-                {searchMatches && searchMatches.size > 0
-                  ? searchStep !== null
-                    ? `${Math.min(searchStep + 1, searchMatchIds.length)} of ${searchMatchIds.length} · Enter for next`
-                    : `${searchMatches.size} ${searchMatches.size === 1 ? "match" : "matches"} · Enter to step through`
-                  : `No cards match “${search.trim()}”.`}
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onTidy}
-            aria-label="Tidy layout"
-            className="ml-auto inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 border border-border bg-surface px-2.5 text-xs font-medium text-ink shadow-overlay transition-colors hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            <span>
-              Tidy<span className="hidden @xl:inline"> layout</span>
-            </span>
-          </button>
-        </div>
-      </div>
+      <GraphToolbar
+        deckName={deckName}
+        onBack={onBack}
+        search={search}
+        onTidy={onTidy}
+      />
       <ReactFlow
         className={cn(
           isConnecting && "graph-connecting",
@@ -1377,7 +853,11 @@ function PrerequisiteGraphCanvas({
           className="hidden md:block"
           style={{ width: 160, height: 110 }}
           bgColor="var(--color-surface)"
-          maskColor="var(--color-bg)"
+          // Dim, don't hide, the cards outside the view: an opaque mask
+          // painted over them and left the map looking empty.
+          maskColor="color-mix(in oklab, var(--color-bg) 60%, transparent)"
+          maskStrokeColor="var(--color-muted)"
+          maskStrokeWidth={1}
           nodeColor="var(--color-border-strong)"
           nodeStrokeColor="var(--color-surface)"
           nodeStrokeWidth={2}
@@ -1408,7 +888,7 @@ function PrerequisiteGraphCanvas({
         description={linkPickerConfig?.description ?? ""}
         options={linkPickerConfig?.options ?? []}
         emptyText={linkPickerConfig?.emptyText ?? ""}
-        onPick={(id) => linkPickerConfig?.onPick(id)}
+        onPick={pickLink}
         onClose={() => setLinkPicker(null)}
       />
     </>
