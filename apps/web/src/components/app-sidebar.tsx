@@ -114,14 +114,21 @@ export function AppSidebar({
       <BrandHeader linkProps={linkProps("/")} />
 
       <SidebarContent className="armin-scrollbar">
-        <SidebarGroup>
+        <SidebarGroup className="pt-3">
           <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
+            <SidebarMenu>
               <ReviewItem
                 ready={ready}
                 active={isActive("/review")}
                 linkProps={linkProps("/review")}
               />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-0.5">
               <NavItem
                 to="/"
                 label="Decks"
@@ -283,13 +290,14 @@ function ReviewItem({
         isActive={active}
         tooltip={statusLabel ? `Review · ${statusLabel}` : "Review"}
         className={cn(
-          "relative font-medium",
-          // Review is the sidebar's main action: a filled accent row while
-          // reviews are due, a calm tinted row once caught up.
+          // Review is the sidebar's main action, so it's drawn as a button
+          // rather than a nav row: taller, centred, raised, with its own fill
+          // (reviews due) or outline (caught up). The rail keeps the icon at
+          // the left so it lines up with the other icons.
+          "relative h-9 justify-center border px-3 font-medium shadow-[0_1px_2px_rgb(0_0_0/0.2)] transition-colors group-data-[collapsible=icon]:justify-start group-data-[collapsible=icon]:p-[7px]! group-data-[collapsible=icon]:shadow-none",
           dueCount > 0
-            ? "bg-accent text-on-accent hover:bg-accent-deep hover:text-on-accent active:bg-accent-deep active:text-on-accent data-active:bg-accent-deep data-active:text-on-accent data-active:hover:bg-accent-deep"
-            : "bg-accent-tint text-accent-deep hover:bg-accent-tint hover:text-ink active:bg-accent-tint data-active:bg-accent-tint data-active:text-ink data-active:hover:bg-accent-tint",
-          "group-data-[collapsible=icon]:[&>span:last-child]:text-clip",
+            ? "border-transparent bg-accent text-on-accent hover:bg-accent-deep hover:text-on-accent active:bg-accent-deep active:text-on-accent data-active:bg-accent-deep data-active:text-on-accent data-active:hover:bg-accent-deep"
+            : "border-border-strong bg-bg text-ink hover:bg-surface-sunken hover:text-ink active:bg-surface-sunken data-active:bg-surface-sunken data-active:text-ink data-active:hover:bg-surface-sunken [&>svg]:text-accent",
         )}
         render={
           <Link
@@ -301,28 +309,30 @@ function ReviewItem({
       >
         <GraduationCap strokeWidth={1.5} />
         <span className={fade}>Review</span>
+        {queueQuery.isSuccess && (
+          // The count hides with the labels; the rail keeps a due dot instead.
+          <span
+            aria-hidden
+            className={cn(
+              fade,
+              "flex h-5 min-w-5 items-center justify-center px-1.5 text-xs font-semibold tabular-nums",
+              dueCount > 0 ? "bg-on-accent/15" : "text-accent",
+            )}
+          >
+            {dueCount > 0 ? (
+              dueCount
+            ) : (
+              <Check className="size-3.5" strokeWidth={2} />
+            )}
+          </span>
+        )}
         {dueCount > 0 && (
-          // The badge hides with the labels; the rail keeps a due dot instead.
           <span
             aria-hidden
             className="absolute top-1.5 right-1.5 size-1.5 bg-on-accent opacity-0 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-100 group-data-[collapsible=icon]:delay-100"
           />
         )}
       </SidebarMenuButton>
-      {queueQuery.isSuccess && (
-        <SidebarMenuBadge
-          aria-hidden
-          className={cn(
-            countBadge,
-            // Due reviews are the one count that asks for attention.
-            dueCount > 0
-              ? "bg-on-accent/15 px-1.5 font-semibold text-on-accent peer-hover/menu-button:text-on-accent peer-data-active/menu-button:text-on-accent"
-              : "text-accent-deep peer-hover/menu-button:text-ink peer-data-active/menu-button:text-ink",
-          )}
-        >
-          {dueCount > 0 ? dueCount : <Check className="size-3.5" strokeWidth={2} />}
-        </SidebarMenuBadge>
-      )}
     </SidebarMenuItem>
   );
 }
