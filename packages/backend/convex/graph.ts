@@ -168,9 +168,14 @@ export const saveLayout = mutation({
       v.object({ flashcardId: v.string(), x: v.number(), y: v.number() }),
     ),
   },
+  // Positions are last-write-wins and can't break graph rules, so a layout
+  // save never conflicts. When the library changed elsewhere, return the
+  // caller's version unchanged so its next link edit still detects that.
   handler: async (ctx, { deckId, placements, expectedVersion }) => {
     const library = await writableLibrary(ctx);
-    await checkVersion(ctx, library._id, expectedVersion);
+    const counters = await ctx.db.query("libraryCounters")
+      .withIndex("by_library", q => q.eq("libraryId", library._id)).unique();
+    const current = (counters?.revision ?? 0) === expectedVersion;
     const deck = await ownedOrFail(ctx, library, deckId, "Deck");
     if (placements.length > 2000) fail("INVALID", "Too many placements.");
     for (const placement of placements) {
@@ -181,6 +186,6 @@ export const saveLayout = mutation({
       await ctx.db.patch(flashcard._id, { posX: placement.x, posY: placement.y });
     }
     await bumpRevision(ctx, library._id);
-    return { ok: true as const, version: expectedVersion + 1 };
+    return { ok: true as const, version: current ? expectedVersion + 1 : expectedVersion };
   },
 });

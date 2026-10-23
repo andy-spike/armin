@@ -21,7 +21,7 @@ const nullable = <T extends ReturnType<typeof v.number>>(validator: T) =>
 function checkSteps(value: string | null | undefined) {
   if (value == null) return;
   const steps = value.split(",").map((s) => s.trim()).filter(Boolean);
-  if (steps.some((step) => !/^\d+(?:\.\d+)?[smhd]$/.test(step))) {
+  if (steps.some((step) => !/^\d+(?:\.\d+)?[mhd]$/.test(step))) {
     fail("INVALID", "Steps use units like 10m, 1h, or 1d separated by commas.");
   }
 }
