@@ -121,7 +121,8 @@ type PrerequisiteGraphProps = {
   graph: UiDeckGraph;
   deckName?: string;
   onBack?: () => void;
-  onGraphChange: (graph: UiDeckGraph) => void;
+  /** Called with the full link list after the user adds or removes links. */
+  onEdgesChange: (edges: UiDeckGraph["edges"]) => void;
   onConnectError?: (message: string) => void;
   nodePlacements?: Record<string, XYPosition>;
   onCreateCardRequest?: (
@@ -129,7 +130,7 @@ type PrerequisiteGraphProps = {
     connectFromNodeId?: string,
   ) => void;
   onEditCardRequest?: (nodeId: string) => void;
-  onDeleteCardRequest?: (nodeId: string) => void;
+  onDeleteCardRequest: (nodeId: string) => void;
   onPersistLayout?: (placements: NodePlacement[]) => void;
   initialViewport?: Viewport;
   onViewportChange?: (viewport: Viewport) => void;
@@ -313,7 +314,7 @@ function PrerequisiteGraphCanvas({
   graph,
   deckName,
   onBack,
-  onGraphChange,
+  onEdgesChange: onGraphEdgesChange,
   onConnectError,
   nodePlacements,
   onCreateCardRequest,
@@ -844,26 +845,10 @@ function PrerequisiteGraphCanvas({
 
   const syncEdges = useCallback(
     (nextEdges: UiDeckGraph["edges"]) => {
-      onGraphChange({ ...graph, edges: nextEdges });
+      onGraphEdgesChange(nextEdges);
       setNodes((current) => refreshNodeData(current, nextEdges));
     },
-    [graph, onGraphChange, setNodes],
-  );
-
-  const deleteNode = useCallback(
-    (nodeId: string) => {
-      const nextNodes = graph.nodes.filter((n) => n.id !== nodeId);
-      const nextEdges = graph.edges.filter(
-        (e) => e.prereqId !== nodeId && e.dependentId !== nodeId,
-      );
-      setNodes((current) => current.filter((n) => n.id !== nodeId));
-      setEdges((current) =>
-        current.filter((e) => e.source !== nodeId && e.target !== nodeId),
-      );
-      onGraphChange({ nodes: nextNodes, edges: nextEdges });
-      knownNodeIds.current.delete(nodeId);
-    },
-    [graph, onGraphChange, setEdges, setNodes],
+    [onGraphEdgesChange, setNodes],
   );
 
   const isValidConnection: IsValidConnection = useCallback(
@@ -964,10 +949,9 @@ function PrerequisiteGraphCanvas({
         (e) => !deletedIds.has(`${e.prereqId}-${e.dependentId}`),
       );
       setEdges((current) => current.filter((e) => !deletedIds.has(e.id)));
-      onGraphChange({ ...graph, edges: nextEdges });
-      setNodes((current) => refreshNodeData(current, nextEdges));
+      syncEdges(nextEdges);
     },
-    [graph, onGraphChange, setEdges, setNodes],
+    [graph.edges, setEdges, syncEdges],
   );
 
   const removeLink = useCallback(
@@ -1114,12 +1098,8 @@ function PrerequisiteGraphCanvas({
           label: "Delete flashcard",
           icon: <Trash2 className="h-4 w-4" />,
           variant: "destructive" as const,
-          // The confirmation dialog is the only delete path: deleting here
-          // would destroy the card before the user could cancel.
-          onClick: () => {
-            if (onDeleteCardRequest) onDeleteCardRequest(nodeMenuId);
-            else deleteNode(nodeMenuId);
-          },
+          // Opens the confirmation dialog; the card is only deleted there.
+          onClick: () => onDeleteCardRequest(nodeMenuId),
         },
       ]
     : menu?.kind === "edge"

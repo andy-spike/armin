@@ -341,7 +341,7 @@ function DeckGraphPage() {
           onBack={() =>
             void navigate({ to: "/deck/$deckId", params: { deckId } })
           }
-          onGraphChange={graphEdits.applyGraphChange}
+          onEdgesChange={graphEdits.applyEdgeChange}
           nodePlacements={graphEdits.nodePlacements}
           onCreateCardRequest={openCreate}
           onEditCardRequest={openEdit}
