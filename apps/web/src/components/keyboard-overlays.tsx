@@ -72,7 +72,12 @@ function CommandPalette({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} className="max-w-xl p-0">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      ariaLabel="Command palette"
+      className="max-w-xl p-0"
+    >
       <Command items={items} aria-label="Command palette">
         <CommandInput placeholder="Type a command…" autoFocus />
         <CommandEmpty>No commands found.</CommandEmpty>

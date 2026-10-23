@@ -55,6 +55,7 @@ export type UiGraphNode = {
   type: FlashcardType;
   state: ReviewState;
   locked: boolean;
+  archived: boolean;
   x: number | null;
   y: number | null;
 };

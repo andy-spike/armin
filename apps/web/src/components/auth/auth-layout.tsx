@@ -81,12 +81,24 @@ export function GoogleIcon() {
   );
 }
 
-/** Better Auth client errors carry a message; fall back to a plain sentence. */
-export function authErrorMessage(error: { message?: string; code?: string } | null | undefined) {
+export const EMAIL_UNAVAILABLE_MESSAGE = "Email isn't available right now. Contact support.";
+
+/**
+ * Better Auth client errors carry a message; fall back to a plain sentence.
+ * Pass `emailAvailable` from `useAuthFeatures` so an unverified sign-in does
+ * not claim a link was sent when this deployment cannot send mail.
+ */
+export function authErrorMessage(
+  error: { message?: string; code?: string } | null | undefined,
+  options?: { emailAvailable?: boolean },
+) {
   if (!error) return "Something went wrong. Try again.";
   if (error.code === "EMAIL_NOT_VERIFIED") {
-    return "Verify your email first. We just sent you a new link.";
+    return options?.emailAvailable === false
+      ? `Verify your email first. ${EMAIL_UNAVAILABLE_MESSAGE}`
+      : "Verify your email first. We just sent you a new link.";
   }
+  if (error.code === "EMAIL_UNAVAILABLE") return EMAIL_UNAVAILABLE_MESSAGE;
   if (error.code === "INVALID_EMAIL_OR_PASSWORD") return "Email or password is incorrect.";
   return error.message || "Something went wrong. Try again.";
 }

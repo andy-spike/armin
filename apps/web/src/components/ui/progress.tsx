@@ -4,11 +4,14 @@ import { cn } from "@/lib/utils";
 export function Progress({
   value,
   max = 100,
+  label,
   className,
   tone = "accent",
 }: {
   value: number;
   max?: number;
+  /** Accessible name; give every progress bar one. */
+  label?: string;
   className?: string;
   tone?: "accent" | "good" | "ink";
 }) {
@@ -22,6 +25,7 @@ export function Progress({
         className,
       )}
       role="progressbar"
+      aria-label={label}
       aria-valuenow={Math.round(pct)}
       aria-valuemin={0}
       aria-valuemax={100}

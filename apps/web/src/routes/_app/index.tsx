@@ -448,6 +448,7 @@ function DeckTile({
                 max={deck.total}
                 tone="good"
                 className="mt-1.5"
+                label={`${deck.name} learned`}
               />
               <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                 {deck.due > 0 && (
@@ -508,5 +509,6 @@ function Stat({
 
 export const Route = createFileRoute("/_app/")({
   loader: ({ context }) => prefetchDecksPage(context.queryClient),
+  head: () => ({ meta: [{ title: "Decks · Armin" }] }),
   component: DecksPage,
 });

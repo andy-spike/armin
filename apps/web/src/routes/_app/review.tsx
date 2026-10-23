@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { decksQuery as decksQueryOptions, prefetchReviewPage, reviewQueueQuery } from "@/lib/queries";
+import { decksQuery as decksQueryOptions, prefetchReviewPage } from "@/lib/queries";
 import { plural } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@armin/backend/api";
 import { Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,26 +18,28 @@ import {
 import { ReviewSession } from "@/components/review-session";
 import { toUiReviewUnit } from "@/types/view-models";
 import { useReviewActions } from "@/lib/use-review-actions";
+import { useNow } from "@/lib/session";
 
 const ALL_DECKS = "all";
-const QUEUE_POLL_MS = 15_000;
 
 function ReviewsPage() {
   const [selectedDeckId, setSelectedDeckId] = useState(ALL_DECKS);
+  const now = useNow();
 
   const decksQuery = useQuery(decksQueryOptions());
 
-  const queueQuery = useQuery({
-    ...reviewQueueQuery(selectedDeckId === ALL_DECKS ? undefined : selectedDeckId),
-    refetchInterval: QUEUE_POLL_MS,
-    refetchOnWindowFocus: true,
-  });
+  // A live Convex query, not a poll: the client keeps the session in sync when
+  // a rating unlocks a dependent that the server queue admits.
+  const queueQuery = useQuery(
+    selectedDeckId === ALL_DECKS
+      ? convexQuery(api.review.queue, { now })
+      : convexQuery(api.review.queue, { deckId: selectedDeckId, now }),
+  );
 
   const queue = useMemo(
     () => (queueQuery.data?.items ?? []).map(toUiReviewUnit),
     [queueQuery.data],
   );
-  const dueCount = queue.length;
 
   const deckOptions = useMemo(
     () => [
@@ -68,7 +72,7 @@ function ReviewsPage() {
         >
           <SelectTrigger
             size="sm"
-            className="min-w-[10rem] border-border-strong"
+            className="w-full min-w-0 border-border-strong sm:w-auto sm:max-w-[20rem] [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:truncate"
             aria-label="Deck to review"
           >
             <Layers className="h-3.5 w-3.5 shrink-0 text-muted" />
@@ -94,9 +98,9 @@ function ReviewsPage() {
           Review
         </h1>
       }
-      subtitle={
-        dueCount > 0
-          ? `${plural(dueCount, "review unit")} due today across your decks.`
+      subtitle={(remaining) =>
+        remaining > 0
+          ? `${plural(remaining, "review unit")} due today across your decks.`
           : "Everything due across your decks, in one queue."
       }
       doneAction={
@@ -112,5 +116,6 @@ function ReviewsPage() {
 
 export const Route = createFileRoute("/_app/review")({
   loader: ({ context }) => prefetchReviewPage(context.queryClient),
+  head: () => ({ meta: [{ title: "Review · Armin" }] }),
   component: ReviewsPage,
 });

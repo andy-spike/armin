@@ -41,9 +41,11 @@ Client entry points (see `package.json` `exports`):
   marks the library `deleting` in the same transaction as the auth user removal,
   so access ends immediately; `deletion.cleanupLibrary` then removes rows and
   files in bounded batches.
-- A rating validates the displayed review-unit version and current eligibility
-  (locks, archive, due time, the account-wide Frontier cap in the account
-  timezone), runs FSRS at server time, and writes the schedule, the review log,
+- The account-wide Frontier cap (in the account timezone) limits which new
+  units the review queue admits. A rating validates the displayed review-unit
+  version and current eligibility (locks, archive, due time), but not the cap,
+  so an answer to a card already admitted to a session is never discarded
+  when the budget runs out mid-session. It runs FSRS at server time, and writes the schedule, the review log,
   and prerequisite lock changes in one mutation. Undo restores the exact saved
   pre-review schedule only while that review is still the unit's latest. Earned
   prerequisite access is permanent and survives lapses, Undo, and authoring changes.
@@ -127,6 +129,10 @@ dev deployment, keep `pnpm dev` running while you set them:
 | `RESEND_API_KEY`                           | Resend key for verification and password-reset email.                                                                                                                                 |
 | `EMAIL_FROM`                               | Optional. Defaults to `Armin <onboarding@resend.dev>`, which Resend only delivers to the Resend account's own address.                                                                |
 | `MOBILE_TRUSTED_ORIGINS`                   | Optional comma-separated origins for the Expo app. Defaults to `armin://`. The development deployment adds `exp://,exp://**` for Expo Go; never use `exp://` wildcards in production. |
+
+Without `RESEND_API_KEY`, sign-up, password reset, and verification resends are
+disabled and say that email is unavailable; existing verified accounts can still
+sign in. Without both Google variables, the app hides Google sign-in.
 
 ### QA without an inbox
 

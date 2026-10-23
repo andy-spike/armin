@@ -63,20 +63,25 @@ async function toQueueItems(
 /**
  * Session queue for one deck or the whole library: due reviews (oldest due
  * first) followed by today's shared Frontier. `now` is a client clock tick so
- * the subscription re-evaluates as time passes even without writes.
+ * the subscription re-evaluates as time passes even without writes. `deckId`
+ * is a string so a malformed route id returns "not found" instead of failing
+ * Convex argument validation.
  */
 export const queue = query({
-  args: { deckId: v.optional(v.id("decks")), now: v.number() },
-  handler: async (ctx, { deckId }) => {
+  args: { deckId: v.optional(v.string()), now: v.number() },
+  handler: async (ctx, { deckId: deckIdArg }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    if (deckId) {
+    let deckId: Id<"decks"> | null = null;
+    if (deckIdArg !== undefined) {
+      deckId = ctx.db.normalizeId("decks", deckIdArg);
+      if (!deckId) return null;
       const deck = await ctx.db.get(deckId);
       if (!deck || deck.libraryId !== library._id) return null;
     }
     const now = Date.now();
-    const { reviews, frontier } = await selectSession(ctx, library, deckId ?? null, now);
-    const nextDue = await nextDueAfter(ctx, library, deckId ?? null, now);
+    const { reviews, frontier } = await selectSession(ctx, library, deckId, now);
+    const nextDue = await nextDueAfter(ctx, library, deckId, now);
     return {
       items: await toQueueItems(ctx, [...reviews, ...frontier]),
       reviewCount: reviews.length,
@@ -177,7 +182,7 @@ export const rate = mutation({
         message: "This card changed since it was shown. Reload it to continue.",
       };
     }
-    const ineligible = await checkEligible(ctx, library, unit, now);
+    const ineligible = await checkEligible(unit, now);
     if (ineligible) return { status: "ineligible", message: ineligible };
 
     const settings = new SettingsCache(ctx, library._id);

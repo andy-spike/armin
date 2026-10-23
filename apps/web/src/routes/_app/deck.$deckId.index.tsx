@@ -31,7 +31,7 @@ import {
   Tag,
   Settings,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
 import {
@@ -47,7 +47,8 @@ import {
   FLASHCARD_SORT_OPTIONS,
   type FlashcardSortKey,
 } from "@/lib/sort-flashcards";
-import { cn, plural } from "@/lib/utils";
+import { formatCardCounts } from "@/lib/browse";
+import { cn } from "@/lib/utils";
 import {
   DeckCardsSkeleton,
   DeckHeaderSkeleton,
@@ -122,6 +123,8 @@ function DeckPage() {
   const cardsRendering = deferredDisplayed !== displayed;
 
   const filteredTotal = cardsQuery.data?.pages[0]?.filteredTotal ?? 0;
+  const filteredArchived = cardsQuery.data?.pages[0]?.filteredArchived ?? 0;
+  const filteredActive = Math.max(0, filteredTotal - filteredArchived);
   const hasMore = cardsQuery.hasNextPage ?? false;
 
   const deckTags = tagsQuery.data ?? [];
@@ -291,7 +294,7 @@ function DeckPage() {
 
       {!deck && <DeckCardsSkeleton />}
 
-      {deck?.total === 0 && !cardsLoading && (
+      {deck?.total === 0 && deck.archived === 0 && !cardsLoading && (
         <EmptyState
           icon={Layers}
           title="No flashcards in this deck"
@@ -304,7 +307,7 @@ function DeckPage() {
         />
       )}
 
-      {deck && deck.total > 0 && (
+      {deck && deck.total + deck.archived > 0 && (
         <>
           <div className="mb-5 border border-border bg-bg-2 px-4 py-3">
             <div className="flex flex-wrap items-end justify-between gap-4">
@@ -357,8 +360,8 @@ function DeckPage() {
             <>
               <p className="mb-3 text-xs text-muted">
                 {hasMore
-                  ? `Showing ${deferredDisplayed.length} of ${filteredTotal} flashcards`
-                  : plural(filteredTotal, "flashcard")}
+                  ? `Showing ${deferredDisplayed.length} of ${filteredTotal} matching cards · ${formatCardCounts(filteredActive, filteredArchived)}`
+                  : formatCardCounts(filteredActive, filteredArchived)}
               </p>
               <VirtualFlashcardGrid
                 cards={deferredDisplayed}
@@ -460,7 +463,7 @@ function DeckHeader({
           {deck.name}
         </h1>
         <p className="mt-1 text-sm text-muted">
-          {plural(deck.total, "flashcard")}
+          {formatCardCounts(deck.total, deck.archived)}
           <span className="text-border-strong"> · </span>
           {deck.learned} learned
           {dueCount > 0 && (
@@ -472,10 +475,12 @@ function DeckHeader({
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Link to="/deck/$deckId/graph" params={{ deckId: deck.id }}>
-          <Button variant="outline">
-            <Share2 className="h-4 w-4" /> Graph
-          </Button>
+        <Link
+          to="/deck/$deckId/graph"
+          params={{ deckId: deck.id }}
+          className={buttonVariants({ variant: "outline" })}
+        >
+          <Share2 className="h-4 w-4" /> Graph
         </Link>
         <Button
           variant="outline"
@@ -487,10 +492,12 @@ function DeckHeader({
           <Settings className="h-4 w-4" />
         </Button>
         {dueCount > 0 && (
-          <Link to="/deck/$deckId/review" params={{ deckId: deck.id }}>
-            <Button>
-              <Play className="h-4 w-4" /> Review
-            </Button>
+          <Link
+            to="/deck/$deckId/review"
+            params={{ deckId: deck.id }}
+            className={buttonVariants()}
+          >
+            <Play className="h-4 w-4" /> Review
           </Link>
         )}
         <Button onClick={onAddCard}>
@@ -533,5 +540,6 @@ function FilterField({
 
 export const Route = createFileRoute("/_app/deck/$deckId/")({
   loader: ({ context, params }) => prefetchDeckPage(context.queryClient, params.deckId),
+  head: () => ({ meta: [{ title: "Deck · Armin" }] }),
   component: DeckPage,
 });

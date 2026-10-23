@@ -1,0 +1,17 @@
+[
+  {
+    "id": "jn78686w9t8mgrftcrvxk5xwbs8gttd1",
+    "front": "RT table only",
+    "back": "| A | B |\n| --- | --- |\n| 1 | 2 |"
+  },
+  {
+    "id": "jn7ba8dfc7wdq1pt6v3a9q4b5x8gv47v",
+    "front": "RT table plus paragraph",
+    "back": "| A | B |\n| --- | --- |\n| 1 | 2 |\n\nAfter table."
+  },
+  {
+    "id": "jn79bkdxx0999vdj8k3s6y3dcn8gtxdy",
+    "front": "RT paragraph table paragraph",
+    "back": "Before table.\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\nAfter table."
+  }
+]

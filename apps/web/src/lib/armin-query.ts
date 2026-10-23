@@ -10,6 +10,7 @@ export type BrowseQueryFilters = {
   state?: number;
   deckId?: string;
   tags?: string[];
+  search?: string;
 };
 
 export const flashcardKeys = {

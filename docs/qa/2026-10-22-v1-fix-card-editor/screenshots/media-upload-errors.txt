@@ -1,0 +1,22 @@
+Image upload checks (desktop Chromium, dev server 2026-10-22).
+
+Before the fix (reproduced):
+  41 MB PNG via the card editor -> POST /media/upload 500 (dev log: write EPIPE)
+  and the toast read "The image upload failed."
+  SVG via the card editor -> POST /media/upload 400, same generic toast.
+
+After the fix:
+  Picker accept -> image/png,image/jpeg,image/gif,image/webp,image/bmp,image/avif
+  (no SVG, no wildcard).
+  41 MB PNG -> no network request; toast "That image is 41 MB. Images must be
+  10 MB or smaller."
+  SVG -> no network request; toast "Use a PNG, JPG, GIF, WebP, BMP, or AVIF image."
+  Small PNG -> POST /media/upload 200; image inserted into the editor.
+  A 12 MB body sent directly to the same-origin proxy returned:
+    HTTP 413 "Image too large."
+  The dev log EPIPE count stayed at 2, both from the pre-fix trial; no new
+  EPIPE or 500 appeared after the fix.
+
+Network log (agent-browser):
+  POST http://armin-9f93e2e165.localhost:22328/media/upload (Fetch) 200  [small PNG]
+  POST http://armin-9f93e2e165.localhost:22328/media/upload (Fetch) 413  [12 MB direct]

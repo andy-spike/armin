@@ -164,6 +164,7 @@ export function toFlowNode(
       type: node.type,
       state: node.state,
       locked: node.locked,
+      archived: node.archived,
       isIsolated: !incidentNodeIds.has(node.id),
       emphasis: null,
     },

@@ -1,0 +1,38 @@
+[
+  {
+    "buttonBg": "rgb(211, 83, 71)",
+    "interval": 4.65,
+    "kbd": 5.01,
+    "kbdBg": "oklab(0.846299 -0.0028193 0.0134025 / 0.1)",
+    "kbdText": "rgb(16, 15, 15)",
+    "label": 4.65,
+    "name": "Again"
+  },
+  {
+    "buttonBg": "rgb(218, 112, 44)",
+    "interval": 5.77,
+    "kbd": 6.12,
+    "kbdBg": "oklab(0.846299 -0.0028193 0.0134025 / 0.1)",
+    "kbdText": "rgb(16, 15, 15)",
+    "label": 5.77,
+    "name": "Hard"
+  },
+  {
+    "buttonBg": "rgb(135, 154, 57)",
+    "interval": 6.12,
+    "kbd": 6.56,
+    "kbdBg": "oklab(0.846299 -0.0028193 0.0134025 / 0.1)",
+    "kbdText": "rgb(16, 15, 15)",
+    "label": 6.12,
+    "name": "Good"
+  },
+  {
+    "buttonBg": "rgb(67, 133, 190)",
+    "interval": 4.86,
+    "kbd": 5.33,
+    "kbdBg": "oklab(0.846299 -0.0028193 0.0134025 / 0.1)",
+    "kbdText": "rgb(16, 15, 15)",
+    "label": 4.86,
+    "name": "Easy"
+  }
+]

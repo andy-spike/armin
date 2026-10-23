@@ -7,7 +7,12 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { StateBadge, type ReviewState } from "@/components/ui/badge";
+import { Archive } from "lucide-react";
+import {
+  Badge,
+  StateBadge,
+  type ReviewState,
+} from "@/components/ui/badge";
 import { FlashcardTypeBadge } from "@/components/flashcard-type-badge";
 import type { FlashcardType } from "@armin/core/flashcard-types";
 import { cn } from "@/lib/utils";
@@ -27,6 +32,7 @@ export type CardNodeData = {
   type: FlashcardType;
   state: ReviewState;
   locked: boolean;
+  archived: boolean;
   isIsolated: boolean;
   emphasis: NodeEmphasis;
 };
@@ -92,6 +98,12 @@ function CardNodeComponent({ data, selected }: NodeProps<CardFlowNode>) {
 
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
         <StateBadge state={data.state} locked={data.locked} />
+        {data.archived && (
+          <Badge className="bg-surface-sunken text-muted">
+            <Archive className="h-3 w-3" aria-hidden />
+            Archived
+          </Badge>
+        )}
         <FlashcardTypeBadge type={data.type} />
         {data.isIsolated && (
           <span className="text-[0.625rem] font-medium uppercase tracking-wide text-muted">

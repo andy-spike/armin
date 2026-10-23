@@ -1,0 +1,16 @@
+Focus behaviour measured with agent-browser (desktop Chromium, 1280x800 CSS px).
+Each line is document.activeElement immediately after the action.
+
+Delete deck (opened from the Deck actions dropdown):
+  after open:  DIV role="dialog", heading "Delete deck?", inside dialog = true
+  after Escape: BUTTON aria-label="Deck actions"
+
+New deck:
+  after open:  INPUT placeholder "e.g. JavaScript Fundamentals"
+  after Escape: BUTTON text "New deck"
+
+Edit flashcard (card opened from its tile):
+  after open:  DIV contenteditable="true" aria-label="Flashcard front"
+  after Escape: BUTTON aria-label="View and edit flashcard: Markdown heading test"
+
+Backdrop click on Delete deck also returned focus to BUTTON aria-label="Deck actions".

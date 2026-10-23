@@ -16,13 +16,13 @@ function TabsList({ className, children, ...props }: TabsPrimitive.List.Props) {
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
-      className={cn("relative flex items-center gap-1", className)}
+      className={cn("relative flex flex-wrap items-center gap-1", className)}
       {...props}
     >
       {children}
       <TabsPrimitive.Indicator
         data-slot="tabs-indicator"
-        className="absolute bottom-0 left-0 h-0.5 w-(--active-tab-width) translate-x-(--active-tab-left) bg-accent transition-[width,translate] duration-200 ease-out"
+        className="absolute bottom-0 left-0 h-0.5 w-(--active-tab-width) translate-x-(--active-tab-left) bg-accent transition-[width,translate] duration-200 ease-out max-sm:hidden"
       />
     </TabsPrimitive.List>
   );
@@ -33,7 +33,7 @@ function TabsTab({ className, ...props }: TabsPrimitive.Tab.Props) {
     <TabsPrimitive.Tab
       data-slot="tabs-tab"
       className={cn(
-        "-mb-px cursor-pointer border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted transition-colors duration-150 outline-none select-none hover:text-ink focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-accent data-selected:text-ink",
+        "-mb-px cursor-pointer border-b-2 border-transparent px-3 py-2 text-sm font-medium whitespace-nowrap text-muted transition-colors duration-150 outline-none select-none hover:text-ink focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-accent data-active:text-ink max-sm:data-active:border-accent",
         className,
       )}
       {...props}

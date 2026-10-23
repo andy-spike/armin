@@ -374,8 +374,9 @@ function DeckList({
                       <span>{deck.name}</span>
                     </SidebarMenuButton>
                     {deck.due > 0 && (
-                      <SidebarMenuBadge className={countBadge} aria-label={`${deck.due} due`}>
+                      <SidebarMenuBadge className={countBadge}>
                         {deck.due}
+                        <span className="sr-only"> due</span>
                       </SidebarMenuBadge>
                     )}
                   </SidebarMenuItem>

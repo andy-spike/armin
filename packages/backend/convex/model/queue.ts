@@ -140,10 +140,17 @@ export async function selectSession(
   return { reviews, frontier };
 }
 
-/** May this unit be rated now? Mirrors queue eligibility at accept time. */
+/**
+ * May this unit be rated now? Mirrors queue eligibility at accept time.
+ *
+ * The daily Frontier cap is an admission budget, not a rating gate: the queue
+ * selects at most the remaining new-unit capacity (`selectSession`), and a unit
+ * admitted to a session stays answerable. Recomputing the selection here would
+ * reject a card already on screen when other ratings, an unlock, or a settings
+ * change exhausts the budget (ADR 0021 keeps the cap account-wide and lets the
+ * chosen view consume what remains).
+ */
 export async function checkEligible(
-  ctx: QueryCtx,
-  library: Doc<"libraries">,
   unit: Doc<"reviewUnits">,
   now: number,
 ): Promise<string | null> {
@@ -153,11 +160,5 @@ export async function checkEligible(
   }
   // Allow small clock skew between the displayed queue and acceptance.
   if (unit.due > now + 60_000) return "This review unit is not due yet.";
-  if (unit.state === State.New && unit.lastReview == null) {
-    const selection = await selectSession(ctx, library, unit.deckId, now);
-    if (!selection.frontier.some((candidate) => candidate._id === unit._id)) {
-      return "Today's new review unit limit is reached.";
-    }
-  }
   return null;
 }

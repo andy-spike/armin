@@ -47,15 +47,38 @@ import type {
 } from "@armin/core/flashcard-types";
 import { cn } from "@/lib/utils";
 
+/*
+ * Rating colours. Every label, interval, and shortcut chip inside these
+ * buttons must clear WCAG AA (4.5:1) in both themes. Light "Good" and dark
+ * "Again" are local per-theme shades; the dark hover shades are lighter than
+ * the resting colours because a darker hover would drop black text below AA.
+ * Global theme tokens are shared and owned elsewhere.
+ */
 const RATINGS: {
   grade: Grade;
   label: string;
   bg: string;
 }[] = [
-  { grade: 1, label: "Again", bg: "bg-again hover:bg-again-deep" },
-  { grade: 2, label: "Hard", bg: "bg-hard hover:bg-hard-deep" },
-  { grade: 3, label: "Good", bg: "bg-good hover:bg-good-deep" },
-  { grade: 4, label: "Easy", bg: "bg-easy hover:bg-easy-deep" },
+  {
+    grade: 1,
+    label: "Again",
+    bg: "bg-again hover:bg-again-deep [[data-theme=dark]_&]:bg-[#d35347] [[data-theme=dark]_&]:hover:bg-[#e0655a]",
+  },
+  {
+    grade: 2,
+    label: "Hard",
+    bg: "bg-hard hover:bg-hard-deep [[data-theme=dark]_&]:hover:bg-[#e58a4f]",
+  },
+  {
+    grade: 3,
+    label: "Good",
+    bg: "bg-good hover:bg-good-deep [[data-theme=light]_&]:bg-[#637b0a] [[data-theme=light]_&]:hover:bg-[#5f770a] [[data-theme=dark]_&]:hover:bg-[#9aac4a]",
+  },
+  {
+    grade: 4,
+    label: "Easy",
+    bg: "bg-easy hover:bg-easy-deep [[data-theme=dark]_&]:hover:bg-[#639fd0]",
+  },
 ];
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`) {
@@ -84,11 +107,25 @@ function sessionReviewUnit(unit: UiReviewUnit) {
   return { ...unit, turnId: `${unit.id}:${unit.version}`, reviewed: false };
 }
 
+function nextUnreviewedIndex(cards: SessionReviewUnit[], reviewedIndex: number) {
+  for (let i = reviewedIndex + 1; i < cards.length; i++) {
+    if (!cards[i].reviewed) return i;
+  }
+  // Skipped cards are revisited at the end of the session, so completion can
+  // never hide a due card behind "All caught up".
+  for (let i = 0; i < reviewedIndex; i++) {
+    if (!cards[i].reviewed) return i;
+  }
+  return cards.length;
+}
+
 /**
  * Merge a fresh queue into the running session. Cards not yet on screen take
  * the latest data, new due cards are appended, and the card being answered
  * keeps the prompt the user is looking at: if it changed elsewhere it is
- * flagged stale instead of being swapped under them.
+ * flagged stale instead of being swapped under them. Pending cards missing
+ * from the queue are reported so the caller can check whether they still exist
+ * (the queue also drops cards temporarily when the new-unit budget is spent).
  */
 function reconcileSessionCards(
   current: SessionReviewUnit[],
@@ -124,7 +161,10 @@ function reconcileSessionCards(
       !pendingIds.has(c.id) && c.version >= (reviewedVersions.get(c.id) ?? 0),
     )
     .map(sessionReviewUnit);
-  return { cards: [...updated, ...appended], staleActive };
+  const missing = current.filter(
+    (c) => !c.reviewed && !incomingById.has(c.id),
+  );
+  return { cards: [...updated, ...appended], staleActive, missing };
 }
 
 type HistoryEntry = {
@@ -141,8 +181,13 @@ export type ReviewSessionProps = {
   queue: UiReviewUnit[];
   /** Top-of-page content — a back link or a page title. */
   header: ReactNode;
-  /** Secondary line under the header (e.g. due count). Session progress aligns right. */
-  subtitle?: ReactNode;
+  /**
+   * Secondary line under the header (e.g. due count). Pass a function to base
+   * the copy on the session's remaining cards, which can briefly differ from
+   * the queue when a newly unlocked card is still on screen. Session progress
+   * aligns right.
+   */
+  subtitle?: ReactNode | ((remaining: number) => ReactNode);
   /** Deck selector rendered in the header row (top right). */
   deckSelector?: ReactNode;
   /** Action shown in the empty/done panel (typically a back button). */
@@ -215,6 +260,9 @@ export function ReviewSession({
 
   const cards = isLoading || isError ? [] : sessionCards;
   const card = cards[index];
+  const remaining = cards.filter((c) => !c.reviewed).length;
+  const subtitleContent =
+    typeof subtitle === "function" ? subtitle(remaining) : subtitle;
   const done =
     !isLoading && !isError && index >= cards.length && cards.length > 0;
   const empty = !isLoading && !isError && cards.length === 0;
@@ -253,10 +301,17 @@ export function ReviewSession({
   const removeFromSession = useCallback((reviewUnitId: string) => {
     setSessionCards((prev) => {
       const next = prev.filter((c) => c.id !== reviewUnitId);
-      setIndex((i) => Math.min(
-        i - prev.slice(0, i).filter((c) => c.id === reviewUnitId).length,
-        next.length,
-      ));
+      setIndex((i) => {
+        const adjusted = Math.min(
+          i - prev.slice(0, i).filter((c) => c.id === reviewUnitId).length,
+          next.length,
+        );
+        if (adjusted < next.length) return adjusted;
+        // Removing the last card does not complete the session while an
+        // earlier skipped card is still waiting.
+        const firstPending = next.findIndex((c) => !c.reviewed);
+        return firstPending >= 0 ? firstPending : next.length;
+      });
       return next;
     });
     setHistory((h) => h.filter((entry) => entry.reviewUnitId !== reviewUnitId));
@@ -291,12 +346,15 @@ export function ReviewSession({
             version: result.version,
           },
         ]);
+        const updated = cards.map((c) => c.turnId === card.turnId
+          ? { ...c, version: result.version, reviewed: true }
+          : c);
         setSessionCards((prev) => prev.map((c) => c.turnId === card.turnId
           ? { ...c, version: result.version, reviewed: true }
           : c));
         setFlipped(false);
         setTyped("");
-        setIndex((i) => i + 1);
+        setIndex(nextUnreviewedIndex(updated, index));
       } else if (result.status === "stale") {
         setStaleCard({ next: null, message: result.message });
       } else {
@@ -428,9 +486,16 @@ export function ReviewSession({
     activeTurnId: string | undefined;
   }>({ cards: sessionCards, activeTurnId: card?.turnId });
   sessionRef.current = { cards: sessionCards, activeTurnId: card?.turnId };
+  // Missing queue entries may have been deleted elsewhere; preview returns
+  // null once the unit is gone. Keep the fetcher in a ref so the merge effect
+  // does not re-run on every render.
+  const loadPreviewRef = useRef(loadPreview);
+  loadPreviewRef.current = loadPreview;
+  const missingCheckedRef = useRef(new Set<string>());
 
   useEffect(() => {
     sessionRef.current = { cards: [], activeTurnId: undefined };
+    missingCheckedRef.current.clear();
     setIndex(0);
     setFlipped(false);
     setTyped("");
@@ -452,7 +517,38 @@ export function ReviewSession({
         message: "This card was changed in another tab or device.",
       });
     }
-  }, [isLoading, isError, queue, rating, undoing]);
+    // A card that reappears may go missing again later (e.g. it is deleted
+    // after being answered elsewhere), so forget earlier checks on presence.
+    const incomingIds = new Set(queue.map((c) => c.id));
+    for (const id of missingCheckedRef.current) {
+      if (incomingIds.has(id)) missingCheckedRef.current.delete(id);
+    }
+    const unchecked = merged.missing.filter(
+      (c) => !missingCheckedRef.current.has(c.id),
+    );
+    if (unchecked.length > 0) {
+      void Promise.all(
+        unchecked.map(async (missingCard) => {
+          try {
+            const preview = await loadPreviewRef.current(missingCard.id);
+            missingCheckedRef.current.add(missingCard.id);
+            return { id: missingCard.id, deleted: preview === null };
+          } catch {
+            // A transient failure is not evidence of deletion; retry on the
+            // next queue poll.
+            return { id: missingCard.id, deleted: false };
+          }
+        }),
+      ).then((checked) => {
+        const deleted = checked.filter((c) => c.deleted).map((c) => c.id);
+        if (deleted.length === 0) return;
+        for (const id of deleted) removeFromSession(id);
+        setNotice(
+          "This card was deleted in another tab. It was removed from the session.",
+        );
+      });
+    }
+  }, [isLoading, isError, queue, rating, undoing, removeFromSession]);
 
   useEffect(() => {
     setFlipped(false);
@@ -509,37 +605,37 @@ export function ReviewSession({
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0 flex-1 [&_h1]:m-0">{header}</div>
-        {deckSelector && <div className="shrink-0">{deckSelector}</div>}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="min-w-0 sm:flex-1 [&_h1]:m-0">{header}</div>
+        {deckSelector && (
+          <div className="min-w-0 w-full sm:w-auto sm:shrink-0">{deckSelector}</div>
+        )}
       </div>
 
-      {(subtitle || card || isLoading) && (
-        <div
-          className={cn(
-            "mt-1.5 flex items-baseline gap-4 text-sm",
-            subtitle && "justify-between",
+      {(subtitleContent || card || isLoading) && (
+        <div className="mt-1.5 flex flex-col gap-1 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+          {subtitleContent && (
+            <p className="min-w-0 text-pretty text-muted">{subtitleContent}</p>
           )}
-        >
-          {subtitle && <p className="min-w-0 text-muted">{subtitle}</p>}
           {isLoading && <ReviewMetaSkeleton />}
           {card && (
             <div
               className={cn(
-                "flex shrink-0 items-center gap-3 font-mono text-xs uppercase tracking-wide text-muted",
-                !subtitle && "ml-auto",
+                "flex min-w-0 items-center gap-3 font-mono text-xs uppercase tracking-wide text-muted sm:max-w-[50%] sm:justify-end",
+                !subtitleContent && "sm:ml-auto",
               )}
             >
               {card.deck && card.deckId && (
                 <Link
                   to="/deck/$deckId"
                   params={{ deckId: card.deckId }}
-                  className="rounded-sm transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  title={card.deck}
+                  className="min-w-0 truncate rounded-sm transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   {card.deck}
                 </Link>
               )}
-              <span>
+              <span className="shrink-0">
                 {index + 1} / {cards.length}
               </span>
             </div>
@@ -590,7 +686,12 @@ export function ReviewSession({
       {card && (
         <div className="mt-8">
           <div className="mb-8 flex items-center gap-3">
-            <Progress value={index} max={cards.length} className="flex-1" />
+            <Progress
+              value={cards.filter((c) => c.reviewed).length}
+              max={cards.length}
+              label="Review progress"
+              className="flex-1"
+            />
             {onUndo && (
               <Button
                 variant="outline"
@@ -767,7 +868,7 @@ export function ReviewSession({
               {!flipped ? (
                 <Button size="lg" className="w-full" onClick={reveal}>
                   {isTypeAnswer ? "Check answer" : "Show answer"}
-                  <Kbd className="ml-1 border-on-accent/25 bg-on-accent/10 text-on-accent shadow-none">
+                  <Kbd className="ml-1 border-on-accent/25 bg-ink/10 text-on-accent shadow-none">
                     {isTypeAnswer ? "Enter" : "Space"}
                   </Kbd>
                 </Button>
@@ -790,11 +891,11 @@ export function ReviewSession({
                     >
                       <span className="flex items-center gap-1.5">
                         {r.label}
-                        <Kbd className="border-on-accent/25 bg-on-accent/10 text-on-accent shadow-none">
+                        <Kbd className="border-on-accent/25 bg-ink/10 text-on-accent shadow-none">
                           {r.grade}
                         </Kbd>
                       </span>
-                      <span className="font-mono text-xs text-on-accent/85">
+                      <span className="font-mono text-xs text-on-accent">
                         {intervalLabels.get(r.grade) ?? "…"}
                       </span>
                     </button>

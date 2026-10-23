@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { clozeClusters, normalizeClozeText } from "./flashcard-rules";
+import {
+  clozeClusters,
+  hasEmptyClozeDeletion,
+  normalizeClozeText,
+} from "./flashcard-rules";
 
 export * from "./flashcard-rules";
 
@@ -40,6 +44,10 @@ const clozeContentSchema = z
   .object({ text: z.string().min(1) })
   .refine((c) => clozeClusters(c.text).length > 0, {
     message: "Cloze text must contain at least one {{…}} deletion.",
+    path: ["text"],
+  })
+  .refine((c) => !hasEmptyClozeDeletion(c.text), {
+    message: "Every cloze deletion needs an answer.",
     path: ["text"],
   });
 
@@ -98,6 +106,21 @@ const contentSchemaByType = {
   image_occlusion: imageOcclusionContentSchema,
 } as const;
 
+/**
+ * Stored rows are read with the rules they were written under. Empty cloze
+ * deletions created before validation existed must stay readable so the owner
+ * can open and repair them; new writes still go through the strict schema.
+ */
+const storedContentSchemaByType = {
+  ...contentSchemaByType,
+  cloze: z
+    .object({ text: z.string().min(1) })
+    .refine((c) => clozeClusters(c.text).length > 0, {
+      message: "Cloze text must contain at least one {{…}} deletion.",
+      path: ["text"],
+    }),
+} as const;
+
 function normalizeContent<T extends FlashcardType>(
   type: T,
   content: FlashcardContentByType[T],
@@ -130,7 +153,19 @@ export function parseStoredContent(
     throw new Error(`Unknown flashcard type: ${type}`);
   }
   const parsed = JSON.parse(raw) as unknown;
-  return { type, content: validateContent(type, parsed) };
+  const content = storedContentSchemaByType[type].parse(
+    parsed,
+  ) as FlashcardContent;
+  if (type === "cloze") {
+    return {
+      type,
+      content: {
+        ...content,
+        text: normalizeClozeText((content as ClozeContent).text),
+      },
+    };
+  }
+  return { type, content };
 }
 
 export function serializeContent(content: FlashcardContent): string {

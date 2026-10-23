@@ -20,6 +20,7 @@ import { ThemeProvider } from "@/theme/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { KeybindingsProvider } from "@/keybindings/keybindings-provider";
 import { LibrarySync } from "@/components/library-sync";
+import { RouteNotFound } from "@/components/route-status";
 
 /** Read the Better Auth session cookie on the server and mint a Convex token. */
 const getAuth = createServerFn({ method: "GET" }).handler(async () => {
@@ -87,6 +88,14 @@ export const Route = createRootRouteWithContext<{
   // shared cache may keep a copy.
   headers: () => ({ "Cache-Control": "private, no-store" }),
   shellComponent: RootDocument,
+  // React hoists this title for the unmatched-URL page, which has no route
+  // of its own to carry a `head`.
+  notFoundComponent: () => (
+    <>
+      <title>Page not found · Armin</title>
+      <RouteNotFound />
+    </>
+  ),
   component: RootComponent,
 });
 

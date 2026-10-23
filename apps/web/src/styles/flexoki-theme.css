@@ -14,11 +14,17 @@
   --armin-border-strong: var(--flexoki-150);
   --armin-ui-3: var(--flexoki-200);
   --armin-ink: var(--flexoki-black);
-  --armin-muted: var(--flexoki-600);
-  --armin-faint: var(--flexoki-300);
+  --armin-muted: var(--flexoki-700);
+  --armin-faint: var(--flexoki-600);
 
-  --armin-accent: var(--flexoki-cyan-600);
-  --armin-accent-deep: var(--flexoki-cyan-700);
+  /* Cyan 700 keeps paper text on primary actions above AA (6.0:1) while the
+     deeper hover stays visibly darker than the resting accent. */
+  --armin-accent: var(--flexoki-cyan-700);
+  --armin-accent-deep: color-mix(
+    in srgb,
+    var(--flexoki-cyan-700) 82%,
+    var(--flexoki-black)
+  );
   --armin-accent-tint: var(--flexoki-cyan-50);
   --armin-on-accent: var(--flexoki-paper);
 
@@ -33,11 +39,14 @@
 
   --armin-new: var(--flexoki-blue-600);
   --armin-new-bg: var(--flexoki-blue-50);
-  --armin-learning: var(--flexoki-yellow-600);
+  /* The 600 accents are below AA as 12px state-badge text on their 50 tint
+     (learning 3.01, review 3.81, relearning 4.03). These darker shades keep
+     the same hue and clear 4.5:1 on both the tinted badge and paper. */
+  --armin-learning: #7d6100;
   --armin-learning-bg: var(--flexoki-yellow-50);
-  --armin-review: var(--flexoki-green-600);
+  --armin-review: #4f650a;
   --armin-review-bg: var(--flexoki-green-50);
-  --armin-relearning: var(--flexoki-orange-600);
+  --armin-relearning: #9d4310;
   --armin-relearning-bg: var(--flexoki-orange-50);
 
   --armin-shadow-overlay: 0 12px 40px -8px rgb(16 15 15 / 0.18);
@@ -58,7 +67,7 @@
   --armin-ui-3: var(--flexoki-800);
   --armin-ink: var(--flexoki-200);
   --armin-muted: var(--flexoki-500);
-  --armin-faint: var(--flexoki-700);
+  --armin-faint: var(--flexoki-500);
 
   --armin-accent: var(--flexoki-cyan-400);
   --armin-accent-deep: var(--flexoki-cyan-300);
@@ -74,7 +83,7 @@
   --armin-easy: var(--flexoki-blue-400);
   --armin-easy-deep: var(--flexoki-blue-600);
 
-  --armin-new: var(--flexoki-blue-400);
+  --armin-new: #4a8ac2; /* blue-400 on blue-950 is 4.46:1; this is 4.77:1. */
   --armin-new-bg: var(--flexoki-blue-950);
   --armin-learning: var(--flexoki-yellow-400);
   --armin-learning-bg: var(--flexoki-yellow-950);

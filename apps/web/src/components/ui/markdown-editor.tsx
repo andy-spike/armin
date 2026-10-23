@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { ImagePlus } from "lucide-react";
+import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT } from "@armin/core/media";
+import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
 import { cn } from "@/lib/utils";
 import {
   mediaDisplayUrl,
@@ -13,7 +21,72 @@ import {
 import { ImageZoomDialog } from "@/components/ui/image-zoom-dialog";
 import { ResizableImage } from "@/components/ui/markdown-image";
 import { useToast } from "@/components/ui/toast";
-import { armin, errorMessage } from "@/lib/armin-client";
+import { armin } from "@/lib/armin-client";
+
+// SVG is intentionally not offered: uploaded images are served from an
+// authenticated route, and SVG can carry script. The server sniffs uploaded
+// bytes and rejects it too; keeping the picker honest avoids a pointless round
+// trip. Derive the rest from the shared media rules so the two stay in sync.
+const UPLOAD_MIME_TYPES = Object.values(MIME_BY_EXT).filter(
+  (mime) => mime !== MIME_BY_EXT.svg,
+);
+const UPLOAD_ACCEPT = UPLOAD_MIME_TYPES.join(",");
+const MAX_UPLOAD_MB = Math.round(MAX_MEDIA_FILE_BYTES / (1024 * 1024));
+const UNSUPPORTED_IMAGE_MESSAGE =
+  "Use a PNG, JPG, GIF, WebP, BMP, or AVIF image.";
+const NETWORK_ERROR_MESSAGE =
+  "Couldn't reach the server. Check your connection and try again.";
+
+/** Turn an upload failure into the most specific message we can. */
+function uploadErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    if (/network|fetch|connection|aborted|EPIPE/i.test(error.message)) {
+      return NETWORK_ERROR_MESSAGE;
+    }
+    if (error.message.trim()) return error.message;
+  }
+  return "The image upload failed.";
+}
+
+function megabytes(bytes: number) {
+  return Math.max(1, Math.round(bytes / (1024 * 1024)));
+}
+
+/**
+ * Whether stored Markdown must be edited as source. `@tiptap/markdown` drops
+ * GFM tables and rewrites raw HTML blocks, so loading either into the rich
+ * editor would lose text on the next save. Anything that fails to tokenize or
+ * parses to an empty document is kept as source for the same reason.
+ */
+function needsSourceMode(editor: Editor, markdown: string) {
+  if (!markdown.trim()) return false;
+  const hasUnsupportedBlock = (tokens: unknown): boolean =>
+    Array.isArray(tokens) &&
+    tokens.some((token) => {
+      if (!token || typeof token !== "object") return false;
+      const t = token as Record<string, unknown>;
+      if (t.type === "table" || (t.type === "html" && t.block === true)) {
+        return true;
+      }
+      return hasUnsupportedBlock(t.tokens) || hasUnsupportedBlock(t.items);
+    });
+  try {
+    const resolved = resolveMediaRefsInMarkdown(markdown);
+    if (hasUnsupportedBlock(editor.markdown?.instance.lexer(resolved))) {
+      return true;
+    }
+    return !editor.markdown?.parse(resolved)?.content?.length;
+  } catch {
+    return true;
+  }
+}
+
+function loadMarkdown(editor: Editor, markdown: string) {
+  editor.commands.setContent(resolveMediaRefsInMarkdown(markdown), {
+    contentType: "markdown",
+    emitUpdate: false,
+  });
+}
 
 type MarkdownEditorProps = {
   value: string;
@@ -36,11 +109,19 @@ export function MarkdownEditor({
   const onUploadError = (message: string) =>
     toast({ tone: "error", title: "Image not added", description: message });
   const containerRef = useRef<HTMLDivElement>(null);
+  const plainTextRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [plainTextMode, setPlainTextMode] = useState(false);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
-  // The editor is created once, so reach the latest preview handler via a ref.
+  // The editor is created once, so reach the latest handler/value via refs.
   const onPreviewRef = useRef<((src: string) => void) | null>(null);
   onPreviewRef.current = setPreviewSrc;
+  const plainTextModeRef = useRef(plainTextMode);
+  plainTextModeRef.current = plainTextMode;
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const emittedValueRef = useRef<string | null>(null);
+  const initializedRef = useRef(false);
 
   const syncScrollOverflow = useCallback(() => {
     const el = containerRef.current;
@@ -52,18 +133,59 @@ export function MarkdownEditor({
     }
   }, []);
 
+  const insertPlainMarkdown = useCallback(
+    (snippet: string) => {
+      const el = plainTextRef.current;
+      const current = valueRef.current;
+      if (!el) {
+        onChange(
+          `${current}${current && !current.endsWith("\n") ? "\n" : ""}${snippet}`,
+        );
+        return;
+      }
+      const start = el.selectionStart ?? current.length;
+      const end = el.selectionEnd ?? start;
+      onChange(`${current.slice(0, start)}${snippet}${current.slice(end)}`);
+      requestAnimationFrame(() => {
+        el.focus();
+        const caret = start + snippet.length;
+        el.setSelectionRange(caret, caret);
+      });
+    },
+    [onChange],
+  );
+  const insertPlainMarkdownRef = useRef(insertPlainMarkdown);
+  insertPlainMarkdownRef.current = insertPlainMarkdown;
+
   const insertImageFiles = useCallback(
     async (editor: Editor | null, files: Iterable<File>) => {
-      if (!editor) return;
+      if (!editor && !plainTextModeRef.current) return;
       for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
+        if (!UPLOAD_MIME_TYPES.includes(file.type)) {
+          onUploadError(UNSUPPORTED_IMAGE_MESSAGE);
+          continue;
+        }
+        if (file.size > MAX_MEDIA_FILE_BYTES) {
+          onUploadError(
+            `That image is ${megabytes(file.size)} MB. Images must be ${MAX_UPLOAD_MB} MB or smaller.`,
+          );
+          continue;
+        }
         let stored;
         try {
           stored = await armin.media.importImage({ file, fileName: file.name });
         } catch (error) {
-          onUploadError(errorMessage(error, "The image upload failed."));
+          onUploadError(uploadErrorMessage(error));
           continue;
         }
+        if (plainTextModeRef.current) {
+          // Keep the portable `armin-media:` reference in the source; the
+          // read-only renderer resolves it for display.
+          insertPlainMarkdownRef.current(`![${file.name}](${stored.ref})`);
+          continue;
+        }
+        if (!editor) continue;
         editor
           .chain()
           .focus()
@@ -77,11 +199,10 @@ export function MarkdownEditor({
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit.configure({
-        heading: false,
-        blockquote: false,
-        codeBlock: false,
-      }),
+      // Every StarterKit block type is enabled: the Markdown parser can emit
+      // headings, blockquotes, code blocks, and lists from stored cards, and a
+      // node missing from the schema makes the whole field fail to load.
+      StarterKit,
       Markdown,
       ResizableImage.configure({
         allowBase64: false,
@@ -92,11 +213,13 @@ export function MarkdownEditor({
         emptyEditorClass: "is-editor-empty",
       }),
     ],
-    content: resolveMediaRefsInMarkdown(value),
+    content: "",
     contentType: "markdown",
     editorProps: {
       attributes: {
-        class: "tiptap outline-none",
+        // `markdown-content` reuses the read-only renderer's list, quote, and
+        // code styles so authored blocks look the same before and after save.
+        class: "tiptap markdown-content outline-none",
         spellcheck: "false",
         autocorrect: "off",
         autocapitalize: "off",
@@ -136,13 +259,24 @@ export function MarkdownEditor({
       },
     },
     onUpdate: ({ editor: current }) => {
-      onChange(persistMediaRefsInMarkdown(current.getMarkdown()));
+      const next = persistMediaRefsInMarkdown(current.getMarkdown());
+      emittedValueRef.current = next;
+      onChange(next);
       requestAnimationFrame(syncScrollOverflow);
     },
     onCreate: ({ editor: current }) => {
-      if (autoFocus) {
-        current.commands.focus("end");
+      // Detect constructs the schema cannot represent before loading them:
+      // the editor's own Markdown parsing silently drops GFM tables, and a
+      // later save would then overwrite the stored source without them.
+      if (needsSourceMode(current, value)) {
+        setPlainTextMode(true);
+      } else {
+        loadMarkdown(current, value);
+        if (autoFocus) {
+          current.commands.focus("end");
+        }
       }
+      initializedRef.current = true;
       requestAnimationFrame(syncScrollOverflow);
     },
   });
@@ -155,15 +289,21 @@ export function MarkdownEditor({
   }, [editor]);
 
   useEffect(() => {
-    if (!editor) return;
-    const current = persistMediaRefsInMarkdown(editor.getMarkdown());
-    if (value !== current) {
-      editor.commands.setContent(resolveMediaRefsInMarkdown(value), {
-        contentType: "markdown",
-        emitUpdate: false,
-      });
+    if (!editor || !initializedRef.current || plainTextMode) return;
+    // Values emitted by this editor are already representable; only an
+    // externally supplied value needs the lossless-mode check.
+    if (value === emittedValueRef.current) return;
+    if (needsSourceMode(editor, value)) {
+      setPlainTextMode(true);
+      return;
     }
-  }, [editor, value]);
+    const current = persistMediaRefsInMarkdown(editor.getMarkdown());
+    if (value !== current) loadMarkdown(editor, value);
+  }, [editor, value, plainTextMode]);
+
+  useEffect(() => {
+    if (plainTextMode && autoFocus) plainTextRef.current?.focus();
+  }, [plainTextMode, autoFocus]);
 
   useLayoutEffect(() => {
     syncScrollOverflow();
@@ -197,13 +337,33 @@ export function MarkdownEditor({
         {...(autoFocus ? { "data-autofocus": true } : {})}
         className="markdown-editor armin-scrollbar max-h-[220px] min-h-[88px] w-full px-3 py-2 text-sm leading-relaxed text-ink"
       >
-        <EditorContent editor={editor} />
+        {plainTextMode ? (
+          <AutoGrowTextarea
+            ref={plainTextRef}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            minHeight={88}
+            maxHeight={220}
+            placeholder={placeholder}
+            aria-label={ariaLabel}
+            className="armin-scrollbar resize-none rounded-none border-0 bg-transparent px-0 py-0 font-mono text-xs leading-relaxed focus-visible:ring-0"
+          />
+        ) : (
+          <EditorContent editor={editor} />
+        )}
       </div>
+      {plainTextMode && (
+        <p className="border-t border-border px-3 py-1.5 text-xs text-muted">
+          Shown as Markdown source because this field contains formatting the
+          rich editor can&apos;t display, such as a table. Saving keeps the
+          text exactly as written.
+        </p>
+      )}
       <div className="flex items-center justify-end border-t border-border px-2 py-1">
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept={UPLOAD_ACCEPT}
           multiple
           className="hidden"
           onChange={handlePick}

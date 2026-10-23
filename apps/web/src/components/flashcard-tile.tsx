@@ -315,6 +315,10 @@ function FlashcardTileBody({
       archived={card.archived}
     />
   );
+  const frontPreview = useMemo(
+    () => stripMarkdownForPreview(card.front),
+    [card.front],
+  );
 
   return (
     <div
@@ -328,7 +332,7 @@ function FlashcardTileBody({
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`View and edit flashcard: ${card.front}`}
+        aria-label={`View and edit flashcard: ${frontPreview}`}
         className="absolute inset-0 z-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
       />
       <div className="pointer-events-none relative z-10 flex min-h-0 flex-1 flex-col">
