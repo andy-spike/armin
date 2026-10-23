@@ -15,7 +15,7 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="grid gap-x-10 gap-y-4 md:grid-cols-[240px_1fr]">
+    <section className="grid gap-x-10 gap-y-4 md:grid-cols-[240px_minmax(0,1fr)]">
       <div className="pt-0.5">
         <h2 className="text-sm font-semibold text-ink">{title}</h2>
         {description && (
