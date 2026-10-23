@@ -625,14 +625,19 @@ function SidebarMenuButton({
     },
   })
 
-  // The app's Tooltip has no `hidden` prop, so it wraps the button only while
-  // the labels are hidden.
-  if (!tooltip || state !== "collapsed" || isMobile) {
+  if (!tooltip || isMobile) {
     return comp
   }
 
+  // Always wrapped, and only enabled while the labels are hidden: adding the
+  // wrapper on collapse would remount the button and skip its size transition.
   return (
-    <Tooltip content={tooltip} side="right" className="px-2.5 py-1.5">
+    <Tooltip
+      content={tooltip}
+      side="right"
+      className="px-2.5 py-1.5"
+      disabled={state !== "collapsed"}
+    >
       {comp as React.ReactElement<Record<string, unknown>>}
     </Tooltip>
   )

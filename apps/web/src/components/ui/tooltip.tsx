@@ -14,6 +14,7 @@ export function Tooltip({
   sideOffset = 6,
   delay = 150,
   className,
+  disabled = false,
 }: {
   children: React.ReactElement<Record<string, unknown>>;
   content: React.ReactNode;
@@ -21,10 +22,12 @@ export function Tooltip({
   sideOffset?: number;
   delay?: number;
   className?: string;
+  /** Keeps the trigger mounted but never opens the tooltip. */
+  disabled?: boolean;
 }) {
   return (
     <TooltipPrimitive.Provider delay={delay}>
-      <TooltipPrimitive.Root>
+      <TooltipPrimitive.Root disabled={disabled}>
         <TooltipPrimitive.Trigger render={children} />
         <TooltipPrimitive.Portal>
           <TooltipPrimitive.Positioner
