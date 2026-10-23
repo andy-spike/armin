@@ -854,6 +854,8 @@ function PrerequisiteGraphCanvas({
           style={{ width: 160, height: 110 }}
           bgColor="var(--color-surface)"
           maskColor="var(--color-bg)"
+          maskStrokeColor="var(--color-muted)"
+          maskStrokeWidth={1}
           nodeColor="var(--color-border-strong)"
           nodeStrokeColor="var(--color-surface)"
           nodeStrokeWidth={2}
