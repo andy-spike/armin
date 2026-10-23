@@ -853,7 +853,9 @@ function PrerequisiteGraphCanvas({
           className="hidden md:block"
           style={{ width: 160, height: 110 }}
           bgColor="var(--color-surface)"
-          maskColor="var(--color-bg)"
+          // Dim, don't hide, the cards outside the view: an opaque mask
+          // painted over them and left the map looking empty.
+          maskColor="color-mix(in oklab, var(--color-bg) 60%, transparent)"
           maskStrokeColor="var(--color-muted)"
           maskStrokeWidth={1}
           nodeColor="var(--color-border-strong)"
