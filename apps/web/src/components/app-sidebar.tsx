@@ -52,7 +52,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
 import { armin } from "@/lib/armin-client";
 import { deckKeys } from "@/lib/armin-query";
-import { authClient } from "@/lib/auth-client";
+import { signOutToSignIn } from "@/lib/auth-client";
 import { useNow, useViewer } from "@/lib/session";
 import { TITLEBAR_THEME_OPTIONS } from "@/lib/theme";
 import { cn, plural } from "@/lib/utils";
@@ -515,9 +515,7 @@ function AccountItem() {
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={() =>
-              void authClient.signOut().finally(() => window.location.assign("/sign-in"))
-            }
+            onClick={signOutToSignIn}
           >
             <LogOut strokeWidth={1.5} />
             Sign out
