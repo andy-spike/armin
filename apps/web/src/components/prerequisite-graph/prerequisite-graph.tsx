@@ -41,11 +41,7 @@ import {
   X,
 } from "lucide-react";
 import type { UiDeckGraph } from "@/types/view-models";
-import {
-  createGraphCycleIndex,
-  graphEdgeKey,
-  wouldCreateCycleIndexed,
-} from "@/lib/graph-cycle";
+import { createGraphCycleIndex, linkProblem } from "@/lib/graph-cycle";
 import {
   EDGE_MARKER_END,
   EDGE_STROKE,
@@ -854,33 +850,19 @@ function PrerequisiteGraphCanvas({
   const isValidConnection: IsValidConnection = useCallback(
     (connection) => {
       const { source, target } = connection;
-      if (!source || !target || source === target) return false;
-      if (graphIndex.edgeKeys.has(graphEdgeKey(source, target))) {
-        return false;
-      }
-      return !wouldCreateCycleIndexed(graphIndex, source, target);
+      if (!source || !target) return false;
+      return linkProblem(graphIndex, source, target) === null;
     },
     [graphIndex],
   );
 
-  // The single validation path for every way a link can be created (drag, the
-  // node context menu, and the keyboard picker), so each rejects the same
-  // self-loops, duplicates, and cycles with the same explanation.
   const addLink = useCallback(
     (prereqId: string, dependentId: string) => {
-      if (prereqId === dependentId) {
-        onConnectError?.("A flashcard can’t depend on itself.");
+      const problem = linkProblem(graphIndex, prereqId, dependentId);
+      if (problem) {
+        onConnectError?.(problem);
         return false;
       }
-      if (graphIndex.edgeKeys.has(graphEdgeKey(prereqId, dependentId))) {
-        onConnectError?.("Those flashcards are already linked.");
-        return false;
-      }
-      if (wouldCreateCycleIndexed(graphIndex, prereqId, dependentId)) {
-        onConnectError?.("That link would create a cycle.");
-        return false;
-      }
-
       setEdges((current) =>
         addEdge(makeFlowEdge(prereqId, dependentId), current),
       );
@@ -1159,16 +1141,12 @@ function PrerequisiteGraphCanvas({
     }
 
     const candidateIds = graph.nodes
-      .filter((candidate) => candidate.id !== picker.nodeId)
       .filter((candidate) => {
         const prereqId =
           picker.kind === "add-prereq" ? candidate.id : picker.nodeId;
         const dependentId =
           picker.kind === "add-prereq" ? picker.nodeId : candidate.id;
-        return (
-          !graphIndex.edgeKeys.has(graphEdgeKey(prereqId, dependentId)) &&
-          !wouldCreateCycleIndexed(graphIndex, prereqId, dependentId)
-        );
+        return linkProblem(graphIndex, prereqId, dependentId) === null;
       })
       .map((candidate) => candidate.id);
 

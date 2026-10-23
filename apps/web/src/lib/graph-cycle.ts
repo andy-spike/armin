@@ -56,3 +56,23 @@ export function wouldCreateCycleIndexed(
   }
   return false;
 }
+
+/**
+ * Why the link prereq → dependent can't be added, or null when it can. Every
+ * way of linking cards (dragging, the card menu, the keyboard picker) uses
+ * this, so they reject the same links with the same explanation.
+ */
+export function linkProblem(
+  index: GraphCycleIndex,
+  prereqId: string,
+  dependentId: string,
+) {
+  if (prereqId === dependentId) return "A flashcard can’t depend on itself.";
+  if (index.edgeKeys.has(graphEdgeKey(prereqId, dependentId))) {
+    return "Those flashcards are already linked.";
+  }
+  if (wouldCreateCycleIndexed(index, prereqId, dependentId)) {
+    return "That link would create a cycle.";
+  }
+  return null;
+}
