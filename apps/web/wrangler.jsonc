@@ -1,0 +1,11 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "armin-web",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  // Production is served on armincards.app; www redirects there (set up in
+  // the Cloudflare dashboard, see docs/deploy-cloudflare.md).
+  "routes": [{ "pattern": "armincards.app", "custom_domain": true }],
+  "observability": { "enabled": true }
+}
