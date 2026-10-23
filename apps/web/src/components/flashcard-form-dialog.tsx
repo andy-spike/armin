@@ -14,7 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { parseClozes } from "@armin/core/flashcard-rules";
+import {
+  hasEmptyClozeDeletion,
+  parseClozes,
+} from "@armin/core/flashcard-rules";
 import {
   ClozeField,
   Field,
@@ -58,42 +61,91 @@ const TYPE_OPTIONS: { value: FlashcardType; label: string }[] = [
   { value: "type_answer", label: "Type answer" },
 ];
 
-const EMPTY_FORM = {
+/** The editable text of every card type; only the current type's fields are used. */
+type FormFields = {
+  front: string;
+  back: string;
+  clozeText: string;
+  prompt: string;
+  answer: string;
+  acceptedAnswers: string[];
+};
+
+const EMPTY_FIELDS: FormFields = {
   front: "",
   back: "",
   clozeText: "",
   prompt: "",
   answer: "",
-  acceptedAnswers: [] as string[],
+  acceptedAnswers: [],
 };
 
-/** Stable snapshot of the editable fields, used to detect unsaved changes. */
-function formSnapshot(
+/** The form fields for stored card content (empty for a new card). */
+function fieldsFromContent(
   type: FlashcardType,
   content: FlashcardContent | null,
-  tags: string[],
-) {
-  const values = content
-    ? type === "basic" || type === "basic_reversed"
-      ? {
-          ...EMPTY_FORM,
-          front: (content as { front: string }).front,
-          back: (content as { back: string }).back,
-        }
-      : type === "cloze"
-        ? { ...EMPTY_FORM, clozeText: (content as { text: string }).text }
-        : type === "type_answer"
-          ? {
-              ...EMPTY_FORM,
-              prompt: (content as { prompt: string }).prompt,
-              answer: (content as { answer: string }).answer,
-              acceptedAnswers:
-                (content as { acceptedAnswers?: string[] }).acceptedAnswers ??
-                [],
-            }
-          : EMPTY_FORM
-    : EMPTY_FORM;
-  return JSON.stringify({ type, ...values, tags });
+): FormFields {
+  if (!content) return EMPTY_FIELDS;
+  switch (type) {
+    case "basic":
+    case "basic_reversed": {
+      const { front, back } = content as { front: string; back: string };
+      return { ...EMPTY_FIELDS, front, back };
+    }
+    case "cloze":
+      return { ...EMPTY_FIELDS, clozeText: (content as { text: string }).text };
+    case "type_answer": {
+      const c = content as {
+        prompt: string;
+        answer: string;
+        acceptedAnswers?: string[];
+      };
+      return {
+        ...EMPTY_FIELDS,
+        prompt: c.prompt,
+        answer: c.answer,
+        acceptedAnswers: c.acceptedAnswers ?? [],
+      };
+    }
+    default:
+      return EMPTY_FIELDS;
+  }
+}
+
+/** Comparable form state, used to detect unsaved changes. */
+function formSnapshot(type: FlashcardType, fields: FormFields, tags: string[]) {
+  return JSON.stringify({ type, ...fields, tags });
+}
+
+/** Card content to save, or null while required fields are missing. */
+function contentFromFields(
+  type: FlashcardType,
+  fields: FormFields,
+  imageOcclusion: FlashcardContent | null,
+): FlashcardContent | null {
+  switch (type) {
+    case "basic":
+    case "basic_reversed": {
+      const front = fields.front.trim();
+      const back = fields.back.trim();
+      return front && back ? { front, back } : null;
+    }
+    case "cloze": {
+      const text = fields.clozeText;
+      if (parseClozes(text).length === 0 || hasEmptyClozeDeletion(text)) {
+        return null;
+      }
+      return { text };
+    }
+    case "type_answer": {
+      const prompt = fields.prompt.trim();
+      const answer = fields.answer.trim();
+      if (!prompt || !answer) return null;
+      return { prompt, answer, acceptedAnswers: fields.acceptedAnswers };
+    }
+    case "image_occlusion":
+      return imageOcclusion;
+  }
 }
 
 export function FlashcardFormDialog({
@@ -111,12 +163,9 @@ export function FlashcardFormDialog({
   onDeckChange,
 }: CardFormDialogProps) {
   const [type, setType] = useState<FlashcardType>(initialType);
-  const [front, setFront] = useState("");
-  const [back, setBack] = useState("");
-  const [clozeText, setClozeText] = useState("");
-  const [prompt, setPrompt] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [acceptedAnswers, setAcceptedAnswers] = useState<string[]>([]);
+  const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
+  // Image occlusion can't be edited here; its content is kept so saving tags
+  // preserves the masks.
   const [imageOcclusion, setImageOcclusion] = useState<FlashcardContent | null>(
     null,
   );
@@ -136,47 +185,21 @@ export function FlashcardFormDialog({
   const wasOpenRef = useRef(false);
   const handleSubmitRef = useRef<(() => Promise<void>) | null>(null);
 
-  const resetFields = () => {
-    setFront("");
-    setBack("");
-    setClozeText("");
-    setPrompt("");
-    setAnswer("");
-    setAcceptedAnswers([]);
-    setImageOcclusion(null);
-  };
-
-  const hydrateFrom = (t: FlashcardType, content: FlashcardContent | null) => {
-    resetFields();
-    setType(t);
-    if (!content) return;
-    if (t === "basic" || t === "basic_reversed") {
-      const c = content as { front: string; back: string };
-      setFront(c.front);
-      setBack(c.back);
-    } else if (t === "cloze") {
-      setClozeText((content as { text: string }).text);
-    } else if (t === "type_answer") {
-      const c = content as {
-        prompt: string;
-        answer: string;
-        acceptedAnswers: string[];
-      };
-      setPrompt(c.prompt);
-      setAnswer(c.answer);
-      setAcceptedAnswers(c.acceptedAnswers ?? []);
-    } else if (t === "image_occlusion") {
-      setImageOcclusion(content);
-    }
-  };
+  const setField = <K extends keyof FormFields>(key: K, value: FormFields[K]) =>
+    setFields((current) => ({ ...current, [key]: value }));
 
   useEffect(() => {
     if (open && !wasOpenRef.current) {
-      hydrateFrom(initialType, initialContent);
+      const initialFields = fieldsFromContent(initialType, initialContent);
+      setType(initialType);
+      setFields(initialFields);
+      setImageOcclusion(
+        initialType === "image_occlusion" ? initialContent : null,
+      );
       setTags(initialTags);
       initialSnapshotRef.current = formSnapshot(
         initialType,
-        initialContent,
+        initialFields,
         initialTags,
       );
       setDiscardOpen(false);
@@ -201,56 +224,15 @@ export function FlashcardFormDialog({
     ? (reviewUnitId ?? null)
     : displaySession.reviewUnitId;
 
-  const buildContent = (): FlashcardContent | null => {
-    switch (type) {
-      case "basic":
-      case "basic_reversed": {
-        if (!front.trim() || !back.trim()) return null;
-        return { front: front.trim(), back: back.trim() };
-      }
-      case "cloze": {
-        const deletions = parseClozes(clozeText);
-        if (
-          deletions.length === 0 ||
-          deletions.some((deletion) => deletion.answer.trim().length === 0)
-        ) {
-          return null;
-        }
-        return { text: clozeText };
-      }
-      case "type_answer": {
-        if (!prompt.trim() || !answer.trim()) return null;
-        return {
-          prompt: prompt.trim(),
-          answer: answer.trim(),
-          acceptedAnswers,
-        };
-      }
-      case "image_occlusion": {
-        return imageOcclusion;
-      }
-    }
-  };
-
-  const content = buildContent();
+  const content = contentFromFields(type, fields, imageOcclusion);
   // Disconnected: keep the draft but don't start a save whose outcome
   // can't be confirmed.
   const { online } = useConnection();
   const canSubmit = content !== null && !submitting && online;
 
-  const currentSnapshot = JSON.stringify({
-    type,
-    front,
-    back,
-    clozeText,
-    prompt,
-    answer,
-    acceptedAnswers,
-    tags,
-  });
   const dirty =
     initialSnapshotRef.current !== null &&
-    currentSnapshot !== initialSnapshotRef.current;
+    formSnapshot(type, fields, tags) !== initialSnapshotRef.current;
 
   const requestClose = () => {
     if (dirty) {
@@ -266,19 +248,16 @@ export function FlashcardFormDialog({
   };
 
   const handleSubmit = async () => {
-    const built = buildContent();
-    if (!built || submitting || !online) return;
+    if (!content || submitting || !online) return;
     setSubmitting(true);
     try {
-      await onSubmit({ type, content: built, tags });
+      await onSubmit({ type, content, tags });
       if (mode === "create") {
-        resetFields();
+        // Ready for the next card: same type and tags, empty fields.
+        setFields(EMPTY_FIELDS);
+        setImageOcclusion(null);
         setCreateSession((session) => session + 1);
-        initialSnapshotRef.current = JSON.stringify({
-          type,
-          ...EMPTY_FORM,
-          tags,
-        });
+        initialSnapshotRef.current = formSnapshot(type, EMPTY_FIELDS, tags);
       }
     } finally {
       setSubmitting(false);
@@ -415,8 +394,8 @@ export function FlashcardFormDialog({
                   key={`front-${editorKey}`}
                   autoFocus
                   aria-label="Flashcard front"
-                  value={front}
-                  onChange={setFront}
+                  value={fields.front}
+                  onChange={(value) => setField("front", value)}
                   placeholder="What does `typeof null` return?"
                 />
               </Field>
@@ -431,8 +410,8 @@ export function FlashcardFormDialog({
                 <MarkdownEditor
                   key={`back-${editorKey}`}
                   aria-label="Flashcard back"
-                  value={back}
-                  onChange={setBack}
+                  value={fields.back}
+                  onChange={(value) => setField("back", value)}
                   placeholder={
                     '`"object"` — a historical bug kept for compatibility.'
                   }
@@ -444,8 +423,8 @@ export function FlashcardFormDialog({
           {type === "cloze" && (
             <ClozeField
               key={`cloze-${editorKey}`}
-              value={clozeText}
-              onChange={setClozeText}
+              value={fields.clozeText}
+              onChange={(value) => setField("clozeText", value)}
             />
           )}
 
@@ -456,16 +435,16 @@ export function FlashcardFormDialog({
                   key={`prompt-${editorKey}`}
                   autoFocus
                   aria-label="Prompt"
-                  value={prompt}
-                  onChange={setPrompt}
+                  value={fields.prompt}
+                  onChange={(value) => setField("prompt", value)}
                   placeholder="Capital of France?"
                 />
               </Field>
               <Field label="Answer" hint="The expected typed answer.">
                 <Input
                   key={`answer-${editorKey}`}
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
+                  value={fields.answer}
+                  onChange={(e) => setField("answer", e.target.value)}
                   aria-label="Answer"
                   placeholder="Paris"
                 />
@@ -477,8 +456,8 @@ export function FlashcardFormDialog({
                 <TagsInput
                   key={`accepted-${editorKey}`}
                   ariaLabel="Add accepted answer"
-                  value={acceptedAnswers}
-                  onChange={setAcceptedAnswers}
+                  value={fields.acceptedAnswers}
+                  onChange={(value) => setField("acceptedAnswers", value)}
                   placeholder="e.g. paris, ville de paris"
                 />
               </Field>
