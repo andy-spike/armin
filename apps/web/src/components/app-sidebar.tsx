@@ -278,11 +278,19 @@ function ReviewItem({
       : `${plural(dueCount, "review unit")} due`;
 
   return (
-    <SidebarMenuItem>
+    <SidebarMenuItem className="mb-2">
       <SidebarMenuButton
         isActive={active}
         tooltip={statusLabel ? `Review · ${statusLabel}` : "Review"}
-        className={cn(navButton, "relative")}
+        className={cn(
+          "relative font-medium",
+          // Review is the sidebar's main action: a filled accent row while
+          // reviews are due, a calm tinted row once caught up.
+          dueCount > 0
+            ? "bg-accent text-on-accent hover:bg-accent-deep hover:text-on-accent active:bg-accent-deep active:text-on-accent data-active:bg-accent-deep data-active:text-on-accent data-active:hover:bg-accent-deep"
+            : "bg-accent-tint text-accent-deep hover:bg-accent-tint hover:text-ink active:bg-accent-tint data-active:bg-accent-tint data-active:text-ink data-active:hover:bg-accent-tint",
+          "group-data-[collapsible=icon]:[&>span:last-child]:text-clip",
+        )}
         render={
           <Link
             to="/review"
@@ -297,7 +305,7 @@ function ReviewItem({
           // The badge hides with the labels; the rail keeps a due dot instead.
           <span
             aria-hidden
-            className="absolute top-1.5 right-1.5 size-1.5 bg-accent opacity-0 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-100 group-data-[collapsible=icon]:delay-100"
+            className="absolute top-1.5 right-1.5 size-1.5 bg-on-accent opacity-0 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-100 group-data-[collapsible=icon]:delay-100"
           />
         )}
       </SidebarMenuButton>
@@ -307,8 +315,9 @@ function ReviewItem({
           className={cn(
             countBadge,
             // Due reviews are the one count that asks for attention.
-            dueCount > 0 &&
-              "bg-accent-tint px-1.5 font-semibold text-accent-deep peer-hover/menu-button:text-accent-deep peer-data-active/menu-button:text-accent-deep",
+            dueCount > 0
+              ? "bg-on-accent/15 px-1.5 font-semibold text-on-accent peer-hover/menu-button:text-on-accent peer-data-active/menu-button:text-on-accent"
+              : "text-accent-deep peer-hover/menu-button:text-ink peer-data-active/menu-button:text-ink",
           )}
         >
           {dueCount > 0 ? dueCount : <Check className="size-3.5" strokeWidth={2} />}
