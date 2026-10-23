@@ -53,7 +53,7 @@ import {
   markGraphPerf,
   measureGraphPerf,
 } from "@/lib/graph-perf";
-import { GraphContextMenu } from "./graph-context-menu";
+import { GraphContextMenu, type GraphMenuItem } from "./graph-context-menu";
 import { GraphToolbar } from "./graph-toolbar";
 import { useBackgroundLayout } from "./use-background-layout";
 import { useGraphSearch } from "./use-graph-search";
@@ -702,59 +702,55 @@ function PrerequisiteGraphCanvas({
     );
   }, [edges, fitView, persistLayout, setNodes]);
 
-  const nodeMenuId = menu?.kind === "node" ? menu.nodeId : null;
-  const nodeHasPrerequisites = nodeMenuId
-    ? graph.edges.some((edge) => edge.dependentId === nodeMenuId)
-    : false;
+  function menuItemsFor(current: MenuState): GraphMenuItem[] {
+    if (current?.kind === "edge") {
+      return [
+        {
+          label: "Remove link",
+          icon: <Unlink className="h-4 w-4" />,
+          variant: "destructive",
+          onClick: () => onEdgesDelete([current.edge]),
+        },
+      ];
+    }
+    if (current?.kind !== "node") return [];
 
-  const menuItems = nodeMenuId
-    ? [
-        {
-          label: "Edit flashcard",
-          icon: <Pencil className="h-4 w-4" />,
-          onClick: () => onEditCardRequest?.(nodeMenuId),
-        },
-        {
-          label: "Add prerequisite…",
-          icon: <Link2 className="h-4 w-4" />,
-          onClick: () =>
-            setLinkPicker({ kind: "add-prereq", nodeId: nodeMenuId }),
-        },
-        {
-          label: "Add dependent…",
-          icon: <Link2 className="h-4 w-4" />,
-          onClick: () =>
-            setLinkPicker({ kind: "add-dependent", nodeId: nodeMenuId }),
-        },
-        ...(nodeHasPrerequisites
-          ? [
-              {
-                label: "Remove prerequisite…",
-                icon: <Unlink className="h-4 w-4" />,
-                onClick: () =>
-                  setLinkPicker({ kind: "remove-prereq", nodeId: nodeMenuId }),
-              },
-            ]
-          : []),
-        {
-          label: "Delete flashcard",
-          icon: <Trash2 className="h-4 w-4" />,
-          variant: "destructive" as const,
-          // Opens the confirmation dialog; the card is only deleted there.
-          onClick: () => onDeleteCardRequest(nodeMenuId),
-        },
-      ]
-    : menu?.kind === "edge"
-      ? [
-          {
-            label: "Remove link",
-            icon: <Unlink className="h-4 w-4" />,
-            variant: "destructive" as const,
-            onClick: () => onEdgesDelete([menu.edge]),
-          },
-        ]
-      : [];
+    const nodeId = current.nodeId;
+    const items: GraphMenuItem[] = [
+      {
+        label: "Edit flashcard",
+        icon: <Pencil className="h-4 w-4" />,
+        onClick: () => onEditCardRequest?.(nodeId),
+      },
+      {
+        label: "Add prerequisite…",
+        icon: <Link2 className="h-4 w-4" />,
+        onClick: () => setLinkPicker({ kind: "add-prereq", nodeId }),
+      },
+      {
+        label: "Add dependent…",
+        icon: <Link2 className="h-4 w-4" />,
+        onClick: () => setLinkPicker({ kind: "add-dependent", nodeId }),
+      },
+    ];
+    if (graph.edges.some((edge) => edge.dependentId === nodeId)) {
+      items.push({
+        label: "Remove prerequisite…",
+        icon: <Unlink className="h-4 w-4" />,
+        onClick: () => setLinkPicker({ kind: "remove-prereq", nodeId }),
+      });
+    }
+    items.push({
+      label: "Delete flashcard",
+      icon: <Trash2 className="h-4 w-4" />,
+      variant: "destructive",
+      // Opens the confirmation dialog; the card is only deleted there.
+      onClick: () => onDeleteCardRequest(nodeId),
+    });
+    return items;
+  }
 
+  const menuItems = menuItemsFor(menu);
   const connectMenuItems = connectMenu
     ? [
         {
