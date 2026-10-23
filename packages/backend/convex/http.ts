@@ -4,8 +4,10 @@ import { internal } from "./_generated/api";
 import { authComponent, createAuth } from "./auth";
 
 import { uploadImage } from "./media";
+import { registerAgentRoutes } from "./agentHttp";
 
 const http = httpRouter();
+registerAgentRoutes(http);
 
 http.route({ path: "/upload-image", method: "POST", handler: httpAction(uploadImage) });
 
