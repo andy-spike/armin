@@ -68,7 +68,11 @@ import {
   type NodeEmphasis,
 } from "./flashcard-node";
 import { GraphContextMenu } from "./graph-context-menu";
-import { GraphLinkPicker, type GraphLinkOption } from "./graph-link-picker";
+import {
+  GraphLinkPicker,
+  linkPickerContent,
+  type LinkPickerRequest,
+} from "./graph-link-picker";
 
 const nodeTypes = { card: FlashcardNode };
 const edgeTypes = { floating: FloatingEdge };
@@ -107,11 +111,6 @@ type ConnectMenuState = {
   flow: XYPosition;
   sourceId: string;
 } | null;
-type LinkPickerState =
-  | { kind: "add-prereq"; nodeId: string }
-  | { kind: "add-dependent"; nodeId: string }
-  | { kind: "remove-prereq"; nodeId: string }
-  | null;
 
 type PrerequisiteGraphProps = {
   graph: UiDeckGraph;
@@ -333,7 +332,7 @@ function PrerequisiteGraphCanvas({
   const cancelReadySignal = useRef<(() => void) | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
   const [connectMenu, setConnectMenu] = useState<ConnectMenuState>(null);
-  const [linkPicker, setLinkPicker] = useState<LinkPickerState>(null);
+  const [linkPicker, setLinkPicker] = useState<LinkPickerRequest | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [interactive, setInteractive] = useState(false);
   // Two-part readiness gate: `flowReady` once the async build commits nodes and
@@ -1106,79 +1105,18 @@ function PrerequisiteGraphCanvas({
       ]
     : [];
 
-  const linkPickerConfig = useMemo(() => {
-    if (!linkPicker) return null;
-    const picker = linkPicker;
-    const node = nodeById.get(picker.nodeId);
-    if (!node) return null;
-    const front = graphNodePreview(node.front);
+  const linkPickerConfig = useMemo(
+    () => (linkPicker ? linkPickerContent(linkPicker, graph, graphIndex) : null),
+    [graph, graphIndex, linkPicker],
+  );
 
-    const optionsFor = (ids: string[]): GraphLinkOption[] =>
-      ids
-        .map((id) => nodeById.get(id))
-        .filter((candidate) => candidate !== undefined)
-        .map((candidate) => ({
-          id: candidate.id,
-          label: graphNodePreview(candidate.front),
-        }))
-        .sort((a, b) => a.label.localeCompare(b.label));
-
-    if (picker.kind === "remove-prereq") {
-      return {
-        title: "Remove prerequisite",
-        description: `Choose the prerequisite link to “${front}” that should be removed.`,
-        options: optionsFor(
-          graph.edges
-            .filter((edge) => edge.dependentId === picker.nodeId)
-            .map((edge) => edge.prereqId),
-        ),
-        emptyText: "This card has no prerequisites.",
-        onPick: (id: string) => {
-          removeLink(id, picker.nodeId);
-          setLinkPicker(null);
-        },
-      };
-    }
-
-    const candidateIds = graph.nodes
-      .filter((candidate) => {
-        const prereqId =
-          picker.kind === "add-prereq" ? candidate.id : picker.nodeId;
-        const dependentId =
-          picker.kind === "add-prereq" ? picker.nodeId : candidate.id;
-        return linkProblem(graphIndex, prereqId, dependentId) === null;
-      })
-      .map((candidate) => candidate.id);
-
-    return {
-      title:
-        picker.kind === "add-prereq" ? "Add prerequisite" : "Add dependent",
-      description:
-        picker.kind === "add-prereq"
-          ? `Choose a card that “${front}” should depend on.`
-          : `Choose a card that should depend on “${front}”.`,
-      options: optionsFor(candidateIds),
-      emptyText:
-        picker.kind === "add-prereq"
-          ? "No card can be added as a prerequisite."
-          : "No card can be added as a dependent.",
-      onPick: (id: string) => {
-        addLink(
-          picker.kind === "add-prereq" ? id : picker.nodeId,
-          picker.kind === "add-prereq" ? picker.nodeId : id,
-        );
-        setLinkPicker(null);
-      },
-    };
-  }, [
-    addLink,
-    graph.edges,
-    graph.nodes,
-    graphIndex,
-    linkPicker,
-    nodeById,
-    removeLink,
-  ]);
+  const pickLink = (id: string) => {
+    if (!linkPickerConfig) return;
+    const link = linkPickerConfig.linkFor(id);
+    if (link.action === "add") addLink(link.prereqId, link.dependentId);
+    else removeLink(link.prereqId, link.dependentId);
+    setLinkPicker(null);
+  };
 
   return (
     <>
@@ -1366,7 +1304,7 @@ function PrerequisiteGraphCanvas({
         description={linkPickerConfig?.description ?? ""}
         options={linkPickerConfig?.options ?? []}
         emptyText={linkPickerConfig?.emptyText ?? ""}
-        onPick={(id) => linkPickerConfig?.onPick(id)}
+        onPick={pickLink}
         onClose={() => setLinkPicker(null)}
       />
     </>
