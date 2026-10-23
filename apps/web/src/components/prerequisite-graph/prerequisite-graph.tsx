@@ -27,8 +27,6 @@ import {
 import "@xyflow/react/dist/style.css";
 import "./graph.css";
 import {
-  ArrowLeft,
-  LayoutGrid,
   Link2,
   Maximize,
   Minus,
@@ -36,9 +34,7 @@ import {
   Plus,
   Unlink,
   RotateCcw,
-  Search,
   Trash2,
-  X,
 } from "lucide-react";
 import type { UiDeckGraph } from "@/types/view-models";
 import { createGraphCycleIndex, linkProblem } from "@/lib/graph-cycle";
@@ -59,7 +55,6 @@ import type {
   GraphLayoutWorkerResponse,
 } from "@/lib/graph-layout-worker";
 import { cn } from "@/lib/utils";
-import { TruncatedLabel } from "@/components/ui/truncated-label";
 import { FloatingEdge } from "./floating-edge";
 import {
   FlashcardNode,
@@ -68,6 +63,8 @@ import {
   type NodeEmphasis,
 } from "./flashcard-node";
 import { GraphContextMenu } from "./graph-context-menu";
+import { GraphToolbar } from "./graph-toolbar";
+import { useGraphSearch } from "./use-graph-search";
 import {
   GraphLinkPicker,
   linkPickerContent,
@@ -344,10 +341,7 @@ function PrerequisiteGraphCanvas({
   // Selection + search lens. The selected card lights up itself, its edges, and
   // its direct neighbors; search dims everything outside its scope.
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  // Index of the match Enter/Shift+Enter last stepped to, or null while the
-  // whole match set is framed.
-  const [searchStep, setSearchStep] = useState<number | null>(null);
+  const search = useGraphSearch(graph.nodes, interactive);
 
   // Start ReactFlow empty: the initial conversion happens off the render path in
   // an abortable, chunked effect (see below) so a large Deck graph can't freeze
@@ -551,41 +545,6 @@ function PrerequisiteGraphCanvas({
       return changed || withIsolation !== current ? withIsolation : current;
     });
   }, [graph.edges, nodeById, setNodes]);
-  const query = search.trim().toLowerCase();
-  const searchMatches = useMemo(() => {
-    if (query === "") return null;
-    const matches = new Set<string>();
-    for (const node of graph.nodes) {
-      if (`${node.front} ${node.back}`.toLowerCase().includes(query)) {
-        matches.add(node.id);
-      }
-    }
-    return matches;
-  }, [graph.nodes, query]);
-  const searchMatchIds = useMemo(
-    () =>
-      searchMatches
-        ? graph.nodes
-            .filter((node) => searchMatches.has(node.id))
-            .map((node) => node.id)
-        : [],
-    [graph.nodes, searchMatches],
-  );
-  const currentSearchMatchId =
-    searchStep === null ? null : (searchMatchIds[searchStep] ?? null);
-
-  // A new query starts back at the full-match overview.
-  useEffect(() => {
-    setSearchStep(null);
-  }, [query]);
-  // Keep the current position valid when matches disappear after an edit.
-  useEffect(() => {
-    setSearchStep((current) => {
-      if (current === null) return current;
-      if (searchMatchIds.length === 0) return null;
-      return Math.min(current, searchMatchIds.length - 1);
-    });
-  }, [searchMatchIds.length]);
 
   useEffect(() => {
     if (!interactive || graph.nodes.length === 0) return;
@@ -704,9 +663,9 @@ function PrerequisiteGraphCanvas({
           if (source.id === selectedId) emphasis = "active";
           else if (neighborIds.has(source.id)) emphasis = "connected";
           else emphasis = "dimmed";
-        } else if (currentSearchMatchId && source.id === currentSearchMatchId) {
+        } else if (search.currentMatchId === source.id) {
           emphasis = "active";
-        } else if (query === "" || searchMatches?.has(source.id)) {
+        } else if (!search.matches || search.matches.has(source.id)) {
           emphasis = null;
         } else {
           emphasis = "dimmed";
@@ -718,11 +677,9 @@ function PrerequisiteGraphCanvas({
       return changed ? nextNodes : current;
     });
 
-    const lensActive = query !== "";
-    const inScope = (id: string) => {
-      if (!nodeById.has(id)) return false;
-      return query === "" || searchMatches?.has(id) === true;
-    };
+    const searchMatches = search.matches;
+    const inScope = (id: string) =>
+      nodeById.has(id) && (!searchMatches || searchMatches.has(id));
     setEdges((current) => {
       let changed = false;
       const nextEdges = current.map((edge) => {
@@ -734,7 +691,7 @@ function PrerequisiteGraphCanvas({
               ? "active"
               : "dimmed",
           );
-        } else if (lensActive) {
+        } else if (searchMatches) {
           next = styleEdgeForEmphasis(
             edge,
             inScope(edge.source) && inScope(edge.target) ? null : "dimmed",
@@ -749,9 +706,8 @@ function PrerequisiteGraphCanvas({
     });
   }, [
     selectedId,
-    query,
-    searchMatches,
-    currentSearchMatchId,
+    search.matches,
+    search.currentMatchId,
     nodeById,
     graph.nodes,
     graph.edges,
@@ -759,64 +715,6 @@ function PrerequisiteGraphCanvas({
     setEdges,
   ]);
 
-  const revealSearchMatches = useCallback(
-    (ids: string[]) => {
-      if (ids.length === 0) return;
-      void fitView({
-        nodes: ids.map((id) => ({ id })),
-        padding: 0.3,
-        maxZoom: 1,
-        duration: 300,
-      });
-    },
-    [fitView],
-  );
-
-  // Move the viewport to the search matches instead of only dimming the cards
-  // already on screen. The search text has to settle briefly so the canvas does
-  // not pan on every keystroke; Enter reveals immediately.
-  const lastRevealedQuery = useRef("");
-  useEffect(() => {
-    if (query === "") {
-      lastRevealedQuery.current = "";
-      return;
-    }
-    if (!interactive || query === lastRevealedQuery.current) return;
-    if (!searchMatches || searchMatches.size === 0) return;
-    const timer = window.setTimeout(() => {
-      lastRevealedQuery.current = query;
-      revealSearchMatches([...searchMatches]);
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [interactive, query, revealSearchMatches, searchMatches]);
-
-  // Enter/Shift+Enter step through individual matches, centering each one. The
-  // first Enter jumps to the first match of the current query.
-  const revealSearchMatch = useCallback(
-    (id: string) => {
-      void fitView({
-        nodes: [{ id }],
-        padding: 0.4,
-        maxZoom: 1,
-        duration: 300,
-      });
-    },
-    [fitView],
-  );
-
-  const stepSearch = (direction: 1 | -1) => {
-    if (query === "" || searchMatchIds.length === 0) return;
-    const next =
-      searchStep === null
-        ? direction === 1
-          ? 0
-          : searchMatchIds.length - 1
-        : (searchStep + direction + searchMatchIds.length) %
-          searchMatchIds.length;
-    lastRevealedQuery.current = query;
-    setSearchStep(next);
-    revealSearchMatch(searchMatchIds[next]);
-  };
 
   const onSelectionChange: OnSelectionChangeFunc = useCallback(
     ({ nodes: selectedNodes }) => {
@@ -1120,90 +1018,12 @@ function PrerequisiteGraphCanvas({
 
   return (
     <>
-      {/* The toolbar lives before the canvas in the DOM so keyboard users reach
-          Search and Tidy before tabbing through every card. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-3 @container">
-        <div className="flex items-center gap-2 *:pointer-events-auto">
-          {(onBack || deckName) && (
-            <button
-              type="button"
-              onClick={onBack}
-              disabled={!onBack}
-              aria-label={deckName ? `Back to ${deckName}` : "Back to deck"}
-              className="flex h-8 min-w-0 items-center gap-1.5 border border-border bg-surface px-2 text-xs font-medium text-ink shadow-overlay transition-colors hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-default disabled:hover:bg-surface"
-            >
-              {onBack && (
-                <ArrowLeft className="h-3.5 w-3.5 shrink-0 text-muted" />
-              )}
-              {deckName && (
-                <TruncatedLabel
-                  label={deckName}
-                  side="bottom"
-                  className="max-w-44"
-                />
-              )}
-            </button>
-          )}
-          <div className="relative flex h-8 min-w-28 flex-1 items-center gap-1.5 border border-border bg-surface px-2 shadow-overlay focus-within:ring-2 focus-within:ring-accent @xl:flex-none">
-            <Search className="h-3.5 w-3.5 shrink-0 text-muted" />
-            <input
-              aria-label="Search flashcards"
-              placeholder="Search cards…"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" &&
-                  searchMatches &&
-                  searchMatches.size > 0
-                ) {
-                  event.preventDefault();
-                  stepSearch(event.shiftKey ? -1 : 1);
-                }
-              }}
-              className="w-full min-w-0 bg-transparent text-xs text-ink outline-none placeholder:text-muted @xl:w-40"
-            />
-            {search && (
-              <button
-                type="button"
-                aria-label="Clear search"
-                onClick={() => setSearch("")}
-                className="text-muted transition-colors hover:text-ink"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {query !== "" && (
-              <p
-                role="status"
-                title={
-                  searchStep !== null
-                    ? "Shift+Enter for the previous match"
-                    : undefined
-                }
-                className="pointer-events-none absolute top-full left-0 mt-1 w-max max-w-64 border border-border bg-surface px-2 py-1 text-[0.6875rem] leading-snug text-muted shadow-overlay"
-              >
-                {searchMatches && searchMatches.size > 0
-                  ? searchStep !== null
-                    ? `${Math.min(searchStep + 1, searchMatchIds.length)} of ${searchMatchIds.length} · Enter for next`
-                    : `${searchMatches.size} ${searchMatches.size === 1 ? "match" : "matches"} · Enter to step through`
-                  : `No cards match “${search.trim()}”.`}
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onTidy}
-            aria-label="Tidy layout"
-            className="ml-auto inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 border border-border bg-surface px-2.5 text-xs font-medium text-ink shadow-overlay transition-colors hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            <span>
-              Tidy<span className="hidden @xl:inline"> layout</span>
-            </span>
-          </button>
-        </div>
-      </div>
+      <GraphToolbar
+        deckName={deckName}
+        onBack={onBack}
+        search={search}
+        onTidy={onTidy}
+      />
       <ReactFlow
         className={cn(
           isConnecting && "graph-connecting",
