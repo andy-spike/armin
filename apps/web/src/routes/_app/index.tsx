@@ -469,7 +469,8 @@ function Stat({ color, label, emphatic }: { color: string; label: string; emphat
 }
 
 export const Route = createFileRoute("/_app/")({
-  loader: ({ context }) => prefetchDecksPage(context.queryClient),
-  head: () => ({ meta: [{ title: "Decks · Armin" }] }),
+  // The signed-out landing page renders from the `_app` frame instead.
+  loader: ({ context }) => (context.landing ? undefined : prefetchDecksPage(context.queryClient)),
+  head: ({ match }) => (match.context.landing ? {} : { meta: [{ title: "Decks · Armin" }] }),
   component: DecksPage,
 });
