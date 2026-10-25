@@ -33,6 +33,12 @@ OAuth endpoints live on the same Convex HTTP origin:
 - `/oauth/token` exchanges a single-use, five-minute authorization code for a
   one-hour access token and a rotating refresh token with a 30-day idle window.
 
+Clients may request additional scopes alongside `armin:author`. Armin grants
+only `armin:author` and explicitly returns that reduced scope in the token
+response. Additional scopes do not grant identity data or other permissions;
+Armin does not implement OpenID Connect or issue ID tokens. An explicit request
+containing no supported scope is rejected.
+
 The user signs in to Armin through the usual web flow and explicitly approves
 each new connection. Client names are self-reported, so consent labels them
 unverified and shows the callback origin. A request expires after ten minutes.

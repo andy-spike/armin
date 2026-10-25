@@ -220,8 +220,11 @@ export function registerAgentRoutes(http: HttpRouter) {
         return oauthError("invalid_request", "Authorization code with S256 PKCE is required.");
       if (p.has("resource") && p.get("resource") !== `${base}/mcp`)
         return oauthError("invalid_target", "Unknown resource.");
-      if (p.get("scope") && p.get("scope") !== "armin:author")
-        return oauthError("invalid_scope", "Only armin:author is supported.");
+      // Clients such as ChatGPT also request identity/offline scopes. Grant only
+      // armin:author (reported by the token endpoint), without promising OIDC.
+      const requestedScopes = p.get("scope")?.split(" ").filter(Boolean);
+      if (requestedScopes?.length && !requestedScopes.includes("armin:author"))
+        return oauthError("invalid_scope", "Request armin:author to connect to Armin.");
       if ((p.get("state")?.length ?? 0) > 2048)
         return oauthError("invalid_request", "State is too long.");
       const requestId = newSecret();
