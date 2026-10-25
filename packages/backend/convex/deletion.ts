@@ -47,6 +47,13 @@ export const cleanupRemovedUnits = internalMutation({
 
 /** Each table with the index whose first field is `libraryId`. */
 const LIBRARY_TABLES: [TableNames, string][] = [
+  ["agentAuthorizations", "by_library"],
+  ["agentConnections", "by_library"],
+  ["agentUsedRefreshTokens", "by_library"],
+  ["agentCreatedDecks", "by_library"],
+  ["agentActivity", "by_library"],
+  ["agentRequests", "by_library"],
+  ["agentRateLimits", "by_library"],
   ["reviewLogs", "by_library_review"],
   ["reviewUnits", "by_library"],
   ["prereqs", "by_library"],

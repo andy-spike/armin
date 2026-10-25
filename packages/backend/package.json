@@ -23,6 +23,7 @@
     "@better-auth/expo": "1.6.33",
     "@convex-dev/better-auth": "0.12.5",
     "@convex-dev/resend": "0.2.9",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "better-auth": "1.6.33",
     "convex": "1.47.0",
     "convex-helpers": "^0.1.106",

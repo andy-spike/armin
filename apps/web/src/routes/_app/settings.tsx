@@ -23,6 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { Row, Section } from "@/components/settings-layout";
 import { AccountSettings } from "@/components/account-settings";
+import { AgentSettings } from "@/components/agent-settings";
 import { ExportSettings } from "@/components/export-settings";
 import { KeybindingSettings } from "@/components/keybinding-settings";
 import { useToast } from "@/components/ui/toast";
@@ -57,7 +58,14 @@ type SettingsState = Pick<
 
 type NamedSchedulingPreset = Exclude<SchedulingPreset, "custom">;
 
-const SETTINGS_TABS = ["scheduling", "keyboard", "account", "data", "appearance"] as const;
+const SETTINGS_TABS = [
+  "scheduling",
+  "keyboard",
+  "assistants",
+  "account",
+  "data",
+  "appearance",
+] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 type SettingsSearch = { tab?: SettingsTab };
@@ -240,6 +248,7 @@ function SettingsPage() {
         <TabsList>
           <TabsTab value="scheduling">Scheduling</TabsTab>
           <TabsTab value="keyboard">Keyboard</TabsTab>
+          <TabsTab value="assistants">AI assistants</TabsTab>
           <TabsTab value="account">Account</TabsTab>
           <TabsTab value="data">Data</TabsTab>
           <TabsTab value="appearance">Appearance</TabsTab>
@@ -446,6 +455,10 @@ function SettingsPage() {
           >
             <KeybindingSettings />
           </Section>
+        </TabsPanel>
+
+        <TabsPanel value="assistants" className="space-y-10">
+          <AgentSettings />
         </TabsPanel>
 
         <TabsPanel value="account" className="space-y-10">

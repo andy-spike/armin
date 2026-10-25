@@ -1,10 +1,12 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { permissionFields } from "./model/agentAuth";
 
 /**
- * Account-scoped study data. Every row carries `libraryId`; ownership always
- * comes from the authenticated identity's library mapping, never from a
- * caller-supplied id. Timestamps are epoch milliseconds.
+ * Study data belongs to a library derived from the first-party session or
+ * an explicitly authorized agent grant, never a caller-supplied account ID.
+ * OAuth client registration and pre-consent requests are not account data.
+ * Timestamps are epoch milliseconds.
  */
 
 export const fsrsFields = {
@@ -37,6 +39,93 @@ export const schedulingFields = {
 };
 
 export default defineSchema({
+  agentClients: defineTable({
+    name: v.string(),
+    redirectUris: v.array(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  }).index("by_expiry", ["expiresAt"]),
+  agentAuthorizations: defineTable({
+    requestHash: v.string(),
+    clientId: v.id("agentClients"),
+    redirectUri: v.string(),
+    state: v.string(),
+    challenge: v.string(),
+    resource: v.string(),
+    expiresAt: v.number(),
+    codeHash: v.optional(v.string()),
+    connectionId: v.optional(v.id("agentConnections")),
+    libraryId: v.optional(v.id("libraries")),
+  })
+    .index("by_request", ["requestHash"])
+    .index("by_code", ["codeHash"])
+    .index("by_expiry", ["expiresAt"])
+    .index("by_library", ["libraryId"]),
+  agentConnections: defineTable({
+    libraryId: v.id("libraries"),
+    clientId: v.id("agentClients"),
+    name: v.string(),
+    resource: v.string(),
+    ...permissionFields,
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    accessHash: v.optional(v.string()),
+    accessExpiresAt: v.optional(v.number()),
+    refreshHash: v.optional(v.string()),
+    refreshExpiresAt: v.optional(v.number()),
+  })
+    .index("by_library", ["libraryId"])
+    .index("by_library_revoked", ["libraryId", "revokedAt"])
+    .index("by_access", ["accessHash"])
+    .index("by_refresh", ["refreshHash"]),
+  agentUsedRefreshTokens: defineTable({
+    libraryId: v.id("libraries"),
+    connectionId: v.id("agentConnections"),
+    hash: v.string(),
+    expiresAt: v.number(),
+  })
+    .index("by_hash", ["hash"])
+    .index("by_library", ["libraryId"])
+    .index("by_expiry", ["expiresAt"]),
+  agentCreatedDecks: defineTable({
+    libraryId: v.id("libraries"),
+    connectionId: v.id("agentConnections"),
+    deckId: v.id("decks"),
+  })
+    .index("by_connection_deck", ["connectionId", "deckId"])
+    .index("by_library", ["libraryId"]),
+  agentActivity: defineTable({
+    libraryId: v.id("libraries"),
+    connectionId: v.id("agentConnections"),
+    clientName: v.string(),
+    summary: v.string(),
+    deckId: v.optional(v.id("decks")),
+    createdAt: v.number(),
+  })
+    .index("by_library", ["libraryId"])
+    .index("by_created", ["createdAt"]),
+  agentRequests: defineTable({
+    libraryId: v.id("libraries"),
+    connectionId: v.id("agentConnections"),
+    requestId: v.string(),
+    fingerprint: v.string(),
+    result: v.any(),
+    createdAt: v.number(),
+  })
+    .index("by_connection_request", ["connectionId", "requestId"])
+    .index("by_library", ["libraryId"])
+    .index("by_created", ["createdAt"]),
+  agentRateLimits: defineTable({
+    libraryId: v.optional(v.id("libraries")),
+    key: v.string(),
+    count: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_library", ["libraryId"])
+    .index("by_key", ["key"])
+    .index("by_expiry", ["expiresAt"]),
+
   /** One library per Better Auth user. */
   libraries: defineTable({
     ownerId: v.string(),
@@ -98,6 +187,7 @@ export default defineSchema({
   flashcards: defineTable({
     libraryId: v.id("libraries"),
     deckId: v.id("decks"),
+    agentConnectionId: v.optional(v.id("agentConnections")),
     type: v.string(),
     content: v.string(),
     tags: v.array(v.string()),
