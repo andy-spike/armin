@@ -132,8 +132,8 @@ export function ReviewDemo() {
             size="lg"
             className="h-full w-full"
             data-demo-primary
-            onClick={(event) => {
-              hadFocus.current = event.detail === 0;
+            onClick={() => {
+              hadFocus.current = true;
               setFlipped(true);
             }}
           >
@@ -146,8 +146,8 @@ export function ReviewDemo() {
                 key={r.grade}
                 type="button"
                 data-demo-primary={r.grade === 3 || undefined}
-                onClick={(event) => {
-                  hadFocus.current = event.detail === 0;
+                onClick={() => {
+                  hadFocus.current = true;
                   rate(r.grade);
                 }}
                 className={cn(
