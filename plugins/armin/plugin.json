@@ -1,0 +1,94 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "armin",
+  "version": "1.0.0",
+  "description": "Turn articles, notes, and documents into Armin spaced-repetition cards linked by prerequisites, so foundations unlock before the ideas built on them.",
+  "author": {
+    "name": "Andy Spike",
+    "url": "https://armincards.app"
+  },
+  "homepage": "https://armincards.app",
+  "repository": "https://github.com/andy-spike/armin",
+  "license": "MIT",
+  "keywords": ["flashcards", "spaced-repetition", "study", "learning", "fsrs"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Armin",
+        "shortDescription": "Turn reading into study cards",
+        "longDescription": "Armin is a spaced-repetition flashcard app whose cards form a prerequisite graph: a card stays locked until the cards it depends on are learned, and FSRS schedules every review.\n\nShare an article, lecture notes, a document, or code, and ask for study cards. The model reads the material, writes focused question-and-answer, cloze, reversed, and typed-answer cards, links foundations to the ideas built on them, and saves the deck to your Armin library with a link to start studying.\n\nYou approve each connection in Armin. By default a connection can only see and change the decks it creates; you can choose to share existing decks and allow edits. Armin never fetches web pages or runs a model itself, and the plugin cannot permanently delete cards or decks, upload images, change review history, or manage your account. Archiving a card is reversible.\n\nRequires an Armin account at armincards.app.",
+        "developerName": "Andy Spike",
+        "category": "Education & Research",
+        "capabilities": ["Create study decks", "Read decks", "Edit cards", "Link prerequisites"],
+        "websiteURL": "https://armincards.app",
+        "supportURL": "https://github.com/andy-spike/armin/issues",
+        "privacyPolicyURL": "https://armincards.app/privacy",
+        "termsOfServiceURL": "https://armincards.app/terms",
+        "defaultPrompt": [
+          "Make study cards in Armin from this article.",
+          "Turn my lecture notes into an Armin deck with prerequisites.",
+          "Show my Armin decks."
+        ],
+        "brandColor": "#111111",
+        "brandColorDark": "#FFFCEF",
+        "composerIcon": "./assets/logo.png",
+        "logo": "./assets/logo.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Create a new deck from pasted material",
+              "prompt": "Make an Armin deck called HTTP basics from this text: HTTP is a request-response protocol. A client sends a request with a method such as GET or POST, and the server replies with a status code such as 200 or 404.",
+              "tools_triggered": "save_cards",
+              "expected_behavior": "Saves several focused cards in a new deck named HTTP basics, links the definition of HTTP as a prerequisite of the method and status-code cards, and returns the deck link."
+            },
+            {
+              "description": "List the decks the connection can access",
+              "prompt": "Which Armin decks can you see?",
+              "tools_triggered": "list_decks",
+              "expected_behavior": "Lists only decks this connection is allowed to access, with their names, and explains that other decks stay private unless shared in Armin."
+            },
+            {
+              "description": "Read back a saved deck",
+              "prompt": "Show me the cards in my HTTP basics deck and how they depend on each other.",
+              "tools_triggered": "list_decks, read_deck, read_prerequisites",
+              "expected_behavior": "Finds the deck, lists its cards, and describes the prerequisite links without changing anything."
+            },
+            {
+              "description": "Edit one card",
+              "prompt": "In HTTP basics, change the status code card so its answer also mentions 500 Internal Server Error.",
+              "tools_triggered": "read_deck, update_card",
+              "expected_behavior": "Reads the current card and version, updates only that card's answer, and confirms the change."
+            },
+            {
+              "description": "Archive a card reversibly",
+              "prompt": "Archive the card about POST requests in HTTP basics.",
+              "tools_triggered": "read_deck, set_card_archived",
+              "expected_behavior": "Archives that one card, explains that archiving hides it from study while keeping its content and review history, and that it can be unarchived."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Permanent deletion is not available",
+              "prompt": "Permanently delete all my Armin decks."
+            },
+            {
+              "description": "Reviews and scheduling stay in Armin",
+              "prompt": "Mark all my Armin cards as reviewed and rated Easy today."
+            },
+            {
+              "description": "Account administration is not available",
+              "prompt": "Change my Armin password and email address."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "Armin does not sell products or process payments through this plugin."
+      },
+      "publication": {
+        "release_notes": "First release: create, read, edit, archive, and link Armin study cards, with card-writing guidance."
+      }
+    }
+  }
+}

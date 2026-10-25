@@ -1,0 +1,12 @@
+{
+  "name": "armin",
+  "description": "Armin's plugin for turning reading into prerequisite-linked study cards.",
+  "owner": { "name": "Andy Spike", "url": "https://armincards.app" },
+  "plugins": [
+    {
+      "name": "armin",
+      "source": "./plugins/armin",
+      "category": "education"
+    }
+  ]
+}

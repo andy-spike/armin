@@ -85,8 +85,10 @@ backend and web app from `master` as described in
 
 ## AI assistant connections
 
-Settings → AI assistants connects ChatGPT, Claude, Claude Code, and Codex to
-Armin's hosted MCP server through Armin sign-in. Assistants can generate text
+Armin works with ChatGPT, Claude, Claude Code, and Codex through Armin sign-in.
+Chat app users install the [Armin plugin](plugins/armin/README.md) from Claude's
+or ChatGPT's plugin directory; coding agents connect to Armin's hosted MCP
+server directly. Settings → AI assistants shows the steps for each. Assistants can generate text
 cards and prerequisite graphs from material the user provides, save decks, and
 manage authorized content. New connections can only access decks they create;
 sharing existing decks and allowing edits are explicit choices. Agent tools
@@ -94,8 +96,9 @@ cannot permanently delete content or remove review history through structural
 card edits.
 
 See [AI assistant connections](docs/agent-connections.md) for the permission
-model, OAuth/MCP endpoints, operation limits, and deployment verification needs.
-Provider account restrictions apply, and public directory listings are separate.
+model, OAuth/MCP endpoints, operation limits, and deployment verification needs,
+and [publishing the plugin](plugins/PUBLISHING.md) for directory submission.
+Provider account restrictions apply.
 
 ## Card-writing skill
 
@@ -126,6 +129,10 @@ npx skills add andy-spike/armin --skill writing-study-cards -a cursor
 
 The `skills` CLI discovers skills under `.agents/skills/`, so it picks up
 `writing-study-cards` directly from this repository.
+
+The [Armin plugin](plugins/armin/README.md) bundles the same skill, so chat app
+and plugin users already have it. Keep the two copies identical;
+`pnpm plugin:package` fails if they differ.
 
 ## Validation
 

@@ -15,7 +15,7 @@ import {
   type AgentPermissions,
 } from "@/components/agent-permissions";
 import { Section } from "@/components/settings-layout";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -101,15 +101,44 @@ function useCopy() {
 type ClientGuide = {
   id: string;
   label: string;
-  command?: (endpoint: string) => string[];
   steps: string[];
   note: string;
-};
+} & (
+  | {
+      /** Chat apps install Armin's plugin from their directory. */
+      kind: "chat";
+      directory: {
+        /** Flip once the directory approves and publishes the plugin. See plugins/PUBLISHING.md. */
+        listed: boolean;
+        url: string;
+        name: string;
+        steps: string[];
+        note: string;
+      };
+    }
+  | {
+      /** Coding agents connect to the MCP server from the terminal. */
+      kind: "agent";
+      command: (endpoint: string) => string[];
+    }
+);
 
 const CLIENTS: ClientGuide[] = [
   {
     id: "claude",
     label: "Claude",
+    kind: "chat",
+    directory: {
+      listed: false,
+      url: "https://claude.ai/customize/plugins",
+      name: "Claude’s plugins",
+      steps: [
+        "Open Customize, then Plugins, and find Armin under Discover.",
+        "Choose Add, open the plugin’s Connectors tab, and choose Connect.",
+        "Approve access in the Armin page that opens.",
+      ],
+      note: "The plugin directory is on Pro, Max, Team, and Enterprise plans. On Team and Enterprise, an owner may need to add the Armin connector before you can connect it.",
+    },
     steps: [
       "Open Customize, then Connectors, and choose Add custom connector.",
       "Paste the address above and choose Add.",
@@ -120,6 +149,18 @@ const CLIENTS: ClientGuide[] = [
   {
     id: "chatgpt",
     label: "ChatGPT",
+    kind: "chat",
+    directory: {
+      listed: false,
+      url: "https://chatgpt.com/plugins",
+      name: "ChatGPT’s plugins",
+      steps: [
+        "Open Plugins in ChatGPT and search for Armin.",
+        "Choose Add, then sign in when ChatGPT asks.",
+        "Approve access in the Armin page that opens.",
+      ],
+      note: "In a workspace, an admin decides which plugins members can add.",
+    },
     steps: [
       "Open chatgpt.com/plugins, choose the plus button, and add a custom MCP server.",
       "Name it Armin and paste the address above under Connection.",
@@ -130,6 +171,7 @@ const CLIENTS: ClientGuide[] = [
   {
     id: "claude-code",
     label: "Claude Code",
+    kind: "agent",
     command: (endpoint) => [`claude mcp add --transport http armin ${endpoint}`],
     steps: [
       "Run this command in your terminal.",
@@ -141,6 +183,7 @@ const CLIENTS: ClientGuide[] = [
   {
     id: "codex",
     label: "Codex",
+    kind: "agent",
     command: (endpoint) => [`codex mcp add armin --url ${endpoint}`, "codex mcp login armin"],
     steps: [
       "Run these two commands in your terminal.",
@@ -212,59 +255,120 @@ function Step({ number, title, children }: { number: number; title: string; chil
   );
 }
 
+function StepList({ steps }: { steps: string[] }) {
+  return (
+    <ol className="list-decimal space-y-1 pl-5 text-sm text-ink marker:text-muted">
+      {steps.map((step) => (
+        <li key={step} className="pl-1">
+          {step}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function AddressLine() {
+  return (
+    <div>
+      <CodeLine text={MCP_ENDPOINT} label="Copy Armin’s address" />
+      <p className="mt-2 text-[0.8125rem] text-muted">
+        This is Armin’s remote MCP server. Your assistant signs in to Armin through your browser, so
+        you never paste a password or token.
+      </p>
+    </div>
+  );
+}
+
+/** Claude and ChatGPT install the plugin; until it is listed, they use the address directly. */
+function ChatClientSetup({ client }: { client: Extract<ClientGuide, { kind: "chat" }> }) {
+  const { directory } = client;
+  if (directory.listed)
+    return (
+      <>
+        <StepList steps={directory.steps} />
+        <a
+          href={directory.url}
+          target="_blank"
+          rel="noreferrer"
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+        >
+          Open {directory.name}
+        </a>
+        <p className="text-[0.8125rem] text-muted">{directory.note}</p>
+      </>
+    );
+  return (
+    <>
+      <p className="text-sm text-ink">
+        Armin’s {client.label} plugin is waiting for directory review. Until it’s listed, add Armin
+        by its address:
+      </p>
+      <AddressLine />
+      <StepList steps={client.steps} />
+      <p className="text-[0.8125rem] text-muted">{client.note}</p>
+      {!MCP_IS_PUBLIC && (
+        <p className="text-[0.8125rem] text-ink">
+          {client.label} connects from the cloud, so it can’t reach this address. It only works from
+          tools running on this computer, such as Claude Code and Codex.
+        </p>
+      )}
+      <p className="text-[0.8125rem] text-muted">
+        Menus move around. If a step doesn’t match what you see, search your provider’s help for
+        “custom connector” or “remote MCP server”.
+      </p>
+    </>
+  );
+}
+
+function AgentClientSetup({ client }: { client: Extract<ClientGuide, { kind: "agent" }> }) {
+  return (
+    <>
+      <AddressLine />
+      <div className="space-y-2">
+        {client.command(MCP_ENDPOINT).map((command) => (
+          <CodeLine key={command} text={command} label={`Copy command: ${command}`} />
+        ))}
+      </div>
+      <StepList steps={client.steps} />
+      <p className="text-[0.8125rem] text-muted">{client.note}</p>
+    </>
+  );
+}
+
 function ConnectGuide({ another }: { another: boolean }) {
   const [clientId, setClientId] = useState(CLIENTS[0].id);
   const client = CLIENTS.find((candidate) => candidate.id === clientId) ?? CLIENTS[0];
-  const commands = client.command?.(MCP_ENDPOINT);
-  // Hosted assistants call Armin from the cloud; the command-line tools run on this computer.
-  const cloudClient = !client.command;
 
   return (
     <Section
       title={another ? "Connect another assistant" : "Connect an assistant"}
       description="Your assistant reads the article, doc, or code and writes the cards. Armin stores them in your library."
     >
-      <Step number={1} title="Copy Armin’s address">
-        <CodeLine text={MCP_ENDPOINT} label="Copy Armin’s address" />
-        <p className="mt-2 text-[0.8125rem] text-muted">
-          This is a remote MCP server. Your assistant signs in to Armin through your browser, so you
-          never paste a password or token.
-        </p>
-      </Step>
-
-      <Step number={2} title="Add it to your assistant">
+      <Step number={1} title="Pick your assistant">
         <Segmented
           options={CLIENTS.map((candidate) => ({ value: candidate.id, label: candidate.label }))}
           value={clientId}
           onChange={setClientId}
           className="max-w-full flex-wrap"
         />
-        <div className="mt-3 space-y-3" aria-live="polite">
-          {commands && (
-            <div className="space-y-2">
-              {commands.map((command) => (
-                <CodeLine key={command} text={command} label={`Copy command: ${command}`} />
-              ))}
-            </div>
+        <p className="mt-2 text-[0.8125rem] text-muted">
+          Claude and ChatGPT add Armin inside the app. Claude Code and Codex connect to Armin’s MCP
+          server from your terminal.
+        </p>
+      </Step>
+
+      <Step
+        number={2}
+        title={
+          client.kind === "chat" && client.directory.listed ? "Add the Armin plugin" : "Add Armin"
+        }
+      >
+        <div className="space-y-3" aria-live="polite">
+          {client.kind === "chat" ? (
+            <ChatClientSetup client={client} />
+          ) : (
+            <AgentClientSetup client={client} />
           )}
-          <ol className="list-decimal space-y-1 pl-5 text-sm text-ink marker:text-muted">
-            {client.steps.map((step) => (
-              <li key={step} className="pl-1">
-                {step}
-              </li>
-            ))}
-          </ol>
-          <p className="text-[0.8125rem] text-muted">{client.note}</p>
-          {cloudClient && !MCP_IS_PUBLIC && (
-            <p className="text-[0.8125rem] text-ink">
-              Claude and ChatGPT connect from the cloud, so they can’t reach this address. It only
-              works from tools running on this computer, such as Claude Code and Codex.
-            </p>
-          )}
-          <p className="text-[0.8125rem] text-muted">
-            Menus move around. If a step doesn’t match what you see, search your provider’s help for
-            “custom connector” or “remote MCP server”.
-          </p>
         </div>
       </Step>
 
@@ -414,8 +518,8 @@ function ConnectionsSection() {
         </div>
       ) : all.length === 0 ? (
         <p className="px-4 py-5 text-sm text-muted">
-          Nothing is connected yet. Add Armin’s address to an assistant above and it will appear
-          here once you approve it.
+          Nothing is connected yet. Add Armin to an assistant above and it will appear here once you
+          approve it.
         </p>
       ) : (
         <ul>

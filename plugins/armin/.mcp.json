@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "armin": {
+      "type": "http",
+      "url": "https://intent-bullfrog-922.convex.site/mcp"
+    }
+  }
+}

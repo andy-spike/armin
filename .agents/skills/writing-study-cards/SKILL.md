@@ -1,6 +1,6 @@
 ---
 name: writing-study-cards
-description: Guidelines for structuring spaced-repetition flashcards and prerequisite graphs when creating cards in Armin. Use whenever generating study cards, decks, or prerequisite hierarchies from a topic, notes, or an article (e.g. via the Armin MCP create_flashcard / import_flashcard_hierarchy tools), or when deciding how to chunk content, what to put in a card, and how cards depend on each other.
+description: Guidelines for structuring spaced-repetition flashcards and prerequisite graphs when creating cards in Armin. Use whenever generating study cards, decks, or prerequisite hierarchies from a topic, notes, or an article (for example with Armin's save_cards tool), or when deciding how to chunk content, what to put in a card, and how cards depend on each other.
 ---
 
 # Writing study cards
@@ -59,9 +59,10 @@ Armin card types and when to reach for each:
 | `basic_reversed` | Term ↔ definition pairs where recall is useful both directions (name → meaning _and_ meaning → name).                                                                   |
 | `cloze`          | Closed lists and fill-in-the-blank. One deletion = one review; reuse a number to blank several together. Syntax: `{{1::answer}}`, add a cue with `{{1::answer::hint}}`. |
 | `type_answer`    | Short, exact answers (a term, a number, a ratio) where typing forces precise recall.                                                                                    |
-| `image_occlusion` | Spatial/visual knowledge — recalling hidden parts, structures, or relationships better seen than described.                                                            |
 
 Default to `basic`. Don't cram multiple facts into one card to save types — make more cards instead.
+
+Image occlusion cards also exist, but only people create them in Armin itself; the assistant tools save text cards. If a unit is genuinely visual, describe it in a `basic` card or suggest the learner add an image occlusion card.
 
 ### 6. Wire prerequisites
 
@@ -74,7 +75,7 @@ Rules for prerequisite edges:
 - **Order from foundations to dependents** across the whole deck.
 - **Keep the graph shallow and meaningful.** A handful of real dependencies beats a dense web. Over-linking locks cards that didn't need to be locked.
 - **No cycles.** If two cards each seem to need the other, they're probably one chunk, or the dependency only runs one way.
-- When building several related cards at once, prefer `import_flashcard_hierarchy`: assign stable `clientId`s and declare `prerequisites` by `clientId` in a single call.
+- When building several related cards at once, save them together with `save_cards`: give each card a temporary `key` and declare links as `{ prerequisiteKey, dependentKey }` in the same call. Links can only join cards in the same deck; link to cards saved in an earlier batch with `set_prerequisite`.
 
 ## Litmus tests (run before finalizing)
 
@@ -90,6 +91,6 @@ Your job is to turn a given resource into a **complete tree of cards** the learn
 
 - **Cover the resource thoroughly.** Walk the "knowings" from step 1 and decompose every meaningful one into cards. Each load-bearing fact, term, relationship, step, and concept the resource teaches should be reachable through some card. Decompose generously — many focused cards beat a few coarse ones.
 - **But don't pad.** Thorough means covering the real units of knowledge, not inventing trivia. Skip the genuinely obvious (common-sense steps, throwaway asides) and details the resource itself treats as incidental. Coverage of what matters, not completionism for its own sake.
-- **Deliver one connected tree, not a flat pile.** Emit the whole deck in a single `import_flashcard_hierarchy` call with prerequisites wired so foundations unlock dependents. The graph is part of the deliverable; an unconnected list of cards is an incomplete answer.
+- **Deliver one connected tree, not a flat pile.** Save the deck in as few `save_cards` batches as its 50-card limit allows, with prerequisites wired so foundations unlock dependents. Put foundations in the first batch, and tell the user when a large source needs several batches. The graph is part of the deliverable; an unconnected list of cards is an incomplete answer.
 - **Set scope to the learner when known.** If told the learner already knows part of the material, write fewer cards there — reviewing the obvious is demoralizing. Absent that signal, assume a motivated beginner and cover the foundations.
 - **Make every card individually sound.** Before finishing, re-check each card against the five properties and the litmus tests. A card that's vague, intractable, or untethered from the tree is worse than no card.
