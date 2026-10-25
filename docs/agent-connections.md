@@ -142,7 +142,9 @@ is performed by adding these source changes.
 - [Claude custom connectors](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
 - [Claude Code MCP configuration](https://code.claude.com/docs/en/mcp)
 
-The local OAuth/MCP flow is verified with the SDK client. Live connections from
-the four provider applications still require verification against a public HTTPS
-deployment and provider accounts; local browser emulation does not establish
-that compatibility.
+The local OAuth/MCP flow is verified with the SDK client and actual Claude Code
+and Codex CLI sessions, including model-driven creation, readback, and revocation.
+See [the client walkthrough](qa/2026-10-25-agent-clients.md). ChatGPT and Claude
+chat still require verification against a public HTTPS endpoint and provider
+accounts. Natural token expiry and refresh in the CLI clients remain untested;
+local browser emulation does not establish hosted-client compatibility.
