@@ -695,14 +695,17 @@
  * graph: a spine links each section, and each node fills in once read.
  * ------------------------------------------------------------------ */
 /* The app frame scrolls inside its own panes, so the root is locked; the
-   landing page scrolls the document instead, which keeps Space, Page Down,
+   landing and legal pages scroll the document instead, which keeps Space, Page Down,
    and the browser's own scroll restoration working. */
 html:has(.landing),
-html:has(.landing) body {
+html:has(.landing) body,
+html:has(.legal),
+html:has(.legal) body {
   height: auto;
   overflow: visible;
 }
-html:has(.landing) {
+html:has(.landing),
+html:has(.legal) {
   scrollbar-color: var(--color-ui-3) var(--color-bg);
 }
 

@@ -228,6 +228,18 @@ export function LandingPage() {
           >
             Report an issue
           </a>
+          <Link
+            to="/privacy"
+            className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            Privacy
+          </Link>
+          <Link
+            to="/terms"
+            className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            Terms
+          </Link>
         </div>
       </footer>
     </div>
