@@ -150,7 +150,9 @@ is performed by adding these source changes.
 
 The local OAuth/MCP flow is verified with the SDK client and actual Claude Code
 and Codex CLI sessions, including model-driven creation, readback, and revocation.
-See [the client walkthrough](qa/2026-10-25-agent-clients.md). ChatGPT and Claude
-chat still require verification against a public HTTPS endpoint and provider
-accounts. Natural token expiry and refresh in the CLI clients remain untested;
-local browser emulation does not establish hosted-client compatibility.
+See [the client walkthrough](qa/2026-10-25-agent-clients.md). Actual ChatGPT and
+Claude chat sessions also passed production HTTPS OAuth, creation, and readback;
+see [the hosted-client walkthrough](qa/2026-10-25-hosted-agent-clients.md).
+Natural token expiry and refresh in the actual clients remain untested. These
+bounded walkthroughs do not guarantee compatibility with every provider plan,
+workspace policy, or future client version.

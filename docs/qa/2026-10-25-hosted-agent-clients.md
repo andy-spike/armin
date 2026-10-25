@@ -30,7 +30,7 @@ content. Revoked the QA connection through Armin Settings after the test.
 Claude's next read attempt stopped at a reconnect prompt instead of reading
 the deck, confirming revoked access was not reused successfully.
 
-## ChatGPT: authorization compatibility issue
+## ChatGPT: authorization compatibility issue and fix
 
 Added `Armin QA` through Plugins → Add → Add custom MCP server, using OAuth.
 ChatGPT registered successfully and initiated authorization with the scopes
@@ -50,7 +50,30 @@ reach consent (302). Identity-only and unknown-only lists return 400. Initial
 requests against the stale local deployment reproduced the production failure;
 the checks passed after restarting the worktree backend with the new code.
 
-`pnpm check`, web build, and mobile iOS/Android bundle check pass. Hosted
-ChatGPT acceptance still requires deploying the compatibility fix and repeating
-the connection test. Natural client access-token expiry/refresh is not covered
-by these short sessions.
+`pnpm check`, web build, and mobile iOS/Android bundle check pass. PR #50 passed
+the required Verify check and its automated review reported no findings. Merged
+it as `f587c87` and deployed the corrected backend from `master`. The web code
+did not change, so the existing Cloudflare deployment remained current.
+
+## ChatGPT: passed creation and readback after deployment
+
+Retried the same custom MCP connection. It reached Armin consent and completed
+OAuth with creation-only permissions. ChatGPT discovered the tools and listed
+zero visible decks, even though the account contained the Claude QA deck.
+
+The model picker offered GPT-6 and GPT-5.6 Sol, with no mini model. Used GPT-6
+at the lowest available Power setting (slider value 1; response details called
+this Medium thinking effort). Kept the task bounded to three short basic HTTP
+cards. Approved the Save Cards tool once, without granting permanent tool-call
+approval. The model saved the cards and two prerequisite links, read them back,
+and returned the production deck URL.
+
+Opened `ChatGPT QA 2026-10-25` in the web app and confirmed three cards, with the
+foundation new and the two dependent cards locked. Settings displayed the
+connection and save activity. Revoked the QA connection through Armin Settings
+after the test. A fresh read request in ChatGPT then stopped at `Your Armin QA
+connection has expired` and required reconnection; no deck content was returned.
+
+Natural client access-token expiry/refresh is not covered by these short
+sessions. The two production QA decks remain available for user inspection;
+they contain only synthetic content. No existing study content was edited.
