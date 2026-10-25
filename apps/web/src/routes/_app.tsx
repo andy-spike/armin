@@ -17,6 +17,7 @@ import { isStepsPrefix, parseBinding } from "@/lib/keybindings/keys";
 import { KeyboardOverlays } from "@/components/keyboard-overlays";
 import { PageSkeleton } from "@/components/page-skeletons";
 import { AppSidebar } from "@/components/app-sidebar";
+import { LandingPage } from "@/components/landing/landing-page";
 import {
   SidebarInset,
   SidebarProvider,
@@ -52,6 +53,11 @@ export const Route = createFileRoute("/_app")({
   // it paints with the HTML; the pages inside it still render in the browser.
   ssr: true,
   beforeLoad: ({ context, location }) => {
+    // Signed-out visitors to the home URL get the public landing page in place
+    // of the decks list; every other signed-in page still asks them to sign in.
+    if (!context.isAuthenticated && location.pathname === "/") {
+      return { landing: true, sidebarOpen: true, sidebarWidth: clampSidebarWidth(Number.NaN) };
+    }
     if (!context.isAuthenticated) {
       // Keep the page the user asked for, minus the origin, so sign-in can
       // return to it. The sign-in route validates it again before using it.
@@ -61,10 +67,25 @@ export const Route = createFileRoute("/_app")({
         search: redirectTo === "/" ? {} : { redirect: redirectTo },
       });
     }
-    return { sidebarOpen: readSidebarOpen(), sidebarWidth: readSidebarWidth() };
+    return { landing: false, sidebarOpen: readSidebarOpen(), sidebarWidth: readSidebarWidth() };
   },
-  component: AppLayout,
+  head: ({ match }) => (match.context.landing ? { meta: LANDING_META } : {}),
+  component: AppRoute,
 });
+
+const LANDING_META = [
+  { title: "Armin · Flashcards that respect what comes first" },
+  {
+    name: "description",
+    content:
+      "Armin is a spaced-repetition flashcard app where cards declare their prerequisites. A card stays locked until its foundations are learned, and FSRS schedules every review.",
+  },
+];
+
+function AppRoute() {
+  const { landing } = Route.useRouteContext();
+  return landing ? <LandingPage /> : <AppLayout />;
+}
 
 function detectTimeZone() {
   try {

@@ -77,6 +77,8 @@
 
   /* Motion */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 @layer base {
@@ -686,6 +688,226 @@
 
 .react-flow__node .card-graph-handle:hover {
   background: var(--color-accent-deep);
+}
+
+/* ------------------------------------------------------------------ *
+ * Landing page (`/` signed out). The page reads as a prerequisite
+ * graph: a spine links each section, and each node fills in once read.
+ * ------------------------------------------------------------------ */
+/* The app frame scrolls inside its own panes, so the root is locked; the
+   landing page scrolls the document instead, which keeps Space, Page Down,
+   and the browser's own scroll restoration working. */
+html:has(.landing),
+html:has(.landing) body {
+  height: auto;
+  overflow: visible;
+}
+html:has(.landing) {
+  scrollbar-color: var(--color-ui-3) var(--color-bg);
+}
+
+.landing-graph {
+  --node-w: 6.5rem;
+  aspect-ratio: 4 / 5;
+}
+@media (min-width: 640px) {
+  .landing-graph {
+    --node-w: 10.5rem;
+    aspect-ratio: 7 / 6;
+  }
+}
+@media (min-width: 1024px) {
+  .landing-graph {
+    --node-w: 11.5rem;
+    aspect-ratio: 5 / 4;
+  }
+}
+.landing-edge {
+  /* Edges run from a card up to its dependent, so uncovering the box from the
+     bottom draws the line upwards. Negative side insets keep straight edges,
+     whose box has no width, from being clipped away. */
+  clip-path: inset(100% -4px -4px -4px);
+  transition: clip-path 0.45s var(--ease-out);
+}
+.landing-edge[data-lit] {
+  clip-path: inset(-4px);
+}
+.landing-graph-stage {
+  transition: opacity 0.3s var(--ease-out);
+}
+.landing-graph-stage[data-fading] {
+  opacity: 0;
+}
+.landing-node {
+  transition:
+    background-color 0.25s var(--ease-out),
+    border-color 0.25s var(--ease-out),
+    color 0.25s var(--ease-out),
+    box-shadow 0.2s var(--ease-out),
+    scale 0.14s var(--ease-out);
+}
+.landing-node[data-pressed] {
+  scale: 0.97;
+}
+@keyframes landing-unlock {
+  from {
+    background-color: var(--color-accent-tint);
+    scale: 0.96;
+  }
+  to {
+    background-color: var(--color-surface);
+    scale: 1;
+  }
+}
+.landing-node[data-unlocked] {
+  animation: landing-unlock 0.4s var(--ease-out);
+}
+/* The demo cursor spans the stage, so translating it by a percentage moves
+   its tip by that share of the graph. The tip lands in a card's right third,
+   clear of the left-aligned label. */
+.landing-cursor {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(var(--cursor-x), var(--cursor-y));
+  transition:
+    transform 0.7s var(--ease-in-out),
+    opacity 0.2s var(--ease-out);
+}
+.landing-cursor[data-visible] {
+  opacity: 1;
+}
+.landing-cursor-tip {
+  position: absolute;
+  top: 0.5rem;
+  left: calc(var(--node-w) * 0.3);
+}
+.landing-pointer {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 1.125rem;
+  overflow: visible;
+  transform-origin: 1px 1px;
+  transition: scale 0.14s var(--ease-out);
+  filter: drop-shadow(0 1px 1.5px color-mix(in oklch, var(--color-ink) 25%, transparent));
+}
+.landing-cursor[data-pressed] .landing-pointer {
+  scale: 0.86;
+}
+@keyframes landing-click {
+  from {
+    opacity: 0.6;
+    scale: 0.3;
+  }
+  to {
+    opacity: 0;
+    scale: 1;
+  }
+}
+.landing-click {
+  position: absolute;
+  top: -1rem;
+  left: -1rem;
+  width: 2rem;
+  height: 2rem;
+  border: 1.5px solid var(--color-accent);
+  border-radius: 9999px;
+  animation: landing-click 0.45s var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-cursor {
+    display: none;
+  }
+}
+
+.landing-step {
+  --step-pt: 5rem;
+  --spine-x: 10px;
+}
+@media (min-width: 1024px) {
+  .landing-step {
+    --step-pt: 6rem;
+  }
+}
+.landing-step::before,
+.landing-step::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--spine-x);
+  width: 1px;
+}
+.landing-step::before {
+  background-image: linear-gradient(var(--color-ui-3) 50%, transparent 50%);
+  background-size: 1px 7px;
+}
+.landing-step::after {
+  background-color: var(--color-accent);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 1.1s var(--ease-out-quart);
+}
+.landing-step[data-reached]::after {
+  transform: scaleY(1);
+}
+
+/* Spine nodes use the hero graph's grammar: dashed and locked until the
+   section is read, then filled cyan with a check. */
+.landing-step-node,
+.landing-summit-node {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--color-ui-3);
+  background-color: var(--color-surface-sunken);
+  color: var(--color-muted);
+  transition:
+    background-color 0.4s var(--ease-out-quart) 0.15s,
+    border-color 0.4s var(--ease-out-quart) 0.15s,
+    color 0.4s var(--ease-out-quart) 0.15s;
+}
+.landing-step-node > *,
+.landing-summit-node > * {
+  grid-area: 1 / 1;
+  transition: opacity 0.3s var(--ease-out-quart) 0.2s;
+}
+.landing-step-node {
+  top: calc(var(--step-pt) + 0.45rem);
+  left: calc(var(--spine-x) - 10px);
+  width: 21px;
+  height: 21px;
+}
+.landing-summit-node {
+  top: calc(var(--step-pt) + 0.25rem);
+  left: calc(var(--spine-x) - 21.5px);
+  width: 44px;
+  height: 44px;
+}
+.landing-summit::before,
+.landing-summit::after {
+  bottom: auto;
+  height: calc(var(--step-pt) + 0.25rem);
+}
+.landing-node-learned {
+  opacity: 0;
+}
+[data-reached] > .landing-step-node,
+[data-reached] > .landing-summit-node {
+  border-style: solid;
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+}
+[data-reached] .landing-node-locked {
+  opacity: 0;
+}
+[data-reached] .landing-node-learned {
+  opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
