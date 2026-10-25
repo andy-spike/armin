@@ -27,6 +27,8 @@ returned production deck link and confirmed the foundational card was new and
 dependent cards were locked. Settings showed the connection and save activity.
 The deck is named `Claude Chat QA 2026-10-25`; it contains only synthetic QA
 content. Revoked the QA connection through Armin Settings after the test.
+Claude's next read attempt stopped at a reconnect prompt instead of reading
+the deck, confirming revoked access was not reused successfully.
 
 ## ChatGPT: authorization compatibility issue
 
