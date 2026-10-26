@@ -11,7 +11,8 @@
     "./scheduling-presets": "./src/scheduling-presets.ts",
     "./study": "./src/study.ts",
     "./media": "./src/media.ts",
-    "./media-ref": "./src/media-ref.ts"
+    "./media-ref": "./src/media-ref.ts",
+    "./anki": "./src/anki/index.ts"
   },
   "dependencies": {
     "ts-fsrs": "^5.4.1",
