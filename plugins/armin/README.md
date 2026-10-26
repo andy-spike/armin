@@ -34,11 +34,20 @@ codex plugin add armin@armin
 You can also ask it to list your decks, read a deck back, edit or archive a
 card, move a card to another deck, or add and remove prerequisite links.
 
+## Public test account
+
+Reviewers can sign in at [armincards.app](https://armincards.app) with
+**reviewer@armincards.app** / **ArminDemo123!**. These credentials are public.
+Everyone using the account can see and change its contents; do not add private
+material. The sample library is restored roughly every six hours, so changes
+and review history are temporary. Sign-in details and account deletion are
+protected. Use a personal account for private or persistent work.
+
 ## What's included
 
 - **Armin connector**: Armin's remote MCP server at
   `https://intent-bullfrog-922.convex.site/mcp`, which provides the deck and
-  card tools. It signs in with OAuth; the plugin contains no credentials.
+  card tools. It signs in with OAuth; the plugin contains no private credentials.
 - **writing-study-cards skill**: guidance for deciding what to put on each card,
   choosing card types, and wiring prerequisites, distilled from Andy Matuschak's
   [How to write good prompts](https://andymatuschak.org/prompts/).

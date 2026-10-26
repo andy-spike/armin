@@ -143,6 +143,34 @@ Without `RESEND_API_KEY`, sign-up, password reset, and verification resends are
 disabled and say that email is unavailable; existing verified accounts can still
 sign in. Without both Google variables, the app hides Google sign-in.
 
+### Public reviewer account
+
+The disposable public login is `reviewer@armincards.app` / `ArminDemo123!`.
+Its data is shared and visible to everyone, and must not contain private material.
+The reviewer account must already exist, be verified, and have a provisioned
+library. To enable its protection and reset, set `REVIEWER_ACCOUNT_USER_ID` to
+its Better Auth user ID on the intended deployment. An unset ID disables the
+feature. `REVIEWER_RESET_HOURS` optionally sets an integer interval from 1 to
+168, defaulting to 6. The reset job checks every five minutes, so timing is
+approximate. Its first run restores the sample library immediately; subsequent
+runs are measured from completion. Sign-in sessions and OAuth authorizations
+are retained, but authorizations for selected old decks do not gain access to
+the replacement deck.
+
+After deploying from `master`, set the variables on production using the
+[deployment instructions](../../docs/deploy-cloudflare.md), then run the
+operator-only reset and inspect the scheduled functions until it finishes:
+
+```bash
+pnpm --filter @armin/backend exec convex env set REVIEWER_ACCOUNT_USER_ID <verified-user-id> --prod
+pnpm --filter @armin/backend exec convex run reviewer:reset '{"force":true}' --prod
+```
+
+The reset validates the configured user is the verified reviewer email before
+erasing data. Never point it at a real user. An interrupted cleanup is retried
+by the periodic job. Remove the ID to disable future resets and account
+protections.
+
 ### QA without an inbox
 
 Real verification and reset links are only delivered to the Resend account's

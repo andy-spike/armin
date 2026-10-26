@@ -1,5 +1,5 @@
 import { betterAuth, type BetterAuthOptions } from "better-auth/minimal";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { expo } from "@better-auth/expo";
 import { createClient, type AuthFunctions, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
@@ -10,6 +10,30 @@ import type { DataModel } from "./_generated/dataModel";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { markLibraryDeleting } from "./model/deletion";
 import { emailLayout } from "./model/email";
+import { isReviewer } from "./model/reviewer";
+
+function rejectReviewerAccountChange(userId: string) {
+  if (isReviewer(userId)) {
+    throw new APIError("FORBIDDEN", {
+      code: "REVIEWER_ACCOUNT_PROTECTED",
+      message: "This shared test account's sign-in details and other sessions cannot be changed.",
+    });
+  }
+}
+
+const protectedReviewerPaths = new Set([
+  "/update-user",
+  "/change-email",
+  "/change-password",
+  "/set-password",
+  "/delete-user",
+  "/delete-user/callback",
+  "/link-social",
+  "/unlink-account",
+  "/revoke-session",
+  "/revoke-sessions",
+  "/revoke-other-sessions",
+]);
 
 const authFunctions: AuthFunctions = internal.auth;
 
@@ -107,6 +131,26 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     database: authComponent.adapter(ctx),
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        if (process.env.REVIEWER_ACCOUNT_USER_ID) {
+          if (protectedReviewerPaths.has(ctx.path)) {
+            const session = await getSessionFromCtx(ctx, { disableCookieCache: true });
+            if (session) rejectReviewerAccountChange(session.user.id);
+          }
+          if (ctx.path === "/request-password-reset" && typeof ctx.body?.email === "string") {
+            const user = await ctx.context.internalAdapter.findUserByEmail(ctx.body.email);
+            if (user) rejectReviewerAccountChange(user.user.id);
+          }
+          // Reject even a reset token issued before this protection was enabled.
+          if (ctx.path === "/reset-password") {
+            const token = ctx.body?.token || ctx.query?.token;
+            if (typeof token === "string") {
+              const verification = await ctx.context.internalAdapter.findVerificationValue(
+                `reset-password:${token}`,
+              );
+              if (verification) rejectReviewerAccountChange(verification.value);
+            }
+          }
+        }
         // Better Auth logs a failed email send and still answers 200. When
         // this deployment cannot send mail at all, reject the flows that
         // depend on it before an account or token is created, so the client
@@ -178,12 +222,16 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
       },
     },
     user: {
-      deleteUser: { enabled: true },
+      deleteUser: {
+        enabled: true,
+        beforeDelete: async (user) => rejectReviewerAccountChange(user.id),
+      },
     },
     databaseHooks: {
       account: {
         create: {
           before: async (account, context) => {
+            rejectReviewerAccountChange(account.userId);
             // A verified social identity is about to join an existing user. If
             // that user never verified their email, a password set by whoever
             // registered the address must not survive the link.

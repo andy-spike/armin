@@ -160,7 +160,7 @@ function useNow(stepMs = 30_000) {
 function Library() {
   const viewer = useQuery(api.account.viewer, {});
   const now = useNow();
-  const decks = useQuery(api.decks.list, viewer?.library ? { now } : "skip");
+  const decks = useQuery(api.decks.list, viewer?.library?.status === "active" ? { now } : "skip");
 
   if (viewer === undefined)
     return (
@@ -182,8 +182,18 @@ function Library() {
         <Button label="Sign out" variant="outline" onPress={() => void authClient.signOut()} />
       </View>
       <Text style={styles.muted}>{viewer.email}</Text>
+      {viewer.reviewer && (
+        <Text style={styles.muted}>
+          Shared test account. Everyone can see and change this library. Data resets every{" "}
+          {viewer.reviewer.resetHours} hours. Do not add private material.
+        </Text>
+      )}
       {!viewer.library ? (
         <Text style={styles.muted}>Open Armin on the web once to set up your library.</Text>
+      ) : viewer.library.status !== "active" ? (
+        <Text style={styles.muted}>
+          This library is temporarily unavailable. Please try again shortly.
+        </Text>
       ) : (
         <>
           <Text style={styles.heading}>Decks</Text>
