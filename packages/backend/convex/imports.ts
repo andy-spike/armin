@@ -16,7 +16,7 @@ import { deleteDeckCascade } from "./model/deletion";
 import { fail } from "./model/errors";
 import { insertFlashcard, validateFlashcardInput } from "./model/flashcards";
 import { MAX_DECKS, MAX_FLASHCARDS, MAX_NAME_CHARS, MAX_REVIEW_UNITS } from "./model/limits";
-import { bumpRevision, findRequest, recordRequest } from "./model/study";
+import { bumpRevision, findRequest, recordRequest, type TagCache } from "./model/study";
 
 // Per-call caps keep every mutation inside Convex's write and read limits even
 // when each card is a 60-deletion cloze.
@@ -299,8 +299,16 @@ export const addCards = mutation({
     if (existing.length + parsed.length > MAX_FLASHCARDS)
       fail("QUOTA", `The beta allows ${MAX_FLASHCARDS} flashcards per account.`);
 
+    // A deck deleted mid-import (from another tab) would leave its cards with no deck.
+    for (const deckId of new Set(parsed.map((item) => item.deckId))) {
+      const deck = await ctx.db.get(deckId);
+      if (!deck || deck.libraryId !== library._id)
+        fail("CONFLICT", "A deck this import created was deleted. Start the import again.");
+    }
+
     const added: { key: string; flashcardId: Id<"flashcards"> }[] = [];
     let addedUnits = 0;
+    const tagCache: TagCache = new Map();
     for (const { card, deckId, input } of parsed) {
       // An accepted review proves access, so reviewed cards keep it for good.
       const studied = card.units.some(
@@ -314,6 +322,7 @@ export const addCards = mutation({
         archived: card.archived,
         prerequisiteAccessGranted: studied,
         now,
+        tagCache,
       });
       const units = await ctx.db
         .query("reviewUnits")
@@ -493,8 +502,8 @@ export const removeDecks = internalMutation({
 /**
  * Stop a running import and delete every deck it created, with their cards,
  * review items, and history. The import stops accepting batches immediately;
- * decks are removed one per transaction (the first right now), so even a
- * 200-deck import stays within Convex limits.
+ * decks are removed right after, one per transaction, so even a 200-deck
+ * import stays within Convex limits.
  */
 export const cancel = mutation({
   args: { importId: v.id("imports"), reason: v.optional(v.string()) },
@@ -509,9 +518,10 @@ export const cancel = mutation({
       updatedAt: Date.now(),
       ...(reason ? { error: reason.slice(0, 500) } : {}),
     };
+    // Decks are removed in their own transactions, so a large deck can't make
+    // the cancel itself fail and leave the import running.
     await ctx.db.patch(row._id, patch);
-    if (await removeNextDeck(ctx, row))
-      await ctx.scheduler.runAfter(0, internal.imports.removeDecks, { importId });
+    await ctx.scheduler.runAfter(0, internal.imports.removeDecks, { importId });
     await bumpRevision(ctx, library._id);
     return view({ ...row, ...patch });
   },

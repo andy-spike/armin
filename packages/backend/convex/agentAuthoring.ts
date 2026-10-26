@@ -19,6 +19,7 @@ import {
   refreshDependentSubgraph,
   rememberTags,
   SettingsCache,
+  type TagCache,
 } from "./model/study";
 
 async function revision(ctx: QueryCtx, libraryId: Id<"libraries">) {
@@ -202,6 +203,7 @@ async function saveCards(ctx: MutationCtx, connection: Doc<"agentConnections">, 
     deckId = id;
   }
   const ids = new Map<string, Id<"flashcards">>();
+  const tagCache: TagCache = new Map();
   for (const item of args.cards) {
     if (ids.has(item.key)) fail("INVALID", "Each card key must be unique within the batch.");
     const parsed = textInput(item.card.type, item.card.content);
@@ -212,6 +214,7 @@ async function saveCards(ctx: MutationCtx, connection: Doc<"agentConnections">, 
       tags: item.tags ?? [],
       now,
       agentConnectionId: connection._id,
+      tagCache,
     });
     ids.set(item.key, id);
   }

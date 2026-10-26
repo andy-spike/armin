@@ -66,6 +66,8 @@ const WARNING_MESSAGES: Record<ImportWarningCode, (count: number) => string> = {
   math_as_text: (n) => `Math in ${plural(n, "note")} is shown as plain text, not rendered.`,
   nested_cloze_flattened: (n) =>
     `Nested cloze deletions in ${plural(n, "note")} were flattened into separate deletions.`,
+  shared_cloze_narrowed: (n) =>
+    `Cloze deletions shared by several cards ({{c1,2::…}}) in ${plural(n, "note")} now belong to the first of those cards only.`,
   occlusion_shape_approximated: (n) =>
     `Occlusion shapes in ${plural(n, "note")} were approximated by rectangles.`,
   custom_notetype_rendered: (n) =>
@@ -209,6 +211,7 @@ function prepareCloze(
 ): Prepared {
   const converted = convertAnkiCloze(note.fields[kind.text] ?? "");
   if (converted.nested) ctx.warnings.add("nested_cloze_flattened");
+  if (converted.shared) ctx.warnings.add("shared_cloze_narrowed");
   let text = dropEmptyClozes(ctx.md(converted.text));
   const limited = limitClozeClusters(text, MAX_UNITS_PER_FLASHCARD);
   if (limited.trimmed) ctx.warnings.add("content_truncated");

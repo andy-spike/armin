@@ -17,10 +17,11 @@ import { clozeClusters } from "../flashcard-rules";
 type Item = string | ClozeNode;
 type ClozeNode = { num: number; items: Item[] };
 
-const OPEN_RE = /\{\{c(\d+)::/y;
+// Anki also lets one deletion serve several cards: `{{c1,2::answer}}`.
+const OPEN_RE = /\{\{c(\d+(?:,\d+)*)::/y;
 
 /** Parse the Anki markers into a tree; unmatched openers stay literal text. */
-function parse(source: string) {
+function parse(source: string, state: { shared: boolean }) {
   const root: ClozeNode = { num: 0, items: [] };
   const stack: ClozeNode[] = [root];
   let text = "";
@@ -33,7 +34,10 @@ function parse(source: string) {
     const open = OPEN_RE.exec(source);
     if (open) {
       flush();
-      const node: ClozeNode = { num: Number(open[1]), items: [] };
+      // Armin deletions belong to one cluster, so a shared one keeps the lowest.
+      const nums = open[1].split(",").map(Number);
+      if (nums.length > 1) state.shared = true;
+      const node: ClozeNode = { num: Math.min(...nums), items: [] };
       stack[stack.length - 1].items.push(node);
       stack.push(node);
       i += open[0].length;
@@ -88,12 +92,12 @@ function split(body: string) {
     : { answer: body.slice(0, sep), hint: body.slice(sep + 2) };
 }
 
-export type ClozeConversion = { text: string; nested: boolean };
+export type ClozeConversion = { text: string; nested: boolean; shared: boolean };
 
 export function convertAnkiCloze(source: string): ClozeConversion {
-  const root = parse(source);
+  const state = { nested: false, shared: false };
+  const root = parse(source, state);
   const pieces: Piece[] = [];
-  const state = { nested: false };
   flatten(root, pieces, state);
 
   // A hint rides on the piece that carried the `::`; later pieces of the same
@@ -107,7 +111,7 @@ export function convertAnkiCloze(source: string): ClozeConversion {
       return hint ? `{{${piece.num}::${answer}::${hint}}}` : `{{${piece.num}::${answer}}}`;
     })
     .join("");
-  return { text, nested: state.nested };
+  return { text, nested: state.nested, shared: state.shared };
 }
 
 /** Deletions with no answer left after HTML conversion can't be studied: drop them. */

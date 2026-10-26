@@ -42,9 +42,14 @@ function memoryState(data: string) {
 
 /** When Anki says the card is due, epoch ms. */
 export function ankiDueMs(card: AnkiCard, createdAt: number) {
-  // Learning cards due in minutes carry epoch seconds; day-learning (queue 3)
-  // and review cards carry days since the collection was created.
-  const inSeconds = card.type === 1 && card.queue !== 3;
+  // The queue decides the unit: (re)learning and preview cards due in minutes
+  // (queues 1 and 4) carry epoch seconds; day-learning (queue 3) and review
+  // cards carry days since the collection was created. Suspended and buried
+  // cards keep the due of the queue they left, so fall back to its magnitude.
+  const inSeconds =
+    card.queue === 1 ||
+    card.queue === 4 ||
+    (card.queue < 0 && (card.type === 1 || card.type === 3) && card.due > 1_000_000_000);
   return inSeconds ? card.due * 1000 : (createdAt + card.due * 86_400) * 1000;
 }
 
@@ -85,6 +90,9 @@ export function scheduleCard(
   createdAt: number,
 ): Pick<ImportReviewUnit, "schedule" | "logs"> {
   if (card.type === 0 || card.type > 3) return { schedule: null, logs: [] };
+  // A due date we can't read would fail the whole import; start the card fresh instead.
+  if (!Number.isFinite(new Date(ankiDueMs(card, createdAt)).getTime()))
+    return { schedule: null, logs: [] };
 
   const history = replay(reviews);
   const memory = memoryState(card.data);

@@ -107,6 +107,8 @@ async function withRetry<T>(signal: AbortSignal, run: () => Promise<T>) {
     try {
       return await run();
     } catch (error) {
+      // An aborted fetch rejects with AbortError; the user asked to stop, so say so.
+      if (signal.aborted) throw new ImportCancelledError();
       if (attempt >= RETRIES || !isTransient(error)) throw error;
       await sleep(600 * 2 ** attempt, signal);
     }

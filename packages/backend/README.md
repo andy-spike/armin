@@ -78,7 +78,7 @@ imported cards have no prerequisites and are never locked.
 | `imports.addCards`               | Up to 100 cards and 1,500 review units per call, all-or-nothing. A unit's `schedule` replaces its new-card state; unknown `subKey`s are ignored. |
 | `imports.addReviewLogs`          | Up to 1,000 past reviews per call, for cards this import created. History only: it never changes a unit's schedule.                              |
 | `imports.finish`                 | Needs every declared card and review to have arrived, then closes the import.                                                                    |
-| `imports.cancel`                 | Stops the import and deletes every deck it made, one deck per transaction. Clients call it on any failure.                                       |
+| `imports.cancel`                 | Stops the import, then deletes every deck it made in scheduled jobs, one deck per transaction. Clients call it on any failure.                   |
 | `imports.get`, `imports.current` | Status of one import, or of the library's running import (to resume or cancel after a reload).                                                   |
 
 Rules:

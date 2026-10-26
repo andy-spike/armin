@@ -182,6 +182,7 @@ export type ImportWarningCode =
   | "missing_media"
   | "math_as_text"
   | "nested_cloze_flattened"
+  | "shared_cloze_narrowed"
   | "occlusion_shape_approximated"
   | "custom_notetype_rendered"
   | "empty_note_skipped"

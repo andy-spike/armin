@@ -75,6 +75,31 @@ call; 1,000 review logs took 442 ms.
 lazily loaded import worker chunk, its WASM a separate asset), and
 `pnpm --filter @armin/mobile check:bundle`.
 
+## Review fixes
+
+A code review of the branch found six problems, each fixed and rechecked:
+
+- Relearning cards (Anki `type 3`, `queue 1`) carry their due date in seconds,
+  not days. They produced an invalid date that failed the whole import when
+  progress was kept. The converter now reads the unit from the queue, and a
+  card whose due date still can't be read starts fresh instead. Rerunning the
+  reviewer's relearning case gave a due date of today.
+- Shared deletions (`{{c1,2::…}}`) imported as a broken card whose answer was
+  `c1,2`. They now become a deletion for the lowest number, with a preview
+  warning that the other cards' items are dropped.
+- Each card read every tag twice, so a 100-card batch with 20 tags per card
+  went over Convex's 4,096-read limit. Batches now share a tag cache (agent
+  `save_cards` too). Against the local deployment, 100 cards with 20 tags each
+  imported in one call.
+- A deck deleted from another tab mid-import left later cards without a deck.
+  `addCards` now refuses with `CONFLICT`; checked locally, and the following
+  cancel returned the library to its earlier 7 decks and 14 cards.
+- `cancel` deleted the first deck inside its own transaction, so a very large
+  deck could make the cancel itself fail. It now only marks the import
+  cancelled and schedules the deletions.
+- Stopping during image upload reported a failure; it now reports a
+  cancellation. Not rechecked in the browser.
+
 ## Not covered
 
 The deck-list empty state, an import that skips images (the "Left out" list),
@@ -82,3 +107,7 @@ hitting the 80 MiB image quota, a real Anki-produced Image Occlusion deck with
 ellipses or rotation, packages with `legacy_zip_filename` media entries, newer
 Anki schema versions, real phones, and the Cloudflare deployment of the WASM
 asset.
+
+Known gaps: importing the same file twice creates the decks twice, and a
+single deck near the beta limits may still be too large to delete in one
+transaction (this also affects deleting such a deck by hand).
