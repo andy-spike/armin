@@ -41,17 +41,40 @@ function props(source: string) {
   return out;
 }
 
+/**
+ * Bounding box of a box rotated clockwise by `degrees` around its top-left
+ * corner, which is how Anki's fabric.js shapes rotate. The image's aspect ratio
+ * isn't known here, so rotating in fractional units is itself approximate.
+ */
+function rotatedBox(box: OcclusionBox, degrees: number): OcclusionBox {
+  const rad = (degrees * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const corners = [
+    [0, 0],
+    [box.w, 0],
+    [0, box.h],
+    [box.w, box.h],
+  ].map(([dx, dy]) => [box.x + dx * cos - dy * sin, box.y + dx * sin + dy * cos]);
+  const xs = corners.map(([x]) => x);
+  const ys = corners.map(([, y]) => y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
+
 function shapeBox(kind: string, values: Record<string, string>) {
   const num = (key: string) => Number(values[key]);
+  const angle = Number(values.angle ?? 0);
+  const rotated = Number.isFinite(angle) && angle % 360 !== 0;
+  const placed = (box: OcclusionBox, approximated: boolean) =>
+    rotated ? { box: rotatedBox(box, angle), approximated: true } : { box, approximated };
   if (kind === "rect") {
-    return { box: { x: num("left"), y: num("top"), w: num("width"), h: num("height") } };
+    return placed({ x: num("left"), y: num("top"), w: num("width"), h: num("height") }, false);
   }
   if (kind === "ellipse") {
     // Anki stores the ellipse's top-left corner and its radii.
-    return {
-      box: { x: num("left"), y: num("top"), w: num("rx") * 2, h: num("ry") * 2 },
-      approximated: true,
-    };
+    return placed({ x: num("left"), y: num("top"), w: num("rx") * 2, h: num("ry") * 2 }, true);
   }
   const points = (values.points ?? "")
     .trim()

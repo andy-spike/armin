@@ -83,6 +83,18 @@ pushes, and deletion of `master` are blocked. See
 backend and web app from `master` as described in
 [production deployment](docs/deploy-cloudflare.md).
 
+## Importing from Anki
+
+Settings → Data → Import, or **Import from Anki** on the deck list, brings in
+Anki decks (`.apkg`), whole collections (`.colpkg`, from Anki 2.1 through
+current releases), and plain-text exports (`.txt`, `.csv`, `.tsv`). Each Anki
+deck becomes an Armin deck; Basic, reversed, typed-answer, Cloze, and Image
+Occlusion notes map to the matching Armin card types, and other note types are
+rendered from their templates. Images and, optionally, review progress come
+along; audio and video don't. The file is read in the browser and the preview
+lists anything left out before importing. See
+[ADR 0022](packages/core/docs/adr/0022-anki-import-runs-in-the-browser.md).
+
 ## AI assistant connections
 
 Armin works with ChatGPT, Claude, Claude Code, and Codex through Armin sign-in.

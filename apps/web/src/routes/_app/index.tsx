@@ -4,7 +4,7 @@ import { armin, errorMessage, newRequestId } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Layers, Plus, AlertTriangle, Ellipsis, Pencil, Trash2 } from "lucide-react";
+import { Layers, Plus, AlertTriangle, Ellipsis, Pencil, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
@@ -27,6 +27,7 @@ import { Progress } from "@/components/ui/progress";
 import { DeckGridSkeleton } from "@/components/page-skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SortControl } from "@/components/sort-control";
+import { AnkiImportDialog, preloadAnkiImportDialog } from "@/components/anki-import-dialog-lazy";
 import { useToast } from "@/components/ui/toast";
 import { DECK_SORT_OPTIONS, sortDecks, type DeckSortKey } from "@/lib/sort-decks";
 import { deckKeys, invalidateDeckScopedData } from "@/lib/armin-query";
@@ -42,6 +43,7 @@ function DecksPage() {
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [closingAfterCreate, setClosingAfterCreate] = useState(false);
@@ -146,6 +148,7 @@ function DecksPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ImportButton onClick={() => setImportOpen(true)} />
           <Button onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" /> New deck
           </Button>
@@ -175,9 +178,12 @@ function DecksPage() {
           title="No decks yet"
           description="A deck is a set of flashcards on one subject. Create your first one, then add flashcards and organize their prerequisites."
           action={
-            <Button onClick={() => setOpen(true)}>
-              <Plus className="h-4 w-4" /> Create your first deck
-            </Button>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button onClick={() => setOpen(true)}>
+                <Plus className="h-4 w-4" /> Create your first deck
+              </Button>
+              <ImportButton onClick={() => setImportOpen(true)} />
+            </div>
           }
         />
       )}
@@ -209,6 +215,8 @@ function DecksPage() {
           ))}
         </ul>
       )}
+
+      <AnkiImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
 
       <Dialog
         open={open}
@@ -324,6 +332,19 @@ function DecksPage() {
         </div>
       </Dialog>
     </div>
+  );
+}
+
+function ImportButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      variant="outline"
+      onClick={onClick}
+      onPointerEnter={preloadAnkiImportDialog}
+      onFocus={preloadAnkiImportDialog}
+    >
+      <Upload className="h-4 w-4" /> Import from Anki
+    </Button>
   );
 }
 

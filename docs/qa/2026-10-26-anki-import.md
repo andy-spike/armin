@@ -1,0 +1,84 @@
+# Anki import, 2026-10-26
+
+Scope: importing Anki decks into the web app (reader, converter, `imports`
+backend, import dialog) and the optional cloze `extra` field. Run against the
+worktree's local Convex deployment with the sample account, in headless
+Chromium driven by agent-browser on Linux. Mobile-width checks used a 390 px
+emulated viewport, not a real device. Nothing was deployed.
+
+## Fixtures
+
+Built locally (not committed) with Anki's own Python package and genanki, plus
+hand-made files: current-format `.apkg` and `.colpkg` (`collection.anki21b`,
+with and without scheduling, all six stock notetypes, an image, review history,
+a nested subdeck), legacy `.anki21` and genanki `.anki2` packages, int64 ids
+above 2^53, a filtered deck, a 183 MB `.colpkg` with 30,000 notes and 3,000
+images, text/CSV variants (tab, comma, semicolon, pipe, quoted newlines,
+`#html:false`, BOM and CRLF), and broken files (encrypted, truncated, random
+bytes, a ZIP without a collection, an empty collection).
+
+## Reader and converter
+
+- Every package layout above opened in Node, and a subset through the real
+  worker in Chromium. Stock kinds 1–6 were detected; big ids stayed exact;
+  filtered-deck cards came back under their home deck and original due date.
+- Broken files each produced a specific message (password-protected, damaged,
+  not an Anki package, nothing to import) without crashing.
+- The 30,000-note collection opened in about 0.5 s in Node and was converted in
+  the browser in about 5 s.
+- The converter was checked with a synthetic collection covering every
+  notetype: each card passes `validateContent`, review-unit keys match
+  `generateReviewUnits`, and totals are exact. The HTML and cloze parsers took
+  3,000 random inputs without throwing or hanging.
+- Image-occlusion ellipse placement was checked against Anki's source
+  (`ts/routes/image-occlusion/shapes`): shapes use fabric.js's top-left origin,
+  and rotated shapes now import as their rotated bounding box.
+
+## Backend
+
+Against the local deployment as the sample user: start → addCards (basic,
+cloze, scheduled, archived) → addReviewLogs → finish; quota, validation, and
+foreign-id rejections each returned a coded error and created nothing; retries
+by request id returned the first result; cancel and the stale-import sweep
+removed the import's decks. 100 cloze cards with 15 units each took 751 ms per
+call; 1,000 review logs took 442 ms.
+
+## Running app
+
+- Settings → Data shows Import above Export.
+- `modern.apkg`: the preview listed three decks with Anki paths, type counts,
+  the image, and "8 past reviews" ([preview](2026-10-26-anki-import/03-preview-modern.png)).
+  The import created three decks and four cards ([done](2026-10-26-anki-import/04-done-modern.png));
+  Browse showed the imported due times ([browse](2026-10-26-anki-import/05-browse-after-modern.png));
+  the image rendered; review showed the cloze answer with its extra only after
+  reveal ([review](2026-10-26-anki-import/31-review-answer.png)).
+- `legacy.apkg` with one deck deselected and **Start fresh**: the plan
+  recomputed and the cards arrived as new ([preview](2026-10-26-anki-import/16-legacy-fresh-deselected.png)).
+- `notes.txt`: a quoted multi-line field imported intact; the progress choice
+  is hidden for text files ([preview](2026-10-26-anki-import/28-text-preview.png)).
+- `random.apkg`: inline error, no crash ([error](2026-10-26-anki-import/07-error-random.png)).
+- `big-30k.colpkg`: the preview blocked the import with exact counts against the
+  2,000-card limit ([blocked](2026-10-26-anki-import/08-big-30k-preview.png)).
+- A 1,900-card text file imported in about 8 s ([progress](2026-10-26-anki-import/11-progress.png)).
+  Stopping at 500 cards returned the library to its prior decks and counts
+  ([after cancel](2026-10-26-anki-import/14-after-cancel.png)).
+- A second tab saw "Another import is still running" and could cancel it; the
+  first tab then reported the import as cancelled ([second tab](2026-10-26-anki-import/25-other-import-running.png)).
+- 390 px viewport: deck list, preview, progress, and done states fit
+  ([preview](2026-10-26-anki-import/21-mobile-preview.png)).
+- Cloze extra: created in the editor, shown only after reveal, reloaded when
+  editing; an existing cloze card without extra looked unchanged.
+
+## Checks
+
+`pnpm check` (0 errors), `pnpm --filter @armin/web build` (sql.js only in the
+lazily loaded import worker chunk, its WASM a separate asset), and
+`pnpm --filter @armin/mobile check:bundle`.
+
+## Not covered
+
+The deck-list empty state, an import that skips images (the "Left out" list),
+hitting the 80 MiB image quota, a real Anki-produced Image Occlusion deck with
+ellipses or rotation, packages with `legacy_zip_filename` media entries, newer
+Anki schema versions, real phones, and the Cloudflare deployment of the WASM
+asset.

@@ -2,7 +2,13 @@ import { v } from "convex/values";
 import { generateReviewUnits } from "@armin/core/flashcard-types";
 import { pickFsrsFieldsMs, PENDING_DUE, type FsrsFieldsMs } from "@armin/core/scheduler";
 import { internal } from "./_generated/api";
-import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import {
+  internalMutation,
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { fsrsSnapshot } from "./schema";
 import { readableLibrary, writableLibrary } from "./model/access";
@@ -71,7 +77,7 @@ async function runningImport(ctx: MutationCtx, library: Doc<"libraries">, import
   return row;
 }
 
-async function reviewUnitTotal(ctx: MutationCtx, libraryId: Id<"libraries">) {
+async function reviewUnitTotal(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">) {
   const counter = await ctx.db
     .query("libraryCounters")
     .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
@@ -520,6 +526,37 @@ export const get = query({
     const row = id ? await ctx.db.get(id) : null;
     if (!row || row.libraryId !== library._id) return null;
     return view(row);
+  },
+});
+
+/** What the library already holds, so an import preview can check the beta limits up front. */
+export const usage = query({
+  args: {},
+  handler: async (ctx) => {
+    const library = await readableLibrary(ctx);
+    if (!library) return null;
+    const [decks, flashcards, reviewUnits] = await Promise.all([
+      ctx.db
+        .query("decks")
+        .withIndex("by_library", (q) => q.eq("libraryId", library._id))
+        .take(MAX_DECKS + 1),
+      ctx.db
+        .query("flashcards")
+        .withIndex("by_library", (q) => q.eq("libraryId", library._id))
+        .take(MAX_FLASHCARDS + 1),
+      reviewUnitTotal(ctx, library._id),
+    ]);
+    return {
+      decks: decks.length,
+      flashcards: flashcards.length,
+      reviewUnits,
+      limits: {
+        decks: MAX_DECKS,
+        flashcards: MAX_FLASHCARDS,
+        reviewUnits: MAX_REVIEW_UNITS,
+        reviewLogs: MAX_IMPORT_REVIEW_LOGS,
+      },
+    };
   },
 });
 

@@ -75,6 +75,17 @@ function unwrapUpdate(result: UpdateResult) {
 export type SettingsUpdate = Omit<FunctionArgs<typeof api.settings.update>, never>;
 export type DeckSettingsUpdate = Omit<FunctionArgs<typeof api.settings.updateDeck>, "deckId">;
 
+/** A failed image upload, with the HTTP status so callers can tell a full library from a hiccup. */
+export class MediaUploadError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "MediaUploadError";
+  }
+}
+
 export type ImportedMedia = { ref: string; fileName: string; mime: string; bytes: number };
 
 export const armin = {
@@ -288,13 +299,18 @@ export const armin = {
   },
   media: {
     /** Upload an image to private library storage and return its reference. */
-    importImage: async (input: { file: Blob; fileName?: string }): Promise<ImportedMedia> => {
+    importImage: async (input: {
+      file: Blob;
+      fileName?: string;
+      signal?: AbortSignal;
+    }): Promise<ImportedMedia> => {
       const response = await fetch("/media/upload", {
         method: "POST",
         headers: { "Content-Type": input.file.type || "application/octet-stream" },
         body: input.file,
+        signal: input.signal,
       });
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) throw new MediaUploadError(await response.text(), response.status);
       return (await response.json()) as ImportedMedia;
     },
   },
