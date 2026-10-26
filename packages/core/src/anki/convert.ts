@@ -72,6 +72,8 @@ const WARNING_MESSAGES: Record<ImportWarningCode, (count: number) => string> = {
     `Occlusion shapes in ${plural(n, "note")} were approximated by rectangles.`,
   custom_notetype_rendered: (n) =>
     `${plural(n, "note")} with a custom notetype became basic flashcards from the rendered templates.`,
+  audio_only_card_skipped: (n) =>
+    `Cards that only play audio on the front were skipped in ${plural(n, "note")} (Armin has no audio yet).`,
   empty_note_skipped: (n) =>
     `${plural(n, "note")} with empty required content (or an unusable image) was skipped.`,
   content_truncated: (n) => `${plural(n, "note")} exceeded Armin's size limits and was shortened.`,
@@ -405,6 +407,10 @@ export function convertAnkiCollection(
           clozeNum: card.ord + 1,
         });
         if (!rendered) continue;
+        if ("audioOnly" in rendered) {
+          warnings.add("audio_only_card_skipped");
+          continue;
+        }
         const front = ctx.md(rendered.front);
         const back = ctx.md(rendered.back);
         if (!front || !back) continue;

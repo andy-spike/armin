@@ -185,6 +185,7 @@ export type ImportWarningCode =
   | "shared_cloze_narrowed"
   | "occlusion_shape_approximated"
   | "custom_notetype_rendered"
+  | "audio_only_card_skipped"
   | "empty_note_skipped"
   | "content_truncated"
   | "tags_trimmed"

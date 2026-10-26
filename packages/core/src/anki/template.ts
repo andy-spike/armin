@@ -89,7 +89,13 @@ export type TemplateContext = {
   side: "front" | "back";
 };
 
-type RenderResult = { html: string; usedField: boolean };
+/**
+ * `usedField`: a field shows something (Anki generates the card only then).
+ * `audioOnly`: a field had content, but only `[sound:…]` that Armin drops.
+ */
+type RenderResult = { html: string; usedField: boolean; audioOnly: boolean };
+
+const SOUND_RE = /\[sound:[^\]]*\]/g;
 
 function applyFilters(value: string, filters: string[], ctx: TemplateContext) {
   let out = value;
@@ -119,7 +125,11 @@ function renderNodes(nodes: Node[], ctx: TemplateContext, result: RenderResult):
       const raw = lookup(node.name, ctx);
       if (raw === undefined) continue;
       const value = applyFilters(raw, node.filters, ctx);
-      if (ctx.fields.has(node.name) && !isFieldEmpty(value)) result.usedField = true;
+      if (ctx.fields.has(node.name) && !isFieldEmpty(value)) {
+        // Audio is removed on import, so a field holding only sound shows nothing.
+        if (isFieldEmpty(value.replace(SOUND_RE, ""))) result.audioOnly = true;
+        else result.usedField = true;
+      }
       out += value;
     }
   }
@@ -148,7 +158,7 @@ function lookup(name: string, ctx: TemplateContext) {
 }
 
 export function renderTemplate(source: string, ctx: TemplateContext): RenderResult {
-  const result: RenderResult = { html: "", usedField: false };
+  const result: RenderResult = { html: "", usedField: false, audioOnly: false };
   result.html = renderNodes(parseTemplate(source), ctx, result);
   return result;
 }
@@ -158,7 +168,8 @@ const ANSWER_RULE_RE = /<hr\s+id\s*=\s*["']?answer["']?\s*\/?>/i;
 
 /**
  * Render one card: the front, and the back with the repeated front removed.
- * Returns null when Anki would not generate the card (the front shows no field).
+ * Returns null when Anki would not generate the card (the front shows no field),
+ * and `{ audioOnly: true }` when its front shows nothing but audio Armin drops.
  */
 export function renderCard(
   notetype: AnkiNotetype,
@@ -173,7 +184,8 @@ export function renderCard(
     side: "front",
   };
   const front = renderTemplate(template.qfmt, ctx);
-  if (!front.usedField || isFieldEmpty(front.html)) return null;
+  if (!front.usedField) return front.audioOnly ? { audioOnly: true as const } : null;
+  if (isFieldEmpty(front.html)) return null;
 
   const back = renderTemplate(template.afmt, { ...ctx, side: "back", frontSide: FRONT_MARK });
   const rule = ANSWER_RULE_RE.exec(back.html);

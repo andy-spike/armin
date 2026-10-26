@@ -431,11 +431,24 @@ function renderInlineChildren(el: HtmlElement, state: RenderState) {
   return el.children.map((child) => renderInline(child, state)).join("");
 }
 
-/** Wrap inline content in a Markdown delimiter, keeping edge whitespace outside it. */
+const LEADING_PUNCTUATION_RE = /^[\p{P}\p{S}]/u;
+const TRAILING_PUNCTUATION_RE = /[\p{P}\p{S}]$/u;
+
+/**
+ * Wrap inline content in a Markdown delimiter, keeping edge whitespace outside it.
+ *
+ * CommonMark won't open `**` before punctuation, or close it after punctuation,
+ * unless whitespace or punctuation sits on the far side, so `**状(じょう)**では`
+ * shows its asterisks. A zero-width space between the delimiter and the
+ * punctuation lets it open and close wherever it lands.
+ */
 function wrap(content: string, open: string, close = open) {
   const match = /^(\s*)([\s\S]*?)(\s*)$/.exec(content)!;
-  if (!match[2]) return content;
-  return `${match[1]}${open}${match[2]}${close}${match[3]}`;
+  const inner = match[2];
+  if (!inner) return content;
+  const head = LEADING_PUNCTUATION_RE.test(inner) ? "\u200B" : "";
+  const tail = TRAILING_PUNCTUATION_RE.test(inner) ? "\u200B" : "";
+  return `${match[1]}${open}${head}${inner}${tail}${close}${match[3]}`;
 }
 
 function renderInline(node: HtmlNode, state: RenderState): string {
@@ -570,6 +583,11 @@ export function htmlToMarkdown(html: string, options: HtmlOptions): HtmlConversi
   if (source.search(MATH_RE) !== -1) options.warn("math_as_text");
 
   const tree = parseHtml(source);
-  const markdown = tidy(renderBlocks(tree.children, state).join("\n\n"));
+  // Adjacent bold spans (`<b>a</b><b>b</b>`) meet as `****`, which Markdown
+  // can't parse; join them into one span. Literal asterisks are escaped.
+  const markdown = tidy(renderBlocks(tree.children, state).join("\n\n")).replace(
+    /(?<!\\)\*\*\*\*/g,
+    "",
+  );
   return { markdown, media: [...state.media] };
 }
