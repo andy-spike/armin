@@ -67,7 +67,7 @@ Any paid Claude plan can submit.
 2. **Submit new → MCP connector** with
    `https://intent-bullfrog-922.convex.site/mcp`. Choose OAuth with dynamic
    client registration, add the icon, documentation URL
-   (`plugins/armin/README.md` on GitHub), privacy policy, support link
+   (`https://armincards.app/docs/mcp`), privacy policy, support link
    (GitHub Issues), and the reviewer account. The tools sync from the server;
    confirm each shows its title and read-only or write label.
 3. **Submit new → Plugin bundle**, repository `andy-spike/armin`, plugin path

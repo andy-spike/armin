@@ -10,6 +10,9 @@ in the conversation.
 
 ## Install
 
+For connection steps, permissions, tools, and troubleshooting, read the
+[MCP server documentation](https://armincards.app/docs/mcp).
+
 In Claude or ChatGPT, search for Armin in the plugin directory and add it.
 Coding agents can also install it from this repository:
 
