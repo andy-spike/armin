@@ -5,11 +5,29 @@ cards, decks, and prerequisite relationships. The assistant reads the source and
 generates the content. Armin does not fetch sources, run a model, or use an AI
 subscription on the user's behalf.
 
-Settings → AI assistants provides the server address, setup instructions for
-ChatGPT, Claude, Claude Code, and Codex, connection permissions, revocation, and
-recent authoring activity. Connections are available to Armin accounts; the AI
-provider's plan, workspace policy, and custom-connection support still apply.
-Public directory publication is separate from this implementation.
+Settings → AI assistants provides setup instructions for ChatGPT, Claude,
+Claude Code, and Codex, connection permissions, revocation, and recent authoring
+activity. Connections are available to Armin accounts; the AI provider's plan
+and workspace policy still apply.
+
+## Plugins for chat apps, MCP for coding agents
+
+Chat app users install Armin from their app's plugin directory instead of
+pasting a server address. [`plugins/armin`](../plugins/armin) is one plugin
+folder with a manifest for each directory: Anthropic's lists it in Claude chat,
+Cowork, and Claude Code, and OpenAI's single directory lists it in ChatGPT and
+Codex. The plugin bundles the MCP server below and the `writing-study-cards`
+skill; it runs nothing on the user's computer. Installing it still goes through
+the same OAuth consent and permissions.
+
+Coding agents connect to the MCP server directly with `claude mcp add` or
+`codex mcp add`, as Settings shows. They can also install the plugin from this
+repository's marketplaces.
+
+Until a directory approves the plugin, Settings shows the custom connector
+steps for that chat app. [Publishing the plugin](../plugins/PUBLISHING.md)
+covers the remaining prerequisites, both submission flows, and the switch to
+flip after approval.
 
 ## Connection flow
 
@@ -78,7 +96,8 @@ Users inspect saved content in the ordinary deck and card screens.
 
 ## Authoring contract
 
-The server exposes nine tools:
+The server exposes nine tools. Each carries a display title and read-only or
+destructive annotations, which both plugin directories require:
 
 | Tool                 | Behavior                                                                                           |
 | -------------------- | -------------------------------------------------------------------------------------------------- |
@@ -136,8 +155,7 @@ cookie credentials; authoring always requires a bearer token.
 
 Local coding agents can reach a checkout's loopback MCP address. Hosted chat
 apps need the production deployment's public HTTPS address; they cannot reach
-this machine's local backend. No directory submission or production deployment
-is performed by adding these source changes.
+this machine's local backend. The plugin always points at production.
 
 ## Compatibility references
 
@@ -147,6 +165,8 @@ is performed by adding these source changes.
 - [Codex MCP configuration](https://learn.chatgpt.com/docs/extend/mcp)
 - [Claude custom connectors](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
 - [Claude Code MCP configuration](https://code.claude.com/docs/en/mcp)
+- [OpenAI plugin packaging](https://developers.openai.com/plugins/build/plugins)
+- [Claude plugin structure](https://claude.com/docs/plugins/build)
 
 The local OAuth/MCP flow is verified with the SDK client and actual Claude Code
 and Codex CLI sessions, including model-driven creation, readback, and revocation.

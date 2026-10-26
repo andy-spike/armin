@@ -24,6 +24,7 @@
     "typecheck": "vp check --no-fmt --no-lint",
     "lint": "vp lint",
     "format": "vp fmt",
+    "plugin:package": "node scripts/package-plugin.mjs",
     "worktree:setup": "node scripts/setup-worktree.mjs",
     "worktree:seed": "pnpm --filter @armin/backend worktree:seed"
   },

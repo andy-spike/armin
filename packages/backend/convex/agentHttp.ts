@@ -6,7 +6,12 @@ import { ZodError } from "zod";
 import { httpAction, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { hashSecret, newSecret } from "./model/agentAuth";
-import { agentInstructions, agentToolDescriptions, agentToolSchemas } from "./model/agentTools";
+import {
+  agentInstructions,
+  agentToolDescriptions,
+  agentToolSchemas,
+  agentToolTitles,
+} from "./model/agentTools";
 
 function baseUrl(request: Request) {
   // The deployment's canonical HTTP origin is the issuer and resource audience.
@@ -103,6 +108,19 @@ function publicEndpoint(handler: (ctx: ActionCtx, request: Request) => Promise<R
 }
 
 export function registerAgentRoutes(http: HttpRouter) {
+  // OpenAI's plugin portal verifies domain ownership by fetching this token from
+  // the MCP host. Set OPENAI_APPS_CHALLENGE to the portal's exact token.
+  http.route({
+    path: "/.well-known/openai-apps-challenge",
+    method: "GET",
+    handler: httpAction(async () => {
+      const token = process.env.OPENAI_APPS_CHALLENGE?.trim();
+      return new Response(token || "Not found", {
+        status: token ? 200 : 404,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      });
+    }),
+  });
   http.route({
     path: "/.well-known/oauth-protected-resource",
     method: "GET",
@@ -359,6 +377,7 @@ export function registerAgentRoutes(http: HttpRouter) {
       server.registerTool(
         name,
         {
+          title: agentToolTitles[name],
           description: agentToolDescriptions[name],
           inputSchema: agentToolSchemas[name],
           annotations: {

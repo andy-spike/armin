@@ -1,0 +1,16 @@
+{
+  "name": "armin",
+  "displayName": "Armin",
+  "version": "1.0.0",
+  "description": "Turn articles, notes, and documents into Armin spaced-repetition cards linked by prerequisites, so foundations unlock before the ideas built on them.",
+  "author": { "name": "Andy Spike", "url": "https://armincards.app" },
+  "homepage": "https://armincards.app",
+  "repository": "https://github.com/andy-spike/armin",
+  "license": "MIT",
+  "keywords": ["flashcards", "spaced-repetition", "study", "learning", "fsrs"],
+  "icon": "./assets/logo.png",
+  "documentationUrl": "https://github.com/andy-spike/armin/blob/master/plugins/armin/README.md",
+  "supportUrl": "https://github.com/andy-spike/armin/issues",
+  "privacyPolicyUrl": "https://armincards.app/privacy",
+  "termsOfServiceUrl": "https://armincards.app/terms"
+}

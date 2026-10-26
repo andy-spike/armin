@@ -1,0 +1,20 @@
+{
+  "name": "armin",
+  "interface": {
+    "displayName": "Armin"
+  },
+  "plugins": [
+    {
+      "name": "armin",
+      "source": {
+        "source": "local",
+        "path": "./plugins/armin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Education & Research"
+    }
+  ]
+}
