@@ -29,28 +29,24 @@ plugin version.
 
 These block review and are not done yet:
 
-1. **Publish a privacy policy at `https://armincards.app/privacy`.** Both
-   directories require one. OpenAI requires it to cover the categories of
-   personal data collected, purposes, recipients, retention, and user controls.
-2. **Publish terms of service at `https://armincards.app/terms`.** OpenAI
-   requires them for a plugin with an MCP server, and Anthropic shows them on
-   the listing.
-3. **Deploy this branch's backend to production.** It adds a `title` to every
+1. **Deploy the web app** so `https://armincards.app/privacy` and
+   `https://armincards.app/terms` are live. Both directories link to them, and
+   OpenAI requires both for a plugin with an MCP server.
+2. **Deploy this branch's backend to production.** It adds a `title` to every
    tool (Anthropic's directory flags tools without one) and the OpenAI domain
    verification route. It also fixes the cloze syntax the tools teach.
-4. **Create a reviewer account** on production with a few populated decks and
+3. **Create a reviewer account** on production with a few populated decks and
    no MFA or email codes. Both directories ask for one; enter it only in their
    portals, never in this repository.
-5. **Record a short demo video** of the five positive review cases in
+4. **Record a short demo video** of the five positive review cases in
    `armin/plugin.json` and host it where OpenAI's reviewers can open it. Add
    its URL as `review.demo_recording_url` in `armin/plugin.json`.
 
 The manifests point at the Convex address
-`https://intent-bullfrog-922.convex.site/mcp`. OpenAI does not let you change a
-published plugin's MCP URL without contacting support, so if you want a branded
-address such as `mcp.armincards.app`, set it up before the first submission.
+`https://intent-bullfrog-922.convex.site/mcp`, and that is the published
+address. OpenAI changes a published plugin's MCP URL only through its support.
 The server uses `CONVEX_SITE_URL` as its OAuth issuer and token audience, so a
-new address needs backend changes as well as new URLs in both MCP files.
+new address would also need backend changes and new URLs in both MCP files.
 
 Run `pnpm plugin:package` after any change. It checks that the two manifests
 agree on name, version, description, license, and server URL, and that the two
