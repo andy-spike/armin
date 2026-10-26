@@ -16,7 +16,7 @@ export const uploaderLibrary = internalQuery({
   handler: async (ctx) => {
     const viewer = await getViewer(ctx);
     if (!viewer?.emailVerified || viewer.library?.status !== "active") return null;
-    return viewer.library._id;
+    return { libraryId: viewer.library._id, reviewerResetAt: viewer.library.reviewerResetAt };
   },
 });
 
@@ -45,8 +45,8 @@ async function drainBody(body: ReadableStream<Uint8Array> | null) {
 
 /** Authenticated raw bytes, stored by this action. Clients cannot name a blob. */
 export async function uploadImage(ctx: ActionCtx, request: Request) {
-  const libraryId = await ctx.runQuery(internal.media.uploaderLibrary, {});
-  if (!libraryId) return new Response("Sign in with a verified account.", { status: 401 });
+  const upload = await ctx.runQuery(internal.media.uploaderLibrary, {});
+  if (!upload) return new Response("Sign in with a verified account.", { status: 401 });
   const declared = Number(request.headers.get("content-length"));
   if (declared > MAX_MEDIA_FILE_BYTES) {
     await drainBody(request.body);
@@ -84,7 +84,8 @@ export async function uploadImage(ctx: ActionCtx, request: Request) {
   const storageId = await ctx.storage.store(new Blob([bytes], { type: mime }));
   try {
     const result = await ctx.runMutation(internal.media.recordUpload, {
-      libraryId,
+      libraryId: upload.libraryId,
+      reviewerResetAt: upload.reviewerResetAt,
       storageId,
       fileName,
       mime,
@@ -105,13 +106,15 @@ export const recordUpload = internalMutation({
   args: {
     libraryId: v.id("libraries"),
     storageId: v.id("_storage"),
+    reviewerResetAt: v.optional(v.number()),
     fileName: v.string(),
     mime: v.string(),
     size: v.number(),
   },
   handler: async (ctx, args) => {
     const library = await ctx.db.get(args.libraryId);
-    if (!library || library.status !== "active") return { status: "quota" as const };
+    if (!library || library.status !== "active" || library.reviewerResetAt !== args.reviewerResetAt)
+      return { status: "claimed" as const };
     const claimed = await ctx.db
       .query("media")
       .withIndex("by_storage", (q) => q.eq("storageId", args.storageId))
@@ -130,7 +133,8 @@ export const recordUpload = internalMutation({
       .unique();
     const used = counters?.mediaBytes ?? 0;
     if (used + args.size > MAX_LIBRARY_MEDIA_BYTES) return { status: "quota" as const };
-    await ctx.db.insert("media", { ...args, createdAt: Date.now() });
+    const { reviewerResetAt: _resetAt, ...media } = args;
+    await ctx.db.insert("media", { ...media, createdAt: Date.now() });
     if (counters) {
       await ctx.db.patch(counters._id, {
         mediaBytes: used + args.size,

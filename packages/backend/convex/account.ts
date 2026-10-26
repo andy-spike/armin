@@ -4,6 +4,7 @@ import { mutation, query } from "./_generated/server";
 import { getViewer } from "./model/access";
 import { fail } from "./model/errors";
 import { bumpRevision } from "./model/study";
+import { isReviewer, reviewerResetHours } from "./model/reviewer";
 
 /**
  * Which optional auth services this deployment has configured. Public so the
@@ -28,6 +29,9 @@ export const viewer = query({
       email: viewer.email,
       name: viewer.name,
       emailVerified: viewer.emailVerified,
+      reviewer: isReviewer(viewer.userId)
+        ? { resetHours: reviewerResetHours(), lastResetAt: viewer.library?.reviewerResetAt ?? null }
+        : null,
       library: viewer.library
         ? {
             id: viewer.library._id,

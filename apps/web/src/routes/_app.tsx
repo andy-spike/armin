@@ -153,6 +153,14 @@ function AppLayout() {
       />
     );
   }
+  if (data.library?.status === "resetting") {
+    return (
+      <FullPageMessage
+        title="Restoring sample data"
+        body="This shared test library resets periodically. It will reopen automatically when the reset finishes."
+      />
+    );
+  }
   if (!data.library) {
     return provisionError ? (
       <FullPageMessage
@@ -164,7 +172,7 @@ function AppLayout() {
       <Shell loading="Setting up your library" />
     );
   }
-  return <Shell />;
+  return <Shell reviewerResetHours={data.reviewer?.resetHours} />;
 }
 
 function SignOutButton() {
@@ -218,7 +226,7 @@ function ConnectionBanner() {
  * sidebar renders without live counts and the page area shows the skeleton of
  * the page being opened; the real page then fills the same layout.
  */
-function Shell({ loading }: { loading?: string }) {
+function Shell({ loading, reviewerResetHours }: { loading?: string; reviewerResetHours?: number }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [optimisticPathname, setOptimisticPathname] = useState<string | null>(null);
   const activePathname = optimisticPathname ?? pathname;
@@ -255,6 +263,15 @@ function Shell({ loading }: { loading?: string }) {
           </Link>
         </header>
         <ConnectionBanner />
+        {reviewerResetHours && (
+          <div
+            role="note"
+            className="border-b border-border bg-bg-2 px-4 py-2 text-center text-sm text-ink"
+          >
+            Shared test account · Everyone can see and change this library. Data resets every{" "}
+            {reviewerResetHours} hours. Do not add private material.
+          </div>
+        )}
         <div className="route-view flex min-h-0 w-full flex-1 flex-col overflow-hidden">
           <div className="route-scroll armin-scrollbar armin-scrollbar-gutter-bg notebook-bg min-h-0 flex-1 overflow-y-auto">
             <div className="route-pad mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">

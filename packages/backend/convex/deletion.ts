@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { TableNames } from "./_generated/dataModel";
+import type { Id, TableNames } from "./_generated/dataModel";
 
 /** Rows deleted per cleanup transaction; the job reschedules until done. */
 const BATCH = 400;
@@ -78,42 +78,9 @@ export const cleanupLibrary = internalMutation({
     const library = await ctx.db.get(libraryId);
     if (!library || library.status !== "deleting") return;
 
-    let budget = BATCH;
+    const complete = await cleanupLibraryData(ctx, libraryId, false);
 
-    const media = await ctx.db
-      .query("media")
-      .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
-      .take(budget);
-    for (const row of media) {
-      await ctx.storage.delete(row.storageId).catch(() => undefined);
-      await ctx.db.delete(row._id);
-    }
-    budget -= media.length;
-
-    const exportsRows = await ctx.db
-      .query("exports")
-      .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
-      .take(Math.max(budget, 0));
-    for (const row of exportsRows) {
-      if (row.storageId) {
-        await ctx.storage.delete(row.storageId).catch(() => undefined);
-      }
-      await ctx.db.delete(row._id);
-    }
-    budget -= exportsRows.length;
-
-    for (const [table, index] of LIBRARY_TABLES) {
-      if (budget <= 0) break;
-      const rows = await ctx.db
-        .query(table)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .withIndex(index as never, (q: any) => q.eq("libraryId", libraryId))
-        .take(budget);
-      for (const row of rows) await ctx.db.delete(row._id);
-      budget -= rows.length;
-    }
-
-    if (budget <= 0) {
+    if (!complete) {
       await ctx.scheduler.runAfter(0, internal.deletion.cleanupLibrary, {
         libraryId,
       });
@@ -122,3 +89,60 @@ export const cleanupLibrary = internalMutation({
     await ctx.db.delete(libraryId);
   },
 });
+
+// Keep sign-ins, OAuth grants, refresh-token replay protection, rate limits,
+// and the monotonic revision while replacing a reviewer's study content.
+const RESET_PRESERVED_TABLES = new Set<TableNames>([
+  "agentAuthorizations",
+  "agentConnections",
+  "agentUsedRefreshTokens",
+  "agentRateLimits",
+  "libraryCounters",
+]);
+
+/** Return false when another bounded cleanup transaction is needed. */
+export async function cleanupLibraryData(
+  ctx: MutationCtx,
+  libraryId: Id<"libraries">,
+  reset: boolean,
+) {
+  let budget = BATCH;
+
+  const media = await ctx.db
+    .query("media")
+    .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
+    .take(budget);
+  for (const row of media) {
+    if (reset) await ctx.storage.delete(row.storageId);
+    else await ctx.storage.delete(row.storageId).catch(() => undefined);
+    await ctx.db.delete(row._id);
+  }
+  budget -= media.length;
+
+  const exportsRows = await ctx.db
+    .query("exports")
+    .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
+    .take(Math.max(budget, 0));
+  for (const row of exportsRows) {
+    if (row.storageId) {
+      if (reset) await ctx.storage.delete(row.storageId);
+      else await ctx.storage.delete(row.storageId).catch(() => undefined);
+    }
+    await ctx.db.delete(row._id);
+  }
+  budget -= exportsRows.length;
+
+  for (const [table, index] of LIBRARY_TABLES) {
+    if (reset && RESET_PRESERVED_TABLES.has(table)) continue;
+    if (budget <= 0) break;
+    const rows = await ctx.db
+      .query(table)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .withIndex(index as never, (q: any) => q.eq("libraryId", libraryId))
+      .take(budget);
+    for (const row of rows) await ctx.db.delete(row._id);
+    budget -= rows.length;
+  }
+
+  return budget > 0;
+}

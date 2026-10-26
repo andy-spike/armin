@@ -29,6 +29,7 @@ function timeZoneOptions(current: string) {
 export function AccountSettings() {
   const toast = useToast();
   const viewer = useViewer();
+  const sharedReviewer = Boolean(viewer.data?.reviewer);
   const accounts = useQuery({
     queryKey: ["auth", "accounts"],
     queryFn: async () => {
@@ -81,7 +82,11 @@ export function AccountSettings() {
     <>
       <Section
         title="Account"
-        description="Your sign-in details. One account owns one private library."
+        description={
+          sharedReviewer
+            ? "Shared test account. Sign-in details are fixed so everyone can keep testing."
+            : "Your sign-in details. One account owns one private library."
+        }
       >
         <Row label="Email" hint={viewer.data?.name || undefined}>
           <span className="max-w-[14rem] truncate text-sm text-ink">{viewer.data?.email}</span>
@@ -103,7 +108,7 @@ export function AccountSettings() {
               variant="outline"
               size="sm"
               busy={linkGoogle.isPending}
-              disabled={accounts.isLoading}
+              disabled={accounts.isLoading || sharedReviewer}
               onClick={() => linkGoogle.mutate()}
             >
               <GoogleIcon /> Link
@@ -125,11 +130,17 @@ export function AccountSettings() {
           }
           last
         >
-          <Link to="/forgot-password">
-            <Button variant="outline" size="sm">
-              {hasPassword ? "Reset" : "Add password"}
+          {sharedReviewer ? (
+            <Button variant="outline" size="sm" disabled>
+              Reset
             </Button>
-          </Link>
+          ) : (
+            <Link to="/forgot-password">
+              <Button variant="outline" size="sm">
+                {hasPassword ? "Reset" : "Add password"}
+              </Button>
+            </Link>
+          )}
         </Row>
       </Section>
 
@@ -169,6 +180,7 @@ export function AccountSettings() {
             variant="outline"
             size="sm"
             busy={signOutOthers.isPending}
+            disabled={sharedReviewer}
             onClick={() => signOutOthers.mutate()}
           >
             Sign out others
@@ -181,7 +193,12 @@ export function AccountSettings() {
         description="Permanently delete your account, library, review history, and images. Export first if you want a copy."
       >
         <Row label="Delete account and library" last>
-          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={sharedReviewer}
+            onClick={() => setDeleteOpen(true)}
+          >
             Delete…
           </Button>
         </Row>
