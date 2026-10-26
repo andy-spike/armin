@@ -10,6 +10,7 @@ import {
   deleteFlashcardCascade,
   hydrateFlashcard,
   hydrateFromUnits,
+  insertFlashcard,
   prepareTags,
   syncFlashcardMedia,
   validateFlashcardInput,
@@ -256,27 +257,14 @@ export const create = mutation({
       fail("QUOTA", `The beta allows ${MAX_FLASHCARDS} flashcards per account.`);
     }
     const input = validateFlashcardInput(args.type, args.content);
-    const tags = await prepareTags(ctx, library._id, args.tags ?? []);
     const now = Date.now();
-    const id = await ctx.db.insert("flashcards", {
+    const id = await insertFlashcard(ctx, {
       libraryId: library._id,
       deckId: deck._id,
-      type: input.type,
-      content: input.serialized,
-      tags,
-      posX: null,
-      posY: null,
-      locked: false,
-      prerequisiteAccessGranted: false,
-      archived: false,
-      version: 1,
-      createdAt: now,
-      updatedAt: now,
+      input,
+      tags: args.tags ?? [],
+      now,
     });
-    const flashcard = (await ctx.db.get(id))!;
-    await reconcileReviewUnits(ctx, flashcard, input.type, input.content, now);
-    await syncFlashcardMedia(ctx, flashcard, input.mediaFiles);
-    await rememberTags(ctx, library._id, tags);
     await bumpRevision(ctx, library._id);
     const result = { id };
     await recordRequest(ctx, library._id, args.requestId, "flashcards.create", result, now);

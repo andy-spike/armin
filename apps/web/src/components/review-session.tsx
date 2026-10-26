@@ -36,8 +36,12 @@ import { reviewKeys } from "@/lib/armin-query";
 import { useScope } from "@/keybindings/keybindings-provider";
 import type { FlashcardDeleteConsequences, Grade, PreviewOption } from "@/types/window";
 import type { UiFlashcard, UiReviewUnit } from "@/types/view-models";
-import { matchesTypeAnswer } from "@armin/core/flashcard-rules";
-import type { ImageOcclusionContent, TypeAnswerContent } from "@armin/core/flashcard-types";
+import { matchesTypeAnswer, renderClozeText } from "@armin/core/flashcard-rules";
+import type {
+  ClozeContent,
+  ImageOcclusionContent,
+  TypeAnswerContent,
+} from "@armin/core/flashcard-types";
 import { cn } from "@/lib/utils";
 
 /*
@@ -256,6 +260,10 @@ export function ReviewSession({
     card?.type === "type_answer" ? (card.content as TypeAnswerContent) : null;
   const imageOcclusionContent =
     card?.type === "image_occlusion" ? (card.content as ImageOcclusionContent) : null;
+  // The generated back joins the revealed text and the extra; show the extra
+  // apart from it, as secondary content.
+  const clozeContent = card?.type === "cloze" ? (card.content as ClozeContent) : null;
+  const clozeExtra = clozeContent?.extra;
   const isCorrect = typeAnswerContent ? matchesTypeAnswer(typed, typeAnswerContent) : false;
 
   const preview = useQuery({
@@ -817,9 +825,19 @@ export function ReviewSession({
                       </div>
                     )}
                     <MarkdownContent
-                      content={card.back}
+                      content={
+                        clozeContent && clozeExtra
+                          ? renderClozeText(clozeContent.text, null)
+                          : card.back
+                      }
                       className="max-w-[52ch] text-pretty text-lg leading-relaxed text-ink/90"
                     />
+                    {clozeExtra && (
+                      <MarkdownContent
+                        content={clozeExtra}
+                        className="mt-4 max-w-[52ch] text-pretty text-sm leading-relaxed text-muted"
+                      />
+                    )}
                   </div>
                 )}
               </>

@@ -38,6 +38,12 @@ export const schedulingFields = {
   keepSiblingReviewUnitsTogether: v.boolean(),
 };
 
+const importCounts = v.object({
+  flashcards: v.number(),
+  reviewUnits: v.number(),
+  reviewLogs: v.number(),
+});
+
 export default defineSchema({
   agentClients: defineTable({
     name: v.string(),
@@ -302,6 +308,32 @@ export default defineSchema({
   })
     .index("by_library_request", ["libraryId", "requestId"])
     .index("by_created", ["createdAt"]),
+
+  /**
+   * One Anki import: the decks it created and how much of the declared plan has
+   * arrived. A "running" import that stops making progress is cancelled by a
+   * cron job, which removes its decks.
+   */
+  imports: defineTable({
+    libraryId: v.id("libraries"),
+    status: v.union(
+      v.literal("running"),
+      v.literal("finished"),
+      v.literal("cancelled"),
+      v.literal("failed"),
+    ),
+    fileName: v.string(),
+    /** Armin decks created for the plan's deck keys. */
+    decks: v.array(v.object({ key: v.string(), deckId: v.id("decks") })),
+    /** Declared up front; quotas are checked against it and `counts` may not exceed it. */
+    totals: importCounts,
+    counts: importCounts,
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_library_status", ["libraryId", "status"])
+    .index("by_status_updated", ["status", "updatedAt"]),
 
   exports: defineTable({
     libraryId: v.id("libraries"),

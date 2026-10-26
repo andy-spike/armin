@@ -28,6 +28,12 @@ const content = z.discriminatedUnion("type", [
           .describe(
             "Use numbered deletions such as {{1::answer}} or {{1::answer::hint}}. Reuse a number to hide several spans together.",
           ),
+        extra: z
+          .string()
+          .optional()
+          .describe(
+            "Optional Markdown shown only after the answer is revealed, such as a source, mnemonic, or fuller explanation.",
+          ),
       })
       .strict(),
   }),

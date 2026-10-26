@@ -54,6 +54,7 @@ const LIBRARY_TABLES: [TableNames, string][] = [
   ["agentActivity", "by_library"],
   ["agentRequests", "by_library"],
   ["agentRateLimits", "by_library"],
+  ["imports", "by_library_status"],
   ["reviewLogs", "by_library_review"],
   ["reviewUnits", "by_library"],
   ["prereqs", "by_library"],

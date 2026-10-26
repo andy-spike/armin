@@ -36,8 +36,14 @@ export const basicContentSchema = z.object({
   back: z.string().min(1),
 });
 
+/** Empty or whitespace-only text is the same as no text, so it is dropped. */
+const optionalMarkdownSchema = z
+  .string()
+  .optional()
+  .transform((value) => (value?.trim() ? value : undefined));
+
 const clozeContentSchema = z
-  .object({ text: z.string().min(1) })
+  .object({ text: z.string().min(1), extra: optionalMarkdownSchema })
   .refine((c) => clozeClusters(c.text).length > 0, {
     message: "Cloze text must contain at least one {{…}} deletion.",
     path: ["text"],
@@ -76,7 +82,8 @@ const imageOcclusionContentSchema = z.object({
 });
 
 export type BasicContent = z.infer<typeof basicContentSchema>;
-export type ClozeContent = z.infer<typeof clozeContentSchema>;
+/** `extra` is Markdown shown only on the answer side; it is absent when empty. */
+export type ClozeContent = { text: string; extra?: string };
 export type TypeAnswerContent = z.infer<typeof typeAnswerContentSchema>;
 export type ImageOcclusionGeometry = z.infer<typeof imageOcclusionGeometrySchema>;
 export type ImageOcclusionMask = z.infer<typeof imageOcclusionMaskSchema>;
@@ -107,22 +114,25 @@ const contentSchemaByType = {
  */
 const storedContentSchemaByType = {
   ...contentSchemaByType,
-  cloze: z.object({ text: z.string().min(1) }).refine((c) => clozeClusters(c.text).length > 0, {
-    message: "Cloze text must contain at least one {{…}} deletion.",
-    path: ["text"],
-  }),
+  cloze: z
+    .object({ text: z.string().min(1), extra: optionalMarkdownSchema })
+    .refine((c) => clozeClusters(c.text).length > 0, {
+      message: "Cloze text must contain at least one {{…}} deletion.",
+      path: ["text"],
+    }),
 } as const;
+
+/** Canonical cloze text, with an absent `extra` left out entirely. */
+function normalizeClozeContent({ text, extra }: ClozeContent): ClozeContent {
+  return { text: normalizeClozeText(text), ...(extra ? { extra } : {}) };
+}
 
 function normalizeContent<T extends FlashcardType>(
   type: T,
   content: FlashcardContentByType[T],
 ): FlashcardContentByType[T] {
   if (type !== "cloze") return content;
-  const cloze = content as ClozeContent;
-  return {
-    ...cloze,
-    text: normalizeClozeText(cloze.text),
-  } as FlashcardContentByType[T];
+  return normalizeClozeContent(content as ClozeContent) as FlashcardContentByType[T];
 }
 
 /** Validate and normalize a content object for the given type. */
@@ -147,13 +157,7 @@ export function parseStoredContent(
   const parsed = JSON.parse(raw) as unknown;
   const content = storedContentSchemaByType[type].parse(parsed) as FlashcardContent;
   if (type === "cloze") {
-    return {
-      type,
-      content: {
-        ...content,
-        text: normalizeClozeText((content as ClozeContent).text),
-      },
-    };
+    return { type, content: normalizeClozeContent(content as ClozeContent) };
   }
   return { type, content };
 }
