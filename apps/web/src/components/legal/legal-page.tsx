@@ -41,6 +41,9 @@ const components: Components = {
   code: ({ children }) => (
     <code className="bg-surface-sunken px-1.5 py-0.5 font-mono text-[0.9em]">{children}</code>
   ),
+  pre: ({ children }) => (
+    <pre className="mt-4 overflow-x-auto bg-surface-sunken p-4 text-sm leading-6">{children}</pre>
+  ),
   a: ({ href = "", children }) =>
     // App routes navigate in place; everything else (mail, the site root) is a plain link.
     href.startsWith("/") && !href.startsWith("//") && href !== "/" ? (
@@ -115,7 +118,7 @@ const components: Components = {
 };
 
 /**
- * Public page for a legal document written in Markdown. The `legal` class
+ * Public page for a document written in Markdown. The `legal` class
  * lets the document scroll instead of the locked app frame (see `app.css`).
  */
 export function LegalPage({ source }: { source: string }) {
@@ -141,9 +144,12 @@ export function LegalPage({ source }: { source: string }) {
       </main>
       <footer className="border-t border-border-strong bg-bg">
         <nav
-          aria-label="Legal"
+          aria-label="Documentation and policies"
           className="mx-auto flex max-w-3xl flex-wrap items-center gap-x-6 gap-y-2 px-5 py-6 text-sm text-muted sm:px-8"
         >
+          <Link to="/docs/mcp" className="hover:text-ink" activeProps={{ "aria-current": "page" }}>
+            MCP documentation
+          </Link>
           <Link to="/privacy" className="hover:text-ink" activeProps={{ "aria-current": "page" }}>
             Privacy Policy
           </Link>

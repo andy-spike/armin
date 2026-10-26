@@ -21,6 +21,7 @@ import { Route as AppBrowseRouteImport } from './routes/_app/browse'
 import { Route as AppConnectAgentRouteImport } from './routes/_app/connect-agent'
 import { Route as AppReviewRouteImport } from './routes/_app/review'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as DocsMcpRouteImport } from './routes/docs.mcp'
 import { Route as MediaSplatRouteImport } from './routes/media/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiExportSplatRouteImport } from './routes/api/export/$'
@@ -87,6 +88,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const DocsMcpRoute = DocsMcpRouteImport.update({
+  id: '/docs/mcp',
+  path: '/docs/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MediaSplatRoute = MediaSplatRouteImport.update({
   id: '/media/$',
   path: '/media/$',
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/connect-agent': typeof AppConnectAgentRoute
   '/review': typeof AppReviewRoute
   '/settings': typeof AppSettingsRoute
+  '/docs/mcp': typeof DocsMcpRoute
   '/media/$': typeof MediaSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/export/$': typeof ApiExportSplatRoute
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/connect-agent': typeof AppConnectAgentRoute
   '/review': typeof AppReviewRoute
   '/settings': typeof AppSettingsRoute
+  '/docs/mcp': typeof DocsMcpRoute
   '/media/$': typeof MediaSplatRoute
   '/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -169,6 +177,7 @@ export interface FileRoutesById {
   '/_app/connect-agent': typeof AppConnectAgentRoute
   '/_app/review': typeof AppReviewRoute
   '/_app/settings': typeof AppSettingsRoute
+  '/docs/mcp': typeof DocsMcpRoute
   '/media/$': typeof MediaSplatRoute
   '/_app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -191,6 +200,7 @@ export interface FileRouteTypes {
     | '/connect-agent'
     | '/review'
     | '/settings'
+    | '/docs/mcp'
     | '/media/$'
     | '/api/auth/$'
     | '/api/export/$'
@@ -209,6 +219,7 @@ export interface FileRouteTypes {
     | '/connect-agent'
     | '/review'
     | '/settings'
+    | '/docs/mcp'
     | '/media/$'
     | '/'
     | '/api/auth/$'
@@ -229,6 +240,7 @@ export interface FileRouteTypes {
     | '/_app/connect-agent'
     | '/_app/review'
     | '/_app/settings'
+    | '/docs/mcp'
     | '/media/$'
     | '/_app/'
     | '/api/auth/$'
@@ -246,6 +258,7 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   TermsRoute: typeof TermsRoute
+  DocsMcpRoute: typeof DocsMcpRoute
   MediaSplatRoute: typeof MediaSplatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiExportSplatRoute: typeof ApiExportSplatRoute
@@ -337,6 +350,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/docs/mcp': {
+      id: '/docs/mcp'
+      path: '/docs/mcp'
+      fullPath: '/docs/mcp'
+      preLoaderRoute: typeof DocsMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/media/$': {
       id: '/media/$'
       path: '/media/$'
@@ -414,6 +434,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   TermsRoute: TermsRoute,
+  DocsMcpRoute: DocsMcpRoute,
   MediaSplatRoute: MediaSplatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiExportSplatRoute: ApiExportSplatRoute,
