@@ -9,7 +9,7 @@
   "license": "MIT",
   "keywords": ["flashcards", "spaced-repetition", "study", "learning", "fsrs"],
   "icon": "./assets/logo.png",
-  "documentationUrl": "https://github.com/andy-spike/armin/blob/master/plugins/armin/README.md",
+  "documentationUrl": "https://armincards.app/docs/mcp",
   "supportUrl": "https://github.com/andy-spike/armin/issues",
   "privacyPolicyUrl": "https://armincards.app/privacy",
   "termsOfServiceUrl": "https://armincards.app/terms"

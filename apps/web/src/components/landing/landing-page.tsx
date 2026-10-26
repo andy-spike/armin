@@ -229,6 +229,12 @@ export function LandingPage() {
             Report an issue
           </a>
           <Link
+            to="/docs/mcp"
+            className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            MCP documentation
+          </Link>
+          <Link
             to="/privacy"
             className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
