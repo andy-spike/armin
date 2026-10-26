@@ -1,3 +1,6 @@
+// Explicit table roles preserve semantics when the mobile layout uses display: block.
+/* oxlint-disable jsx-a11y/no-redundant-roles, jsx-a11y/no-interactive-element-to-noninteractive-role */
+import { Children, cloneElement, createContext, isValidElement, useContext } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link } from "@tanstack/react-router";
@@ -5,6 +8,13 @@ import { Brain } from "lucide-react";
 
 const linkClass =
   "text-accent underline underline-offset-2 hover:text-accent-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+
+const TableLabels = createContext<string[]>([]);
+
+type TextNode = { value?: string; children?: TextNode[] };
+function nodeText(node: TextNode): string {
+  return node.value ?? node.children?.map(nodeText).join("") ?? "";
+}
 
 const components: Components = {
   h1: ({ children }) => (
@@ -42,20 +52,65 @@ const components: Components = {
         {children}
       </a>
     ),
-  // Wide tables scroll sideways inside their own box instead of the page.
-  table: ({ children }) => (
-    <div className="mt-4 overflow-x-auto border border-border">
-      <table className="w-full min-w-[34rem] border-collapse text-left text-sm leading-6">
-        {children}
-      </table>
-    </div>
+  table: ({ children, node }) => {
+    const head = node?.children.find(
+      (child) => child.type === "element" && child.tagName === "thead",
+    );
+    const row =
+      head?.type === "element"
+        ? head.children.find((child) => child.type === "element")
+        : undefined;
+    const labels =
+      row?.type === "element"
+        ? row.children.filter((child) => child.type === "element").map(nodeText)
+        : [];
+    return (
+      <TableLabels.Provider value={labels}>
+        <table
+          role="table"
+          className="legal-table mt-4 w-full border-collapse text-left text-sm leading-6"
+        >
+          {children}
+        </table>
+      </TableLabels.Provider>
+    );
+  },
+  thead: ({ children }) => (
+    <thead role="rowgroup" className="bg-surface-sunken">
+      {children}
+    </thead>
   ),
-  thead: ({ children }) => <thead className="bg-surface-sunken">{children}</thead>,
+  tbody: ({ children }) => <tbody role="rowgroup">{children}</tbody>,
+  tr: function TableRow({ children }) {
+    const labels = useContext(TableLabels);
+    return (
+      <tr role="row">
+        {Children.toArray(children)
+          .filter(isValidElement)
+          .map((child, index) =>
+            cloneElement(child as React.ReactElement<{ "data-label"?: string }>, {
+              "data-label": labels[index],
+            }),
+          )}
+      </tr>
+    );
+  },
   th: ({ children }) => (
-    <th className="border-b border-border-strong px-3 py-2 align-top font-semibold">{children}</th>
+    <th
+      role="columnheader"
+      scope="col"
+      className="border-b border-border-strong px-3 py-2 align-top font-semibold"
+    >
+      {children}
+    </th>
   ),
-  td: ({ children }) => (
-    <td className="border-t border-border px-3 py-2 align-top first:font-medium">{children}</td>
+  td: ({ children, ...props }) => (
+    <td role="cell" className="border-t border-border px-3 py-2 align-top first:font-medium">
+      <span aria-hidden="true" className="legal-table-label font-semibold">
+        {(props as { "data-label"?: string })["data-label"]}
+      </span>
+      <div>{children}</div>
+    </td>
   ),
 };
 

@@ -926,3 +926,42 @@ html:has(.legal) {
     background: var(--color-surface-sunken);
   }
 }
+
+/* Keep table relationships explicit while exposing every field on narrow screens. */
+.legal-table-label {
+  display: none;
+}
+
+@media (width < 40rem) {
+  .legal-table,
+  .legal-table tbody,
+  .legal-table tr,
+  .legal-table td {
+    display: block;
+  }
+
+  .legal-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .legal-table tr {
+    border-block-start: 1px solid var(--color-border-strong);
+    padding-block: 0.75rem;
+  }
+
+  .legal-table td {
+    border: 0;
+    padding: 0.5rem 0;
+  }
+
+  .legal-table-label {
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+}

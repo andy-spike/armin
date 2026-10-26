@@ -5,6 +5,8 @@ import privacy from "@/content/legal/privacy.md?raw";
 export const Route = createFileRoute("/privacy")({
   // Public and crawlable: the server renders the policy rather than a client shell.
   ssr: true,
+  // Public, session-independent HTML; updates become fresh within five minutes.
+  headers: () => ({ "Cache-Control": "public, max-age=300, s-maxage=300" }),
   head: () => ({
     meta: [
       { title: "Privacy Policy · Armin" },
