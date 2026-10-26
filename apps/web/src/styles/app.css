@@ -695,14 +695,17 @@
  * graph: a spine links each section, and each node fills in once read.
  * ------------------------------------------------------------------ */
 /* The app frame scrolls inside its own panes, so the root is locked; the
-   landing page scrolls the document instead, which keeps Space, Page Down,
+   landing and legal pages scroll the document instead, which keeps Space, Page Down,
    and the browser's own scroll restoration working. */
 html:has(.landing),
-html:has(.landing) body {
+html:has(.landing) body,
+html:has(.legal),
+html:has(.legal) body {
   height: auto;
   overflow: visible;
 }
-html:has(.landing) {
+html:has(.landing),
+html:has(.legal) {
   scrollbar-color: var(--color-ui-3) var(--color-bg);
 }
 
@@ -921,5 +924,44 @@ html:has(.landing) {
   .skeleton {
     animation: none;
     background: var(--color-surface-sunken);
+  }
+}
+
+/* Keep table relationships explicit while exposing every field on narrow screens. */
+.legal-table-label {
+  display: none;
+}
+
+@media (width < 40rem) {
+  .legal-table,
+  .legal-table tbody,
+  .legal-table tr,
+  .legal-table td {
+    display: block;
+  }
+
+  .legal-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .legal-table tr {
+    border-block-start: 1px solid var(--color-border-strong);
+    padding-block: 0.75rem;
+  }
+
+  .legal-table td {
+    border: 0;
+    padding: 0.5rem 0;
+  }
+
+  .legal-table-label {
+    display: block;
+    margin-bottom: 0.25rem;
   }
 }

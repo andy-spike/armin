@@ -80,7 +80,13 @@ export const Route = createRootRouteWithContext<{
     scripts: [{ src: "/theme-init.js" }],
   }),
   beforeLoad: (ctx) => {
-    if (typeof window === "undefined") return loadAuth(ctx.context.convexQueryClient);
+    if (typeof window === "undefined") {
+      // Legal HTML is publicly cached: never read cookies or serialize a session token.
+      if (ctx.matches.some((match) => match.routeId === "/privacy" || match.routeId === "/terms")) {
+        return { isAuthenticated: false, token: null };
+      }
+      return loadAuth(ctx.context.convexQueryClient);
+    }
     browserAuth ??= loadAuth(ctx.context.convexQueryClient).then(
       (auth) => {
         if (!auth.isAuthenticated) browserAuth = null;
