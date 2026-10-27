@@ -116,6 +116,15 @@ function DeckGraphPage() {
     return graph;
   }, [graphQuery.data, deckId]);
 
+  // Cards with saved positions, so the loading placeholders sit where they'll land.
+  const skeletonNodes = useMemo(
+    () =>
+      persistedGraph?.nodes.flatMap((node) =>
+        node.x !== null && node.y !== null ? [{ x: node.x, y: node.y }] : [],
+      ),
+    [persistedGraph],
+  );
+
   const [graph, setGraph] = useState<UiDeckGraph>({ nodes: [], edges: [] });
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -260,7 +269,7 @@ function DeckGraphPage() {
           )}
         >
           {!canvasReady && <span className="sr-only">Loading graph…</span>}
-          <GraphSkeleton />
+          <GraphSkeleton viewport={initialViewport} nodes={skeletonNodes} />
         </div>
       )}
       {graphError && (
