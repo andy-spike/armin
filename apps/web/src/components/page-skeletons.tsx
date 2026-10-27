@@ -1,3 +1,4 @@
+import { CARD_NODE_HEIGHT } from "@/lib/graph-dimensions";
 import type { ReactNode } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -268,38 +269,60 @@ function ReviewPageSkeleton({ deckReview }: { deckReview: boolean }) {
 
 /* ----------------------------------------------------------------- Graph */
 
-const GRAPH_NODES = [
-  { top: 48, height: 131 },
-  { top: 236, height: 131 },
-  { top: 424, height: 116 },
-];
+/** Where the canvas puts a deck's cards before any are saved: one column from the origin. */
+const GRAPH_FALLBACK_NODES = [0, 188, 376].map((y) => ({ x: 0, y }));
+/** The canvas's first-visit view, matching `DEFAULT_VIEWPORT` in the graph. */
+const GRAPH_DEFAULT_VIEWPORT = { x: 48, y: 48, zoom: 1 };
+/** Enough placeholders to fill a view without mounting a large deck. */
+const GRAPH_SKELETON_NODE_LIMIT = 40;
 
 /**
- * The graph canvas chrome (back/search, tidy, zoom) at React Flow's panel
- * positions, plus a column of node placeholders. Node placement depends on
- * the deck, so those only suggest the canvas rather than predict it.
+ * The graph canvas chrome (back/search, tidy, zoom, minimap) at React Flow's
+ * panel positions, plus card placeholders drawn through the same view the
+ * canvas opens with, so they sit where the cards land. Pass the deck's saved
+ * view and, once loaded, its card positions; without them the placeholders
+ * follow the canvas's first-visit layout.
  */
-export function GraphSkeleton() {
+export function GraphSkeleton({
+  viewport = GRAPH_DEFAULT_VIEWPORT,
+  nodes,
+}: {
+  viewport?: { x: number; y: number; zoom: number };
+  nodes?: { x: number; y: number }[];
+}) {
+  const placeholders = (nodes?.length ? nodes : GRAPH_FALLBACK_NODES).slice(
+    0,
+    GRAPH_SKELETON_NODE_LIMIT,
+  );
+
   return (
-    <div className="absolute inset-0">
+    <div className="absolute inset-0 overflow-hidden">
+      <div
+        className="absolute top-0 left-0 origin-top-left"
+        style={{
+          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+        }}
+      >
+        {placeholders.map((node, i) => (
+          <div
+            key={i}
+            className="absolute flex w-[240px] flex-col gap-2 border border-border bg-surface px-3.5 py-3"
+            style={{ left: node.x, top: node.y, height: CARD_NODE_HEIGHT }}
+          >
+            <Skeleton className="h-5 w-14 rounded-sm" />
+            <Skeleton className="mt-1 h-3.5 w-full" />
+            <Skeleton className="h-3.5 w-3/4" />
+            <Skeleton className="mt-auto h-3 w-2/3" />
+          </div>
+        ))}
+      </div>
       <div className="absolute left-[15px] top-[15px] flex gap-2">
         <Skeleton className="h-8 w-40 rounded-none" />
         <Skeleton className="h-8 w-[198px] rounded-none" />
       </div>
       <Skeleton className="absolute right-[15px] top-[15px] h-[30px] w-[105px] rounded-none" />
       <Skeleton className="absolute bottom-[15px] right-[15px] h-[30px] w-[174px] rounded-none" />
-      {GRAPH_NODES.map((node) => (
-        <div
-          key={node.top}
-          className="absolute left-12 flex w-60 flex-col gap-2 border border-border bg-surface p-3.5"
-          style={{ top: node.top, height: node.height }}
-        >
-          <Skeleton className="h-5 w-14 rounded-sm" />
-          <Skeleton className="mt-1 h-3.5 w-full" />
-          <Skeleton className="h-3.5 w-3/4" />
-          <Skeleton className="mt-auto h-3 w-2/3" />
-        </div>
-      ))}
+      <div className="absolute bottom-[15px] left-[15px] hidden h-[110px] w-40 border border-border bg-surface md:block" />
     </div>
   );
 }

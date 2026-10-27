@@ -118,6 +118,10 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     };
   }, []);
   if (ready) return <RichMarkdownEditor {...props} />;
+  return <MarkdownEditorPreview {...props} />;
+}
+
+function MarkdownEditorPreview(props: MarkdownEditorProps) {
   return (
     <div
       className={cn("rounded-md border border-border-strong bg-surface", props.className)}
@@ -316,22 +320,22 @@ function RichMarkdownEditor({
       onChange(next);
       requestAnimationFrame(syncScrollOverflow);
     },
-    onCreate: ({ editor: current }) => {
-      // Detect constructs the schema cannot represent before loading them:
-      // the editor's own Markdown parsing silently drops GFM tables, and a
-      // later save would then overwrite the stored source without them.
-      if (needsSourceMode(current, value)) {
-        setPlainTextMode(true);
-      } else {
-        loadMarkdown(current, value);
-        if (autoFocus) {
-          current.commands.focus("end");
-        }
-      }
-      initializedRef.current = true;
-      requestAnimationFrame(syncScrollOverflow);
-    },
   });
+
+  // TipTap creates its instance after mount, and its onCreate callback runs in
+  // a later task. Keep the preview until the instance exists, then load the
+  // saved value in a layout effect so an empty editor never reaches the screen.
+  useLayoutEffect(() => {
+    if (!editor || initializedRef.current) return;
+    if (needsSourceMode(editor, value)) {
+      setPlainTextMode(true);
+    } else {
+      loadMarkdown(editor, value);
+      if (autoFocus) editor.commands.focus("end");
+    }
+    initializedRef.current = true;
+    requestAnimationFrame(syncScrollOverflow);
+  }, [editor, value, autoFocus, syncScrollOverflow]);
 
   // editorProps capture their closure at creation time, so reach for the
   // current instance through a ref inside the paste/drop handlers.
@@ -367,7 +371,7 @@ function RichMarkdownEditor({
     const observer = new ResizeObserver(() => syncScrollOverflow());
     observer.observe(el);
     return () => observer.disconnect();
-  }, [syncScrollOverflow]);
+  }, [editor, syncScrollOverflow]);
 
   const handlePick = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files?.length) {
@@ -376,6 +380,19 @@ function RichMarkdownEditor({
     // Reset so the same file can be picked again.
     event.target.value = "";
   };
+
+  if (!editor) {
+    return (
+      <MarkdownEditorPreview
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        className={className}
+        aria-label={ariaLabel}
+      />
+    );
+  }
 
   return (
     <div

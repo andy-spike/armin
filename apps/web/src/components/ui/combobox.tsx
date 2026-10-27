@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Combobox } from "@base-ui/react/combobox";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,8 @@ type SearchableSelectProps = {
   "aria-label"?: string;
   size?: "sm" | "default";
   className?: string;
+  /** Leading icon inside the trigger, naming what the control filters. */
+  icon?: ReactNode;
 };
 
 /**
@@ -33,6 +35,7 @@ export function SearchableSelect({
   "aria-label": ariaLabel,
   size = "default",
   className,
+  icon,
 }: SearchableSelectProps) {
   const selected = options.find((o) => o.value === value) ?? null;
 
@@ -52,15 +55,18 @@ export function SearchableSelect({
           className,
         )}
       >
-        <Combobox.Value>
-          {(val: ComboboxOption | null) =>
-            val ? (
-              <TruncatedLabel label={val.label} />
-            ) : (
-              <span className="min-w-0 flex-1 truncate text-left text-muted">{placeholder}</span>
-            )
-          }
-        </Combobox.Value>
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          {icon}
+          <Combobox.Value>
+            {(val: ComboboxOption | null) =>
+              val ? (
+                <TruncatedLabel label={val.label} />
+              ) : (
+                <span className="min-w-0 flex-1 truncate text-left text-muted">{placeholder}</span>
+              )
+            }
+          </Combobox.Value>
+        </span>
         <Combobox.Icon className="flex">
           <ChevronDown className="pointer-events-none size-4 shrink-0 text-muted" />
         </Combobox.Icon>
@@ -114,6 +120,8 @@ type SearchableMultiSelectProps = {
   "aria-label"?: string;
   size?: "sm" | "default";
   className?: string;
+  /** Leading icon inside the trigger, naming what the control filters. */
+  icon?: ReactNode;
 };
 
 /**
@@ -130,6 +138,7 @@ export function SearchableMultiSelect({
   "aria-label": ariaLabel,
   size = "default",
   className,
+  icon,
 }: SearchableMultiSelectProps) {
   const [open, setOpen] = useState(false);
 
@@ -157,11 +166,14 @@ export function SearchableMultiSelect({
           className,
         )}
       >
-        {selected.length === 0 ? (
-          <span className="min-w-0 flex-1 truncate text-left text-muted">{triggerLabel}</span>
-        ) : (
-          <TruncatedLabel label={triggerLabel} />
-        )}
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          {icon}
+          {selected.length === 0 ? (
+            <span className="min-w-0 flex-1 truncate text-left text-muted">{triggerLabel}</span>
+          ) : (
+            <TruncatedLabel label={triggerLabel} />
+          )}
+        </span>
         <Combobox.Icon className="flex">
           <ChevronDown className="pointer-events-none size-4 shrink-0 text-muted" />
         </Combobox.Icon>

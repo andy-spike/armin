@@ -1,7 +1,8 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
+  ArrowUpDown,
   Brain,
   Check,
   ChevronsUpDown,
@@ -21,6 +22,8 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -29,6 +32,7 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
@@ -40,6 +44,14 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
 import { decksQuery as decksQueryOptions, reviewStatusQuery } from "@/lib/queries";
@@ -47,6 +59,7 @@ import { useStudyClock } from "@/lib/study-clock";
 import { signOutToSignIn } from "@/lib/auth-client";
 import { useViewer } from "@/lib/session";
 import { TITLEBAR_THEME_OPTIONS } from "@/lib/theme";
+import { DECK_SORT_OPTIONS, sortDecks, type DeckSortKey } from "@/lib/sort-decks";
 import { cn, plural } from "@/lib/utils";
 import { useTheme } from "@/theme/theme-provider";
 
@@ -344,9 +357,15 @@ function DeckList({
 }) {
   // Same cache entry as the Decks page, so both stay in step.
   const decksQuery = useQuery({ ...decksQueryOptions(useStudyClock()), enabled: ready });
-  const decks = [...(decksQuery.data ?? [])].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-  );
+  const [sort, setSort] = useDeckListSort();
+  const decks = sortDecks(decksQuery.data ?? [], sort);
+  const navigate = useNavigate();
+  // Deleting the open deck leaves its page behind, so return to Decks.
+  const deckActions = useDeckActions({
+    onDeleted: (deck) => {
+      if (isActive(`/deck/${deck.id}`)) void navigate({ to: "/" });
+    },
+  });
 
   if (decksQuery.isSuccess && decks.length === 0) return null;
 
@@ -359,6 +378,30 @@ function DeckList({
       <SidebarGroupLabel className="text-muted group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:opacity-100">
         Your decks
       </SidebarGroupLabel>
+      <DropdownMenu>
+        <Tooltip content="Sort decks" side="right" className="px-2.5 py-1.5">
+          <DropdownMenuTrigger
+            render={<SidebarGroupAction aria-label="Sort decks" className="text-muted" />}
+          >
+            <ArrowUpDown strokeWidth={1.5} />
+          </DropdownMenuTrigger>
+        </Tooltip>
+        <DropdownMenuContent side="right" align="start" className="min-w-44">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Sort decks</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={sort}
+              onValueChange={(value) => setSort(value as DeckSortKey)}
+            >
+              {DECK_SORT_OPTIONS.map((option) => (
+                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  {option.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <SidebarGroupContent>
         <SidebarMenu className="gap-0.5">
           {!decksQuery.isSuccess
@@ -366,36 +409,65 @@ function DeckList({
             : decks.map((deck) => {
                 const path = `/deck/${deck.id}`;
                 return (
-                  <SidebarMenuItem key={deck.id}>
-                    <SidebarMenuButton
-                      isActive={isActive(path)}
-                      // The due badge floats over the row's right edge, so long
-                      // names truncate before reaching it.
-                      className={cn(navButton, deck.due > 0 && "pr-8")}
-                      render={
-                        <Link
-                          to="/deck/$deckId"
-                          params={{ deckId: deck.id }}
-                          title={deck.name}
-                          {...linkProps(path)}
-                        />
-                      }
-                    >
-                      <span>{deck.name}</span>
-                    </SidebarMenuButton>
-                    {deck.due > 0 && (
-                      <SidebarMenuBadge className={countBadge}>
-                        {deck.due}
-                        <span className="sr-only"> due</span>
-                      </SidebarMenuBadge>
-                    )}
-                  </SidebarMenuItem>
+                  <ContextMenu key={deck.id}>
+                    <ContextMenuTrigger render={<SidebarMenuItem />}>
+                      <SidebarMenuButton
+                        isActive={isActive(path)}
+                        // The due badge floats over the row's right edge, so long
+                        // names truncate before reaching it.
+                        className={cn(navButton, deck.due > 0 && "pr-8")}
+                        render={
+                          <Link
+                            to="/deck/$deckId"
+                            params={{ deckId: deck.id }}
+                            title={deck.name}
+                            {...linkProps(path)}
+                          />
+                        }
+                      >
+                        <span>{deck.name}</span>
+                      </SidebarMenuButton>
+                      {deck.due > 0 && (
+                        <SidebarMenuBadge className={countBadge}>
+                          {deck.due}
+                          <span className="sr-only"> due</span>
+                        </SidebarMenuBadge>
+                      )}
+                    </ContextMenuTrigger>
+                    <ContextMenuContent className="min-w-40">
+                      <DeckActionItems
+                        onRename={() => deckActions.rename(deck)}
+                        onDelete={() => deckActions.remove(deck)}
+                        Item={ContextMenuItem}
+                        Separator={ContextMenuSeparator}
+                      />
+                    </ContextMenuContent>
+                  </ContextMenu>
                 );
               })}
         </SidebarMenu>
       </SidebarGroupContent>
+      {deckActions.dialogs}
     </SidebarGroup>
   );
+}
+
+const DECK_LIST_SORT_KEY = "armin.sidebar.deckSort";
+
+/** The sidebar's deck order, remembered on this device. */
+function useDeckListSort() {
+  const [sort, setSort] = useState<DeckSortKey>(() => {
+    if (typeof window === "undefined") return "name-asc";
+    const saved = localStorage.getItem(DECK_LIST_SORT_KEY);
+    return DECK_SORT_OPTIONS.some((option) => option.value === saved)
+      ? (saved as DeckSortKey)
+      : "name-asc";
+  });
+  const update = (next: DeckSortKey) => {
+    setSort(next);
+    localStorage.setItem(DECK_LIST_SORT_KEY, next);
+  };
+  return [sort, update] as const;
 }
 
 const showInLight = "[[data-theme=dark]_&]:hidden";
