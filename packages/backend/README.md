@@ -145,6 +145,12 @@ secrets still need the configuration below. To copy URLs without pushing, run
 `pnpm --filter @armin/backend dev:clients`. See
 [local development environments](../../docs/dev-worktrees.md).
 
+Local setup also provisions `JWKS` from this deployment's existing Better Auth
+signing keys. This lets concurrent authenticated requests verify tokens without
+fetching the local backend's own JWKS HTTP endpoint. The auth plugin and verifier
+must use the same value. Production continues to use dynamic keys when `JWKS`
+is unset; local setup never changes a cloud deployment.
+
 Individual backend commands from the repository root:
 
 ```bash
