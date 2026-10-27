@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { CircleHelp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -54,7 +54,38 @@ export function ClozeField({
   };
 
   return (
-    <Field>
+    <Field
+      label="Text"
+      hint={
+        <Tooltip
+          content={
+            <div className="space-y-1.5">
+              <p>
+                Select text, then press{" "}
+                <span className="inline-flex gap-0.5 align-middle">
+                  <Kbd>Ctrl/⌘</Kbd>
+                  <Kbd>Shift</Kbd>
+                  <Kbd>C</Kbd>
+                </span>{" "}
+                or click Make cloze.
+              </p>
+              <p>Reuse a number to hide several blanks on the same card.</p>
+              <p>
+                Add a hint with <code>{"{{1::answer::hint}}"}</code>.
+              </p>
+            </div>
+          }
+        >
+          <button
+            type="button"
+            aria-label="How to make clozes"
+            className="flex size-5 items-center justify-center self-center rounded-full text-muted outline-hidden transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <CircleHelp className="size-4" strokeWidth={1.75} aria-hidden />
+          </button>
+        </Tooltip>
+      }
+    >
       <div className="space-y-2">
         <AutoGrowTextarea
           ref={ref}
@@ -75,29 +106,9 @@ export function ClozeField({
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <Tooltip
-            content={
-              <div className="space-y-1.5">
-                <p>
-                  Select text, then press{" "}
-                  <span className="inline-flex gap-0.5 align-middle">
-                    <Kbd>Ctrl/⌘</Kbd>
-                    <Kbd>Shift</Kbd>
-                    <Kbd>C</Kbd>
-                  </span>{" "}
-                  or click Make cloze.
-                </p>
-                <p>Reuse a number to hide several blanks on the same card.</p>
-                <p>
-                  Add a hint with <code>{"{{1::answer::hint}}"}</code>.
-                </p>
-              </div>
-            }
-          >
-            <Button type="button" variant="outline" size="sm" onClick={wrapSelection}>
-              Make cloze
-            </Button>
-          </Tooltip>
+          <Button type="button" variant="outline" size="sm" onClick={wrapSelection}>
+            Make cloze
+          </Button>
           {deletions.length > 0 ? (
             <ul className="flex flex-wrap gap-1">
               {deletions.map((d, i) => (
