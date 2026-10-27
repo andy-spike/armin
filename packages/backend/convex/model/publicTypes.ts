@@ -22,6 +22,7 @@ export type FlashcardMoveConsequences = NonNullable<
   FunctionReturnType<typeof api.flashcards.moveConsequences>
 >;
 export type Viewer = NonNullable<FunctionReturnType<typeof api.account.viewer>>;
+export type ImportView = NonNullable<FunctionReturnType<typeof api.imports.get>>;
 export type ExportRow = NonNullable<FunctionReturnType<typeof api.exports.list>>[number];
 export type { RateResult, UndoResult } from "../review";
 export type { UpdateResult } from "../flashcards";

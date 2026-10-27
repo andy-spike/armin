@@ -25,6 +25,7 @@ import { Row, Section } from "@/components/settings-layout";
 import { AccountSettings } from "@/components/account-settings";
 import { AgentSettings } from "@/components/agent-settings";
 import { ExportSettings } from "@/components/export-settings";
+import { ImportSettings } from "@/components/import-settings";
 import { KeybindingSettings } from "@/components/keybinding-settings";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -462,6 +463,13 @@ function SettingsPage() {
         </TabsPanel>
 
         <TabsPanel value="data" className="space-y-10">
+          <Section
+            title="Import"
+            description="Bring decks over from Anki. You choose which decks to add and whether to keep your progress."
+          >
+            <ImportSettings />
+          </Section>
+
           <Section
             title="Export"
             description="Download your library as a ZIP: decks, flashcards, prerequisites, schedules, review history, settings, and images."

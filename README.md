@@ -83,6 +83,32 @@ pushes, and deletion of `master` are blocked. See
 backend and web app from `master` as described in
 [production deployment](docs/deploy-cloudflare.md).
 
+## Importing from Anki
+
+Settings → Data → Import, or **Import from Anki** on the deck list, brings in
+Anki decks (`.apkg`), whole collections (`.colpkg`, from Anki 2.1 through
+current releases), and plain-text exports (`.txt`, `.csv`, `.tsv`). Each Anki
+deck becomes an Armin deck; Basic, reversed, typed-answer, Cloze, and Image
+Occlusion notes map to the matching Armin card types, and other note types are
+rendered from their templates. Images and, optionally, review progress come
+along; audio and video don't. The file is read in the browser and the preview
+lists anything left out before importing. See
+[ADR 0022](packages/core/docs/adr/0022-anki-import-runs-in-the-browser.md).
+
+## Equations
+
+Cards support KaTeX mathematics: `\(x^2\)` or `$x^2$` inline, and
+`\[\frac{a}{b}\]` or `$$\frac{a}{b}$$` for display equations. Chemistry uses
+`\ce{H2O}` inside math delimiters. Use **Edit source** in the card editor to
+write equations; fields containing math open as source with a rendered preview
+so editing and saving preserve the original TeX. Code spans and fenced code
+stay literal. Unsupported commands retain their source with a warning.
+
+Anki MathJax delimiters and the legacy `[$]` / `[$$]` math wrappers are converted
+without Markdown escaping. Legacy `[latex]` documents remain source with a
+preview warning; arbitrary LaTeX packages and document compilation are not
+supported. The web app renders equations with KaTeX and bundled fonts.
+
 ## AI assistant connections
 
 Armin works with ChatGPT, Claude, Claude Code, and Codex through Armin sign-in.

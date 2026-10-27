@@ -34,6 +34,8 @@ import {
   resetLiftedFlashcardTile,
 } from "@/lib/flashcard-tile-exit";
 import { stripMarkdownForPreview } from "@/lib/markdown-preview";
+import { hasMath } from "@armin/core/math";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import { cn } from "@/lib/utils";
 import type { FlashcardDeleteConsequences } from "@/types/window";
 
@@ -188,6 +190,8 @@ function CardActionItems({
 
 function CardPreviewText({ content, className }: { content: string; className?: string }) {
   const text = useMemo(() => stripMarkdownForPreview(content), [content]);
+  if (hasMath(content))
+    return <MarkdownContent content={content} images="placeholder" className={className} />;
   return <p className={className}>{text || "\u00a0"}</p>;
 }
 

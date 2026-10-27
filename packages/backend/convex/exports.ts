@@ -1,3 +1,4 @@
+import { rowsInDecks } from "./model/access";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalQuery, query } from "./_generated/server";
@@ -118,11 +119,7 @@ export const revision = internalQuery({
 export const snapshotCore = internalQuery({
   args: { libraryId: v.id("libraries") },
   handler: async (ctx, { libraryId }) => {
-    const byLibrary = <
-      T extends "decks" | "flashcards" | "reviewUnits" | "prereqs" | "deckSettings" | "media",
-    >(
-      table: T,
-    ) =>
+    const byLibrary = <T extends "decks" | "media">(table: T) =>
       ctx.db
         .query(table)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -132,13 +129,15 @@ export const snapshotCore = internalQuery({
       .query("libraryCounters")
       .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
       .unique();
+    const decks = await byLibrary("decks");
+    const ids = new Set(decks.map((deck) => deck._id));
     return {
       revision: counters?.revision ?? 0,
-      decks: await byLibrary("decks"),
-      flashcards: await byLibrary("flashcards"),
-      reviewUnits: await byLibrary("reviewUnits"),
-      prereqs: await byLibrary("prereqs"),
-      deckSettings: await byLibrary("deckSettings"),
+      decks,
+      flashcards: await rowsInDecks(ctx, "flashcards", ids),
+      reviewUnits: await rowsInDecks(ctx, "reviewUnits", ids),
+      prereqs: await rowsInDecks(ctx, "prereqs", ids),
+      deckSettings: await rowsInDecks(ctx, "deckSettings", ids),
       media: await byLibrary("media"),
       settings: await getSettingsRow(ctx, libraryId),
     };

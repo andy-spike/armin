@@ -1,3 +1,4 @@
+import { splitMath } from "./math";
 import type {
   BasicContent,
   ClozeContent,
@@ -31,8 +32,46 @@ import type {
 // Explicit numbers are what keep a deletion's identity (and its generated review
 // unit's FSRS history) stable across edits, so the editor never emits a bare form.
 
-/** Matches any `{{…}}` wrapper; the body is parsed separately. */
-const CLOZE_RE = /\{\{([\s\S]+?)\}\}/g;
+/** Balance TeX groups inside deletions; ordinary math groups are not clozes. */
+function clozeMatches(text: string) {
+  const matches: { start: number; end: number; body: string }[] = [];
+  let offset = 0;
+  const mathRanges = splitMath(text).flatMap((part) => {
+    const start = offset;
+    offset += part.raw.length;
+    return part.kind === "math" ? [{ start, end: offset }] : [];
+  });
+  for (let i = 0; i < text.length; i++) {
+    if (!text.startsWith("{{", i)) continue;
+    const inMath = mathRanges.some((range) => i >= range.start && i < range.end);
+    if (inMath && !/^\{\{\d+::/.test(text.slice(i))) continue;
+    let depth = 0;
+    for (let end = i + 2; end < text.length; end++) {
+      if (text[end] === "\\") {
+        end++;
+        continue;
+      }
+      if (depth === 0 && text.startsWith("}}", end)) {
+        matches.push({ start: i, end: end + 2, body: text.slice(i + 2, end) });
+        i = end + 1;
+        break;
+      }
+      if (text[end] === "{") depth++;
+      else if (text[end] === "}" && depth > 0) depth--;
+    }
+  }
+  return matches;
+}
+
+function mapClozeMatches(text: string, replace: (body: string) => string) {
+  let result = "";
+  let start = 0;
+  for (const match of clozeMatches(text)) {
+    result += text.slice(start, match.start) + replace(match.body);
+    start = match.end;
+  }
+  return result + text.slice(start);
+}
 
 export type ClozeDeletion = {
   cluster: number;
@@ -72,12 +111,7 @@ function parseClozeBody(body: string): RawCloze {
 
 /** Extract every cloze deletion in document order, resolving cluster numbers. */
 export function parseClozes(text: string): ClozeDeletion[] {
-  const re = new RegExp(CLOZE_RE.source, "g");
-  const raws: RawCloze[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(text)) !== null) {
-    raws.push(parseClozeBody(match[1]));
-  }
+  const raws = clozeMatches(text).map((match) => parseClozeBody(match.body));
   const maxExplicitCluster = raws.reduce(
     (maxCluster, rawCloze) =>
       rawCloze.explicitCluster != null && rawCloze.explicitCluster > maxCluster
@@ -114,7 +148,7 @@ function formatClozeDeletion(deletion: ClozeDeletion) {
 export function normalizeClozeText(text: string): string {
   const deletions = parseClozes(text);
   let i = 0;
-  return text.replace(new RegExp(CLOZE_RE.source, "g"), () => formatClozeDeletion(deletions[i++]));
+  return mapClozeMatches(text, () => formatClozeDeletion(deletions[i++]));
 }
 
 function clozeBlank(hint?: string): string {
@@ -125,7 +159,7 @@ function clozeBlank(hint?: string): string {
 function replaceClozes(text: string, fn: (deletion: ClozeDeletion) => string): string {
   const deletions = parseClozes(text);
   let deletionIndex = 0;
-  return text.replace(new RegExp(CLOZE_RE.source, "g"), () => fn(deletions[deletionIndex++]));
+  return mapClozeMatches(text, () => fn(deletions[deletionIndex++]));
 }
 
 /**
@@ -137,6 +171,12 @@ export function renderClozeText(text: string, blankCluster: number | null): stri
   return replaceClozes(text, (d) =>
     blankCluster != null && d.cluster === blankCluster ? clozeBlank(d.hint) : d.answer,
   );
+}
+
+/** The revealed cloze text, followed by its optional answer-side extra. */
+function renderClozeBack(cloze: ClozeContent): string {
+  const revealed = renderClozeText(cloze.text, null);
+  return cloze.extra ? `${revealed}\n\n${cloze.extra}` : revealed;
 }
 
 function renderAllClozesBlanked(text: string): string {
@@ -173,7 +213,7 @@ export function generateReviewUnits(
       return clozeClusters(cloze.text).map((cluster) => ({
         subKey: `c${cluster}`,
         front: renderClozeText(cloze.text, cluster),
-        back: renderClozeText(cloze.text, null),
+        back: renderClozeBack(cloze),
       }));
     }
     case "type_answer": {
@@ -209,7 +249,7 @@ export function flashcardDisplay(
       const cloze = content as ClozeContent;
       return {
         front: renderAllClozesBlanked(cloze.text),
-        back: renderClozeText(cloze.text, null),
+        back: renderClozeBack(cloze),
       };
     }
     case "type_answer": {

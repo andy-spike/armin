@@ -555,28 +555,53 @@ export async function recordRequest(
 
 // --- Tags ---
 
-export async function rememberTags(ctx: MutationCtx, libraryId: Id<"libraries">, tags: string[]) {
+/**
+ * Tag rows already looked up in this mutation: the stored name, or null when
+ * the library has no such tag yet. Batch writers share one so a batch reads
+ * each distinct tag once and stays under Convex's per-transaction read limit.
+ */
+export type TagCache = Map<string, string | null>;
+
+async function storedTag(
+  ctx: QueryCtx,
+  libraryId: Id<"libraries">,
+  key: string,
+  cache: TagCache | undefined,
+) {
+  if (cache?.has(key)) return cache.get(key)!;
+  const existing = await ctx.db
+    .query("tags")
+    .withIndex("by_library_key", (q) => q.eq("libraryId", libraryId).eq("key", key))
+    .unique();
+  const name = existing?.name ?? null;
+  cache?.set(key, name);
+  return name;
+}
+
+export async function rememberTags(
+  ctx: MutationCtx,
+  libraryId: Id<"libraries">,
+  tags: string[],
+  cache?: TagCache,
+) {
   for (const name of tags) {
     const key = name.toLocaleLowerCase();
-    const existing = await ctx.db
-      .query("tags")
-      .withIndex("by_library_key", (q) => q.eq("libraryId", libraryId).eq("key", key))
-      .unique();
-    if (!existing) await ctx.db.insert("tags", { libraryId, name, key });
+    if ((await storedTag(ctx, libraryId, key, cache)) !== null) continue;
+    await ctx.db.insert("tags", { libraryId, name, key });
+    cache?.set(key, name);
   }
 }
 
 /** Use the library's existing casing for tags that already exist. */
-export async function canonicalTags(ctx: QueryCtx, libraryId: Id<"libraries">, tags: string[]) {
+export async function canonicalTags(
+  ctx: QueryCtx,
+  libraryId: Id<"libraries">,
+  tags: string[],
+  cache?: TagCache,
+) {
   const out: string[] = [];
   for (const name of tags) {
-    const existing = await ctx.db
-      .query("tags")
-      .withIndex("by_library_key", (q) =>
-        q.eq("libraryId", libraryId).eq("key", name.toLocaleLowerCase()),
-      )
-      .unique();
-    out.push(existing?.name ?? name);
+    out.push((await storedTag(ctx, libraryId, name.toLocaleLowerCase(), cache)) ?? name);
   }
   return out;
 }

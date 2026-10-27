@@ -11,9 +11,13 @@
     "./scheduling-presets": "./src/scheduling-presets.ts",
     "./study": "./src/study.ts",
     "./media": "./src/media.ts",
-    "./media-ref": "./src/media-ref.ts"
+    "./media-ref": "./src/media-ref.ts",
+    "./math": "./src/math.ts",
+    "./math-render": "./src/math-render.ts",
+    "./anki": "./src/anki/index.ts"
   },
   "dependencies": {
+    "katex": "^0.19.1",
     "ts-fsrs": "^5.4.1",
     "zod": "^4.4.3"
   }

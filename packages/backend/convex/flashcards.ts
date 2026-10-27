@@ -1,19 +1,27 @@
 import { paginationOptsValidator, type PaginationOptions } from "convex/server";
 import { v } from "convex/values";
-import { stream, type QueryStream } from "convex-helpers/server/stream";
+import { mergedStream, stream, type QueryStream } from "convex-helpers/server/stream";
 import { dueSortPriority, BROWSE_PAGE_SIZE, type BrowseSortKey } from "@armin/core/study";
 import type { TypeAnswerContent } from "@armin/core/flashcard-types";
 import { query, type QueryCtx } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
+import {
+  activeDeckIds,
+  rowsInDecks,
+  owned,
+  ownedOrFail,
+  readableLibrary,
+  writableLibrary,
+} from "./model/access";
 import schema from "./schema";
-import { ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
 import { MAX_FLASHCARDS } from "./model/limits";
 import {
   deleteFlashcardCascade,
   hydrateFlashcard,
   hydrateFromUnits,
+  insertFlashcard,
   hydrateTile,
   prepareTags,
   syncFlashcardMedia,
@@ -66,7 +74,7 @@ export const get = query({
     const library = await readableLibrary(ctx);
     if (!library) return null;
     const id = ctx.db.normalizeId("flashcards", flashcardId);
-    const flashcard = id ? await ctx.db.get(id) : null;
+    const flashcard = id ? await owned(ctx, library, id) : null;
     if (!flashcard || flashcard.libraryId !== library._id) return null;
     const deck = await ctx.db.get(flashcard.deckId);
     return hydrateFlashcard(ctx, flashcard, deck?.name);
@@ -138,14 +146,6 @@ export const browse = query({
   handler: async (ctx, args) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const deckFilter = args.deckId ? ctx.db.normalizeId("decks", args.deckId) : null;
-    // The library totals count every flashcard, but a deck view only needs its
-    // own cards and units, so it reads them through the deck index.
-    const all = await ctx.db
-      .query("flashcards")
-      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-      .collect();
-    const scoped = deckFilter ? all.filter((flashcard) => flashcard.deckId === deckFilter) : all;
     const deckNames = new Map<Id<"decks">, string>();
     for (const deck of await ctx.db
       .query("decks")
@@ -153,13 +153,13 @@ export const browse = query({
       .collect()) {
       deckNames.set(deck._id, deck.name);
     }
-    // One read for all units: per-flashcard queries would exceed Convex's
-    // per-function index-range limit on large libraries.
+    const all = await rowsInDecks(ctx, "flashcards", deckNames.keys());
+    const deckFilter = args.deckId ? ctx.db.normalizeId("decks", args.deckId) : null;
+    const scoped = args.deckId ? all.filter((flashcard) => flashcard.deckId === deckFilter) : all;
+    // One range per existing deck, rather than per card. Orphan payloads
+    // must never consume this query's read budget during background cleanup.
     const unitsByFlashcard = new Map<Id<"flashcards">, Doc<"reviewUnits">[]>();
-    const units = deckFilter
-      ? ctx.db.query("reviewUnits").withIndex("by_deck", (q) => q.eq("deckId", deckFilter))
-      : ctx.db.query("reviewUnits").withIndex("by_library", (q) => q.eq("libraryId", library._id));
-    for (const unit of await units.collect()) {
+    for (const unit of await rowsInDecks(ctx, "reviewUnits", deckNames.keys())) {
       const list = unitsByFlashcard.get(unit.flashcardId);
       if (list) list.push(unit);
       else unitsByFlashcard.set(unit.flashcardId, [unit]);
@@ -230,20 +230,19 @@ type Summary = Doc<"flashcardSummaries">;
 
 function sortedSummaries(
   ctx: QueryCtx,
-  libraryId: Id<"libraries">,
-  deckId: Id<"decks"> | null,
+  deckIds: Id<"decks">[],
   sort: string,
 ): QueryStream<Summary> {
   const { field, order } = BROWSE_ORDER[sort as BrowseSortKey] ?? BROWSE_ORDER["created-new"];
   const rows = stream(ctx.db, schema).query("flashcardSummaries");
-  if (deckId) {
+  const perDeck = deckIds.map((deckId) => {
     switch (field) {
       case "due":
         return rows.withIndex("by_deck_due", (q) => q.eq("deckId", deckId)).order(order);
-      // Every card in a deck shares its deck name, so that sort is by front.
       case "front":
-      case "deck":
         return rows.withIndex("by_deck_front", (q) => q.eq("deckId", deckId)).order(order);
+      case "deck":
+        return rows.withIndex("by_deck_name", (q) => q.eq("deckId", deckId)).order(order);
       case "back":
         return rows.withIndex("by_deck_back", (q) => q.eq("deckId", deckId)).order(order);
       case "locked":
@@ -253,23 +252,19 @@ function sortedSummaries(
       default:
         return rows.withIndex("by_deck_created", (q) => q.eq("deckId", deckId)).order(order);
     }
-  }
-  switch (field) {
-    case "due":
-      return rows.withIndex("by_library_due", (q) => q.eq("libraryId", libraryId)).order(order);
-    case "front":
-      return rows.withIndex("by_library_front", (q) => q.eq("libraryId", libraryId)).order(order);
-    case "back":
-      return rows.withIndex("by_library_back", (q) => q.eq("libraryId", libraryId)).order(order);
-    case "locked":
-      return rows.withIndex("by_library_locked", (q) => q.eq("libraryId", libraryId)).order(order);
-    case "state":
-      return rows.withIndex("by_library_state", (q) => q.eq("libraryId", libraryId)).order(order);
-    case "deck":
-      return rows.withIndex("by_library_deck", (q) => q.eq("libraryId", libraryId)).order(order);
-    default:
-      return rows.withIndex("by_library_created", (q) => q.eq("libraryId", libraryId)).order(order);
-  }
+  });
+  const fields = {
+    due: ["dueGroup", "due"],
+    front: ["frontKey"],
+    back: ["backKey"],
+    locked: ["locked", "frontKey"],
+    state: ["state", "frontKey"],
+    deck: ["deckKey", "frontKey"],
+    created: ["createdAt"],
+  };
+  // Walk only existing decks. Deleted-deck summaries may remain until bounded
+  // cleanup finishes and must not consume Browse's read budget or appear in it.
+  return mergedStream(perDeck, fields[field]);
 }
 
 const browseFilters = {
@@ -314,8 +309,10 @@ export async function loadBrowsePage(
 ) {
   const scope = await browseScope(ctx, library._id, args.deckId);
   if (scope === false) return { page: [] as HydratedFlashcard[], isDone: true, continueCursor: "" };
+  const deckIds = scope ? [scope] : [...(await activeDeckIds(ctx, library._id))];
+  if (!deckIds.length) return { page: [] as HydratedFlashcard[], isDone: true, continueCursor: "" };
   const match = summaryMatcher(args);
-  let rows = sortedSummaries(ctx, library._id, scope, args.sort);
+  let rows = sortedSummaries(ctx, deckIds, args.sort);
   if (match) rows = rows.filterWith(async (summary) => match(summary));
   const result = await rows.paginate({
     ...args.paginationOpts,
@@ -366,15 +363,17 @@ export const browseCounts = query({
     const match = summaryMatcher(args);
     let filtered = scope ? sum(counters.filter((row) => row.deckId === scope)) : libraryCounts;
     if (match) {
-      const summaries = await (
-        scope
-          ? ctx.db
+      const deckIds = scope ? [scope] : [...(await activeDeckIds(ctx, library._id))];
+      const summaries = (
+        await Promise.all(
+          deckIds.map((deckId) =>
+            ctx.db
               .query("flashcardSummaries")
-              .withIndex("by_deck_created", (q) => q.eq("deckId", scope))
-          : ctx.db
-              .query("flashcardSummaries")
-              .withIndex("by_library_created", (q) => q.eq("libraryId", library._id))
-      ).collect();
+              .withIndex("by_deck_created", (q) => q.eq("deckId", deckId))
+              .collect(),
+          ),
+        )
+      ).flat();
       const matching = summaries.filter(match);
       filtered = {
         total: matching.length,
@@ -397,10 +396,8 @@ export const listTags = query({
     if (!library) return null;
     // Derive options from the cards that currently carry each tag rather than
     // the library's remembered tag names, so a removed tag leaves the filter.
-    const flashcards = await ctx.db
-      .query("flashcards")
-      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-      .collect();
+    const decks = await activeDeckIds(ctx, library._id);
+    const flashcards = await rowsInDecks(ctx, "flashcards", decks);
     const names = new Map<string, string>();
     for (const flashcard of flashcards) {
       for (const tag of flashcard.tags) names.set(tag.toLocaleLowerCase(), tag);
@@ -457,27 +454,14 @@ export const create = mutation({
       fail("QUOTA", `The beta allows ${MAX_FLASHCARDS} flashcards per account.`);
     }
     const input = validateFlashcardInput(args.type, args.content);
-    const tags = await prepareTags(ctx, library._id, args.tags ?? []);
     const now = Date.now();
-    const id = await ctx.db.insert("flashcards", {
+    const id = await insertFlashcard(ctx, {
       libraryId: library._id,
       deckId: deck._id,
-      type: input.type,
-      content: input.serialized,
-      tags,
-      posX: null,
-      posY: null,
-      locked: false,
-      prerequisiteAccessGranted: false,
-      archived: false,
-      version: 1,
-      createdAt: now,
-      updatedAt: now,
+      input,
+      tags: args.tags ?? [],
+      now,
     });
-    const flashcard = (await ctx.db.get(id))!;
-    await reconcileReviewUnits(ctx, flashcard, input.type, input.content, now);
-    await syncFlashcardMedia(ctx, flashcard, input.mediaFiles);
-    await rememberTags(ctx, library._id, tags);
     await bumpRevision(ctx, library._id);
     const result = { id };
     await recordRequest(ctx, library._id, args.requestId, "flashcards.create", result, now);
@@ -547,7 +531,7 @@ export const remove = mutation({
   args: { flashcardId: v.id("flashcards") },
   handler: async (ctx, { flashcardId }) => {
     const library = await writableLibrary(ctx);
-    const flashcard = await ctx.db.get(flashcardId);
+    const flashcard = await owned(ctx, library, flashcardId);
     // Deleting something already gone is a no-op, so retries are safe.
     if (!flashcard || flashcard.libraryId !== library._id) return { ok: true as const };
     await deleteFlashcardCascade(ctx, flashcard, { refreshDependents: true });
@@ -585,7 +569,7 @@ export const deleteConsequences = query({
   handler: async (ctx, { flashcardId }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const flashcard = await ctx.db.get(flashcardId);
+    const flashcard = await owned(ctx, library, flashcardId);
     if (!flashcard || flashcard.libraryId !== library._id) return null;
     const dependents = await ctx.db
       .query("prereqs")
@@ -622,7 +606,7 @@ export const moveConsequences = query({
   handler: async (ctx, { flashcardId }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const flashcard = await ctx.db.get(flashcardId);
+    const flashcard = await owned(ctx, library, flashcardId);
     if (!flashcard || flashcard.libraryId !== library._id) return null;
     const prereqs = await ctx.db
       .query("prereqs")

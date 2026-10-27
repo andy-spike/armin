@@ -59,6 +59,17 @@ export async function owned<
 >(ctx: QueryCtx, library: Doc<"libraries">, id: Id<T>): Promise<Doc<T> | null> {
   const doc = (await ctx.db.get(id)) as (Doc<T> & { libraryId: Id<"libraries"> }) | null;
   if (!doc || doc.libraryId !== library._id) return null;
+  if ("deckId" in doc) {
+    // Moved cards keep historical log.deckId; ownership follows the unit's
+    // current deck, just as export and Undo do.
+    const deckId =
+      "reviewUnitId" in doc
+        ? (await ctx.db.get(doc.reviewUnitId as Id<"reviewUnits">))?.deckId
+        : (doc.deckId as Id<"decks">);
+    if (!deckId) return null;
+    const deck = await ctx.db.get(deckId);
+    if (!deck || deck.libraryId !== library._id) return null;
+  }
   return doc;
 }
 
@@ -77,4 +88,34 @@ export function normalizeId<T extends "decks" | "flashcards" | "reviewUnits">(
   id: string,
 ): Id<T> | null {
   return ctx.db.normalizeId(table, id);
+}
+
+/** One deck-range read, shared by library-wide queries during bounded cleanup. */
+export async function activeDeckIds(ctx: QueryCtx, libraryId: Id<"libraries">) {
+  return new Set(
+    (
+      await ctx.db
+        .query("decks")
+        .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
+        .collect()
+    ).map((deck) => deck._id),
+  );
+}
+
+/** Read only existing decks' rows; never load deleted-deck payloads to filter later. */
+export async function rowsInDecks<
+  T extends "flashcards" | "reviewUnits" | "prereqs" | "deckSettings",
+>(ctx: QueryCtx, table: T, deckIds: Iterable<Id<"decks">>) {
+  const rows = [];
+  for (const deckId of deckIds) {
+    rows.push(
+      ...(await ctx.db
+        .query(table)
+        // These four tables share a deckId-first index.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .withIndex("by_deck" as never, (q: any) => q.eq("deckId", deckId))
+        .collect()),
+    );
+  }
+  return rows;
 }

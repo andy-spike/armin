@@ -2,6 +2,8 @@ import {
   useMemo,
   useRef,
   useState,
+  lazy,
+  Suspense,
   type ComponentProps,
   type MutableRefObject,
   type ReactNode,
@@ -13,6 +15,59 @@ import { mediaDisplayUrl } from "@/lib/media";
 import { parseImageWidth, stripImageWidth } from "@/lib/image-size";
 import { ImageZoomDialog } from "@/components/ui/image-zoom-dialog";
 import { parseMediaRef } from "@armin/core/media-ref";
+import { splitMath } from "@armin/core/math";
+
+const MathEquation = lazy(() => import("./math-equation"));
+
+function MathNode({ tex, display }: { tex: string; display: string }) {
+  return (
+    <Suspense fallback={<code>{tex}</code>}>
+      <MathEquation tex={tex} display={display} />
+    </Suspense>
+  );
+}
+
+/** Protect math before Markdown's block/escape rules can change its source. */
+function mathDocument(content: string) {
+  const parts = splitMath(content);
+  let marker = "\uE000math";
+  while (content.includes(marker)) marker += "x";
+  const equations: { tex: string; display: boolean }[] = [];
+  const source = parts
+    .map((part) => {
+      if (part.kind === "text") return part.raw;
+      equations.push(part);
+      return `${marker}${equations.length - 1}\uE001`;
+    })
+    .join("");
+  const math: MarkdownExtension = {
+    name: "math",
+    inlineParser: {
+      markers: "\uE000",
+      parse: ({ source: text, index }) => {
+        if (!text.startsWith(marker, index)) return undefined;
+        const match = /^(\d+)\uE001/.exec(text.slice(index + marker.length));
+        const equation = match && equations[Number(match[1])];
+        if (!equation) return undefined;
+        return {
+          node: {
+            type: "inlineComponent",
+            name: "MathEquation",
+            tagName: "armin-math",
+            attributes: {},
+            properties: {
+              tex: equation.tex,
+              display: String(equation.display),
+            },
+            children: [],
+          },
+          length: marker.length + match![0].length,
+        };
+      },
+    },
+  };
+  return { source, extensions: [...EXTENSIONS, math] };
+}
 
 /**
  * Card images are stored as `armin-media:` references to private library
@@ -84,6 +139,7 @@ function createComponents(
   onPreview: (src: string) => void,
 ): NonNullable<MarkdownReactOptions["components"]> {
   return {
+    "armin-math": MathNode,
     a: ({ children, href, ...props }: ComponentProps<"a">) => (
       <a href={href} target="_blank" rel="noreferrer noopener" {...props}>
         {children}
@@ -141,16 +197,17 @@ export function MarkdownContent({
   );
 
   imageIndexRef.current = 0;
+  const math = useMemo(() => mathDocument(content), [content]);
 
   return (
     <div className={cn("markdown-content", className)}>
       <Markdown
         components={components}
         urlTransform={cardUrlTransform}
-        extensions={EXTENSIONS}
+        extensions={math.extensions}
         headingIds={false}
       >
-        {content}
+        {math.source}
       </Markdown>
       {children}
       {images === "show" && (
