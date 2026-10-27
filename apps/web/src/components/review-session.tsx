@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { RateResult, UndoResult } from "@armin/backend/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -268,15 +268,18 @@ export function ReviewSession({
     cards: SessionReviewUnit[];
     activeTurnId: string | undefined;
   }>({ cards: sessionCards, activeTurnId: card?.turnId });
-  sessionRef.current = { cards: sessionCards, activeTurnId: card?.turnId };
   // Missing queue entries may have been deleted elsewhere; preview returns
   // null once the unit is gone. Keep the fetcher in a ref so the merge effect
   // does not re-run on every render.
   const loadPreviewRef = useRef(loadPreview);
-  loadPreviewRef.current = loadPreview;
   const missingCheckedRef = useRef(new Set<string>());
   const onRateRef = useRef(onRate);
-  onRateRef.current = onRate;
+  // Layout effects run before any effect or event handler can read these.
+  useLayoutEffect(() => {
+    sessionRef.current = { cards: sessionCards, activeTurnId: card?.turnId };
+    loadPreviewRef.current = loadPreview;
+    onRateRef.current = onRate;
+  });
   const done = !isLoading && !isError && index >= cards.length && cards.length > 0;
   const empty = !isLoading && !isError && cards.length === 0;
 
@@ -568,17 +571,22 @@ export function ReviewSession({
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [saving]);
 
-  useEffect(() => {
-    sessionRef.current = { cards: [], activeTurnId: undefined };
-    missingCheckedRef.current.clear();
+  // A new session key starts over. State resets during render; the refs reset
+  // once that render commits, and the session ref follows the emptied cards.
+  const [sessionKey, setSessionKey] = useState(resetKey);
+  if (resetKey !== sessionKey) {
+    setSessionKey(resetKey);
     setIndex(0);
     setFlipped(false);
     setTyped("");
     setSessionCards([]);
     setHistory([]);
-    historyRef.current = [];
     setStaleCard(null);
     setNotice(null);
+  }
+  useLayoutEffect(() => {
+    missingCheckedRef.current.clear();
+    historyRef.current = [];
   }, [resetKey]);
 
   useEffect(() => {
@@ -623,11 +631,14 @@ export function ReviewSession({
     }
   }, [isLoading, isError, queue, saving, undoing, removeFromSession]);
 
-  useEffect(() => {
+  // Each new turn starts face-down with an empty answer.
+  const [shownTurnId, setShownTurnId] = useState(card?.turnId);
+  if (card?.turnId !== shownTurnId) {
+    setShownTurnId(card?.turnId);
     setFlipped(false);
     setTyped("");
     setStaleCard(null);
-  }, [card?.turnId]);
+  }
 
   const reviewActive = !isLoading && !isError && Boolean(card);
 

@@ -1,5 +1,5 @@
 import { useConnection } from "@/lib/session";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Dialog } from "@/components/ui/dialog";
@@ -168,34 +168,31 @@ export function FlashcardFormDialog({
   const [createSession, setCreateSession] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
-  const initialSnapshotRef = useRef<string | null>(null);
+  const [initialSnapshot, setInitialSnapshot] = useState<string | null>(null);
   const keepEditingRef = useRef<HTMLButtonElement>(null);
   // Starts closed even when mounted open: the lazy wrapper first mounts this
   // dialog already open, and that first open must hydrate like any other.
-  const wasOpenRef = useRef(false);
-  const handleSubmitRef = useRef<(() => Promise<void>) | null>(null);
+  const [wasOpen, setWasOpen] = useState(false);
 
   const setField = <K extends keyof FormFields>(key: K, value: FormFields[K]) =>
     setFields((current) => ({ ...current, [key]: value }));
 
-  useEffect(() => {
-    if (open && !wasOpenRef.current) {
+  // Hydrate the form from the card each time the dialog opens, during render
+  // so the first open frame already shows the card.
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    setDiscardOpen(false);
+    if (open) {
       const initialFields = fieldsFromContent(initialType, initialContent);
       setType(initialType);
       setFields(initialFields);
       setImageOcclusion(initialType === "image_occlusion" ? initialContent : null);
       setTags(initialTags);
-      initialSnapshotRef.current = formSnapshot(initialType, initialFields, initialTags);
-      setDiscardOpen(false);
+      setInitialSnapshot(formSnapshot(initialType, initialFields, initialTags));
       setDisplaySession({ mode, reviewUnitId: reviewUnitId ?? null });
       if (mode === "create") setCreateSession(0);
     }
-    wasOpenRef.current = open;
-  }, [open, initialType, initialContent, initialTags, reviewUnitId, mode]);
-
-  useEffect(() => {
-    if (!open) setDiscardOpen(false);
-  }, [open]);
+  }
 
   useEffect(() => {
     if (!discardOpen) return;
@@ -212,9 +209,7 @@ export function FlashcardFormDialog({
   const { online } = useConnection();
   const canSubmit = content !== null && !submitting && online;
 
-  const dirty =
-    initialSnapshotRef.current !== null &&
-    formSnapshot(type, fields, tags) !== initialSnapshotRef.current;
+  const dirty = initialSnapshot !== null && formSnapshot(type, fields, tags) !== initialSnapshot;
 
   const requestClose = () => {
     if (dirty) {
@@ -239,21 +234,21 @@ export function FlashcardFormDialog({
         setFields(EMPTY_FIELDS);
         setImageOcclusion(null);
         setCreateSession((session) => session + 1);
-        initialSnapshotRef.current = formSnapshot(type, EMPTY_FIELDS, tags);
+        setInitialSnapshot(formSnapshot(type, EMPTY_FIELDS, tags));
       }
     } finally {
       setSubmitting(false);
     }
   };
 
-  handleSubmitRef.current = handleSubmit;
+  const submitFromShortcut = useEffectEvent(() => void handleSubmit());
 
   useEffect(() => {
     if (!open || discardOpen) return;
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Enter" && event.ctrlKey) {
         event.preventDefault();
-        void handleSubmitRef.current?.();
+        submitFromShortcut();
       }
     };
     document.addEventListener("keydown", onKeyDown);

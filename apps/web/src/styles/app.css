@@ -515,6 +515,12 @@
    * (size, weight, leading) is inherited from the wrapper's utility classes. */
   .markdown-content {
     overflow-wrap: anywhere;
+    counter-reset: md-image;
+  }
+
+  .markdown-content .md-image-placeholder::before {
+    counter-increment: md-image;
+    content: "[Image " counter(md-image) "]";
   }
 
   .markdown-content > :first-child {

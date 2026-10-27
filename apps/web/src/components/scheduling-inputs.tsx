@@ -16,9 +16,28 @@ import {
   parseStepsString,
   type StepDuration,
 } from "@/lib/scheduling-settings";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 const invalidInputClass = "border-again focus-visible:border-again focus-visible:ring-again/30";
+
+/**
+ * A text draft of a committed number. The draft resets whenever the committed
+ * value changes from outside, adjusted during render rather than in an effect
+ * so the stale draft never reaches the screen.
+ */
+function useSyncedDraft(value: number, format: (value: number) => string) {
+  const [draft, setDraft] = useState(format(value));
+  const [invalid, setInvalid] = useState(false);
+  const [syncedValue, setSyncedValue] = useState(value);
+
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    setDraft(format(value));
+    setInvalid(false);
+  }
+
+  return { draft, setDraft, invalid, setInvalid };
+}
 
 function UnitLabel({ children }: { children: string }) {
   return <span className="shrink-0 text-[0.8125rem] text-muted">{children}</span>;
@@ -35,13 +54,7 @@ export function RetentionInput({
   onChange,
   "aria-labelledby": labelledBy,
 }: RetentionInputProps) {
-  const [draft, setDraft] = useState(formatRetentionPercent(value));
-  const [invalid, setInvalid] = useState(false);
-
-  useEffect(() => {
-    setDraft(formatRetentionPercent(value));
-    setInvalid(false);
-  }, [value]);
+  const { draft, setDraft, invalid, setInvalid } = useSyncedDraft(value, formatRetentionPercent);
 
   const handleBlur = () => {
     const parsed = parseRetentionPercent(draft);
@@ -85,13 +98,7 @@ export function MaximumIntervalInput({
   onChange,
   "aria-labelledby": labelledBy,
 }: MaximumIntervalInputProps) {
-  const [draft, setDraft] = useState(formatDays(value));
-  const [invalid, setInvalid] = useState(false);
-
-  useEffect(() => {
-    setDraft(formatDays(value));
-    setInvalid(false);
-  }, [value]);
+  const { draft, setDraft, invalid, setInvalid } = useSyncedDraft(value, formatDays);
 
   const handleBlur = () => {
     const parsed = parseDays(draft);
@@ -134,12 +141,14 @@ function DurationStepFields({ step, onChange, labelledBy }: DurationStepFieldsPr
   const [minutesDraft, setMinutesDraft] = useState(String(step.minutes));
   const [secondsDraft, setSecondsDraft] = useState(String(step.seconds));
   const [invalid, setInvalid] = useState(false);
+  const [syncedStep, setSyncedStep] = useState(step);
 
-  useEffect(() => {
+  if (step.minutes !== syncedStep.minutes || step.seconds !== syncedStep.seconds) {
+    setSyncedStep(step);
     setMinutesDraft(String(step.minutes));
     setSecondsDraft(String(step.seconds));
     setInvalid(false);
-  }, [step.minutes, step.seconds]);
+  }
 
   const commit = (minutes: number, seconds: number) => {
     const next = { minutes, seconds };
@@ -236,13 +245,7 @@ export function StabilityFloorInput({
   onChange,
   "aria-labelledby": labelledBy,
 }: StabilityFloorInputProps) {
-  const [draft, setDraft] = useState(String(value));
-  const [invalid, setInvalid] = useState(false);
-
-  useEffect(() => {
-    setDraft(String(value));
-    setInvalid(false);
-  }, [value]);
+  const { draft, setDraft, invalid, setInvalid } = useSyncedDraft(value, String);
 
   const handleBlur = () => {
     const parsed = Number(draft);
@@ -286,13 +289,7 @@ export function NewCardsPerDayInput({
   onChange,
   "aria-labelledby": labelledBy,
 }: NewCardsPerDayInputProps) {
-  const [draft, setDraft] = useState(String(value));
-  const [invalid, setInvalid] = useState(false);
-
-  useEffect(() => {
-    setDraft(String(value));
-    setInvalid(false);
-  }, [value]);
+  const { draft, setDraft, invalid, setInvalid } = useSyncedDraft(value, String);
 
   const handleBlur = () => {
     const parsed = parseBoundedInt(draft, NEW_CARDS_PER_DAY_MAX);

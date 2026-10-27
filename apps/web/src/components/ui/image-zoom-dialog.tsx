@@ -33,16 +33,25 @@ export function ImageZoomDialog({
     ox: number;
     oy: number;
   } | null>(null);
+  const [dragging, setDragging] = React.useState(false);
   const panelRef = React.useRef<HTMLDivElement>(null);
   const onCloseRef = React.useRef(onClose);
   React.useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
 
+  // Each open starts at the fitted, centered view.
+  const [wasOpen, setWasOpen] = React.useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setScale(1);
+      setOffset({ x: 0, y: 0 });
+    }
+  }
+
   React.useEffect(() => {
     if (!open) return;
-    setScale(1);
-    setOffset({ x: 0, y: 0 });
 
     // Pull focus into the preview so its own trap owns Tab from the start; a
     // parent dialog (e.g. the flashcard form) would otherwise keep it.
@@ -126,6 +135,7 @@ export function ImageZoomDialog({
       ox: offset.x,
       oy: offset.y,
     };
+    setDragging(true);
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const onPointerMove = (event: React.PointerEvent) => {
@@ -138,6 +148,7 @@ export function ImageZoomDialog({
   };
   const endDrag = (event: React.PointerEvent) => {
     dragRef.current = null;
+    setDragging(false);
     try {
       event.currentTarget.releasePointerCapture(event.pointerId);
     } catch {
@@ -216,7 +227,7 @@ export function ImageZoomDialog({
               maxHeight: "85vh",
               transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
               transformOrigin: "center",
-              transition: dragRef.current ? "none" : "transform 0.1s ease-out",
+              transition: dragging ? "none" : "transform 0.1s ease-out",
               userSelect: "none",
             }}
           />

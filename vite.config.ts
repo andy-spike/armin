@@ -22,10 +22,11 @@ export default defineConfig({
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
       "vite-plus/prefer-vite-plus-imports": "error",
-      // Render-time ref access and effect-driven state resets are tracked
-      // for a follow-up refactor; they become errors once fixed.
-      "react/refs": "warn",
-      "react/set-state-in-effect": "warn",
+      // Read latest values through refs only outside render, and adjust state
+      // during render instead of from an effect. A justified exception carries
+      // an inline `oxlint-disable-next-line` with its reason.
+      "react/refs": "error",
+      "react/set-state-in-effect": "error",
       // Only matters to the React Compiler, which this app doesn't use.
       "react/incompatible-library": "off",
       // Dialogs focus their first field on purpose.

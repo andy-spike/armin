@@ -1,5 +1,5 @@
 import { armin } from "@/lib/armin-client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -43,7 +43,7 @@ export function MoveFlashcardDialog({
   onMoved?: (targetDeckId: string) => void;
 }) {
   const toast = useToast();
-  const [targetDeckId, setTargetDeckId] = useState<string | null>(null);
+  const [pickedDeckId, setPickedDeckId] = useState<string | null>(null);
 
   const decksQuery = useQuery({ ...deckNamesQuery(), enabled: open });
   const consequencesQuery = useQuery({
@@ -56,16 +56,14 @@ export function MoveFlashcardDialog({
   // Reuse Browse's numbering so duplicate deck names stay distinguishable.
   const deckOptions = buildDeckFilterOptions(otherDecks).filter((option) => option.value !== "");
 
-  // Reset the picked deck each time the dialog opens, then default it to the
-  // first available target once decks load.
-  useEffect(() => {
-    if (!open) setTargetDeckId(null);
-  }, [open]);
-  useEffect(() => {
-    if (open && targetDeckId === null && otherDecks.length > 0) {
-      setTargetDeckId(otherDecks[0].id);
-    }
-  }, [open, targetDeckId, otherDecks]);
+  // Clear the picked deck each time the dialog closes. Until the user picks
+  // one, the target defaults to the first available deck once decks load.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (!open) setPickedDeckId(null);
+  }
+  const targetDeckId = pickedDeckId ?? otherDecks[0]?.id ?? null;
 
   const move = useMutation({
     mutationFn: () => armin.flashcards.move(flashcard!.id, targetDeckId!),
@@ -104,7 +102,7 @@ export function MoveFlashcardDialog({
           <Select
             value={targetDeckId ?? undefined}
             items={deckOptions}
-            onValueChange={(next) => setTargetDeckId(next as string)}
+            onValueChange={(next) => setPickedDeckId(next as string)}
           >
             <SelectTrigger className="w-full" aria-label="Destination deck">
               <SelectValue placeholder="Select a deck" />

@@ -179,13 +179,14 @@ function RichMarkdownEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [plainTextMode, setPlainTextMode] = useState(false);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
-  // The editor is created once, so reach the latest handler/value via refs.
-  const onPreviewRef = useRef<((src: string) => void) | null>(null);
-  onPreviewRef.current = setPreviewSrc;
+  // Async uploads and editor callbacks outlive the render that started them,
+  // so they read the latest mode and value through refs.
   const plainTextModeRef = useRef(plainTextMode);
-  plainTextModeRef.current = plainTextMode;
   const valueRef = useRef(value);
-  valueRef.current = value;
+  useLayoutEffect(() => {
+    plainTextModeRef.current = plainTextMode;
+    valueRef.current = value;
+  });
   const emittedValueRef = useRef<string | null>(null);
   const initializedRef = useRef(false);
 
@@ -218,8 +219,6 @@ function RichMarkdownEditor({
     },
     [onChange],
   );
-  const insertPlainMarkdownRef = useRef(insertPlainMarkdown);
-  insertPlainMarkdownRef.current = insertPlainMarkdown;
 
   const insertImageFiles = useCallback(
     async (editor: Editor | null, files: Iterable<File>) => {
@@ -246,7 +245,7 @@ function RichMarkdownEditor({
         if (plainTextModeRef.current) {
           // Keep the portable `armin-media:` reference in the source; the
           // read-only renderer resolves it for display.
-          insertPlainMarkdownRef.current(`![${file.name}](${stored.ref})`);
+          insertPlainMarkdown(`![${file.name}](${stored.ref})`);
           continue;
         }
         if (!editor) continue;
@@ -257,7 +256,15 @@ function RichMarkdownEditor({
           .run();
       }
     },
-    [onUploadError],
+    [onUploadError, insertPlainMarkdown],
+  );
+
+  // editorProps capture their closure at creation time, so reach for the
+  // current instance through a ref inside the paste/drop handlers.
+  const editorRef = useRef<Editor | null>(null);
+  const insertDroppedImages = useCallback(
+    (files: Iterable<File>) => void insertImageFiles(editorRef.current, files),
+    [insertImageFiles],
   );
 
   const editor = useEditor({
@@ -270,7 +277,7 @@ function RichMarkdownEditor({
       Markdown,
       ResizableImage.configure({
         allowBase64: false,
-        onPreview: (src) => onPreviewRef.current?.(src),
+        onPreview: setPreviewSrc,
       }),
       Placeholder.configure({
         placeholder: placeholder ?? "",
@@ -301,7 +308,7 @@ function RichMarkdownEditor({
       handlePaste: (_view, event) => {
         const files = event.clipboardData?.files;
         if (files?.length && Array.from(files).some((f) => f.type.startsWith("image/"))) {
-          void insertImageFiles(editorRef.current, files);
+          insertDroppedImages(files);
           return true;
         }
         return false;
@@ -310,7 +317,7 @@ function RichMarkdownEditor({
         const files = (event as DragEvent).dataTransfer?.files;
         if (files?.length && Array.from(files).some((f) => f.type.startsWith("image/"))) {
           event.preventDefault();
-          void insertImageFiles(editorRef.current, files);
+          insertDroppedImages(files);
           return true;
         }
         return false;
@@ -327,9 +334,13 @@ function RichMarkdownEditor({
   // TipTap creates its instance after mount, and its onCreate callback runs in
   // a later task. Keep the preview until the instance exists, then load the
   // saved value in a layout effect so an empty editor never reaches the screen.
+  // Whether the value needs source mode is a question for TipTap's parser,
+  // which only exists after mount, so the mode switch has to happen here; a
+  // layout effect re-renders before paint, so no wrong mode is ever shown.
   useLayoutEffect(() => {
     if (!editor || initializedRef.current) return;
     if (needsSourceMode(editor, value)) {
+      // oxlint-disable-next-line react/set-state-in-effect -- needs the mounted TipTap parser
       setPlainTextMode(true);
     } else {
       loadMarkdown(editor, value);
@@ -339,9 +350,6 @@ function RichMarkdownEditor({
     requestAnimationFrame(syncScrollOverflow);
   }, [editor, value, autoFocus, syncScrollOverflow]);
 
-  // editorProps capture their closure at creation time, so reach for the
-  // current instance through a ref inside the paste/drop handlers.
-  const editorRef = useRef(editor);
   useEffect(() => {
     editorRef.current = editor;
   }, [editor]);
@@ -352,6 +360,7 @@ function RichMarkdownEditor({
     // externally supplied value needs the lossless-mode check.
     if (value === emittedValueRef.current) return;
     if (needsSourceMode(editor, value)) {
+      // oxlint-disable-next-line react/set-state-in-effect -- needs the mounted TipTap parser
       setPlainTextMode(true);
       return;
     }

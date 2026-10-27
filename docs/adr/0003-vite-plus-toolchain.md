@@ -33,8 +33,10 @@ Consequences:
 - Lint and format settings live only in the root `vite.config.ts`; package-level
   `lint` or `fmt` blocks are not used. Oxlint enforces its correctness rules,
   including React, React Hooks, and jsx-a11y, as errors. `react/refs` and
-  `react/set-state-in-effect` report as warnings until the existing findings are
-  refactored, then become errors. Rules that conflict with deliberate patterns
+  `react/set-state-in-effect` reported as warnings until the existing findings
+  were refactored; they are now errors, and the two remaining exceptions (the
+  Markdown editor's source-mode switch, which needs the mounted TipTap parser)
+  carry inline disables with their reason. Rules that conflict with deliberate patterns
   (dialog `autoFocus`, `role="status"`) and React Compiler-only rules are off.
 - Oxfmt formats with its defaults (100-column lines), and skips generated Convex
   and route files, `docs/qa` evidence, and vendored skills whose content is
