@@ -1,11 +1,15 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { adjustReviewUnitCount, bumpRevision } from "./model/study";
+import { bumpRevision } from "./model/study";
 import type { TableNames } from "./_generated/dataModel";
 
 /** Rows deleted per cleanup transaction; the job reschedules until done. */
 const BATCH = 400;
+// A review unit repeats up to MAX_CONTENT_CHARS (20,000) in front and back.
+// Twenty units leave ample room below 16 MiB even for multi-byte text and
+// formatting expansion. Cards carry the same bounded authored content.
+const CONTENT_BATCH = 20;
 
 /** Remove a deleted deck's review history in bounded batches. */
 export const cleanupUnitLogs = internalMutation({
@@ -61,9 +65,20 @@ export const cleanupDeck = internalMutation({
     const units = await ctx.db
       .query("reviewUnits")
       .withIndex("by_deck", (q) => q.eq("deckId", args.deckId))
-      .take(BATCH);
+      .take(CONTENT_BATCH);
     if (units.length) {
-      await adjustReviewUnitCount(ctx, args.libraryId, -units.length);
+      const counters = await ctx.db
+        .query("libraryCounters")
+        .withIndex("by_library", (q) => q.eq("libraryId", args.libraryId))
+        .unique();
+      // Older libraries have no stored unit count. Leave it uninitialized so
+      // its eventual fallback counts the surviving rows, without scanning all
+      // text-heavy units in this cleanup transaction.
+      if (counters?.reviewUnits !== undefined) {
+        await ctx.db.patch(counters._id, {
+          reviewUnits: Math.max(0, counters.reviewUnits - units.length),
+        });
+      }
       for (const unit of units) await ctx.db.delete(unit._id);
       await ctx.scheduler.runAfter(0, internal.deletion.cleanupRemovedUnits, {
         unitIds: units.map((unit) => unit._id),
@@ -77,7 +92,7 @@ export const cleanupDeck = internalMutation({
     const cards = await ctx.db
       .query("flashcards")
       .withIndex("by_deck", (q) => q.eq("deckId", args.deckId))
-      .take(20);
+      .take(CONTENT_BATCH);
     if (cards.length) {
       let budget = BATCH;
       const files = new Set<string>();
@@ -181,13 +196,21 @@ export const cleanupLibrary = internalMutation({
 
     for (const [table, index] of LIBRARY_TABLES) {
       if (budget <= 0) break;
+      const limit =
+        table === "reviewUnits" || table === "flashcards"
+          ? Math.min(budget, CONTENT_BATCH)
+          : budget;
       const rows = await ctx.db
         .query(table)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .withIndex(index as never, (q: any) => q.eq("libraryId", libraryId))
-        .take(budget);
+        .take(limit);
       for (const row of rows) await ctx.db.delete(row._id);
       budget -= rows.length;
+      if (rows.length === limit) {
+        await ctx.scheduler.runAfter(0, internal.deletion.cleanupLibrary, { libraryId });
+        return;
+      }
     }
 
     if (budget <= 0) {

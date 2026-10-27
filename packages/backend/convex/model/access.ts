@@ -101,3 +101,21 @@ export async function activeDeckIds(ctx: QueryCtx, libraryId: Id<"libraries">) {
     ).map((deck) => deck._id),
   );
 }
+
+/** Read only existing decks' rows; never load deleted-deck payloads to filter later. */
+export async function rowsInDecks<
+  T extends "flashcards" | "reviewUnits" | "prereqs" | "deckSettings",
+>(ctx: QueryCtx, table: T, deckIds: Iterable<Id<"decks">>) {
+  const rows = [];
+  for (const deckId of deckIds) {
+    rows.push(
+      ...(await ctx.db
+        .query(table)
+        // These four tables share a deckId-first index.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .withIndex("by_deck" as never, (q: any) => q.eq("deckId", deckId))
+        .collect()),
+    );
+  }
+  return rows;
+}

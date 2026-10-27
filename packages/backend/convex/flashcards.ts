@@ -5,6 +5,7 @@ import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   activeDeckIds,
+  rowsInDecks,
   owned,
   ownedOrFail,
   readableLibrary,
@@ -138,10 +139,6 @@ export const browse = query({
   handler: async (ctx, args) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const rows = await ctx.db
-      .query("flashcards")
-      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-      .collect();
     const deckNames = new Map<Id<"decks">, string>();
     for (const deck of await ctx.db
       .query("decks")
@@ -149,14 +146,11 @@ export const browse = query({
       .collect()) {
       deckNames.set(deck._id, deck.name);
     }
-    const all = rows.filter((card) => deckNames.has(card.deckId));
-    // One read for all units: per-flashcard queries would exceed Convex's
-    // per-function index-range limit on large libraries.
+    const all = await rowsInDecks(ctx, "flashcards", deckNames.keys());
+    // One range per existing deck, rather than per card. Orphan payloads
+    // must never consume this query's read budget during background cleanup.
     const unitsByFlashcard = new Map<Id<"flashcards">, Doc<"reviewUnits">[]>();
-    for (const unit of await ctx.db
-      .query("reviewUnits")
-      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-      .collect()) {
+    for (const unit of await rowsInDecks(ctx, "reviewUnits", deckNames.keys())) {
       const list = unitsByFlashcard.get(unit.flashcardId);
       if (list) list.push(unit);
       else unitsByFlashcard.set(unit.flashcardId, [unit]);
@@ -204,13 +198,10 @@ export const listTags = query({
     if (!library) return null;
     // Derive options from the cards that currently carry each tag rather than
     // the library's remembered tag names, so a removed tag leaves the filter.
-    const flashcards = await ctx.db
-      .query("flashcards")
-      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-      .collect();
     const decks = await activeDeckIds(ctx, library._id);
+    const flashcards = await rowsInDecks(ctx, "flashcards", decks);
     const names = new Map<string, string>();
-    for (const flashcard of flashcards.filter((card) => decks.has(card.deckId))) {
+    for (const flashcard of flashcards) {
       for (const tag of flashcard.tags) names.set(tag.toLocaleLowerCase(), tag);
     }
     return [...names.values()].sort((a, b) => a.localeCompare(b));

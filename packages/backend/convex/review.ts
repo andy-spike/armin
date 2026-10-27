@@ -94,21 +94,20 @@ async function nextDueAfter(
   deckId: Id<"decks"> | null,
   now: number,
 ) {
-  const decks = await activeDeckIds(ctx, library._id);
-  const candidates = deckId
-    ? await ctx.db
-        .query("reviewUnits")
-        .withIndex("by_deck_eligible_due", (q) =>
-          q.eq("deckId", deckId).eq("locked", false).eq("archived", false).gt("due", now),
-        )
-        .collect()
-    : await ctx.db
-        .query("reviewUnits")
-        .withIndex("by_library_eligible_due", (q) =>
-          q.eq("libraryId", library._id).eq("locked", false).eq("archived", false).gt("due", now),
-        )
-        .collect();
-  return candidates.find((unit) => decks.has(unit.deckId))?.due ?? null;
+  const decks = deckId
+    ? new Set((await ctx.db.get(deckId))?.libraryId === library._id ? [deckId] : [])
+    : await activeDeckIds(ctx, library._id);
+  let earliest: number | null = null;
+  for (const id of deckId ? (decks.has(deckId) ? [deckId] : []) : decks) {
+    const unit = await ctx.db
+      .query("reviewUnits")
+      .withIndex("by_deck_eligible_due", (q) =>
+        q.eq("deckId", id).eq("locked", false).eq("archived", false).gt("due", now),
+      )
+      .first();
+    if (unit && (earliest === null || unit.due < earliest)) earliest = unit.due;
+  }
+  return earliest;
 }
 
 /** The four possible outcomes for a review unit, without committing. */
