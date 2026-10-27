@@ -87,13 +87,20 @@ export type TemplateContext = {
   /** The rendered front, substituted for `{{FrontSide}}`. */
   frontSide: string;
   side: "front" | "back";
+  /** Whether a substituted field still shows content after conversion. */
+  fieldIsUsable?: (html: string) => boolean;
 };
 
 /**
  * `usedField`: a field shows something (Anki generates the card only then).
  * `audioOnly`: a field had content, but only `[sound:…]` that Armin drops.
  */
-type RenderResult = { html: string; usedField: boolean; audioOnly: boolean };
+type RenderResult = {
+  html: string;
+  usedField: boolean;
+  audioOnly: boolean;
+  unusableField: boolean;
+};
 
 const SOUND_RE = /\[sound:[^\]]*\]/g;
 
@@ -128,6 +135,7 @@ function renderNodes(nodes: Node[], ctx: TemplateContext, result: RenderResult):
       if (ctx.fields.has(node.name) && !isFieldEmpty(value)) {
         // Audio is removed on import, so a field holding only sound shows nothing.
         if (isFieldEmpty(value.replace(SOUND_RE, ""))) result.audioOnly = true;
+        else if (ctx.fieldIsUsable && !ctx.fieldIsUsable(value)) result.unusableField = true;
         else result.usedField = true;
       }
       out += value;
@@ -158,7 +166,12 @@ function lookup(name: string, ctx: TemplateContext) {
 }
 
 export function renderTemplate(source: string, ctx: TemplateContext): RenderResult {
-  const result: RenderResult = { html: "", usedField: false, audioOnly: false };
+  const result: RenderResult = {
+    html: "",
+    usedField: false,
+    audioOnly: false,
+    unusableField: false,
+  };
   result.html = renderNodes(parseTemplate(source), ctx, result);
   return result;
 }
@@ -184,7 +197,11 @@ export function renderCard(
     side: "front",
   };
   const front = renderTemplate(template.qfmt, ctx);
-  if (!front.usedField) return front.audioOnly ? { audioOnly: true as const } : null;
+  if (!front.usedField) {
+    if (front.audioOnly) return { audioOnly: true as const };
+    if (front.unusableField) return { unusableFront: true as const };
+    return null;
+  }
   if (isFieldEmpty(front.html)) return null;
 
   const back = renderTemplate(template.afmt, { ...ctx, side: "back", frontSide: FRONT_MARK });

@@ -254,3 +254,17 @@ headless Chromium on the isolated local deployment. The sample library had one
   it to production behavior. Preview and stall screenshots, the derived
   package, conversion log, and generation script are under
   `/tmp/anki-remaining-terra/`; raw deck contents were not committed.
+
+## Required front content follow-up
+
+The converter now checks whether fields substituted on a custom card's front
+still contain usable content after HTML/media conversion. A front that loses
+its only field (for example an unsupported SVG flag) is skipped with a preview
+warning rather than retaining static template text such as `?` and `Flag`.
+The derived Geography package converts to 757 usable cards instead of 978,
+with a required-front-content warning affecting 221 notes and 319 referenced
+images. This is a converter check, not a successful browser import. Evidence:
+`/tmp/anki-required-content/{before,after}.log`. The previous three real
+packages retain their counts (Japanese 600, Kaishi 1,501, Anatomy 74), with
+zero literal bold delimiters in the rendering harness. `pnpm check` passed
+with 0 errors and 59 warnings. The local upload stall is still under investigation.
