@@ -127,8 +127,8 @@ The Terra follow-up independently reproduced the Kaishi deletion failure in
 headless agent-browser: the 1,501-card deck remained after confirmation, and
 the backend reported the 4,096-read limit in `deleteDeckCascade`. Screenshots:
 `/tmp/anki-terra-followup/delete-confirm.png` and `delete-failed.png`; log:
-`/tmp/anki-terra-followup/dev.log`. At that point a successful large-deck deletion had not been verified; the
-subsequent bounded-deletion checks below supersede that result.
+`/tmp/anki-terra-followup/dev.log`. At that point a successful large-deck
+deletion had not been verified; the subsequent bounded-deletion checks below supersede that result.
 
 After the prior cleanup and scheduled media collection, the local backend had
 1,379 media rows and 1,379 storage blobs, with no missing or unclaimed blobs;
@@ -145,17 +145,16 @@ one bold span. The real Kaishi deck was not reimported after this change.
 `pnpm check` passed with 59 warnings and no errors; web build and mobile bundle
 checks passed.
 
-
 ## Bounded-deletion follow-up (2026-10-26)
 
-On local head `171fc18`, the prior run passed deletion of the 1,501-card
+On local head `c60b895`, the prior run passed deletion of the 1,501-card
 Kaishi deck and a short-content quota fixture of 2,000 cards and 10,000 units,
 and verified that moved-out history survived. Its long-text fixture failed
 with Convex's 16 MiB read limit, and Browse and all-deck Review also failed
 while those orphan units remained. The old failed fixture had already been
 removed by the time of this follow-up, so it could not be resumed.
 
-A new local fixture held four deleted-deck cards and 240 units, each unit
+After the fixes in `171fc18`, a new local fixture held four deleted-deck cards and 240 units, each unit
 carrying 19,000 CJK characters on both sides, without scheduling cleanup.
 With those rows present, authenticated headless agent-browser Browse showed
 only the four sample cards, the tag filter offered only `demo`, and all-deck
