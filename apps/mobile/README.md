@@ -29,6 +29,10 @@ Install the Vite+ global CLI first if you haven't (see the root README).
    selects Expo Go and LAN networking.
 4. Edit `apps/mobile/src/App.tsx`. Fast Refresh updates the phone as you save.
 
+Expo Router provides file-based navigation from `src/app/`. The root layout
+contains the navigation stack, and `src/app/index.tsx` renders the current
+authenticated smoke path. Add screens as routes there as the mobile app grows.
+
 The LAN server uses TCP port 8081 by default. If the phone cannot connect,
 check whether a VPN, firewall, or Wi-Fi client isolation blocks access. You can
 also use the tunnel script, which includes its ngrok dependency locally:
