@@ -209,3 +209,48 @@ confirmed unavailable on the refreshed local deployment. Evidence is under
 After resolving the merge, `pnpm check` passed with 0 errors and 59 warnings,
 the web build passed, and the Android/iOS bundle checks passed. No production
 deployment was performed.
+
+## Remaining real decks, second attempt
+
+Tested application HEAD `1d44d7d273fff7c6a096d4f699b476f5a43e92d5` in
+headless Chromium on the isolated local deployment. The sample library had one
+4-card deck before and after these attempts.
+
+- **AnKing Step-1 — BLOCKED.** The official AnkiWeb Download button returned
+  `Please log in to download more decks.` The full package, quota rejection,
+  and representative cloze subset could not be tested. An authenticated
+  AnkiWeb download is needed; no login was attempted.
+- **Physics GRE MathJax — BLOCKED.** The same official download flow returned
+  the same login message. Neither TeX preservation nor mathematical rendering
+  was tested.
+- **Ultimate Geography v5.3 — PARTIAL / FAIL for flag usability; full app
+  import BLOCKED.** AnkiWeb also required login. The maintainer's official
+  [v5.3 English release](https://github.com/anki-geo/ultimate-geography/releases/tag/v5.3)
+  provides a CrowdAnki export, not an apkg. The downloaded ZIP was 13,022,810
+  bytes, SHA-256 `25068fc3442a1407395eb2d8130e368e1b016d15747f9453386bf4aef553d617`.
+  A separate local genanki-generated package preserved its 319 notes, fields,
+  tags, four templates, and 546 media files, producing 978 cards (matching the
+  release description). This is a derived fixture, not the AnkiWeb package;
+  its generated card identities and scheduling are not evidence about that
+  package. The prior AnkiWeb metadata reported 971 cards.
+
+  The derived legacy `anki2` package previewed 978 basic cards in one deck and
+  319 images, warning that 319 custom notes became rendered basic cards and
+  unsupported images were removed from 221 notes. The Node reader took 41 ms
+  and conversion 131 ms. The source contains 227 SVGs and 319 PNGs; an England
+  flag question converted to `?`, a separator, and `Flag`, with no flag image
+  on either side. Thus the warning is accurate but the resulting flag question
+  is unanswerable. England's country/capital, hint, and map conversion samples
+  retained the expected content; this is not a complete direction or image
+  audit. No review history exists in the derived fixture.
+
+  Two fresh app import attempts stalled at 0/319 images with four pending
+  `/media/upload` requests; the local web server stopped responding even to a
+  GET of `/`. Restart restored service. The first Stop import could not finish
+  while the server was unresponsive. After each restart the library displayed
+  only the original four-card sample deck. No successful import occurred, so
+  Browse/Edit/Review, stored media resolution, HTTP images, and post-import
+  cleanup remain unverified. The local stall needs diagnosis before attributing
+  it to production behavior. Preview and stall screenshots, the derived
+  package, conversion log, and generation script are under
+  `/tmp/anki-remaining-terra/`; raw deck contents were not committed.
