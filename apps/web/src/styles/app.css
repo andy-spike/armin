@@ -961,3 +961,30 @@ html[data-scroll="document"] {
     margin-bottom: 0.25rem;
   }
 }
+
+/* KaTeX remains inline with prose; display equations scroll on narrow cards. */
+.math-display {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-block: 0.25rem;
+}
+.math-inline {
+  display: inline;
+}
+.math-error {
+  display: inline-flex;
+  flex-direction: column;
+  max-width: 100%;
+}
+.math-error code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.math-warning {
+  color: var(--armin-muted);
+  font-size: 0.75rem;
+}
+.markdown-content .katex {
+  font-size: 1.1em;
+}

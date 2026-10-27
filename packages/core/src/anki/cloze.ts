@@ -24,6 +24,7 @@ const OPEN_RE = /\{\{c(\d+(?:,\d+)*)::/y;
 function parse(source: string, state: { shared: boolean }) {
   const root: ClozeNode = { num: 0, items: [] };
   const stack: ClozeNode[] = [root];
+  const braces = [0];
   let text = "";
   const flush = () => {
     if (text) stack[stack.length - 1].items.push(text);
@@ -40,14 +41,25 @@ function parse(source: string, state: { shared: boolean }) {
       const node: ClozeNode = { num: Math.min(...nums), items: [] };
       stack[stack.length - 1].items.push(node);
       stack.push(node);
+      braces.push(0);
       i += open[0].length;
       continue;
     }
-    if (source.startsWith("}}", i) && stack.length > 1) {
+    if (source.startsWith("}}", i) && stack.length > 1 && braces.at(-1) === 0) {
       flush();
       stack.pop();
+      braces.pop();
       i += 2;
       continue;
+    }
+    if (source[i] === "\\" && i + 1 < source.length) {
+      text += source.slice(i, i + 2);
+      i += 2;
+      continue;
+    }
+    if (stack.length > 1) {
+      if (source[i] === "{") braces[braces.length - 1]++;
+      else if (source[i] === "}" && braces.at(-1)! > 0) braces[braces.length - 1]--;
     }
     text += source[i++];
   }

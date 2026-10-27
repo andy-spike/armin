@@ -257,6 +257,9 @@ importers:
 
   apps/web:
     dependencies:
+      katex:
+        specifier: ^0.19.1
+        version: 0.19.1
       '@armin/backend':
         specifier: workspace:*
         version: link:../../packages/backend
@@ -457,6 +460,9 @@ importers:
 
   packages/core:
     dependencies:
+      katex:
+        specifier: ^0.19.1
+        version: 0.19.1
       ts-fsrs:
         specifier: ^5.4.1
         version: 5.4.1
@@ -465,6 +471,14 @@ importers:
         version: 4.6.7
 
 packages:
+
+  katex@0.19.1:
+    resolution: {integrity: sha512-jG8uKntjSEcm2EpQOh0XturpPuuC9r3Sq5HLHdsFdWZT27E672SF19QEi+of0/YeOy15lDgRhKvr5614uRrEfA==}
+    hasBin: true
+
+  commander@15.0.0:
+    resolution: {integrity: sha512-z67u4ZhzCL/Tydu1lJARtEZYWbWaN7oYLHbsuzocr6y4N6WZAagG3RQ4FW61V1/0+jImpj293XfrcYnd1qxtPg==}
+    engines: {node: '>=22.12.0'}
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -7226,6 +7240,12 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
+
+  katex@0.19.1:
+    dependencies:
+      commander: 15.0.0
+
+  commander@15.0.0: {}
 
   '@babel/code-frame@7.29.7':
     dependencies:

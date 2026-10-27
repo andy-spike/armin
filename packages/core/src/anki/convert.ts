@@ -58,12 +58,15 @@ export function armDeckName(ankiPath: string) {
 const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
 
 const WARNING_MESSAGES: Record<ImportWarningCode, (count: number) => string> = {
+  math_unsupported: (n) =>
+    `Equations in ${plural(n, "note")} contain invalid or unsupported math syntax; their source is kept with a warning.`,
   audio_removed: (n) => `Audio was removed from ${plural(n, "note")} (Armin has no audio yet).`,
   video_removed: (n) => `Video was removed from ${plural(n, "note")} (Armin has no video yet).`,
   unsupported_image_removed: (n) =>
     `Images in an unsupported format (such as SVG) were removed from ${plural(n, "note")}.`,
   missing_media: (n) => `Images missing from the package were removed from ${plural(n, "note")}.`,
-  math_as_text: (n) => `Math in ${plural(n, "note")} is shown as plain text, not rendered.`,
+  math_as_text: (n) =>
+    `Legacy [latex] content in ${plural(n, "note")} is kept as source; full LaTeX documents are not supported.`,
   nested_cloze_flattened: (n) =>
     `Nested cloze deletions in ${plural(n, "note")} were flattened into separate deletions.`,
   shared_cloze_narrowed: (n) =>
