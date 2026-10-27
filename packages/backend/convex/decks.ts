@@ -1,38 +1,62 @@
 import { v } from "convex/values";
 import { State } from "@armin/core/scheduler";
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { query, type QueryCtx } from "./_generated/server";
+import { mutation } from "./functions";
 import type { Doc } from "./_generated/dataModel";
 import { ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
 import { MAX_DECKS, MAX_DESCRIPTION_CHARS, MAX_NAME_CHARS } from "./model/limits";
-import { selectSession } from "./model/queue";
-import { adjustReviewUnitCount, bumpRevision, findRequest, recordRequest } from "./model/study";
+import { introducedToday, selectSession, type SessionReads } from "./model/queue";
+import {
+  adjustReviewUnitCount,
+  bumpRevision,
+  findRequest,
+  recordRequest,
+  SettingsCache,
+} from "./model/study";
 import { internal } from "./_generated/api";
+
+/** The deck's totals the slow way, for a deck whose counters aren't built yet. */
+async function countFromUnits(ctx: QueryCtx, deck: Doc<"decks">) {
+  const units = await ctx.db
+    .query("reviewUnits")
+    .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
+    .collect();
+  const active = units.filter((unit) => !unit.archived);
+  const learnedByFlashcard = new Map<string, boolean>();
+  for (const unit of active) {
+    const learned = learnedByFlashcard.get(unit.flashcardId) ?? true;
+    learnedByFlashcard.set(unit.flashcardId, learned && unit.state === State.Review);
+  }
+  return {
+    active: learnedByFlashcard.size,
+    archived: new Set(units.filter((unit) => unit.archived).map((unit) => unit.flashcardId)).size,
+    learned: [...learnedByFlashcard.values()].filter(Boolean).length,
+    newUnits: active.filter((unit) => unit.state === State.New).length,
+    learningUnits: active.filter(
+      (unit) => unit.state === State.Learning || unit.state === State.Relearning,
+    ).length,
+  };
+}
 
 async function deckStats(
   ctx: QueryCtx,
   library: Doc<"libraries">,
   deck: Doc<"decks">,
   now: number,
+  shared: SessionReads = {},
 ) {
-  const units = await ctx.db
-    .query("reviewUnits")
-    .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
-    .collect();
-  const active = units.filter((unit) => !unit.archived);
   // Archived cards stay out of the deck's card and progress totals, but the
   // header names their count separately so the footer and tile grid agree.
-  const archived = new Set(units.filter((unit) => unit.archived).map((unit) => unit.flashcardId))
-    .size;
   // Progress is counted in flashcards: a flashcard is learned only when every
   // review unit it generates (both directions, every cloze deletion) is in
   // FSRS Review state, so `learned` never exceeds `total`.
-  const learnedByFlashcard = new Map<string, boolean>();
-  for (const unit of active) {
-    const learned = learnedByFlashcard.get(unit.flashcardId) ?? true;
-    learnedByFlashcard.set(unit.flashcardId, learned && unit.state === State.Review);
-  }
-  const session = await selectSession(ctx, library, deck._id, now);
+  const counts =
+    (await ctx.db
+      .query("deckCounters")
+      .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
+      .unique()) ?? (await countFromUnits(ctx, deck));
+  const session = await selectSession(ctx, library, deck._id, now, shared);
   return {
     id: deck._id,
     name: deck.name,
@@ -40,14 +64,12 @@ async function deckStats(
     version: deck.version,
     createdAt: deck.createdAt,
     updatedAt: deck.updatedAt,
-    total: learnedByFlashcard.size,
-    archived,
+    total: counts.active,
+    archived: counts.archived,
     due: session.reviews.length + session.frontier.length,
-    newCount: active.filter((unit) => unit.state === State.New).length,
-    learning: active.filter(
-      (unit) => unit.state === State.Learning || unit.state === State.Relearning,
-    ).length,
-    learned: [...learnedByFlashcard.values()].filter(Boolean).length,
+    newCount: counts.newUnits,
+    learning: counts.learningUnits,
+    learned: counts.learned,
   };
 }
 
@@ -61,8 +83,13 @@ export const list = query({
       .withIndex("by_library", (q) => q.eq("libraryId", library._id))
       .collect();
     const now = Date.now();
+    // Today's introductions and the settings are account-wide; read them once.
+    const shared: SessionReads = {
+      today: await introducedToday(ctx, library, now),
+      settings: new SettingsCache(ctx, library._id),
+    };
     const out = [];
-    for (const deck of decks) out.push(await deckStats(ctx, library, deck, now));
+    for (const deck of decks) out.push(await deckStats(ctx, library, deck, now, shared));
     return out;
   },
 });

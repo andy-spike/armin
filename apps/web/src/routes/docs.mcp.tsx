@@ -3,6 +3,7 @@ import { LegalPage } from "@/components/legal/legal-page";
 import guide from "@/content/docs/mcp.md?raw";
 
 export const Route = createFileRoute("/docs/mcp")({
+  staticData: { documentScroll: true },
   ssr: true,
   headers: () => ({ "Cache-Control": "public, max-age=300, s-maxage=300" }),
   head: () => ({

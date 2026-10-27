@@ -1,7 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { convexQuery } from "@convex-dev/react-query";
 import {
   Brain,
   Check,
@@ -16,7 +15,6 @@ import {
   Settings,
   Sun,
 } from "lucide-react";
-import { api } from "@armin/backend/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,10 +42,10 @@ import {
 } from "@/components/ui/sidebar";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
-import { armin } from "@/lib/armin-client";
-import { deckKeys } from "@/lib/armin-query";
+import { decksQuery as decksQueryOptions, reviewStatusQuery } from "@/lib/queries";
+import { useStudyClock } from "@/lib/study-clock";
 import { signOutToSignIn } from "@/lib/auth-client";
-import { useNow, useViewer } from "@/lib/session";
+import { useViewer } from "@/lib/session";
 import { TITLEBAR_THEME_OPTIONS } from "@/lib/theme";
 import { cn, plural } from "@/lib/utils";
 import { useTheme } from "@/theme/theme-provider";
@@ -275,13 +273,9 @@ function ReviewItem({
   active: boolean;
   linkProps: LinkProps;
 }) {
-  const now = useNow();
-  const queueQuery = useQuery({
-    ...convexQuery(api.review.queue, { now }),
-    enabled: ready,
-  });
-  const dueCount = queueQuery.data?.items.length ?? 0;
-  const statusLabel = !queueQuery.isSuccess
+  const statusQuery = useQuery({ ...reviewStatusQuery(useStudyClock()), enabled: ready });
+  const dueCount = statusQuery.data?.due ?? 0;
+  const statusLabel = !statusQuery.isSuccess
     ? undefined
     : dueCount === 0
       ? "all caught up"
@@ -314,7 +308,7 @@ function ReviewItem({
       >
         <GraduationCap strokeWidth={1.5} />
         <span className={fade}>Review</span>
-        {queueQuery.isSuccess && (
+        {statusQuery.isSuccess && (
           // The count hides with the labels; the rail keeps a due dot instead.
           <span
             aria-hidden
@@ -349,11 +343,7 @@ function DeckList({
   linkProps: (path: string) => LinkProps;
 }) {
   // Same cache entry as the Decks page, so both stay in step.
-  const decksQuery = useQuery({
-    queryKey: deckKeys.all,
-    queryFn: () => armin.decks.list(),
-    enabled: ready,
-  });
+  const decksQuery = useQuery({ ...decksQueryOptions(useStudyClock()), enabled: ready });
   const decks = [...(decksQuery.data ?? [])].sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
   );

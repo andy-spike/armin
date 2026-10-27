@@ -1,13 +1,13 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { deckKeys } from "@/lib/armin-query";
-import type { UiDeck } from "@/types/view-models";
+import { decksQuery } from "@/lib/queries";
 
+/** A deck's row from the cached deck list, to show its page before its own query loads. */
 export function getCachedDeckDetail(queryClient: QueryClient, deckId: string) {
-  return queryClient.getQueryData<UiDeck[]>(deckKeys.all)?.find((deck) => deck.id === deckId);
+  return queryClient.getQueryData(decksQuery().queryKey)?.find((deck) => deck.id === deckId);
 }
 
 export function getCachedDeckDetailUpdatedAt(queryClient: QueryClient, deckId: string) {
   return getCachedDeckDetail(queryClient, deckId)
-    ? queryClient.getQueryState(deckKeys.all)?.dataUpdatedAt
+    ? queryClient.getQueryState(decksQuery().queryKey)?.dataUpdatedAt
     : undefined;
 }

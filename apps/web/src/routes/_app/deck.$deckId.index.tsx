@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  browseQuery,
   DECK_PAGE_SORT,
   deckQuery as deckQueryOptions,
   deckTagsQuery,
@@ -9,13 +8,7 @@ import {
 import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
-import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Play, Layers, AlertTriangle, Share2, Tag, Settings } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
@@ -39,7 +32,9 @@ import {
 } from "@/components/page-skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
-import { invalidateDeckScopedData, type BrowseQueryFilters } from "@/lib/armin-query";
+import type { BrowseQueryFilters } from "@/lib/armin-query";
+import { useStudyClock } from "@/lib/study-clock";
+import { useBrowse } from "@/lib/use-browse";
 import { getCachedDeckDetail, getCachedDeckDetailUpdatedAt } from "@/lib/deck-detail-cache";
 import { toUiFlashcard, type UiDeck, type UiFlashcard } from "@/types/view-models";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
@@ -69,21 +64,18 @@ function DeckPage() {
   }, [sort, deckId, tagFilter]);
 
   const deckQuery = useQuery({
-    ...deckQueryOptions(deckId),
+    ...deckQueryOptions(deckId, useStudyClock()),
     initialData: () => getCachedDeckDetail(queryClient, deckId),
     initialDataUpdatedAt: () => getCachedDeckDetailUpdatedAt(queryClient, deckId),
   });
 
   const tagsQuery = useQuery(deckTagsQuery(deckId));
 
-  const cardsQuery = useInfiniteQuery({
-    ...browseQuery(browseFilters),
-    placeholderData: keepPreviousData,
-  });
+  const cardsQuery = useBrowse(browseFilters);
 
   const displayed = useMemo(
-    () => (cardsQuery.data?.pages ?? []).flatMap((page) => page.flashcards).map(toUiFlashcard),
-    [cardsQuery.data],
+    () => cardsQuery.flashcards.map(toUiFlashcard),
+    [cardsQuery.flashcards],
   );
 
   // Rendering a page of flashcard tiles is the heavy part of opening a deck —
@@ -95,10 +87,9 @@ function DeckPage() {
   const deferredDisplayed = useDeferredValue(displayed);
   const cardsRendering = deferredDisplayed !== displayed;
 
-  const filteredTotal = cardsQuery.data?.pages[0]?.filteredTotal ?? 0;
-  const filteredArchived = cardsQuery.data?.pages[0]?.filteredArchived ?? 0;
+  const { filteredTotal, filteredArchived } = cardsQuery;
   const filteredActive = Math.max(0, filteredTotal - filteredArchived);
-  const hasMore = cardsQuery.hasNextPage ?? false;
+  const hasMore = cardsQuery.hasNextPage;
 
   const deckTags = tagsQuery.data ?? [];
   const tagOptions = useMemo(
@@ -142,7 +133,6 @@ function DeckPage() {
   const createCard = useMutation({
     mutationFn: (values: CardFormValues) => armin.flashcards.create({ deckId, ...values }),
     onSuccess: () => {
-      invalidateDeckScopedData(queryClient, deckId);
       toast({ tone: "success", title: "Flashcard added" });
     },
     onError: () => toast({ tone: "error", title: "Couldn’t add flashcard" }),
@@ -152,7 +142,6 @@ function DeckPage() {
     mutationFn: (values: CardFormValues & { id: string; version: number }) =>
       armin.flashcards.update(values),
     onSuccess: () => {
-      invalidateDeckScopedData(queryClient, deckId);
       toast({ tone: "success", title: "Flashcard updated" });
       closeDialog();
     },
@@ -162,7 +151,6 @@ function DeckPage() {
   const deleteCard = useMutation({
     mutationFn: (id: string) => armin.flashcards.delete(id),
     onSuccess: () => {
-      invalidateDeckScopedData(queryClient, deckId);
       toast({ tone: "error", title: "Flashcard deleted" });
     },
     onError: () => toast({ tone: "error", title: "Couldn’t delete flashcard" }),
@@ -172,7 +160,6 @@ function DeckPage() {
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
       armin.flashcards.archive(id, archived),
     onSuccess: (_note, { archived }) => {
-      invalidateDeckScopedData(queryClient, deckId);
       toast({
         tone: "success",
         title: archived ? "Flashcard archived" : "Flashcard unarchived",
@@ -216,7 +203,7 @@ function DeckPage() {
               className="mt-5"
               onClick={() => {
                 void deckQuery.refetch();
-                void cardsQuery.refetch();
+                cardsQuery.refetch();
               }}
             >
               Try again
@@ -334,7 +321,7 @@ function DeckPage() {
                 cards={deferredDisplayed}
                 hasMore={hasMore}
                 isFetchingNextPage={cardsQuery.isFetchingNextPage}
-                fetchNextPage={() => void cardsQuery.fetchNextPage()}
+                fetchNextPage={cardsQuery.fetchNextPage}
                 renderCard={(card) => (
                   <FlashcardTile
                     key={card.id}

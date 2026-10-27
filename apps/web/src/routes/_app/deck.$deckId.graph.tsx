@@ -1,5 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { deckQuery as deckQueryOptions, prefetchGraphPage } from "@/lib/queries";
+import {
+  deckQuery as deckQueryOptions,
+  graphQuery as graphQueryOptions,
+  prefetchGraphPage,
+} from "@/lib/queries";
+import { useStudyClock } from "@/lib/study-clock";
 import { armin } from "@/lib/armin-client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -12,7 +17,6 @@ import { GraphSkeleton } from "@/components/page-skeletons";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
-import { graphKeys } from "@/lib/armin-query";
 import { useGraphCanvasEdits } from "@/lib/use-graph-canvas-edits";
 import { toUiDeckGraph, type UiDeckGraph } from "@/types/view-models";
 import type { FlashcardContent, FlashcardDeleteConsequences, FlashcardType } from "@/types/window";
@@ -96,22 +100,12 @@ function DeckGraphPage() {
     }
   };
 
-  const deckQuery = useQuery(deckQueryOptions(deckId));
+  const deckQuery = useQuery(deckQueryOptions(deckId, useStudyClock()));
 
   // A deleted or malformed deck id resolves to no deck, so don't ask for a
   // graph in that case: the graph query would come back empty and look like a
   // real deck with no cards.
-  const graphQuery = useQuery({
-    queryKey: graphKeys.deck(deckId),
-    queryFn: async () => {
-      markGraphPerf("getDeck:start");
-      const graph = await armin.graph.getDeck(deckId);
-      markGraphPerf("getDeck:end");
-      measureGraphPerf("getDeck", "getDeck:start", "getDeck:end");
-      return graph;
-    },
-    enabled: Boolean(deckQuery.data),
-  });
+  const graphQuery = useQuery({ ...graphQueryOptions(deckId), enabled: Boolean(deckQuery.data) });
 
   const persistedGraph = useMemo(() => {
     if (!graphQuery.data) return null;
@@ -253,7 +247,7 @@ function DeckGraphPage() {
   }
 
   return (
-    <div data-fullbleed className="relative h-full w-full">
+    <div className="relative h-full w-full">
       <h1 className="sr-only">
         {deckQuery.data ? `${deckQuery.data.name} prerequisite graph` : "Prerequisite graph"}
       </h1>
@@ -375,6 +369,7 @@ function DeckGraphPage() {
 }
 
 export const Route = createFileRoute("/_app/deck/$deckId/graph")({
+  staticData: { fullbleed: true },
   loader: ({ context, params }) => {
     // Resolve the deck before asking for its graph, so an unknown id never
     // looks like an empty deck or reaches graph writes.

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { defaultSchedulingSettings } from "@armin/core/study";
-import { internalMutation } from "./_generated/server";
+import { internalMutation } from "./functions";
 import { components, internal } from "./_generated/api";
 import { cleanupLibraryData } from "./deletion";
 import { reviewerResetHours } from "./model/reviewer";

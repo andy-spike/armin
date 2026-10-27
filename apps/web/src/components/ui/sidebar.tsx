@@ -149,10 +149,10 @@ function SidebarProvider({
             ...style,
           } as React.CSSProperties
         }
-        className={cn(
-          "group/sidebar-wrapper flex min-h-svh w-full has-data-[variant=inset]:bg-sidebar",
-          className,
-        )}
+        // shadcn's `has-data-[variant=inset]:bg-sidebar` is dropped: Armin has
+        // no inset sidebar, and a `:has()` on the app's outermost wrapper is
+        // re-checked on every DOM change inside it (graph panning dropped frames).
+        className={cn("group/sidebar-wrapper flex min-h-svh w-full", className)}
         {...props}
       >
         {children}

@@ -3,6 +3,7 @@ import { LegalPage } from "@/components/legal/legal-page";
 import privacy from "@/content/legal/privacy.md?raw";
 
 export const Route = createFileRoute("/privacy")({
+  staticData: { documentScroll: true },
   // Public and crawlable: the server renders the policy rather than a client shell.
   ssr: true,
   // Public, session-independent HTML; updates become fresh within five minutes.

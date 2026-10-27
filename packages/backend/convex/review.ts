@@ -1,8 +1,15 @@
 import { v } from "convex/values";
 import { Rating, type Grade } from "ts-fsrs";
-import { fsrsFieldsFromMs, fsrsFieldsToMs, fromFsrsCard, toFsrsCard } from "@armin/core/scheduler";
-import { formatInterval } from "@armin/core/study";
-import { mutation, query } from "./_generated/server";
+import {
+  fsrsFieldsFromMs,
+  fsrsFieldsToMs,
+  fromFsrsCard,
+  isPrereqSecured,
+  toFsrsCard,
+} from "@armin/core/scheduler";
+import { formatInterval, startOfNextStudyDayMs } from "@armin/core/study";
+import { query } from "./_generated/server";
+import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { readableLibrary, writableLibrary } from "./model/access";
 import { checkEligible, selectSession } from "./model/queue";
@@ -83,6 +90,28 @@ export const queue = query({
       newCount: frontier.length,
       nextDueAt: nextDue,
       serverNow: now,
+    };
+  },
+});
+
+/**
+ * How many review units are due across the library, and when time alone next
+ * changes any due count: the next unit falling due, or the next study day
+ * (which renews the new-unit allowance). Clients move their clock argument to
+ * `refreshAt`, so time-dependent subscriptions re-run only when they must.
+ */
+export const status = query({
+  args: { now: v.number() },
+  handler: async (ctx) => {
+    const library = await readableLibrary(ctx);
+    if (!library) return null;
+    const now = Date.now();
+    const { reviews, frontier } = await selectSession(ctx, library, null, now);
+    const nextDue = await nextDueAfter(ctx, library, null, now);
+    const nextDay = startOfNextStudyDayMs(now, library.timeZone);
+    return {
+      due: reviews.length + frontier.length,
+      refreshAt: nextDue == null ? nextDay : Math.min(nextDue, nextDay),
     };
   },
 });
@@ -177,15 +206,17 @@ export const rate = mutation({
     if (ineligible) return { status: "ineligible", message: ineligible };
 
     const settings = new SettingsCache(ctx, library._id);
-    const scheduler = schedulerFor(await settings.forDeck(unit.deckId));
+    const deckSettings = await settings.forDeck(unit.deckId);
+    const scheduler = schedulerFor(deckSettings);
     const { card: next, log } = scheduler.next(
       toFsrsCard(fsrsFieldsFromMs(unit)),
       new Date(now),
       args.rating as Grade,
     );
     const version = unit.version + 1;
+    const fields = fsrsFieldsToMs(fromFsrsCard(next));
     await ctx.db.patch(unit._id, {
-      ...fsrsFieldsToMs(fromFsrsCard(next)),
+      ...fields,
       version,
       updatedAt: now,
     });
@@ -213,7 +244,15 @@ export const rate = mutation({
       before: fsrsSnapshot(unit),
       unitVersionAfter: version,
     });
-    await refreshAfterPrereqChange(ctx, unit.flashcardId, settings, now);
+    // Dependents' locks depend only on whether this flashcard's units are
+    // secured, which is a function of state and stability alone. Prerequisites
+    // share their dependents' deck (ADR 0015), so this floor is theirs too. When
+    // the answer leaves the unit on the same side of the floor, no lock can
+    // change, and the usual case skips walking the downstream graph.
+    const floor = deckSettings.prereqStabilityFloor;
+    if (isPrereqSecured(unit, floor) !== isPrereqSecured(fields, floor)) {
+      await refreshAfterPrereqChange(ctx, unit.flashcardId, settings, now);
+    }
     await bumpRevision(ctx, library._id);
 
     const result: RateResult = {

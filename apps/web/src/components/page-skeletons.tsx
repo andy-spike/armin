@@ -306,7 +306,7 @@ export function GraphSkeleton() {
 
 function GraphPageSkeleton() {
   return (
-    <div data-fullbleed className="relative h-full w-full bg-bg">
+    <div className="relative h-full w-full bg-bg">
       <GraphSkeleton />
     </div>
   );

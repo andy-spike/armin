@@ -13,6 +13,7 @@ import {
   resolveMediaRefsInMarkdown,
 } from "@/lib/media";
 import { ImageZoomDialog } from "@/components/ui/image-zoom-dialog";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import { ResizableImage } from "@/components/ui/markdown-image";
 import { useToast } from "@/components/ui/toast";
 import { armin } from "@/lib/armin-client";
@@ -78,6 +79,15 @@ function loadMarkdown(editor: Editor, markdown: string) {
   });
 }
 
+/** Whether the last Markdown block is something other than a paragraph. */
+function endsWithNonParagraphBlock(markdown: string) {
+  const trimmed = markdown.trimEnd();
+  // A closing fence ends a code block even when the code contains blank lines.
+  if (/\n\s*(```|~~~)$/.test(trimmed)) return true;
+  const lastBlock = trimmed.split(/\n\s*\n/).at(-1) ?? "";
+  return /^\s*(```|~~~|[-*+]\s|\d+[.)]\s|>|#{1,6}\s)/.test(lastBlock);
+}
+
 type MarkdownEditorProps = {
   value: string;
   onChange: (value: string) => void;
@@ -87,7 +97,65 @@ type MarkdownEditorProps = {
   "aria-label"?: string;
 };
 
-export function MarkdownEditor({
+/**
+ * Creating a TipTap editor takes tens of milliseconds, and React runs the
+ * effect that creates it before the browser paints a click's result. A dialog
+ * holding two editors therefore appeared only after both existed. The field
+ * first renders a static copy of itself, so the dialog paints at once, and
+ * swaps in the editor on the next task without moving anything.
+ */
+export function MarkdownEditor(props: MarkdownEditorProps) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let timeout = 0;
+    // The frame callback runs before the paint, the timeout after it.
+    const frame = requestAnimationFrame(() => {
+      timeout = window.setTimeout(() => setReady(true));
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, []);
+  if (ready) return <RichMarkdownEditor {...props} />;
+  return (
+    <div
+      className={cn("rounded-md border border-border-strong bg-surface", props.className)}
+      aria-busy
+    >
+      <div
+        {...(props.autoFocus ? { "data-autofocus": true } : {})}
+        className="markdown-editor armin-scrollbar max-h-[220px] min-h-[88px] w-full px-3 py-2 text-sm leading-relaxed text-ink"
+      >
+        {/* The read-only renderer shares the editor's `markdown-content`
+            styles, so formatted text looks the same before and after the swap. */}
+        {props.value ? (
+          <MarkdownContent content={props.value} className="tiptap">
+            {/* The editor keeps an empty paragraph after a final list, quote,
+                code block, or heading, so the copy reserves the same line. */}
+            {endsWithNonParagraphBlock(props.value) && (
+              <p>
+                <br />
+              </p>
+            )}
+          </MarkdownContent>
+        ) : (
+          <div className="tiptap">
+            <p className="is-editor-empty" data-placeholder={props.placeholder ?? ""} />
+          </div>
+        )}
+      </div>
+      <div className="flex items-center justify-end border-t border-border px-2 py-1">
+        <span className="inline-flex items-center gap-1.5 px-1.5 py-1 text-xs font-medium text-muted">
+          <ImagePlus className="h-3.5 w-3.5" aria-hidden />
+          Add image
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function RichMarkdownEditor({
   value,
   onChange,
   placeholder,

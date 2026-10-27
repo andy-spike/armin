@@ -1,8 +1,9 @@
 import { graphlib, layout } from "@dagrejs/dagre";
-import { Position, type Edge, type Node } from "@xyflow/react";
+import type { Edge, Node } from "@xyflow/react";
+import { CARD_NODE_HEIGHT, CARD_NODE_WIDTH } from "@/lib/graph-dimensions";
 
-export const CARD_NODE_WIDTH = 240;
-export const CARD_NODE_HEIGHT = 116;
+// This module runs in the layout worker; it must not import React Flow (or
+// anything else that pulls the canvas and d3) at runtime.
 
 const NODE_SEP = 48;
 const RANK_SEP = 72;
@@ -174,8 +175,6 @@ export function layoutGraph<T extends Record<string, unknown>>(
 
   const layoutedNodes = nodes.map((node) => ({
     ...node,
-    targetPosition: Position.Top,
-    sourcePosition: Position.Bottom,
     position: positioned.get(node.id) ?? node.position,
   }));
 
