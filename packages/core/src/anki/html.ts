@@ -280,6 +280,7 @@ function imagePlaceholder(rawSrc: string, state: RenderState) {
 function renderBlocks(nodes: HtmlNode[], state: RenderState): string[] {
   const blocks: string[] = [];
   let inline = "";
+  let previous: HtmlNode | undefined;
   const flush = () => {
     const trimmed = trimInline(inline.replace(/( {2}\n)[ \t]+/g, "$1"));
     if (trimmed) blocks.push(trimmed);
@@ -287,10 +288,12 @@ function renderBlocks(nodes: HtmlNode[], state: RenderState): string[] {
   };
   for (const node of nodes) {
     if ("text" in node || !BLOCK_TAGS.has(node.tag)) {
-      inline += renderInline(node, state);
+      inline = appendInline(inline, renderInline(node, state), node, previous, state);
+      previous = node;
       continue;
     }
     flush();
+    previous = undefined;
     blocks.push(...renderBlockElement(node, state));
   }
   flush();
@@ -428,7 +431,36 @@ function renderTable(table: HtmlElement, state: RenderState): string[] {
 }
 
 function renderInlineChildren(el: HtmlElement, state: RenderState) {
-  return el.children.map((child) => renderInline(child, state)).join("");
+  let result = "";
+  let previous: HtmlNode | undefined;
+  for (const child of el.children) {
+    result = appendInline(result, renderInline(child, state), child, previous, state);
+    previous = child;
+  }
+  return result;
+}
+
+/** Join adjacent bold elements at their boundaries, without touching code text. */
+function appendInline(
+  result: string,
+  next: string,
+  node: HtmlNode,
+  previous: HtmlNode | undefined,
+  state: RenderState,
+) {
+  const bold = (item?: HtmlNode) =>
+    item && "tag" in item && (item.tag === "b" || item.tag === "strong");
+  if (
+    !state.options.plain &&
+    state.open.bold === 0 &&
+    bold(previous) &&
+    bold(node) &&
+    result.endsWith("**") &&
+    next.startsWith("**")
+  ) {
+    return result.slice(0, -2) + next.slice(2);
+  }
+  return result + next;
 }
 
 const LEADING_PUNCTUATION_RE = /^[\p{P}\p{S}]/u;
@@ -583,11 +615,6 @@ export function htmlToMarkdown(html: string, options: HtmlOptions): HtmlConversi
   if (source.search(MATH_RE) !== -1) options.warn("math_as_text");
 
   const tree = parseHtml(source);
-  // Adjacent bold spans (`<b>a</b><b>b</b>`) meet as `****`, which Markdown
-  // can't parse; join them into one span. Literal asterisks are escaped.
-  const markdown = tidy(renderBlocks(tree.children, state).join("\n\n")).replace(
-    /(?<!\\)\*\*\*\*/g,
-    "",
-  );
+  const markdown = tidy(renderBlocks(tree.children, state).join("\n\n"));
   return { markdown, media: [...state.media] };
 }

@@ -111,3 +111,39 @@ asset.
 Known gaps: importing the same file twice creates the decks twice, and a
 single deck near the beta limits may still be too large to delete in one
 transaction (this also affects deleting such a deck by hand).
+
+## Real-deck recheck and follow-up (2026-10-26)
+
+The prior DeepSeek recheck used headless agent-browser and local real Anki
+packages. Japanese Core previewed 600 cards and 199 images, skipping 400
+audio-only fronts; Kaishi imported 1,501 cards and 1,382 images; Anatomy
+imported 74 cards including 66 occlusions, with masks checked against labels.
+The prior run inspected Japanese content and Kaishi bold rendering and
+sampled 30 image URLs successfully. It recorded 36 `libraryCounters` conflict
+log lines during Kaishi, but no ultimate upload failures. These are logged
+mutation attempts, not a count of failed uploads. Its full evidence and
+screenshots are in `/tmp/anki-recheck/`.
+
+The Terra follow-up independently reproduced the Kaishi deletion failure in
+headless agent-browser: the 1,501-card deck remained after confirmation, and
+the backend reported the 4,096-read limit in `deleteDeckCascade`. Screenshots:
+`/tmp/anki-terra-followup/delete-confirm.png` and `delete-failed.png`; log:
+`/tmp/anki-terra-followup/dev.log`. This remains unresolved: a safe bounded
+deletion must also preserve active-data visibility, ownership, counters, and
+import cancellation across transactions. A successful large-deck deletion was
+not verified.
+
+After the prior cleanup and scheduled media collection, the local backend had
+1,379 media rows and 1,379 storage blobs, with no missing or unclaimed blobs;
+all 1,500 remaining flashcard-media links resolved, and the media counter and
+sum of media sizes both read 40,838,881 bytes. This is a snapshot of the
+remaining local data, not a fresh upload test. The prior run's 1,581 blobs and
+1,578 media rows were captured before cleanup; the current counts show no
+remaining orphan blobs. No new upload failure was measured in this follow-up.
+
+The follow-up also reproduced loss of literal `****` in inline and fenced code
+caused by the final Markdown replacement. After the fix, targeted converter
+checks preserved both forms and rendered adjacent Japanese bold elements as
+one bold span. The real Kaishi deck was not reimported after this change.
+`pnpm check` passed with 59 warnings and no errors; web build and mobile bundle
+checks passed.
