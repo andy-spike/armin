@@ -9,7 +9,7 @@ import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Library, Search } from "lucide-react";
+import { AlertTriangle, CircleDot, Layers, Library, Search, Tag } from "lucide-react";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import {
   FlashcardDeleteDialog,
@@ -279,10 +279,11 @@ function BrowsePage() {
               onValueChange={(value) => setStateFilter(value ?? ALL_STATES)}
             >
               <SelectTrigger
-                className="w-32 border-border-strong bg-surface"
+                className="w-36 border-border-strong bg-surface"
                 aria-label="Filter by state"
               >
-                <SelectValue />
+                <CircleDot className="size-3.5 text-muted" aria-hidden />
+                <SelectValue className="flex-1 text-left" />
               </SelectTrigger>
               <SelectContent alignItemWithTrigger={false}>
                 <SelectGroup>
@@ -304,7 +305,8 @@ function BrowsePage() {
               searchPlaceholder="Search decks…"
               emptyText="No decks found."
               aria-label="Filter by deck"
-              className="w-44"
+              icon={<Layers className="size-3.5 shrink-0 text-muted" aria-hidden />}
+              className="w-48"
             />
 
             {allTags.length > 0 && (
@@ -316,7 +318,8 @@ function BrowsePage() {
                 searchPlaceholder="Search tags…"
                 emptyText="No tags found."
                 aria-label="Filter by tag"
-                className="w-36"
+                icon={<Tag className="size-3.5 shrink-0 text-muted" aria-hidden />}
+                className="w-40"
               />
             )}
 
@@ -324,8 +327,9 @@ function BrowsePage() {
               value={sort}
               onChange={setSort}
               options={BROWSE_SORT_OPTIONS}
+              inlineIcon
               className="sm:ml-auto"
-              triggerClassName="min-w-0 w-40"
+              triggerClassName="min-w-0 w-44"
             />
           </div>
 
