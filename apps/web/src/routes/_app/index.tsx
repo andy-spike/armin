@@ -1,10 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { plural } from "@/lib/utils";
 import { armin, errorMessage, newRequestId } from "@/lib/armin-client";
-import { notifySaveError } from "@/lib/notify";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Layers, Plus, AlertTriangle, Ellipsis, Pencil, Trash2 } from "lucide-react";
+import { Layers, Plus, AlertTriangle, Ellipsis } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
@@ -27,6 +26,7 @@ import { Progress } from "@/components/ui/progress";
 import { DeckGridSkeleton } from "@/components/page-skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SortControl } from "@/components/sort-control";
+import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
 import { useToast } from "@/components/ui/toast";
 import { DECK_SORT_OPTIONS, sortDecks, type DeckSortKey } from "@/lib/sort-decks";
 import type { UiDeck } from "@/types/view-models";
@@ -46,17 +46,11 @@ function DecksPage() {
   const [description, setDescription] = useState("");
   const [closingAfterCreate, setClosingAfterCreate] = useState(false);
   const [sort, setSort] = useState<DeckSortKey>("name-asc");
-  const [renameOpen, setRenameOpen] = useState(false);
-  const [renamingDeck, setRenamingDeck] = useState<UiDeck | null>(null);
-  const [renameName, setRenameName] = useState("");
-  const [closingAfterRename, setClosingAfterRename] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deletingDeck, setDeletingDeck] = useState<UiDeck | null>(null);
-  const [closingAfterDelete, setClosingAfterDelete] = useState(false);
   // One request id per create dialog, so a retried submit can't add two decks.
   const createRequestId = useRef(newRequestId());
 
   const decksQuery = useQuery(decksQueryOptions(useStudyClock()));
+  const deckActions = useDeckActions();
 
   const decks = decksQuery.data ?? [];
   const sortedDecks = useMemo(
@@ -77,28 +71,6 @@ function DecksPage() {
     },
   });
 
-  const updateDeck = useMutation({
-    mutationFn: (input: { id: string; version: number; name: string }) => armin.decks.update(input),
-    onSuccess: (_result, deck) => {
-      toast({ tone: "success", title: "Deck renamed", description: deck.name });
-      setClosingAfterRename(true);
-      setRenameOpen(false);
-    },
-    onError: (error) => notifySaveError(toast, "Couldn’t rename deck", error),
-  });
-
-  const deleteDeck = useMutation({
-    mutationFn: (id: string) => armin.decks.delete(id),
-    onSuccess: () => {
-      toast({ tone: "success", title: "Deck deleted" });
-      setClosingAfterDelete(true);
-      setDeleteOpen(false);
-    },
-    onError: () => {
-      toast({ tone: "error", title: "Couldn’t delete deck" });
-    },
-  });
-
   const create = () => {
     if (!name.trim()) return;
     createDeck.mutate({
@@ -114,17 +86,6 @@ function DecksPage() {
       setClosingAfterCreate(false);
       createRequestId.current = newRequestId();
     }
-  };
-
-  const handleRenameDialogExit = () => {
-    setRenamingDeck(null);
-    setRenameName("");
-    setClosingAfterRename(false);
-  };
-
-  const handleDeleteDialogExit = () => {
-    setDeletingDeck(null);
-    setClosingAfterDelete(false);
   };
 
   return (
@@ -188,15 +149,8 @@ function DecksPage() {
               <DeckTile
                 deck={deck}
                 onPrefetch={() => prefetchDeckPage(queryClient, deck.id)}
-                onRename={() => {
-                  setRenamingDeck(deck);
-                  setRenameName(deck.name);
-                  setRenameOpen(true);
-                }}
-                onDelete={() => {
-                  setDeletingDeck(deck);
-                  setDeleteOpen(true);
-                }}
+                onRename={() => deckActions.rename(deck)}
+                onDelete={() => deckActions.remove(deck)}
               />
             </li>
           ))}
@@ -244,105 +198,8 @@ function DecksPage() {
         </div>
       </Dialog>
 
-      <Dialog
-        open={renameOpen}
-        onClose={() => setRenameOpen(false)}
-        onExitComplete={handleRenameDialogExit}
-        title="Rename deck"
-        description="Choose a new name for this deck."
-      >
-        <div className="space-y-3">
-          <Input
-            placeholder="Deck name"
-            value={renameName}
-            autoFocus
-            onChange={(e) => setRenameName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && renamingDeck && renameName.trim()) {
-                updateDeck.mutate({
-                  id: renamingDeck.id,
-                  version: renamingDeck.version,
-                  name: renameName.trim(),
-                });
-              }
-            }}
-          />
-          <div className="flex justify-end gap-2 pt-1">
-            <Button variant="ghost" onClick={() => setRenameOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={!renameName.trim() || renameName.trim() === renamingDeck?.name}
-              busy={updateDeck.isPending || closingAfterRename}
-              onClick={() => {
-                if (!renamingDeck || !renameName.trim()) return;
-                updateDeck.mutate({
-                  id: renamingDeck.id,
-                  version: renamingDeck.version,
-                  name: renameName.trim(),
-                });
-              }}
-            >
-              Save
-            </Button>
-          </div>
-        </div>
-      </Dialog>
-
-      <Dialog
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        onExitComplete={handleDeleteDialogExit}
-        title="Delete deck?"
-        description={
-          deletingDeck
-            ? `“${deletingDeck.name}” and all ${deletingDeck.total} flashcards in it will be permanently removed.`
-            : undefined
-        }
-      >
-        <div className="flex justify-end gap-2 pt-1">
-          <Button variant="ghost" onClick={() => setDeleteOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            busy={deleteDeck.isPending || closingAfterDelete}
-            onClick={() => {
-              if (!deletingDeck) return;
-              deleteDeck.mutate(deletingDeck.id);
-            }}
-          >
-            Delete deck
-          </Button>
-        </div>
-      </Dialog>
+      {deckActions.dialogs}
     </div>
-  );
-}
-
-function DeckActionItems({
-  onRename,
-  onDelete,
-  Item,
-  Separator,
-}: {
-  onRename: () => void;
-  onDelete: () => void;
-  Item: typeof DropdownMenuItem;
-  Separator: typeof DropdownMenuSeparator;
-}) {
-  return (
-    <>
-      <Item onClick={onRename}>
-        <Pencil className="h-4 w-4" />
-        Rename deck
-      </Item>
-      <Separator />
-      <Item variant="destructive" onClick={onDelete}>
-        <Trash2 className="h-4 w-4" />
-        Delete deck
-      </Item>
-    </>
   );
 }
 
