@@ -139,6 +139,12 @@ export function renderClozeText(text: string, blankCluster: number | null): stri
   );
 }
 
+/** The revealed cloze text, followed by its optional answer-side extra. */
+function renderClozeBack(cloze: ClozeContent): string {
+  const revealed = renderClozeText(cloze.text, null);
+  return cloze.extra ? `${revealed}\n\n${cloze.extra}` : revealed;
+}
+
 function renderAllClozesBlanked(text: string): string {
   return replaceClozes(text, (d) => clozeBlank(d.hint));
 }
@@ -173,7 +179,7 @@ export function generateReviewUnits(
       return clozeClusters(cloze.text).map((cluster) => ({
         subKey: `c${cluster}`,
         front: renderClozeText(cloze.text, cluster),
-        back: renderClozeText(cloze.text, null),
+        back: renderClozeBack(cloze),
       }));
     }
     case "type_answer": {
@@ -209,7 +215,7 @@ export function flashcardDisplay(
       const cloze = content as ClozeContent;
       return {
         front: renderAllClozesBlanked(cloze.text),
-        back: renderClozeText(cloze.text, null),
+        back: renderClozeBack(cloze),
       };
     }
     case "type_answer": {

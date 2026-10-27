@@ -22,6 +22,7 @@ import type * as flashcards from "../flashcards.js";
 import type * as functions from "../functions.js";
 import type * as graph from "../graph.js";
 import type * as http from "../http.js";
+import type * as imports from "../imports.js";
 import type * as maintenance from "../maintenance.js";
 import type * as media from "../media.js";
 import type * as model_access from "../model/access.js";
@@ -62,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   functions: typeof functions;
   graph: typeof graph;
   http: typeof http;
+  imports: typeof imports;
   maintenance: typeof maintenance;
   media: typeof media;
   "model/access": typeof model_access;

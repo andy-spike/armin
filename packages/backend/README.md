@@ -23,6 +23,7 @@ generated API.
 - `convex/decks.ts`, `flashcards.ts`, `graph.ts`, `settings.ts` — authoring,
   browse, prerequisite graph, and scheduling settings.
 - `convex/review.ts` — queue, rating previews, rate, and undo.
+- `convex/imports.ts` — batched Anki import (see below).
 - `convex/media.ts`, `exports.ts`, `exportBuilder.ts` — private images and the
   ZIP export job.
 - `convex/deletion.ts`, `maintenance.ts`, `crons.ts` — bounded cleanup jobs.
@@ -77,6 +78,41 @@ Client entry points (see `package.json` `exports`):
   per-library quota, content-addressed, and only served through authenticated
   routes. No storage URL is ever returned to a client.
 
+## Anki import
+
+The web client parses an Anki file, converts it with `@armin/core/anki`, uploads
+images through `/upload-image`, and sends the result to `convex/imports.ts` in
+batches. Every function uses the first-party session and checks `libraryId`;
+imported cards have no prerequisites and are never locked.
+
+| Function                         | Does                                                                                                                                             |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `imports.start`                  | Rejects plans over the beta limits (`QUOTA`, with counts in the message), then creates one deck per Anki deck. One running import per library.   |
+| `imports.addCards`               | Up to 100 cards and 1,500 review units per call, all-or-nothing. A unit's `schedule` replaces its new-card state; unknown `subKey`s are ignored. |
+| `imports.addReviewLogs`          | Up to 1,000 past reviews per call, for cards this import created. History only: it never changes a unit's schedule.                              |
+| `imports.finish`                 | Needs every declared card and review to have arrived, then closes the import.                                                                    |
+| `imports.cancel`                 | Stops the import, then deletes every deck it made in scheduled jobs, one deck per transaction. Clients call it on any failure.                   |
+| `imports.get`, `imports.current` | Status of one import, or of the library's running import (to resume or cancel after a reload).                                                   |
+
+Rules:
+
+- `start` declares `totals`; `addCards` and `addReviewLogs` may not exceed them,
+  and the library limits are checked again on every batch because they can change
+  while a long import runs. An import carries at most 300,000 past reviews.
+- Cards are created through `insertFlashcard` (`model/flashcards.ts`), the same
+  chokepoint as `flashcards.create` and agent `save_cards`. A card whose imported
+  schedule shows a review gets `prerequisiteAccessGranted`, like an accepted rating.
+- Imported review logs store `unitVersionAfter: 0`. Review units start at version
+  1, so Undo can never apply to them, and they count toward the Frontier cap like
+  any log whose first review was today.
+- Every call takes a client `requestId`; a retry returns the first result. A
+  request ID cannot be reused for a different operation.
+- A `running` import with no progress for an hour is abandoned (a closed tab).
+  The `cancel abandoned imports` cron (every 15 minutes) marks it `failed` and
+  removes its decks. Import records are kept for 30 days. Starting a new import
+  while one is running returns `CONFLICT`; clients can read `imports.current` and
+  offer to cancel it.
+
 ## Beta limits
 
 `convex/model/limits.ts` and `@armin/core/media` bound each library so every
@@ -87,8 +123,12 @@ links per deck, 10 MiB per image, and 80 MiB of images per library. Review
 history is unbounded and is read in pages or deleted in batches. Deletion
 consequences use review-unit lifetime counts and indexed boundary logs. Moving
 a card keeps its history without rewriting it; exports resolve each log to its
-unit's current deck. Deleting cards or decks removes active study data atomically
-and schedules bounded history cleanup. Graph writes compare the displayed
+unit's current deck. Deleting a card removes its active study data atomically and schedules bounded
+history cleanup. Deleting a deck removes the deck row atomically; Browse, queues,
+exports, and card writes exclude rows whose deck is gone. Scheduled cleanup removes
+its units, cards, image links, settings, and edges in bounded batches, and removes
+history by deleted unit ID so moved cards retain their reviews. Quotas conservatively
+include pending cleanup rows until those batches reclaim them. Graph writes compare the displayed
 library revision, so another saved library change can require a graph reload.
 
 ## Development
@@ -117,6 +157,12 @@ account, and copy its URLs into the web and mobile `.env.local` files. Then
 secrets still need the configuration below. To copy URLs without pushing, run
 `pnpm --filter @armin/backend dev:clients`. See
 [local development environments](../../docs/dev-worktrees.md).
+
+Local setup also provisions `JWKS` from this deployment's existing Better Auth
+signing keys. This lets concurrent authenticated requests verify tokens without
+fetching the local backend's own JWKS HTTP endpoint. The auth plugin and verifier
+must use the same value. Production continues to use dynamic keys when `JWKS`
+is unset; local setup never changes a cloud deployment.
 
 Individual backend commands from the repository root:
 

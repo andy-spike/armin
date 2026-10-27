@@ -1,6 +1,7 @@
 import { internal } from "../_generated/api";
 import type { GenericMutationCtx } from "convex/server";
-import type { DataModel } from "../_generated/dataModel";
+import type { DataModel, Doc } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 
 /**
  * Mark the user's library as deleting and start bounded cleanup. Runs inside
@@ -21,5 +22,18 @@ export async function markLibraryDeleting(ctx: GenericMutationCtx<DataModel>, ow
   }
   await ctx.scheduler.runAfter(0, internal.deletion.cleanupLibrary, {
     libraryId: library._id,
+  });
+}
+
+/**
+ * Removing the deck is the atomic visibility boundary. Every study entry point
+ * rejects rows whose deck no longer exists; the scheduled job then removes
+ * those rows in bounded transactions. Callers bump the library revision.
+ */
+export async function deleteDeckCascade(ctx: MutationCtx, deck: Doc<"decks">) {
+  await ctx.db.delete(deck._id);
+  await ctx.scheduler.runAfter(0, internal.deletion.cleanupDeck, {
+    libraryId: deck.libraryId,
+    deckId: deck._id,
   });
 }

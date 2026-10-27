@@ -53,12 +53,12 @@ The detailed playbook for each knowledge type — facts, explanation pairs, clos
 
 Armin card types and when to reach for each:
 
-| Type             | Use for                                                                                                                                                                 |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `basic`          | Most cards: a focused question with one answer (facts, explanations, single procedure steps, concept lenses, salience prompts).                                         |
-| `basic_reversed` | Term ↔ definition pairs where recall is useful both directions (name → meaning _and_ meaning → name).                                                                   |
-| `cloze`          | Closed lists and fill-in-the-blank. One deletion = one review; reuse a number to blank several together. Syntax: `{{1::answer}}`, add a cue with `{{1::answer::hint}}`. |
-| `type_answer`    | Short, exact answers (a term, a number, a ratio) where typing forces precise recall.                                                                                    |
+| Type             | Use for                                                                                                                                                                                                                                      |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `basic`          | Most cards: a focused question with one answer (facts, explanations, single procedure steps, concept lenses, salience prompts).                                                                                                              |
+| `basic_reversed` | Term ↔ definition pairs where recall is useful both directions (name → meaning _and_ meaning → name).                                                                                                                                        |
+| `cloze`          | Closed lists and fill-in-the-blank. One deletion = one review; reuse a number to blank several together. Syntax: `{{1::answer}}`, add a cue with `{{1::answer::hint}}`. Optional `extra` Markdown appears only after the answer is revealed. |
+| `type_answer`    | Short, exact answers (a term, a number, a ratio) where typing forces precise recall.                                                                                                                                                         |
 
 Default to `basic`. Don't cram multiple facts into one card to save types — make more cards instead.
 

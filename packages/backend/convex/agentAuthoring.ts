@@ -7,7 +7,7 @@ import { agentAccess, canAccessDeck, requireDeck } from "./model/agentAuth";
 import { agentToolSchemas } from "./model/agentTools";
 import { fail } from "./model/errors";
 import { MAX_DECKS, MAX_FLASHCARDS, MAX_PREREQS_PER_DECK } from "./model/limits";
-import { prepareTags, validateFlashcardInput } from "./model/flashcards";
+import { insertFlashcard, prepareTags, validateFlashcardInput } from "./model/flashcards";
 import {
   bumpRevision,
   reconcileReviewUnits,
@@ -15,6 +15,7 @@ import {
   refreshDependentSubgraph,
   rememberTags,
   SettingsCache,
+  type TagCache,
 } from "./model/study";
 
 async function revision(ctx: QueryCtx, libraryId: Id<"libraries">) {
@@ -198,29 +199,19 @@ async function saveCards(ctx: MutationCtx, connection: Doc<"agentConnections">, 
     deckId = id;
   }
   const ids = new Map<string, Id<"flashcards">>();
+  const tagCache: TagCache = new Map();
   for (const item of args.cards) {
     if (ids.has(item.key)) fail("INVALID", "Each card key must be unique within the batch.");
     const parsed = textInput(item.card.type, item.card.content);
-    const tags = await prepareTags(ctx, connection.libraryId, item.tags ?? []);
-    const id = await ctx.db.insert("flashcards", {
+    const id = await insertFlashcard(ctx, {
       libraryId: connection.libraryId,
       deckId,
+      input: parsed,
+      tags: item.tags ?? [],
+      now,
       agentConnectionId: connection._id,
-      type: parsed.type,
-      content: parsed.serialized,
-      tags,
-      posX: null,
-      posY: null,
-      locked: false,
-      prerequisiteAccessGranted: false,
-      archived: false,
-      version: 1,
-      createdAt: now,
-      updatedAt: now,
+      tagCache,
     });
-    const card = (await ctx.db.get(id))!;
-    await reconcileReviewUnits(ctx, card, parsed.type, parsed.content, now);
-    await rememberTags(ctx, connection.libraryId, tags);
     ids.set(item.key, id);
   }
   const edges = await ctx.db

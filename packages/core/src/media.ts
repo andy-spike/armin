@@ -66,8 +66,10 @@ export function markdownFieldsFor(type: FlashcardType, content: FlashcardContent
       const c = content as { front: string; back: string };
       return [c.front, c.back];
     }
-    case "cloze":
-      return [(content as { text: string }).text];
+    case "cloze": {
+      const c = content as { text: string; extra?: string };
+      return [c.text, c.extra].filter((v): v is string => Boolean(v));
+    }
     case "type_answer":
       return [(content as { prompt: string }).prompt];
     case "image_occlusion": {

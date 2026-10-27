@@ -66,6 +66,16 @@ on the next seed run; the original account and its data remain available. `pnpm 
 retries an interrupted sample initialization. It does nothing after initialization
 has finished, including when you intentionally delete the sample deck.
 
+Setup also copies the local deployment's existing Better Auth signing keys into
+its `JWKS` deployment variable after seeding. Both the auth plugin and Convex's
+token verifier use this same key set. This avoids fetching the local backend's
+own JWKS HTTP endpoint during token verification, which can stall concurrent
+authenticated requests locally. Rerun `pnpm worktree:setup` to provision this
+setting in an older worktree. The value includes private signing keys: keep it
+in the local deployment and never copy it into source control or QA artifacts.
+Setup preserves an existing `JWKS` value. If you intentionally rotate local
+signing keys, remove that variable and rerun setup to copy the new key set.
+
 ## Data and cleanup
 
 A checkout's deployment data lives inside the checkout, in

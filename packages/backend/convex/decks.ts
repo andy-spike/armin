@@ -6,15 +6,9 @@ import type { Doc } from "./_generated/dataModel";
 import { ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
 import { MAX_DECKS, MAX_DESCRIPTION_CHARS, MAX_NAME_CHARS } from "./model/limits";
+import { deleteDeckCascade } from "./model/deletion";
 import { introducedToday, selectSession, type SessionReads } from "./model/queue";
-import {
-  adjustReviewUnitCount,
-  bumpRevision,
-  findRequest,
-  recordRequest,
-  SettingsCache,
-} from "./model/study";
-import { internal } from "./_generated/api";
+import { bumpRevision, findRequest, recordRequest, SettingsCache } from "./model/study";
 
 /** The deck's totals the slow way, for a deck whose counters aren't built yet. */
 async function countFromUnits(ctx: QueryCtx, deck: Doc<"decks">) {
@@ -198,13 +192,7 @@ export const update = mutation({
   },
 });
 
-/**
- * Delete a deck with its flashcards, review units, edges, image links, and
- * settings in one transaction, using deck-wide reads so the work fits Convex
- * limits at the beta quotas. Review history can be arbitrarily long, so it is
- * removed afterwards by a resumable batch job; queues and export ignore
- * history whose deck or review unit is gone.
- */
+/** Removes the deck from active use at once, then cleans its rows in batches. */
 export const remove = mutation({
   args: { deckId: v.id("decks") },
   handler: async (ctx, { deckId }) => {
@@ -212,50 +200,7 @@ export const remove = mutation({
     const deck = await ctx.db.get(deckId);
     // Deleting something already gone is a no-op, so retries are safe.
     if (!deck || deck.libraryId !== library._id) return { ok: true as const };
-    const [flashcards, units, edges, settings] = await Promise.all([
-      ctx.db
-        .query("flashcards")
-        .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
-        .collect(),
-      ctx.db
-        .query("reviewUnits")
-        .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
-        .collect(),
-      ctx.db
-        .query("prereqs")
-        .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
-        .collect(),
-      ctx.db
-        .query("deckSettings")
-        .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
-        .unique(),
-    ]);
-    const flashcardIds = new Set(flashcards.map((flashcard) => flashcard._id));
-    const links = (
-      await ctx.db
-        .query("flashcardMedia")
-        .withIndex("by_library_file", (q) => q.eq("libraryId", library._id))
-        .collect()
-    ).filter((link) => flashcardIds.has(link.flashcardId));
-
-    await adjustReviewUnitCount(ctx, library._id, -units.length);
-    for (const edge of edges) await ctx.db.delete(edge._id);
-    for (const unit of units) await ctx.db.delete(unit._id);
-    for (const link of links) await ctx.db.delete(link._id);
-    for (const flashcard of flashcards) await ctx.db.delete(flashcard._id);
-    if (settings) await ctx.db.delete(settings._id);
-    await ctx.db.delete(deck._id);
-
-    const fileNames = [...new Set(links.map((link) => link.fileName))];
-    if (fileNames.length > 0) {
-      await ctx.scheduler.runAfter(60 * 60_000, internal.media.collectUnreferenced, {
-        libraryId: library._id,
-        fileNames,
-      });
-    }
-    await ctx.scheduler.runAfter(0, internal.deletion.cleanupRemovedUnits, {
-      unitIds: units.map((unit) => unit._id),
-    });
+    await deleteDeckCascade(ctx, deck);
     await bumpRevision(ctx, library._id);
     return { ok: true as const };
   },

@@ -2,6 +2,7 @@ import { isPendingSchedule, State } from "@armin/core/scheduler";
 import { selectFrontier, startOfStudyDayMs } from "@armin/core/study";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { activeDeckIds } from "./access";
 import { SettingsCache } from "./study";
 
 /** Stable 32-bit hash used to rank Frontier candidates for a study day. */
@@ -28,9 +29,18 @@ export async function introducedToday(ctx: QueryCtx, library: Doc<"libraries">, 
     .collect();
   const units = new Set<Id<"reviewUnits">>();
   const flashcards = new Set<Id<"flashcards">>();
+  if (!logs.length) return { units, flashcards, since };
+  const decks = await activeDeckIds(ctx, library._id);
   for (const log of logs) {
+    // A moved card may retain the deleted deck's ID in its history. Check its
+    // current card before reading the potentially large unit payload.
+    if (!decks.has(log.deckId)) {
+      const card = await ctx.db.get(log.flashcardId);
+      if (!card || !decks.has(card.deckId)) continue;
+    }
     // Deleted units stop counting immediately, before their history cleanup.
-    if (!(await ctx.db.get(log.reviewUnitId))) continue;
+    const unit = await ctx.db.get(log.reviewUnitId);
+    if (!unit || !decks.has(unit.deckId)) continue;
     units.add(log.reviewUnitId);
     flashcards.add(log.flashcardId);
   }
@@ -44,20 +54,23 @@ export async function dueEligibleUnits(
   deckId: Id<"decks"> | null,
   now: number,
 ) {
-  const units = deckId
-    ? await ctx.db
+  const decks = deckId
+    ? new Set((await ctx.db.get(deckId))?.libraryId === library._id ? [deckId] : [])
+    : await activeDeckIds(ctx, library._id);
+  const units: Doc<"reviewUnits">[] = [];
+  for (const id of deckId ? (decks.has(deckId) ? [deckId] : []) : decks) {
+    units.push(
+      ...(await ctx.db
         .query("reviewUnits")
         .withIndex("by_deck_eligible_due", (q) =>
-          q.eq("deckId", deckId).eq("locked", false).eq("archived", false).lte("due", now),
+          q.eq("deckId", id).eq("locked", false).eq("archived", false).lte("due", now),
         )
-        .collect()
-    : await ctx.db
-        .query("reviewUnits")
-        .withIndex("by_library_eligible_due", (q) =>
-          q.eq("libraryId", library._id).eq("locked", false).eq("archived", false).lte("due", now),
-        )
-        .collect();
-  return units.filter((unit) => unit.libraryId === library._id && !isPendingSchedule(unit));
+        .collect()),
+    );
+  }
+  return units.filter(
+    (unit) => decks.has(unit.deckId) && unit.libraryId === library._id && !isPendingSchedule(unit),
+  );
 }
 
 /** Reads a caller has already made, so listing many decks repeats none of them. */

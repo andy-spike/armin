@@ -249,7 +249,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
         },
       },
     },
-    plugins: [expo(), convex({ authConfig })],
+    plugins: [expo(), convex({ authConfig, jwks: process.env.JWKS })],
   }) satisfies BetterAuthOptions;
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => betterAuth(createAuthOptions(ctx));

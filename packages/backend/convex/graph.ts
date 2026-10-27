@@ -169,6 +169,7 @@ export const removePrereq = mutation({
       .unique();
     if (!edge || edge.libraryId !== library._id)
       return { ok: true as const, version: expectedVersion };
+    await ownedOrFail(ctx, library, edge.deckId, "Deck");
     await ctx.db.delete(edge._id);
     const settings = new SettingsCache(ctx, library._id);
     await refreshDependentSubgraph(ctx, [dependentId], settings, Date.now());

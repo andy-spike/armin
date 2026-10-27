@@ -111,6 +111,21 @@ try {
   });
   run("node", [join(backend, "scripts/configure-clients.mjs")]);
   await seedWorktree();
+  if (!names.has("JWKS")) {
+    // Seeding obtains a token and therefore creates the Better Auth signing key.
+    // Embed that same key in the local deployment so token verification does not
+    // recursively fetch a JWKS HTTP action from the local backend under load.
+    const keys = JSON.parse(
+      convex(["data", "jwks", "--component", "betterAuth", "--format", "json"], {
+        stdio: ["ignore", "pipe", "inherit"],
+      }),
+    ).map(({ _id, _creationTime, ...key }) => ({ ...key, id: _id, alg: "RS256" }));
+    if (!keys.length) throw new Error("Better Auth did not create a signing key during seeding.");
+    convex(["env", "set", "JWKS"], {
+      input: JSON.stringify(keys),
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+  }
   console.log(
     `Local environment ready: ${state.siteUrl}\nConvex: http://127.0.0.1:${state.convexPort}\nRun pnpm dev. Expo: pnpm dev:mobile`,
   );

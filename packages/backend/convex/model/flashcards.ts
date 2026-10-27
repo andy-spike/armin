@@ -18,8 +18,11 @@ import {
   canonicalTags,
   deleteReviewUnit,
   parseFlashcard,
+  reconcileReviewUnits,
   refreshDependentSubgraph,
+  rememberTags,
   SettingsCache,
+  type TagCache,
 } from "./study";
 
 /** Validate type + content with the shared core rules; coded errors for clients. */
@@ -49,7 +52,12 @@ export function validateFlashcardInput(type: string, content: unknown) {
   return { type: type as FlashcardType, content: parsed, serialized, mediaFiles };
 }
 
-export async function prepareTags(ctx: QueryCtx, libraryId: Id<"libraries">, tags: string[]) {
+export async function prepareTags(
+  ctx: QueryCtx,
+  libraryId: Id<"libraries">,
+  tags: string[],
+  cache?: TagCache,
+) {
   const normalized = normalizeTags(tags);
   if (normalized.length > MAX_TAGS_PER_FLASHCARD) {
     fail("INVALID", `A flashcard can have at most ${MAX_TAGS_PER_FLASHCARD} tags.`);
@@ -57,7 +65,56 @@ export async function prepareTags(ctx: QueryCtx, libraryId: Id<"libraries">, tag
   if (normalized.some((tag) => tag.length > 60)) {
     fail("INVALID", "Tags are limited to 60 characters.");
   }
-  return canonicalTags(ctx, libraryId, normalized);
+  return canonicalTags(ctx, libraryId, normalized, cache);
+}
+
+export type ValidatedFlashcard = ReturnType<typeof validateFlashcardInput>;
+
+/**
+ * The one place a flashcard is created: tags, row, review units, image links,
+ * and remembered tag names. Callers validate first (so they can add their own
+ * rules, such as the agent's text-only check) and keep the quota checks and
+ * `bumpRevision` for themselves, because those depend on the batch they write.
+ */
+export async function insertFlashcard(
+  ctx: MutationCtx,
+  args: {
+    libraryId: Id<"libraries">;
+    deckId: Id<"decks">;
+    input: ValidatedFlashcard;
+    tags: string[];
+    now: number;
+    agentConnectionId?: Id<"agentConnections">;
+    archived?: boolean;
+    /** True when the card was already studied elsewhere, as an accepted review proves access. */
+    prerequisiteAccessGranted?: boolean;
+    /** Shared across a batch so each distinct tag is read once. */
+    tagCache?: TagCache;
+  },
+) {
+  const { libraryId, input, now } = args;
+  const tags = await prepareTags(ctx, libraryId, args.tags, args.tagCache);
+  const id = await ctx.db.insert("flashcards", {
+    libraryId,
+    deckId: args.deckId,
+    ...(args.agentConnectionId ? { agentConnectionId: args.agentConnectionId } : {}),
+    type: input.type,
+    content: input.serialized,
+    tags,
+    posX: null,
+    posY: null,
+    locked: false,
+    prerequisiteAccessGranted: args.prerequisiteAccessGranted ?? false,
+    archived: args.archived ?? false,
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const flashcard = (await ctx.db.get(id))!;
+  await reconcileReviewUnits(ctx, flashcard, input.type, input.content, now);
+  if (input.mediaFiles.length > 0) await syncFlashcardMedia(ctx, flashcard, input.mediaFiles);
+  await rememberTags(ctx, libraryId, tags, args.tagCache);
+  return id;
 }
 
 /**

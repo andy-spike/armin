@@ -56,6 +56,7 @@ type FormFields = {
   front: string;
   back: string;
   clozeText: string;
+  clozeExtra: string;
   prompt: string;
   answer: string;
   acceptedAnswers: string[];
@@ -65,6 +66,7 @@ const EMPTY_FIELDS: FormFields = {
   front: "",
   back: "",
   clozeText: "",
+  clozeExtra: "",
   prompt: "",
   answer: "",
   acceptedAnswers: [],
@@ -79,8 +81,10 @@ function fieldsFromContent(type: FlashcardType, content: FlashcardContent | null
       const { front, back } = content as { front: string; back: string };
       return { ...EMPTY_FIELDS, front, back };
     }
-    case "cloze":
-      return { ...EMPTY_FIELDS, clozeText: (content as { text: string }).text };
+    case "cloze": {
+      const c = content as { text: string; extra?: string };
+      return { ...EMPTY_FIELDS, clozeText: c.text, clozeExtra: c.extra ?? "" };
+    }
     case "type_answer": {
       const c = content as {
         prompt: string;
@@ -122,7 +126,8 @@ function contentFromFields(
       if (parseClozes(text).length === 0 || hasEmptyClozeDeletion(text)) {
         return null;
       }
-      return { text };
+      const extra = fields.clozeExtra.trim();
+      return extra ? { text, extra } : { text };
     }
     case "type_answer": {
       const prompt = fields.prompt.trim();
@@ -388,6 +393,17 @@ export function FlashcardFormDialog({
               value={fields.clozeText}
               onChange={(value) => setField("clozeText", value)}
             />
+          )}
+          {type === "cloze" && (
+            <Field label="Extra" hint="Optional. Shown only after the answer is revealed.">
+              <MarkdownEditor
+                key={`cloze-extra-${editorKey}`}
+                aria-label="Cloze extra"
+                value={fields.clozeExtra}
+                onChange={(value) => setField("clozeExtra", value)}
+                placeholder="A source, mnemonic, or fuller explanation."
+              />
+            </Field>
           )}
 
           {type === "type_answer" && (

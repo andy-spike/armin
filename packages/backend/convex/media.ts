@@ -84,14 +84,16 @@ export async function uploadImage(ctx: ActionCtx, request: Request) {
   const mime = MIME_BY_EXT[ext];
   const storageId = await ctx.storage.store(new Blob([bytes], { type: mime }));
   try {
-    const result = await ctx.runMutation(internal.media.recordUpload, {
-      libraryId: upload.libraryId,
-      reviewerResetAt: upload.reviewerResetAt,
-      storageId,
-      fileName,
-      mime,
-      size,
-    });
+    const result = await recordWithRetry(() =>
+      ctx.runMutation(internal.media.recordUpload, {
+        libraryId: upload.libraryId,
+        reviewerResetAt: upload.reviewerResetAt,
+        storageId,
+        fileName,
+        mime,
+        size,
+      }),
+    );
     if (result.status !== "stored") await ctx.storage.delete(storageId);
     if (result.status === "quota")
       return new Response("Your image storage is full.", { status: 413 });
@@ -100,6 +102,23 @@ export async function uploadImage(ctx: ActionCtx, request: Request) {
   } catch (error) {
     await ctx.storage.delete(storageId);
     throw error;
+  }
+}
+
+/**
+ * Every upload updates the library's one counter row, so parallel uploads (an
+ * Anki import sends several at once) can exhaust Convex's own conflict retries.
+ * The bytes are already stored, so retry just the bookkeeping, spread out.
+ */
+async function recordWithRetry<T>(run: () => Promise<T>) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await run();
+    } catch (error) {
+      const conflict = error instanceof Error && /changed while this mutation/.test(error.message);
+      if (!conflict || attempt >= 4) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 200 * (attempt + 1)));
+    }
   }
 }
 

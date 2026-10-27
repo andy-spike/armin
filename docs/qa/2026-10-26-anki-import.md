@@ -1,0 +1,382 @@
+# Anki import, 2026-10-26
+
+Scope: importing Anki decks into the web app (reader, converter, `imports`
+backend, import dialog) and the optional cloze `extra` field. Run against the
+worktree's local Convex deployment with the sample account, in headless
+Chromium driven by agent-browser on Linux. Mobile-width checks used a 390 px
+emulated viewport, not a real device. Nothing was deployed.
+
+## Fixtures
+
+Built locally (not committed) with Anki's own Python package and genanki, plus
+hand-made files: current-format `.apkg` and `.colpkg` (`collection.anki21b`,
+with and without scheduling, all six stock notetypes, an image, review history,
+a nested subdeck), legacy `.anki21` and genanki `.anki2` packages, int64 ids
+above 2^53, a filtered deck, a 183 MB `.colpkg` with 30,000 notes and 3,000
+images, text/CSV variants (tab, comma, semicolon, pipe, quoted newlines,
+`#html:false`, BOM and CRLF), and broken files (encrypted, truncated, random
+bytes, a ZIP without a collection, an empty collection).
+
+## Reader and converter
+
+- Every package layout above opened in Node, and a subset through the real
+  worker in Chromium. Stock kinds 1–6 were detected; big ids stayed exact;
+  filtered-deck cards came back under their home deck and original due date.
+- Broken files each produced a specific message (password-protected, damaged,
+  not an Anki package, nothing to import) without crashing.
+- The 30,000-note collection opened in about 0.5 s in Node and was converted in
+  the browser in about 5 s.
+- The converter was checked with a synthetic collection covering every
+  notetype: each card passes `validateContent`, review-unit keys match
+  `generateReviewUnits`, and totals are exact. The HTML and cloze parsers took
+  3,000 random inputs without throwing or hanging.
+- Image-occlusion ellipse placement was checked against Anki's source
+  (`ts/routes/image-occlusion/shapes`): shapes use fabric.js's top-left origin,
+  and rotated shapes now import as their rotated bounding box.
+
+## Backend
+
+Against the local deployment as the sample user: start → addCards (basic,
+cloze, scheduled, archived) → addReviewLogs → finish; quota, validation, and
+foreign-id rejections each returned a coded error and created nothing; retries
+by request id returned the first result; cancel and the stale-import sweep
+removed the import's decks. 100 cloze cards with 15 units each took 751 ms per
+call; 1,000 review logs took 442 ms.
+
+## Running app
+
+- Settings → Data shows Import above Export.
+- `modern.apkg`: the preview listed three decks with Anki paths, type counts,
+  the image, and "8 past reviews" ([preview](2026-10-26-anki-import/03-preview-modern.png)).
+  The import created three decks and four cards ([done](2026-10-26-anki-import/04-done-modern.png));
+  Browse showed the imported due times ([browse](2026-10-26-anki-import/05-browse-after-modern.png));
+  the image rendered; review showed the cloze answer with its extra only after
+  reveal ([review](2026-10-26-anki-import/31-review-answer.png)).
+- `legacy.apkg` with one deck deselected and **Start fresh**: the plan
+  recomputed and the cards arrived as new ([preview](2026-10-26-anki-import/16-legacy-fresh-deselected.png)).
+- `notes.txt`: a quoted multi-line field imported intact; the progress choice
+  is hidden for text files ([preview](2026-10-26-anki-import/28-text-preview.png)).
+- `random.apkg`: inline error, no crash ([error](2026-10-26-anki-import/07-error-random.png)).
+- `big-30k.colpkg`: the preview blocked the import with exact counts against the
+  2,000-card limit ([blocked](2026-10-26-anki-import/08-big-30k-preview.png)).
+- A 1,900-card text file imported in about 8 s ([progress](2026-10-26-anki-import/11-progress.png)).
+  Stopping at 500 cards returned the library to its prior decks and counts
+  ([after cancel](2026-10-26-anki-import/14-after-cancel.png)).
+- A second tab saw "Another import is still running" and could cancel it; the
+  first tab then reported the import as cancelled ([second tab](2026-10-26-anki-import/25-other-import-running.png)).
+- 390 px viewport: deck list, preview, progress, and done states fit
+  ([preview](2026-10-26-anki-import/21-mobile-preview.png)).
+- Cloze extra: created in the editor, shown only after reveal, reloaded when
+  editing; an existing cloze card without extra looked unchanged.
+
+## Checks
+
+`pnpm check` (0 errors), `pnpm --filter @armin/web build` (sql.js only in the
+lazily loaded import worker chunk, its WASM a separate asset), and
+`pnpm --filter @armin/mobile check:bundle`.
+
+## Review fixes
+
+A code review of the branch found six problems, each fixed and rechecked:
+
+- Relearning cards (Anki `type 3`, `queue 1`) carry their due date in seconds,
+  not days. They produced an invalid date that failed the whole import when
+  progress was kept. The converter now reads the unit from the queue, and a
+  card whose due date still can't be read starts fresh instead. Rerunning the
+  reviewer's relearning case gave a due date of today.
+- Shared deletions (`{{c1,2::…}}`) imported as a broken card whose answer was
+  `c1,2`. They now become a deletion for the lowest number, with a preview
+  warning that the other cards' items are dropped.
+- Each card read every tag twice, so a 100-card batch with 20 tags per card
+  went over Convex's 4,096-read limit. Batches now share a tag cache (agent
+  `save_cards` too). Against the local deployment, 100 cards with 20 tags each
+  imported in one call.
+- A deck deleted from another tab mid-import left later cards without a deck.
+  `addCards` now refuses with `CONFLICT`; checked locally, and the following
+  cancel returned the library to its earlier 7 decks and 14 cards.
+- `cancel` deleted the first deck inside its own transaction, so a very large
+  deck could make the cancel itself fail. It now only marks the import
+  cancelled and schedules the deletions.
+- Stopping during image upload reported a failure; it now reports a
+  cancellation. Not rechecked in the browser.
+
+## Not covered
+
+The deck-list empty state, an import that skips images (the "Left out" list),
+hitting the 80 MiB image quota, a real Anki-produced Image Occlusion deck with
+ellipses or rotation, packages with `legacy_zip_filename` media entries, newer
+Anki schema versions, real phones, and the Cloudflare deployment of the WASM
+asset.
+
+Known gap: importing the same file twice creates the decks twice. The earlier
+large-deck deletion failure was addressed and rechecked below.
+
+## Real-deck recheck and follow-up (2026-10-26)
+
+The prior DeepSeek recheck used headless agent-browser and local real Anki
+packages. Japanese Core previewed 600 cards and 199 images, skipping 400
+audio-only fronts; Kaishi imported 1,501 cards and 1,382 images; Anatomy
+imported 74 cards including 66 occlusions, with masks checked against labels.
+The prior run inspected Japanese content and Kaishi bold rendering and
+sampled 30 image URLs successfully. It recorded 36 `libraryCounters` conflict
+log lines during Kaishi, but no ultimate upload failures. These are logged
+mutation attempts, not a count of failed uploads. Its full evidence and
+screenshots are in `/tmp/anki-recheck/`.
+
+The Terra follow-up independently reproduced the Kaishi deletion failure in
+headless agent-browser: the 1,501-card deck remained after confirmation, and
+the backend reported the 4,096-read limit in `deleteDeckCascade`. Screenshots:
+`/tmp/anki-terra-followup/delete-confirm.png` and `delete-failed.png`; log:
+`/tmp/anki-terra-followup/dev.log`. At that point a successful large-deck
+deletion had not been verified; the subsequent bounded-deletion checks below supersede that result.
+
+After the prior cleanup and scheduled media collection, the local backend had
+1,379 media rows and 1,379 storage blobs, with no missing or unclaimed blobs;
+all 1,500 remaining flashcard-media links resolved, and the media counter and
+sum of media sizes both read 40,838,881 bytes. This is a snapshot of the
+remaining local data, not a fresh upload test. The prior run's 1,581 blobs and
+1,578 media rows were captured before cleanup; the current counts show no
+remaining orphan blobs. No new upload failure was measured in this follow-up.
+
+The follow-up also reproduced loss of literal `****` in inline and fenced code
+caused by the final Markdown replacement. After the fix, targeted converter
+checks preserved both forms and rendered adjacent Japanese bold elements as
+one bold span. The real Kaishi deck was not reimported after this change.
+`pnpm check` passed with 59 warnings and no errors; web build and mobile bundle
+checks passed.
+
+## Bounded-deletion follow-up (2026-10-26)
+
+On local head `c60b895`, the prior run passed deletion of the 1,501-card
+Kaishi deck and a short-content quota fixture of 2,000 cards and 10,000 units,
+and verified that moved-out history survived. Its long-text fixture failed
+with Convex's 16 MiB read limit, and Browse and all-deck Review also failed
+while those orphan units remained. The old failed fixture had already been
+removed by the time of this follow-up, so it could not be resumed.
+
+After the fixes in `171fc18`, a new local fixture held four deleted-deck cards and 240 units, each unit
+carrying 19,000 CJK characters on both sides, without scheduling cleanup.
+With those rows present, authenticated headless agent-browser Browse showed
+only the four sample cards, the tag filter offered only `demo`, and all-deck
+Review displayed a sample card. `exports.snapshotCore` returned one deck,
+four cards and four units, with no orphan tag. Calling the real
+`deletion.cleanupDeck` then removed all four cards and 240 units; the unit
+counter went from 244 to 4. Recent scheduled functions reported success.
+Evidence: `/tmp/anki-long-followup/` including `before.json`, `after.json`,
+`snapshot.json`, screenshots, and scheduled-job captures.
+
+A separate held orphan fixture was rated before its deck row was removed,
+creating a real current review log. Authenticated stale `get` returned null;
+`update` and `move` returned `NOT_FOUND`; `rate` and `undo` returned stale.
+The orphan card retained its original deck, version and tags, its unit retained
+version 2, and the review log remained before cleanup. The fixture was then
+cleaned through the real scheduled deletion path.
+
+A real authenticated `imports.start` and `imports.addCards` created 45 cards
+and units in a partial import; one unit was rated to create history.
+`imports.cancel` returned cancelled, and scheduled cleanup removed the deck,
+cards, units and review log, returning the sample library counter to four.
+This crossed multiple 20-row content batches. No image links were added to
+this particular import, so link removal was not independently retested here.
+
+An isolated deleting QA library with 21 long-text cards and 21 long-text
+units was passed to `cleanupLibrary`. The library, deck, cards and units were
+absent afterward and the scheduled cleanup jobs succeeded. The active sample
+library was retained. A legacy missing-unit-counter fixture was not tested.
+The account check confirms eventual removal across a filled content batch,
+not an observation of every intermediate transaction.
+
+The parent run's `pnpm check` passed with 0 errors and 59 warnings, web build
+and mobile Android/iOS bundle checks passed; logs are in
+`/tmp/anki-bounded-delete/*-second.log`. No builds were repeated for this QA
+follow-up. This verifies exclusion of orphan payloads in the tested paths,
+not that every query supports arbitrarily large active text libraries: some
+active-deck queries still collect their full matching rows.
+
+## Update with master (2026-10-26)
+
+Merged master through `2bd674a` and retained both image-upload retries and the
+reviewer-reset generation check. The shared `cleanupLibraryData` helper uses
+the same 20-row content bound for account deletion and reviewer resets. A local
+isolated reset fixture with 21 large cards and 21 units (19,000 CJK characters
+on each unit side) took three calls: first 1 unit and 21 cards remained, then
+0 units and 1 card, then no content remained and cleanup reported complete.
+The revision counter remained unchanged throughout. The fixture library and
+counter were removed, and the temporary diagnostic function was removed and
+confirmed unavailable on the refreshed local deployment. Evidence is under
+`/tmp/anki-merge-{fixture,batch-1,batch-2,batch-3}.json`.
+
+After resolving the merge, `pnpm check` passed with 0 errors and 59 warnings,
+the web build passed, and the Android/iOS bundle checks passed. No production
+deployment was performed.
+
+## Remaining real decks, second attempt
+
+Tested application HEAD `1d44d7d273fff7c6a096d4f699b476f5a43e92d5` in
+headless Chromium on the isolated local deployment. The sample library had one
+4-card deck before and after these attempts.
+
+- **AnKing Step-1 — BLOCKED.** The official AnkiWeb Download button returned
+  `Please log in to download more decks.` The full package, quota rejection,
+  and representative cloze subset could not be tested. An authenticated
+  AnkiWeb download is needed; no login was attempted.
+- **Physics GRE MathJax — BLOCKED.** The same official download flow returned
+  the same login message. Neither TeX preservation nor mathematical rendering
+  was tested.
+- **Ultimate Geography v5.3 — PARTIAL / FAIL for flag usability; full app
+  import BLOCKED.** AnkiWeb also required login. The maintainer's official
+  [v5.3 English release](https://github.com/anki-geo/ultimate-geography/releases/tag/v5.3)
+  provides a CrowdAnki export, not an apkg. The downloaded ZIP was 13,022,810
+  bytes, SHA-256 `25068fc3442a1407395eb2d8130e368e1b016d15747f9453386bf4aef553d617`.
+  A separate local genanki-generated package preserved its 319 notes, fields,
+  tags, four templates, and 546 media files, producing 978 cards (matching the
+  release description). This is a derived fixture, not the AnkiWeb package;
+  its generated card identities and scheduling are not evidence about that
+  package. The prior AnkiWeb metadata reported 971 cards.
+
+  The derived legacy `anki2` package previewed 978 basic cards in one deck and
+  319 images, warning that 319 custom notes became rendered basic cards and
+  unsupported images were removed from 221 notes. The Node reader took 41 ms
+  and conversion 131 ms. The source contains 227 SVGs and 319 PNGs; an England
+  flag question converted to `?`, a separator, and `Flag`, with no flag image
+  on either side. Thus the warning is accurate but the resulting flag question
+  is unanswerable. England's country/capital, hint, and map conversion samples
+  retained the expected content; this is not a complete direction or image
+  audit. No review history exists in the derived fixture.
+
+  Two fresh app import attempts stalled at 0/319 images with four pending
+  `/media/upload` requests; the local web server stopped responding even to a
+  GET of `/`. Restart restored service. The first Stop import could not finish
+  while the server was unresponsive. After each restart the library displayed
+  only the original four-card sample deck. No successful import occurred, so
+  Browse/Edit/Review, stored media resolution, HTTP images, and post-import
+  cleanup remain unverified. The local stall needs diagnosis before attributing
+  it to production behavior. Preview and stall screenshots, the derived
+  package, conversion log, and generation script are under
+  `/tmp/anki-remaining-terra/`; raw deck contents were not committed.
+
+## Required front content follow-up
+
+The converter now checks whether fields substituted on a custom card's front
+still contain usable content after HTML/media conversion. A front that loses
+its only field (for example an unsupported SVG flag) is skipped with a preview
+warning rather than retaining static template text such as `?` and `Flag`.
+The derived Geography package converts to 757 usable cards instead of 978,
+with a required-front-content warning affecting 221 notes and 319 referenced
+images. This is a converter check, not a successful browser import. Evidence:
+`/tmp/anki-required-content/{before,after}.log`. The previous three real
+packages retain their counts (Japanese 600, Kaishi 1,501, Anatomy 74), with
+zero literal bold delimiters in the rendering harness. `pnpm check` passed
+with 0 errors and 59 warnings. The local upload stall is still under investigation.
+
+## Derived Geography import and upload investigation
+
+Tested local application commit `bca865a1edbb77bd1dd39809be1a021e97f681d1`
+with headless Chromium and the isolated local deployment. This is the derived
+CrowdAnki fixture described above, not the 971-card AnkiWeb package. AnKing and
+Physics GRE remain blocked on official AnkiWeb sign-in; neither was tested here.
+
+An authenticated HTTP loop using four distinct PNGs reproduced the local stall:
+all four POSTs to `/media/upload` timed out at eight seconds and a simultaneous
+GET `/` timed out at five seconds. After restarting the local server, the same
+loop passed with one, two, three, and four uploads; another four distinct images
+also passed, and four different images passed after another cold restart. The
+loop asserts both upload success and web responsiveness and is at
+`/tmp/anki-upload-diagnosis/loop.py`; its local session state is not retained.
+The failure was not reliably reproduced or minimized, so its cause and whether
+it affects production remain unknown. No upload-path fix or production claim is
+justified by these observations. The earlier two browser stalls remain evidence
+of the same local symptom, not proof of its cause.
+
+The actual browser import subsequently completed: preview showed 757 cards,
+319 images, and 221 notes with required-front-content cards skipped; the
+completion reported 757 cards in one deck. The run took approximately one
+minute. Browse found three England cards: country to London, London to country
+(with the source hint), and the PNG location map; the SVG flag question was
+absent. The source's fourth direction is the unsupported flag front. The editor
+showed the England map at its natural 500 × 421 pixels on both sides; Review
+showed a capital question and its country answer. No PNG flag files were found
+in this source fixture. This is representative coverage, not a visual audit of
+all cards. There are no image occlusions in this fixture.
+
+A database audit found all 319 distinct card image references had corresponding
+flashcard-media links, media records, and storage blobs; ten sequential
+same-origin authenticated image requests returned nonempty HTTP 200 responses.
+The imported deck was deleted through the UI. After scheduled cleanup, the
+sample deck still showed four cards, the database contained four flashcards,
+and the flashcard-media table was empty. Screenshots and scripts are under
+`/tmp/anki-upload-diagnosis/`; downloaded source content is not committed.
+
+A focused template probe confirmed that a lost SVG-only front is skipped, a
+front with both a lost SVG and usable text is retained, and a PNG front retains
+its answer. Separately, a synthetic late-media-loss probe showed that
+`resolveImportMedia` can remove an unavailable image while leaving static
+question text that passes content validation. That is a separate unresolved
+case after preview; the probe did not demonstrate that it occurred in this
+successful import. No broad pipeline change was made.
+
+`pnpm check` passed with 0 errors and 59 warnings; web build and Android/iOS
+mobile bundle checks passed. No production deployment was performed.
+
+### Original packages: follow-up at application commit `bca865a`
+
+This follow-up used the official downloaded APKGs, not the earlier derived
+Geography fixture. SHA-256 verification matched the local provenance manifest.
+All three source databases contain only new cards (Anki type/queue 0/0) and no
+review logs, so these files do not exercise preservation of reviewed schedules
+or history. No source template scripts were executed. Raw package data and
+screenshots remain under `/tmp/anki-originals-terra/` and are not committed.
+
+- **Physics GRE MathJax — partial:** SQLite contained 108 notes and 108 cards;
+  browser preview and completion both showed 108 basic cards, one deck and two
+  images. Preview warned that scripts/styles were removed from 108 notes,
+  custom templates rendered for 108, and math in 105 is plain text. Browse and
+  Edit showed literal TeX, not typeset math. For note `1394780742068`, the
+  source back `\(511 keV/c^2\)` appeared as literal text in the editor. Source
+  comparison for cylindrical gradient (`1412620651355`) and quantum oscillator
+  (`1396357250010`) showed their commands and operators in the converted
+  Markdown; this is not a complete visual audit of those formulas. The deck was
+  deleted and the sample library retained four cards. Review was not checked.
+- **Original Ultimate Geography v5.3 — partial:** SQLite contains 319 notes,
+  978 cards, 546 media (319 PNG and 227 SVG), and four templates. Thus 971 was
+  not the actual source card count; the derived fixture also had 978, although
+  this follow-up did not establish why 971 was reported elsewhere. Browser
+  preview matched conversion: 757 basic cards and 319 images, with 221 notes
+  reporting unsupported images and 221 required-front cards skipped. The
+  original England source (`1708201008370`) converts to country → capital,
+  capital → country with its hint, and PNG map → country; its SVG flag front is
+  skipped. Two actual import attempts stalled during image upload while the local
+  web origin timed out; restarting the isolated server restored it after the
+  first attempt. The first remained at 0/319 in the dialog. This is the
+  previously observed intermittent symptom, with cause and production impact
+  unknown. The previous successful derived-fixture import must not be presented
+  as a successful import of this original package.
+- **Original AnKing Step 1 — partial, with a data-loss finding:** SQLite has
+  34,639 notes, 43,183 cards, 72 deck records and 131 media entries. Full browser
+  preview completed conversion to 34,590 flashcards, 43,136 review units, 56
+  nonempty decks and 122 images. It disabled Import because both card and review
+  unit quotas would be exceeded; the library remained at one deck/four cards.
+  Warnings included 34,438 trimmed tags, missing images on 21,040 notes, 49
+  skipped empty notes, 41 notes with audio removed and three nested clozes
+  flattened. The original was not modified. A derived 72-note subset, selected
+  for available media, cloze hints, multiple clozes, custom fields, long tags
+  and deck variety, contained 114 source cards across 18 decks. Its preview
+  showed 72 cloze flashcards, 114 units and eight images; browser import
+  completed and the 18 imported decks were deleted through the UI. Selection
+  IDs and criteria are in `/tmp/anki-originals-terra/subset-selection.log`.
+  This is partial coverage; the subset did not cover nested clozes.
+
+  **Actionable loss:** source AnKingOverhaul note `1368292090487` has Text with
+  `{{c1::Mid-Systolic Click}}`, Extra `Mitral Valve Prolapse`, and a nonempty
+  Sketchy field containing a “Watch Mitral Valve Regurgitation & Prolapse” link.
+  Converted and imported Edit content has the cloze and Extra but omits the
+  Sketchy link. Preview warns of missing images, removed audio and trimmed tags,
+  but does not warn that other populated fields are omitted. Reproduce by
+  previewing and importing the derived subset, then searching Browse for
+  “Mid-Systolic Click” and opening Edit. This reflects the cloze mapping's
+  Text/Extra-only handling; source custom field content was not verified to be
+  preserved elsewhere. The same subset's missing-image warning concerns image
+  references absent from the package; it does not disclose the lost link.
+
+The separate late-media-loss probe described above remains unresolved. No app
+source or automated test suite was changed in this follow-up.
