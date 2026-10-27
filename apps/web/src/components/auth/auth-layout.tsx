@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { ArminMark, ArminWordmark } from "@/components/brand";
 
 /** Centered single-column frame shared by the sign-in family of pages. */
 export function AuthLayout({
@@ -17,9 +18,10 @@ export function AuthLayout({
     <div className="notebook-bg flex min-h-dvh flex-col items-center px-4 py-10 sm:py-16">
       <Link
         to="/"
-        className="font-serif text-2xl font-semibold tracking-tight text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="flex items-center gap-2.5 text-2xl text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        Armin
+        <ArminMark className="size-6" />
+        <ArminWordmark />
       </Link>
       <main className="mt-8 w-full max-w-sm border border-border bg-surface px-6 py-8 shadow-sm sm:px-8">
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>

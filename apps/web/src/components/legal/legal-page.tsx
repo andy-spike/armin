@@ -4,7 +4,7 @@ import { Children, cloneElement, createContext, isValidElement, useContext } fro
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link } from "@tanstack/react-router";
-import { Brain } from "lucide-react";
+import { ArminMark, ArminWordmark } from "@/components/brand";
 
 const linkClass =
   "text-accent underline underline-offset-2 hover:text-accent-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
@@ -128,10 +128,10 @@ export function LegalPage({ source }: { source: string }) {
         <nav aria-label="Main" className="mx-auto flex h-14 max-w-3xl items-center px-5 sm:px-8">
           <Link
             to="/"
-            className="flex items-center gap-2 font-serif text-xl font-semibold tracking-tight text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="flex items-center gap-2 text-xl text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            <Brain className="size-5 text-accent" strokeWidth={1.75} aria-hidden />
-            Armin
+            <ArminMark className="size-5" />
+            <ArminWordmark />
           </Link>
         </nav>
       </header>

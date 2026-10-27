@@ -12,12 +12,13 @@ import {
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { flushSync } from "react-dom";
-import { Brain, CloudOff } from "lucide-react";
+import { CloudOff } from "lucide-react";
 import { useKeybindings, useScope } from "@/keybindings/keybindings-provider";
 import { isStepsPrefix, parseBinding } from "@/lib/keybindings/keys";
 import { KeyboardOverlays } from "@/components/keyboard-overlays";
 import { PageSkeleton } from "@/components/page-skeletons";
 import { AppSidebar } from "@/components/app-sidebar";
+import { ArminMark, ArminWordmark } from "@/components/brand";
 import { StudyClockSync } from "@/components/study-clock-sync";
 import { LandingPage } from "@/components/landing/landing-page";
 import {
@@ -268,10 +269,10 @@ function Shell({ loading, reviewerResetHours }: { loading?: string; reviewerRese
           <SidebarTrigger className="text-muted hover:text-ink" />
           <Link
             to="/"
-            className="flex h-9 items-center gap-2 px-1 font-serif text-lg font-semibold tracking-tight text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="flex h-9 items-center gap-2 px-1 text-lg text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            <Brain className="size-4.5 text-accent" strokeWidth={1.75} aria-hidden />
-            Armin
+            <ArminMark className="size-5" />
+            <ArminWordmark />
           </Link>
         </header>
         <ConnectionBanner />

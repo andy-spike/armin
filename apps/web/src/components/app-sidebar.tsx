@@ -3,7 +3,6 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowUpDown,
-  Brain,
   Check,
   ChevronsUpDown,
   GraduationCap,
@@ -52,6 +51,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
+import { ArminMark, ArminWordmark } from "@/components/brand";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
 import { decksQuery as decksQueryOptions, reviewStatusQuery } from "@/lib/queries";
@@ -187,17 +187,12 @@ function BrandHeader({ linkProps }: { linkProps: LinkProps }) {
       <Link
         to="/"
         tabIndex={collapsed ? -1 : undefined}
-        className="flex h-8 min-w-0 items-center gap-2.5 px-2 text-ink outline-hidden ring-sidebar-ring focus-visible:ring-2"
+        className="flex h-8 min-w-0 items-center gap-2.5 px-1.5 text-ink outline-hidden ring-sidebar-ring focus-visible:ring-2"
         {...linkProps}
       >
-        <Brain className="size-4 shrink-0 text-accent" strokeWidth={1.75} aria-hidden />
-        <span
-          className={cn(
-            fade,
-            "font-serif text-lg leading-none font-semibold tracking-tight whitespace-nowrap",
-          )}
-        >
-          Armin
+        <ArminMark className="size-5" />
+        <span className={cn(fade, "flex text-lg leading-none")}>
+          <ArminWordmark />
         </span>
       </Link>
       {collapsed && (

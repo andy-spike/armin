@@ -5,6 +5,7 @@ import { defineConfig } from "vite-plus";
 const ignored = [
   "**/convex/_generated/**",
   "**/routeTree.gen.ts",
+  "apps/web/src/components/brand-paths.ts",
   "docs/qa/**",
   ".agents/**",
   ".claude/**",

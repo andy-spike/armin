@@ -10,6 +10,10 @@
       "supportsTablet": true
     },
     "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1C6C66"
+      },
       "predictiveBackGestureEnabled": false
     },
     "scheme": "armin"
