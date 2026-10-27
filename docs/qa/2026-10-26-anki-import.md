@@ -108,9 +108,8 @@ ellipses or rotation, packages with `legacy_zip_filename` media entries, newer
 Anki schema versions, real phones, and the Cloudflare deployment of the WASM
 asset.
 
-Known gaps: importing the same file twice creates the decks twice, and a
-single deck near the beta limits may still be too large to delete in one
-transaction (this also affects deleting such a deck by hand).
+Known gap: importing the same file twice creates the decks twice. The earlier
+large-deck deletion failure was addressed and rechecked below.
 
 ## Real-deck recheck and follow-up (2026-10-26)
 
@@ -128,10 +127,8 @@ The Terra follow-up independently reproduced the Kaishi deletion failure in
 headless agent-browser: the 1,501-card deck remained after confirmation, and
 the backend reported the 4,096-read limit in `deleteDeckCascade`. Screenshots:
 `/tmp/anki-terra-followup/delete-confirm.png` and `delete-failed.png`; log:
-`/tmp/anki-terra-followup/dev.log`. This remains unresolved: a safe bounded
-deletion must also preserve active-data visibility, ownership, counters, and
-import cancellation across transactions. A successful large-deck deletion was
-not verified.
+`/tmp/anki-terra-followup/dev.log`. At that point a successful large-deck deletion had not been verified; the
+subsequent bounded-deletion checks below supersede that result.
 
 After the prior cleanup and scheduled media collection, the local backend had
 1,379 media rows and 1,379 storage blobs, with no missing or unclaimed blobs;
@@ -147,3 +144,52 @@ checks preserved both forms and rendered adjacent Japanese bold elements as
 one bold span. The real Kaishi deck was not reimported after this change.
 `pnpm check` passed with 59 warnings and no errors; web build and mobile bundle
 checks passed.
+
+
+## Bounded-deletion follow-up (2026-10-26)
+
+On local head `171fc18`, the prior run passed deletion of the 1,501-card
+Kaishi deck and a short-content quota fixture of 2,000 cards and 10,000 units,
+and verified that moved-out history survived. Its long-text fixture failed
+with Convex's 16 MiB read limit, and Browse and all-deck Review also failed
+while those orphan units remained. The old failed fixture had already been
+removed by the time of this follow-up, so it could not be resumed.
+
+A new local fixture held four deleted-deck cards and 240 units, each unit
+carrying 19,000 CJK characters on both sides, without scheduling cleanup.
+With those rows present, authenticated headless agent-browser Browse showed
+only the four sample cards, the tag filter offered only `demo`, and all-deck
+Review displayed a sample card. `exports.snapshotCore` returned one deck,
+four cards and four units, with no orphan tag. Calling the real
+`deletion.cleanupDeck` then removed all four cards and 240 units; the unit
+counter went from 244 to 4. Recent scheduled functions reported success.
+Evidence: `/tmp/anki-long-followup/` including `before.json`, `after.json`,
+`snapshot.json`, screenshots, and scheduled-job captures.
+
+A separate held orphan fixture was rated before its deck row was removed,
+creating a real current review log. Authenticated stale `get` returned null;
+`update` and `move` returned `NOT_FOUND`; `rate` and `undo` returned stale.
+The orphan card retained its original deck, version and tags, its unit retained
+version 2, and the review log remained before cleanup. The fixture was then
+cleaned through the real scheduled deletion path.
+
+A real authenticated `imports.start` and `imports.addCards` created 45 cards
+and units in a partial import; one unit was rated to create history.
+`imports.cancel` returned cancelled, and scheduled cleanup removed the deck,
+cards, units and review log, returning the sample library counter to four.
+This crossed multiple 20-row content batches. No image links were added to
+this particular import, so link removal was not independently retested here.
+
+An isolated deleting QA library with 21 long-text cards and 21 long-text
+units was passed to `cleanupLibrary`. The library, deck, cards and units were
+absent afterward and the scheduled cleanup jobs succeeded. The active sample
+library was retained. A legacy missing-unit-counter fixture was not tested.
+The account check confirms eventual removal across a filled content batch,
+not an observation of every intermediate transaction.
+
+The parent run's `pnpm check` passed with 0 errors and 59 warnings, web build
+and mobile Android/iOS bundle checks passed; logs are in
+`/tmp/anki-bounded-delete/*-second.log`. No builds were repeated for this QA
+follow-up. This verifies exclusion of orphan payloads in the tested paths,
+not that every query supports arbitrarily large active text libraries: some
+active-deck queries still collect their full matching rows.
