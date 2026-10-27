@@ -41,6 +41,8 @@ counter writes rather than only previously stored duplicates. With the same
 four-way concurrency and eight-second request timeout,
 `DIRECT=1 python /tmp/anki-upload-diagnosis/loop.py 320` passed all 80 batches:
 320 successful image responses, 80 HTTP 200 web-root checks, 55.36 seconds.
+The same probe through the web's `/media/upload` route passed 80 further
+uploads and 20 simultaneous web-root checks in 18.98 seconds.
 The importer retains its original concurrency of four; the earlier reduction
 to two is not included in the final change.
 
@@ -49,3 +51,17 @@ after the implementation and documentation changes. The web build still emits
 the CSS sourcemap warning. Temporary probes, sessions, signing keys, and source
 decks are not committed. Real-package walkthroughs and remaining coverage
 limits are recorded separately in the original-package report.
+
+## Integration with current master
+
+The branch was merged with `origin/master` at `c323d55`. The new summary-backed
+Browse requires import mutations to use `convex/functions.ts`, so imported
+cards and schedules now update their summaries and deck counters in the same
+transaction. Library Browse merges existing-deck summary indexes, including
+the added deck-name sort index, so deleted-deck summaries never appear or
+consume its read budget while bounded cleanup runs. Filtered totals likewise
+read existing-deck summaries. Account cleanup includes both the import records
+and the new summary/counter tables. The local sample library's summaries were
+backfilled with the existing operator migration.
+
+After resolving the merge, `pnpm check` passed with 0 errors and 60 warnings.
