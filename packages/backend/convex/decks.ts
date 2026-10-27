@@ -171,7 +171,7 @@ export const update = mutation({
   },
 });
 
-/** Deletes the deck at once; its review history is cleaned up by a batch job. */
+/** Removes the deck from active use at once, then cleans its rows in batches. */
 export const remove = mutation({
   args: { deckId: v.id("decks") },
   handler: async (ctx, { deckId }) => {

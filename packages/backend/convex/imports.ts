@@ -74,6 +74,11 @@ async function runningImport(ctx: MutationCtx, library: Doc<"libraries">, import
   const row = await ownedImport(ctx, library, importId);
   if (row.status === "finished") fail("CONFLICT", "This import already finished.");
   if (row.status !== "running") fail("CONFLICT", "This import was cancelled.");
+  for (const { deckId } of row.decks) {
+    const deck = await ctx.db.get(deckId);
+    if (!deck || deck.libraryId !== library._id)
+      fail("CONFLICT", "An imported deck was deleted. Cancel this import and start again.");
+  }
   return row;
 }
 
@@ -449,7 +454,7 @@ export const finish = mutation({
     const row = await ownedImport(ctx, library, importId);
     // Finishing twice is a no-op, so a retried call is safe.
     if (row.status === "finished") return view(row);
-    if (row.status !== "running") fail("CONFLICT", "This import was cancelled.");
+    await runningImport(ctx, library, importId);
     if (
       row.counts.flashcards !== row.totals.flashcards ||
       row.counts.reviewLogs !== row.totals.reviewLogs

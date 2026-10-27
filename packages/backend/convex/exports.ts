@@ -131,13 +131,15 @@ export const snapshotCore = internalQuery({
       .query("libraryCounters")
       .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
       .unique();
+    const decks = await byLibrary("decks");
+    const ids = new Set(decks.map((deck) => deck._id));
     return {
       revision: counters?.revision ?? 0,
-      decks: await byLibrary("decks"),
-      flashcards: await byLibrary("flashcards"),
-      reviewUnits: await byLibrary("reviewUnits"),
-      prereqs: await byLibrary("prereqs"),
-      deckSettings: await byLibrary("deckSettings"),
+      decks,
+      flashcards: (await byLibrary("flashcards")).filter((row) => ids.has(row.deckId)),
+      reviewUnits: (await byLibrary("reviewUnits")).filter((row) => ids.has(row.deckId)),
+      prereqs: (await byLibrary("prereqs")).filter((row) => ids.has(row.deckId)),
+      deckSettings: (await byLibrary("deckSettings")).filter((row) => ids.has(row.deckId)),
       media: await byLibrary("media"),
       settings: await getSettingsRow(ctx, libraryId),
     };

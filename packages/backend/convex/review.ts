@@ -4,7 +4,7 @@ import { fsrsFieldsFromMs, fsrsFieldsToMs, fromFsrsCard, toFsrsCard } from "@arm
 import { formatInterval } from "@armin/core/study";
 import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { readableLibrary, writableLibrary } from "./model/access";
+import { activeDeckIds, owned, readableLibrary, writableLibrary } from "./model/access";
 import { checkEligible, selectSession } from "./model/queue";
 import {
   bumpRevision,
@@ -94,20 +94,21 @@ async function nextDueAfter(
   deckId: Id<"decks"> | null,
   now: number,
 ) {
-  const next = deckId
+  const decks = await activeDeckIds(ctx, library._id);
+  const candidates = deckId
     ? await ctx.db
         .query("reviewUnits")
         .withIndex("by_deck_eligible_due", (q) =>
           q.eq("deckId", deckId).eq("locked", false).eq("archived", false).gt("due", now),
         )
-        .first()
+        .collect()
     : await ctx.db
         .query("reviewUnits")
         .withIndex("by_library_eligible_due", (q) =>
           q.eq("libraryId", library._id).eq("locked", false).eq("archived", false).gt("due", now),
         )
-        .first();
-  return next?.due ?? null;
+        .collect();
+  return candidates.find((unit) => decks.has(unit.deckId))?.due ?? null;
 }
 
 /** The four possible outcomes for a review unit, without committing. */
@@ -116,7 +117,7 @@ export const preview = query({
   handler: async (ctx, { reviewUnitId }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const unit = await ctx.db.get(reviewUnitId);
+    const unit = await owned(ctx, library, reviewUnitId);
     if (!unit || unit.libraryId !== library._id) return null;
     const settings = new SettingsCache(ctx, library._id);
     const scheduler = schedulerFor(await settings.forDeck(unit.deckId));
@@ -163,7 +164,7 @@ export const rate = mutation({
     if (previous) return previous.result as RateResult;
 
     const now = Date.now();
-    const unit = await ctx.db.get(args.reviewUnitId);
+    const unit = await owned(ctx, library, args.reviewUnitId);
     if (!unit || unit.libraryId !== library._id) {
       return { status: "stale", message: "This review unit no longer exists." };
     }
@@ -253,7 +254,7 @@ export const undo = mutation({
     if (!log || log.libraryId !== library._id) {
       return { status: "stale", message: "That review was already undone." };
     }
-    const unit = await ctx.db.get(log.reviewUnitId);
+    const unit = await owned(ctx, library, log.reviewUnitId);
     if (!unit) return { status: "stale", message: "That review unit no longer exists." };
     const latest = await ctx.db
       .query("reviewLogs")

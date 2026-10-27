@@ -3,7 +3,13 @@ import { dueSortPriority, BROWSE_PAGE_SIZE, type BrowseSortKey } from "@armin/co
 import type { TypeAnswerContent } from "@armin/core/flashcard-types";
 import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
+import {
+  activeDeckIds,
+  owned,
+  ownedOrFail,
+  readableLibrary,
+  writableLibrary,
+} from "./model/access";
 import { fail } from "./model/errors";
 import { MAX_FLASHCARDS } from "./model/limits";
 import {
@@ -62,7 +68,7 @@ export const get = query({
     const library = await readableLibrary(ctx);
     if (!library) return null;
     const id = ctx.db.normalizeId("flashcards", flashcardId);
-    const flashcard = id ? await ctx.db.get(id) : null;
+    const flashcard = id ? await owned(ctx, library, id) : null;
     if (!flashcard || flashcard.libraryId !== library._id) return null;
     const deck = await ctx.db.get(flashcard.deckId);
     return hydrateFlashcard(ctx, flashcard, deck?.name);
@@ -132,7 +138,7 @@ export const browse = query({
   handler: async (ctx, args) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const all = await ctx.db
+    const rows = await ctx.db
       .query("flashcards")
       .withIndex("by_library", (q) => q.eq("libraryId", library._id))
       .collect();
@@ -143,6 +149,7 @@ export const browse = query({
       .collect()) {
       deckNames.set(deck._id, deck.name);
     }
+    const all = rows.filter((card) => deckNames.has(card.deckId));
     // One read for all units: per-flashcard queries would exceed Convex's
     // per-function index-range limit on large libraries.
     const unitsByFlashcard = new Map<Id<"flashcards">, Doc<"reviewUnits">[]>();
@@ -201,8 +208,9 @@ export const listTags = query({
       .query("flashcards")
       .withIndex("by_library", (q) => q.eq("libraryId", library._id))
       .collect();
+    const decks = await activeDeckIds(ctx, library._id);
     const names = new Map<string, string>();
-    for (const flashcard of flashcards) {
+    for (const flashcard of flashcards.filter((card) => decks.has(card.deckId))) {
       for (const tag of flashcard.tags) names.set(tag.toLocaleLowerCase(), tag);
     }
     return [...names.values()].sort((a, b) => a.localeCompare(b));
@@ -334,7 +342,7 @@ export const remove = mutation({
   args: { flashcardId: v.id("flashcards") },
   handler: async (ctx, { flashcardId }) => {
     const library = await writableLibrary(ctx);
-    const flashcard = await ctx.db.get(flashcardId);
+    const flashcard = await owned(ctx, library, flashcardId);
     // Deleting something already gone is a no-op, so retries are safe.
     if (!flashcard || flashcard.libraryId !== library._id) return { ok: true as const };
     await deleteFlashcardCascade(ctx, flashcard, { refreshDependents: true });
@@ -372,7 +380,7 @@ export const deleteConsequences = query({
   handler: async (ctx, { flashcardId }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const flashcard = await ctx.db.get(flashcardId);
+    const flashcard = await owned(ctx, library, flashcardId);
     if (!flashcard || flashcard.libraryId !== library._id) return null;
     const dependents = await ctx.db
       .query("prereqs")
@@ -409,7 +417,7 @@ export const moveConsequences = query({
   handler: async (ctx, { flashcardId }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const flashcard = await ctx.db.get(flashcardId);
+    const flashcard = await owned(ctx, library, flashcardId);
     if (!flashcard || flashcard.libraryId !== library._id) return null;
     const prereqs = await ctx.db
       .query("prereqs")

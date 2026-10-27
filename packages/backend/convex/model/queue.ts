@@ -2,6 +2,7 @@ import { isPendingSchedule, State } from "@armin/core/scheduler";
 import { selectFrontier, startOfStudyDayMs } from "@armin/core/study";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { activeDeckIds } from "./access";
 import { SettingsCache } from "./study";
 
 /** Stable 32-bit hash used to rank Frontier candidates for a study day. */
@@ -28,9 +29,11 @@ export async function introducedToday(ctx: QueryCtx, library: Doc<"libraries">, 
     .collect();
   const units = new Set<Id<"reviewUnits">>();
   const flashcards = new Set<Id<"flashcards">>();
+  const decks = await activeDeckIds(ctx, library._id);
   for (const log of logs) {
     // Deleted units stop counting immediately, before their history cleanup.
-    if (!(await ctx.db.get(log.reviewUnitId))) continue;
+    const unit = await ctx.db.get(log.reviewUnitId);
+    if (!unit || !decks.has(unit.deckId)) continue;
     units.add(log.reviewUnitId);
     flashcards.add(log.flashcardId);
   }
@@ -57,7 +60,10 @@ export async function dueEligibleUnits(
           q.eq("libraryId", library._id).eq("locked", false).eq("archived", false).lte("due", now),
         )
         .collect();
-  return units.filter((unit) => unit.libraryId === library._id && !isPendingSchedule(unit));
+  const decks = await activeDeckIds(ctx, library._id);
+  return units.filter(
+    (unit) => decks.has(unit.deckId) && unit.libraryId === library._id && !isPendingSchedule(unit),
+  );
 }
 
 export type SessionSelection = {

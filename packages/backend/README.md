@@ -110,8 +110,12 @@ links per deck, 10 MiB per image, and 80 MiB of images per library. Review
 history is unbounded and is read in pages or deleted in batches. Deletion
 consequences use review-unit lifetime counts and indexed boundary logs. Moving
 a card keeps its history without rewriting it; exports resolve each log to its
-unit's current deck. Deleting cards or decks removes active study data atomically
-and schedules bounded history cleanup. Graph writes compare the displayed
+unit's current deck. Deleting a card removes its active study data atomically and schedules bounded
+history cleanup. Deleting a deck removes the deck row atomically; Browse, queues,
+exports, and card writes exclude rows whose deck is gone. Scheduled cleanup removes
+its units, cards, image links, settings, and edges in bounded batches, and removes
+history by deleted unit ID so moved cards retain their reviews. Quotas conservatively
+include pending cleanup rows until those batches reclaim them. Graph writes compare the displayed
 library revision, so another saved library change can require a graph reload.
 
 ## Development
