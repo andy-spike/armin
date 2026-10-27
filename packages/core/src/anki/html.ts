@@ -1,4 +1,6 @@
 import { ANKI_MEDIA_PREFIX, type ImportWarningCode } from "./types";
+import { splitMath } from "../math";
+import { renderMath } from "../math-render";
 
 /**
  * Anki field HTML → Markdown. Armin renders Markdown (react-markdown + GFM)
@@ -196,8 +198,6 @@ export type HtmlOptions = {
   plain?: boolean;
 };
 
-const MATH_RE =
-  /\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]|\[latex\][\s\S]*?\[\/latex\]|\[\$\$?\][\s\S]*?\[\/\$\$?\]/g;
 const SOUND_RE = /\[sound:[^\]]*\]/g;
 
 /** Escape characters that would start Markdown syntax when they appear in plain text. */
@@ -612,9 +612,30 @@ export function htmlToMarkdown(html: string, options: HtmlOptions): HtmlConversi
   if (/<script\b|<style\b/i.test(source)) options.warn("scripts_removed");
   if (source.search(SOUND_RE) !== -1) options.warn("audio_removed");
   source = source.replace(SOUND_RE, "");
-  if (source.search(MATH_RE) !== -1) options.warn("math_as_text");
+  // Protect TeX before HTML parsing and Markdown escaping: comparisons can
+  // contain '<', arrays use '&', and backslashes must survive unchanged.
+  if (/\[latex\]/i.test(source)) options.warn("math_as_text");
+  const math: string[] = [];
+  let marker = "\uE000math";
+  while (source.includes(marker)) marker += "x";
+  source = splitMath(source)
+    .map((part) => {
+      if (part.kind === "text") return part.raw;
+      const tex = decodeEntities(
+        part.tex
+          .replace(/<br\s*\/?\s*>/gi, "\n")
+          .replace(/<\/?(?:span|div|b|i|em|strong|font)\b[^>]*>/gi, ""),
+      );
+      if (renderMath(tex, part.display).error) options.warn("math_unsupported");
+      math.push(part.display ? `\\[${tex}\\]` : `\\(${tex}\\)`);
+      return `${marker}${math.length - 1}\uE001`;
+    })
+    .join("");
 
   const tree = parseHtml(source);
-  const markdown = tidy(renderBlocks(tree.children, state).join("\n\n"));
+  const markdown = tidy(renderBlocks(tree.children, state).join("\n\n")).replace(
+    new RegExp(`${marker}(\\d+)\uE001`, "g"),
+    (_, index: string) => math[Number(index)]!,
+  );
   return { markdown, media: [...state.media] };
 }

@@ -181,6 +181,7 @@ export type ImportWarningCode =
   | "unsupported_image_removed"
   | "missing_media"
   | "math_as_text"
+  | "math_unsupported"
   | "nested_cloze_flattened"
   | "shared_cloze_narrowed"
   | "occlusion_shape_approximated"

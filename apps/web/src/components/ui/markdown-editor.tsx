@@ -5,6 +5,7 @@ import { Markdown } from "@tiptap/markdown";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { ImagePlus } from "lucide-react";
 import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT } from "@armin/core/media";
+import { hasMath } from "@armin/core/math";
 import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
 import { cn } from "@/lib/utils";
 import {
@@ -51,6 +52,7 @@ function megabytes(bytes: number) {
  */
 function needsSourceMode(editor: Editor, markdown: string) {
   if (!markdown.trim()) return false;
+  if (hasMath(markdown)) return true;
   const hasUnsupportedBlock = (tokens: unknown): boolean =>
     Array.isArray(tokens) &&
     tokens.some((token) => {
@@ -423,11 +425,25 @@ function RichMarkdownEditor({
       </div>
       {plainTextMode && (
         <p className="border-t border-border px-3 py-1.5 text-xs text-muted">
-          Shown as Markdown source because this field contains formatting the rich editor can&apos;t
-          display, such as a table. Saving keeps the text exactly as written.
+          Edit the Markdown and equation source directly. Saving keeps the text exactly as written.
         </p>
       )}
+      {plainTextMode && hasMath(value) && (
+        <div className="border-t border-border px-3 py-2">
+          <p className="mb-2 text-xs text-muted">Preview</p>
+          <MarkdownContent content={value} />
+        </div>
+      )}
       <div className="flex items-center justify-end border-t border-border px-2 py-1">
+        {!plainTextMode && (
+          <button
+            type="button"
+            onClick={() => setPlainTextMode(true)}
+            className="mr-auto rounded-sm px-1.5 py-1 text-xs font-medium text-muted hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            Edit source
+          </button>
+        )}
         <input
           ref={fileInputRef}
           type="file"
