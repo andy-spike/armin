@@ -192,3 +192,20 @@ and mobile Android/iOS bundle checks passed; logs are in
 follow-up. This verifies exclusion of orphan payloads in the tested paths,
 not that every query supports arbitrarily large active text libraries: some
 active-deck queries still collect their full matching rows.
+
+## Update with master (2026-10-26)
+
+Merged master through `2bd674a` and retained both image-upload retries and the
+reviewer-reset generation check. The shared `cleanupLibraryData` helper uses
+the same 20-row content bound for account deletion and reviewer resets. A local
+isolated reset fixture with 21 large cards and 21 units (19,000 CJK characters
+on each unit side) took three calls: first 1 unit and 21 cards remained, then
+0 units and 1 card, then no content remained and cleanup reported complete.
+The revision counter remained unchanged throughout. The fixture library and
+counter were removed, and the temporary diagnostic function was removed and
+confirmed unavailable on the refreshed local deployment. Evidence is under
+`/tmp/anki-merge-{fixture,batch-1,batch-2,batch-3}.json`.
+
+After resolving the merge, `pnpm check` passed with 0 errors and 59 warnings,
+the web build passed, and the Android/iOS bundle checks passed. No production
+deployment was performed.

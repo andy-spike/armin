@@ -35,9 +35,12 @@ These block review and are not done yet:
 2. **Deploy this branch's backend to production.** It adds a `title` to every
    tool (Anthropic's directory flags tools without one) and the OpenAI domain
    verification route. It also fixes the cloze syntax the tools teach.
-3. **Create a reviewer account** on production with a few populated decks and
-   no MFA or email codes. Both directories ask for one; enter it only in their
-   portals, never in this repository.
+3. **Enable and verify the reviewer reset in production** after deploying the
+   backend, following the [backend instructions](../packages/backend/README.md#public-reviewer-account).
+   The public login is `reviewer@armincards.app` / `ArminDemo123!`. Both
+   directories can use it without MFA or email codes. Tell reviewers that the
+   shared library is visible to everyone and resets roughly every six hours;
+   they must not add private material.
 4. **Record a short demo video** of the five positive review cases in
    `armin/plugin.json` and host it where OpenAI's reviewers can open it. Add
    its URL as `review.demo_recording_url` in `armin/plugin.json`.
@@ -64,7 +67,7 @@ Any paid Claude plan can submit.
 2. **Submit new → MCP connector** with
    `https://intent-bullfrog-922.convex.site/mcp`. Choose OAuth with dynamic
    client registration, add the icon, documentation URL
-   (`plugins/armin/README.md` on GitHub), privacy policy, support link
+   (`https://armincards.app/docs/mcp`), privacy policy, support link
    (GitHub Issues), and the reviewer account. The tools sync from the server;
    confirm each shows its title and read-only or write label.
 3. **Submit new → Plugin bundle**, repository `andy-spike/armin`, plugin path

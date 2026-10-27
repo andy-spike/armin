@@ -81,8 +81,10 @@ export const Route = createRootRouteWithContext<{
   }),
   beforeLoad: (ctx) => {
     if (typeof window === "undefined") {
-      // Legal HTML is publicly cached: never read cookies or serialize a session token.
-      if (ctx.matches.some((match) => match.routeId === "/privacy" || match.routeId === "/terms")) {
+      // Public documents are cached: never read cookies or serialize a session token.
+      if (
+        ctx.matches.some((match) => ["/privacy", "/terms", "/docs/mcp"].includes(match.routeId))
+      ) {
         return { isAuthenticated: false, token: null };
       }
       return loadAuth(ctx.context.convexQueryClient);

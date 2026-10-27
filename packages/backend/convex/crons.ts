@@ -10,4 +10,6 @@ crons.interval("cancel abandoned imports", { minutes: 15 }, internal.imports.swe
 
 crons.interval("prune agent authorization and activity", { hours: 1 }, internal.agents.prune, {});
 
+crons.interval("reset public reviewer data when due", { minutes: 5 }, internal.reviewer.reset, {});
+
 export default crons;

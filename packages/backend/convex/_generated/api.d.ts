@@ -34,8 +34,10 @@ import type * as model_flashcards from "../model/flashcards.js";
 import type * as model_limits from "../model/limits.js";
 import type * as model_publicTypes from "../model/publicTypes.js";
 import type * as model_queue from "../model/queue.js";
+import type * as model_reviewer from "../model/reviewer.js";
 import type * as model_study from "../model/study.js";
 import type * as review from "../review.js";
+import type * as reviewer from "../reviewer.js";
 import type * as settings from "../settings.js";
 
 import type {
@@ -71,8 +73,10 @@ declare const fullApi: ApiFromModules<{
   "model/limits": typeof model_limits;
   "model/publicTypes": typeof model_publicTypes;
   "model/queue": typeof model_queue;
+  "model/reviewer": typeof model_reviewer;
   "model/study": typeof model_study;
   review: typeof review;
+  reviewer: typeof reviewer;
   settings: typeof settings;
 }>;
 

@@ -135,10 +135,11 @@ export default defineSchema({
   /** One library per Better Auth user. */
   libraries: defineTable({
     ownerId: v.string(),
-    status: v.union(v.literal("active"), v.literal("deleting")),
+    status: v.union(v.literal("active"), v.literal("deleting"), v.literal("resetting")),
     timeZone: v.string(),
     createdAt: v.number(),
     deletionRequestedAt: v.optional(v.number()),
+    reviewerResetAt: v.optional(v.number()),
   }).index("by_owner", ["ownerId"]),
 
   /**

@@ -84,7 +84,8 @@
           ]
         },
         "commerce": false,
-        "commerce_description": "Armin does not sell products or process payments through this plugin."
+        "commerce_description": "Armin does not sell products or process payments through this plugin.",
+        "demo_recording_url": "https://youtu.be/mcg9uTu5DkM"
       },
       "publication": {
         "release_notes": "First release: create, read, edit, archive, and link Armin study cards, with card-writing guidance."
