@@ -19,7 +19,7 @@ function tidy(text: string) {
     .trim();
 }
 
-function resolveMarkdown(text: string, media: ReadonlyMap<string, string>) {
+function resolveMarkdown(text: string, media: ReadonlyMap<string, string>, required = false) {
   let removed = false;
   const out = text.replace(MARKDOWN_PLACEHOLDER_RE, (_, encoded: string) => {
     const ref = media.get(decodeName(encoded));
@@ -27,6 +27,9 @@ function resolveMarkdown(text: string, media: ReadonlyMap<string, string>) {
     removed = true;
     return "";
   });
+  // A required field may contain static labels around its image. Keeping
+  // those labels cannot establish that the question or answer still works.
+  if (removed && required) throw new Error("A required image could not be imported.");
   return removed ? tidy(out) : out;
 }
 
@@ -34,8 +37,9 @@ function resolveMarkdown(text: string, media: ReadonlyMap<string, string>) {
  * Swap the `anki-media:` placeholders in converted content for the Armin media
  * references the client got back from uploading (`media` maps the Anki file name
  * to its `armin-media:` reference). A placeholder with no entry is dropped
- * cleanly: its Markdown image disappears, and a missing occlusion base image
- * becomes an empty string so `validateContent` rejects the card.
+ * from optional answer extras. Missing images in question/answer fields reject
+ * the card rather than retaining an unanswerable static prompt. A missing
+ * occlusion base becomes empty so `validateContent` rejects that card too.
  */
 export function resolveImportMedia(
   content: FlashcardContent,
@@ -43,11 +47,16 @@ export function resolveImportMedia(
   media: ReadonlyMap<string, string>,
 ) {
   const mapField = (value: string) => resolveMarkdown(value, media);
+  const requiredField = (value: string) => resolveMarkdown(value, media, true);
   switch (type) {
     case "basic":
     case "basic_reversed": {
       const c = content as { front: string; back: string };
-      return { ...c, front: mapField(c.front), back: mapField(c.back) } as FlashcardContent;
+      return {
+        ...c,
+        front: requiredField(c.front),
+        back: requiredField(c.back),
+      } as FlashcardContent;
     }
     case "cloze": {
       const c = content as { text: string; extra?: string };
@@ -55,13 +64,13 @@ export function resolveImportMedia(
       const mappedExtra = extra === undefined ? undefined : mapField(extra);
       return {
         ...rest,
-        text: mapField(c.text),
+        text: requiredField(c.text),
         ...(mappedExtra ? { extra: mappedExtra } : {}),
       } as FlashcardContent;
     }
     case "type_answer": {
       const c = content as { prompt: string; answer: string; acceptedAnswers: string[] };
-      return { ...c, prompt: mapField(c.prompt) } as FlashcardContent;
+      return { ...c, prompt: requiredField(c.prompt) } as FlashcardContent;
     }
     case "image_occlusion": {
       const c = content as { baseImage: string; header?: string; extra?: string };

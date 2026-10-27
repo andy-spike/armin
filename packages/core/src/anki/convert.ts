@@ -10,7 +10,7 @@ import { decodeEntities, htmlToMarkdown, inspectImage } from "./html";
 import { classifyNotetype, type NotetypeKind } from "./notetype";
 import { parseOcclusion } from "./occlusion";
 import { scheduleCard } from "./schedule";
-import { isFieldEmpty, renderCard } from "./template";
+import { escapeHtml, isFieldEmpty, renderCard } from "./template";
 import type {
   AnkiCard,
   AnkiCollection,
@@ -74,6 +74,10 @@ const WARNING_MESSAGES: Record<ImportWarningCode, (count: number) => string> = {
     `${plural(n, "note")} with a custom notetype became basic flashcards from the rendered templates.`,
   audio_only_card_skipped: (n) =>
     `Cards that only play audio on the front were skipped in ${plural(n, "note")} (Armin has no audio yet).`,
+  additional_fields_added: (n) =>
+    `Additional cloze fields from ${plural(n, "note")} were added to the answer.`,
+  additional_fields_omitted: (n) =>
+    `Populated additional cloze fields in ${plural(n, "note")} could not be imported.`,
   required_content_card_skipped: (n) =>
     `Cards whose required front content could not be imported were skipped in ${plural(n, "note")}.`,
   empty_note_skipped: (n) =>
@@ -147,6 +151,7 @@ function fitContent(type: FlashcardType, content: FlashcardContent) {
 }
 
 type NoteContext = {
+  fieldNames: string[];
   mediaNames: ReadonlySet<string>;
   warnings: Set<ImportWarningCode>;
   /** Markdown for a field; `plain` for fields Armin shows without Markdown. */
@@ -221,7 +226,19 @@ function prepareCloze(
   if (limited.trimmed) ctx.warnings.add("content_truncated");
   text = limited.text;
   if (!text.trim()) return EMPTY;
-  const extra = kind.extra === null ? "" : ctx.md(note.fields[kind.extra] ?? "");
+  const extraParts = [kind.extra === null ? "" : ctx.md(note.fields[kind.extra] ?? "")];
+  for (const [index, field] of note.fields.entries()) {
+    if (index === kind.text || index === kind.extra) continue;
+    const markdown = ctx.md(field);
+    if (!markdown.trim()) {
+      if (!isFieldEmpty(field)) ctx.warnings.add("additional_fields_omitted");
+      continue;
+    }
+    const label = ctx.md(escapeHtml(ctx.fieldNames[index] || `Field ${index + 1}`));
+    extraParts.push(`### ${label}\n\n${markdown}`);
+    ctx.warnings.add("additional_fields_added");
+  }
+  const extra = extraParts.filter(Boolean).join("\n\n");
   return {
     ok: true,
     flashcards: [
@@ -377,6 +394,7 @@ export function convertAnkiCollection(
     }
 
     const ctx: NoteContext = {
+      fieldNames: notetype.fields.map((field) => field.name),
       mediaNames,
       warnings,
       md: (html, plain = false) =>

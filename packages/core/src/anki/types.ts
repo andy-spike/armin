@@ -187,6 +187,8 @@ export type ImportWarningCode =
   | "custom_notetype_rendered"
   | "audio_only_card_skipped"
   | "required_content_card_skipped"
+  | "additional_fields_added"
+  | "additional_fields_omitted"
   | "empty_note_skipped"
   | "content_truncated"
   | "tags_trimmed"
