@@ -268,3 +268,52 @@ images. This is a converter check, not a successful browser import. Evidence:
 packages retain their counts (Japanese 600, Kaishi 1,501, Anatomy 74), with
 zero literal bold delimiters in the rendering harness. `pnpm check` passed
 with 0 errors and 59 warnings. The local upload stall is still under investigation.
+
+## Derived Geography import and upload investigation
+
+Tested local application commit `bca865a1edbb77bd1dd39809be1a021e97f681d1`
+with headless Chromium and the isolated local deployment. This is the derived
+CrowdAnki fixture described above, not the 971-card AnkiWeb package. AnKing and
+Physics GRE remain blocked on official AnkiWeb sign-in; neither was tested here.
+
+An authenticated HTTP loop using four distinct PNGs reproduced the local stall:
+all four POSTs to `/media/upload` timed out at eight seconds and a simultaneous
+GET `/` timed out at five seconds. After restarting the local server, the same
+loop passed with one, two, three, and four uploads; another four distinct images
+also passed, and four different images passed after another cold restart. The
+loop asserts both upload success and web responsiveness and is at
+`/tmp/anki-upload-diagnosis/loop.py`; its local session state is not retained.
+The failure was not reliably reproduced or minimized, so its cause and whether
+it affects production remain unknown. No upload-path fix or production claim is
+justified by these observations. The earlier two browser stalls remain evidence
+of the same local symptom, not proof of its cause.
+
+The actual browser import subsequently completed: preview showed 757 cards,
+319 images, and 221 notes with required-front-content cards skipped; the
+completion reported 757 cards in one deck. The run took approximately one
+minute. Browse found three England cards: country to London, London to country
+(with the source hint), and the PNG location map; the SVG flag question was
+absent. The source's fourth direction is the unsupported flag front. The editor
+showed the England map at its natural 500 × 421 pixels on both sides; Review
+showed a capital question and its country answer. No PNG flag files were found
+in this source fixture. This is representative coverage, not a visual audit of
+all cards. There are no image occlusions in this fixture.
+
+A database audit found all 319 distinct card image references had corresponding
+flashcard-media links, media records, and storage blobs; ten sequential
+same-origin authenticated image requests returned nonempty HTTP 200 responses.
+The imported deck was deleted through the UI. After scheduled cleanup, the
+sample deck still showed four cards, the database contained four flashcards,
+and the flashcard-media table was empty. Screenshots and scripts are under
+`/tmp/anki-upload-diagnosis/`; downloaded source content is not committed.
+
+A focused template probe confirmed that a lost SVG-only front is skipped, a
+front with both a lost SVG and usable text is retained, and a PNG front retains
+its answer. Separately, a synthetic late-media-loss probe showed that
+`resolveImportMedia` can remove an unavailable image while leaving static
+question text that passes content validation. That is a separate unresolved
+case after preview; the probe did not demonstrate that it occurred in this
+successful import. No broad pipeline change was made.
+
+`pnpm check` passed with 0 errors and 59 warnings; web build and Android/iOS
+mobile bundle checks passed. No production deployment was performed.
