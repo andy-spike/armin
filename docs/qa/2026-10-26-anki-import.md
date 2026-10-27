@@ -317,3 +317,66 @@ successful import. No broad pipeline change was made.
 
 `pnpm check` passed with 0 errors and 59 warnings; web build and Android/iOS
 mobile bundle checks passed. No production deployment was performed.
+
+### Original packages: follow-up at application commit `bca865a`
+
+This follow-up used the official downloaded APKGs, not the earlier derived
+Geography fixture. SHA-256 verification matched the local provenance manifest.
+All three source databases contain only new cards (Anki type/queue 0/0) and no
+review logs, so these files do not exercise preservation of reviewed schedules
+or history. No source template scripts were executed. Raw package data and
+screenshots remain under `/tmp/anki-originals-terra/` and are not committed.
+
+- **Physics GRE MathJax — partial:** SQLite contained 108 notes and 108 cards;
+  browser preview and completion both showed 108 basic cards, one deck and two
+  images. Preview warned that scripts/styles were removed from 108 notes,
+  custom templates rendered for 108, and math in 105 is plain text. Browse and
+  Edit showed literal TeX, not typeset math. For note `1394780742068`, the
+  source back `\(511 keV/c^2\)` appeared as literal text in the editor. Source
+  comparison for cylindrical gradient (`1412620651355`) and quantum oscillator
+  (`1396357250010`) showed their commands and operators in the converted
+  Markdown; this is not a complete visual audit of those formulas. The deck was
+  deleted and the sample library retained four cards. Review was not checked.
+- **Original Ultimate Geography v5.3 — partial:** SQLite contains 319 notes,
+  978 cards, 546 media (319 PNG and 227 SVG), and four templates. Thus 971 was
+  not the actual source card count; the derived fixture also had 978, although
+  this follow-up did not establish why 971 was reported elsewhere. Browser
+  preview matched conversion: 757 basic cards and 319 images, with 221 notes
+  reporting unsupported images and 221 required-front cards skipped. The
+  original England source (`1708201008370`) converts to country → capital,
+  capital → country with its hint, and PNG map → country; its SVG flag front is
+  skipped. Two actual import attempts stalled during image upload while the local
+  web origin timed out; restarting the isolated server restored it after the
+  first attempt. The first remained at 0/319 in the dialog. This is the
+  previously observed intermittent symptom, with cause and production impact
+  unknown. The previous successful derived-fixture import must not be presented
+  as a successful import of this original package.
+- **Original AnKing Step 1 — partial, with a data-loss finding:** SQLite has
+  34,639 notes, 43,183 cards, 72 deck records and 131 media entries. Full browser
+  preview completed conversion to 34,590 flashcards, 43,136 review units, 56
+  nonempty decks and 122 images. It disabled Import because both card and review
+  unit quotas would be exceeded; the library remained at one deck/four cards.
+  Warnings included 34,438 trimmed tags, missing images on 21,040 notes, 49
+  skipped empty notes, 41 notes with audio removed and three nested clozes
+  flattened. The original was not modified. A derived 72-note subset, selected
+  for available media, cloze hints, multiple clozes, custom fields, long tags
+  and deck variety, contained 114 source cards across 18 decks. Its preview
+  showed 72 cloze flashcards, 114 units and eight images; browser import
+  completed and the 18 imported decks were deleted through the UI. Selection
+  IDs and criteria are in `/tmp/anki-originals-terra/subset-selection.log`.
+  This is partial coverage; the subset did not cover nested clozes.
+
+  **Actionable loss:** source AnKingOverhaul note `1368292090487` has Text with
+  `{{c1::Mid-Systolic Click}}`, Extra `Mitral Valve Prolapse`, and a nonempty
+  Sketchy field containing a “Watch Mitral Valve Regurgitation & Prolapse” link.
+  Converted and imported Edit content has the cloze and Extra but omits the
+  Sketchy link. Preview warns of missing images, removed audio and trimmed tags,
+  but does not warn that other populated fields are omitted. Reproduce by
+  previewing and importing the derived subset, then searching Browse for
+  “Mid-Systolic Click” and opening Edit. This reflects the cloze mapping's
+  Text/Extra-only handling; source custom field content was not verified to be
+  preserved elsewhere. The same subset's missing-image warning concerns image
+  references absent from the package; it does not disclose the lost link.
+
+The separate late-media-loss probe described above remains unresolved. No app
+source or automated test suite was changed in this follow-up.
