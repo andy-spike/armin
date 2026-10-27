@@ -1,5 +1,5 @@
 import { armin } from "@/lib/armin-client";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { RotateCcw, X } from "lucide-react";
 import {
@@ -54,9 +54,12 @@ export function DeckSettingsDialog({
     staleTime: 0,
   });
 
-  useEffect(() => {
+  // Each fetch (one per open) replaces the overrides being edited.
+  const [syncedData, setSyncedData] = useState(query.data);
+  if (query.data !== syncedData) {
+    setSyncedData(query.data);
     if (query.data) setOverrides(query.data.overrides);
-  }, [query.data]);
+  }
 
   const mutation = useMutation({
     mutationFn: (patch: DeckSettingsOverrides) => armin.settings.updateDeck(deckId, patch),

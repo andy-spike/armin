@@ -52,22 +52,22 @@ export function Dialog({
   const panelRef = React.useRef<HTMLDivElement>(null);
   const onCloseRef = React.useRef(onClose);
   const onExitCompleteRef = React.useRef(onExitComplete);
-  const returnFocusRef = React.useRef<HTMLElement | null>(null);
-  const capturedOpenRef = React.useRef(false);
   const titleId = React.useId();
   const [present, setPresent] = React.useState(open);
-  const [closing, setClosing] = React.useState(false);
-  const snapshotRef = React.useRef({ title, description, children, footer });
-  const exiting = closing || (present && !open);
+  const [wasOpen, setWasOpen] = React.useState(false);
+  const [returnFocus, setReturnFocus] = React.useState<HTMLElement | null>(null);
+  const [snapshot, setSnapshot] = React.useState({ title, description, children, footer });
+  const exiting = present && !open;
 
   // Capture the opener before the dialog content (and its autoFocus) mounts.
   // This must happen during render: React applies native `autoFocus` during
   // commit, before effects run.
-  if (open && !capturedOpenRef.current && typeof document !== "undefined") {
-    capturedOpenRef.current = true;
-    returnFocusRef.current = captureReturnFocus();
-  } else if (!open) {
-    capturedOpenRef.current = false;
+  if (open !== wasOpen && typeof document !== "undefined") {
+    setWasOpen(open);
+    if (open) {
+      setPresent(true);
+      setReturnFocus(captureReturnFocus());
+    }
   }
 
   // While a dialog is mounted, isolate app-level keybindings beneath it so a
@@ -75,11 +75,19 @@ export function Dialog({
   // Escape/Tab handlers (below) are intrinsic and unaffected.
   useModalIsolation(present);
 
-  if (open && !exiting) {
-    snapshotRef.current = { title, description, children, footer };
+  // Keep the last open render's content to show through the exit animation
+  // (ADR 0016).
+  if (
+    open &&
+    (snapshot.title !== title ||
+      snapshot.description !== description ||
+      snapshot.children !== children ||
+      snapshot.footer !== footer)
+  ) {
+    setSnapshot({ title, description, children, footer });
   }
 
-  const content = exiting ? snapshotRef.current : { title, description, children, footer };
+  const content = exiting ? snapshot : { title, description, children, footer };
 
   React.useEffect(() => {
     onCloseRef.current = onClose;
@@ -88,15 +96,6 @@ export function Dialog({
   React.useEffect(() => {
     onExitCompleteRef.current = onExitComplete;
   }, [onExitComplete]);
-
-  React.useEffect(() => {
-    if (open) {
-      setPresent(true);
-      setClosing(false);
-    } else if (present) {
-      setClosing(true);
-    }
-  }, [open, present]);
 
   React.useEffect(() => {
     if (!present || exiting) return;
@@ -153,17 +152,15 @@ export function Dialog({
   }, [present, exiting]);
 
   React.useEffect(() => {
-    if (!closing) return;
+    if (!exiting) return;
 
     let finished = false;
     const finishClose = () => {
       if (finished) return;
       finished = true;
-      const target = returnFocusRef.current;
-      if (target?.isConnected) target.focus();
-      returnFocusRef.current = null;
+      if (returnFocus?.isConnected) returnFocus.focus();
+      setReturnFocus(null);
       setPresent(false);
-      setClosing(false);
       onExitCompleteRef.current?.();
     };
 
@@ -180,7 +177,7 @@ export function Dialog({
       panel?.removeEventListener("animationend", onEnd);
       window.clearTimeout(fallback);
     };
-  }, [closing]);
+  }, [exiting, returnFocus]);
 
   if (!present) return null;
 

@@ -8,7 +8,7 @@
  * the provider owns that diffing — this component just calls setBinding/reset.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { Keyboard, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -86,12 +86,14 @@ function KeybindingRecorderDialog({
   const [error, setError] = useState<string | null>(null);
 
   // Reset the draft each time the recorder opens.
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setDraft([]);
       setError(null);
     }
-  }, [open]);
+  }
 
   const confirm = () => {
     if (!command) return;
@@ -110,10 +112,8 @@ function KeybindingRecorderDialog({
 
   // Keep the live key listener pointed at the latest confirm/close handlers
   // without re-attaching it on every keystroke.
-  const confirmRef = useRef(confirm);
-  confirmRef.current = confirm;
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
+  const confirmFromKey = useEffectEvent(confirm);
+  const closeFromKey = useEffectEvent(onClose);
 
   useEffect(() => {
     if (!open) return;
@@ -121,11 +121,11 @@ function KeybindingRecorderDialog({
       event.preventDefault();
       event.stopPropagation();
       if (event.key === "Enter") {
-        confirmRef.current();
+        confirmFromKey();
         return;
       }
       if (event.key === "Escape") {
-        closeRef.current();
+        closeFromKey();
         return;
       }
       if (event.key === "Tab") return; // keep focus put; don't record Tab

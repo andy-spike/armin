@@ -6,7 +6,7 @@ import {
 } from "@/lib/queries";
 import { useStudyClock } from "@/lib/study-clock";
 import { armin } from "@/lib/armin-client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, GitBranch, Layers } from "lucide-react";
 import type { Viewport, XYPosition } from "@xyflow/react";
@@ -81,11 +81,8 @@ function DeckGraphPage() {
   const { deckId } = Route.useParams();
   const navigate = useNavigate();
   const toast = useToast();
-  const markedRouteRender = useRef(false);
-  if (!markedRouteRender.current) {
-    markedRouteRender.current = true;
-    markGraphPerf("routeRender:start");
-  }
+  // A lazy initializer runs once, on the first render.
+  useState(() => markGraphPerf("routeRender:start"));
 
   const viewportStorageKey = `armin:graph-viewport:${deckId}`;
   const [initialViewport] = useState<Viewport | undefined>(() =>
@@ -143,12 +140,13 @@ function DeckGraphPage() {
   const [canvasMounted, setCanvasMounted] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
 
-  useEffect(() => {
-    if (persistedGraph) {
-      setGraph(persistedGraph);
-      setGraphReady(true);
-    }
-  }, [persistedGraph]);
+  // Each new server graph replaces the local working copy.
+  const [syncedGraph, setSyncedGraph] = useState<UiDeckGraph | null>(null);
+  if (persistedGraph && persistedGraph !== syncedGraph) {
+    setSyncedGraph(persistedGraph);
+    setGraph(persistedGraph);
+    setGraphReady(true);
+  }
 
   // Once the data is in, let the loading screen paint a frame before mounting
   // the canvas. Building the graph (dagre layout + ReactFlow + every node) is a

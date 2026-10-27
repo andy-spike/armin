@@ -236,12 +236,10 @@ function Study({ now }: { now: number }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [last, setLast] = useState<{ reviewLogId: Id<"reviewLogs">; version: number } | null>(null);
 
-  useEffect(() => {
-    if (!shown && queue?.items.length) {
-      setShown({ item: queue.items[0], requestId: newRequestId() });
-      setRevealed(false);
-    }
-  }, [queue, shown]);
+  if (!shown && queue?.items.length) {
+    setShown({ item: queue.items[0], requestId: newRequestId() });
+    setRevealed(false);
+  }
 
   const latest = queue?.items.find((item) => item.reviewUnitId === shown?.item.reviewUnitId);
   const changed = Boolean(shown && latest && latest.version !== shown.item.version);

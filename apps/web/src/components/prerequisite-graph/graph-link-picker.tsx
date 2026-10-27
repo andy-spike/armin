@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -118,9 +118,12 @@ export function GraphLinkPicker({
 }) {
   const [query, setQuery] = useState("");
 
-  useEffect(() => {
+  // Clear the filter each time the picker opens.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) setQuery("");
-  }, [open]);
+  }
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();

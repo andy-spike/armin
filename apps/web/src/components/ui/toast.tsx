@@ -31,14 +31,19 @@ const TONE: Record<ToastTone, { Icon: typeof Info; color: string }> = {
   error: { Icon: AlertCircle, color: "text-again" },
 };
 
+const subscribeNever = () => () => {};
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = React.useState<ToastItem[]>([]);
   const idRef = React.useRef(0);
   const timeoutsRef = React.useRef<Map<number, number>>(new Map());
   // The app frame is server-rendered, where there is no document to portal
   // into; nothing can raise a toast before mount anyway.
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => setMounted(true), []);
+  const mounted = React.useSyncExternalStore(
+    subscribeNever,
+    () => true,
+    () => false,
+  );
 
   const clearToastTimeout = React.useCallback((id: number) => {
     const timeoutId = timeoutsRef.current.get(id);

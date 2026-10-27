@@ -32,21 +32,18 @@ export function useGraphSearch(nodes: UiDeckGraph["nodes"], interactive: boolean
   );
   // Null while not searching, so callers can tell "no query" from "no matches".
   const matches = useMemo(() => (query === "" ? null : new Set(matchIds)), [matchIds, query]);
-  const currentMatchId = step === null ? null : (matchIds[step] ?? null);
 
   // A new query starts back at the overview of all matches.
-  useEffect(() => {
+  const [stepQuery, setStepQuery] = useState(query);
+  if (query !== stepQuery) {
+    setStepQuery(query);
     setStep(null);
-  }, [query]);
-
-  // Keep the position valid when an edit removes matches.
-  useEffect(() => {
-    setStep((current) => {
-      if (current === null) return current;
-      if (matchIds.length === 0) return null;
-      return Math.min(current, matchIds.length - 1);
-    });
-  }, [matchIds.length]);
+  } else if (step !== null) {
+    // Keep the position valid when an edit removes matches.
+    const validStep = matchIds.length === 0 ? null : Math.min(step, matchIds.length - 1);
+    if (validStep !== step) setStep(validStep);
+  }
+  const currentMatchId = step === null ? null : (matchIds[step] ?? null);
 
   useEffect(() => {
     if (query === "") {

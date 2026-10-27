@@ -1,13 +1,4 @@
-import {
-  useMemo,
-  useRef,
-  useState,
-  lazy,
-  Suspense,
-  type ComponentProps,
-  type MutableRefObject,
-  type ReactNode,
-} from "react";
+import { useMemo, useState, lazy, Suspense, type ComponentProps, type ReactNode } from "react";
 import { Markdown, type MarkdownReactOptions } from "@tanstack/markdown/react";
 import type { MarkdownExtension, UrlTransform } from "@tanstack/markdown";
 import { cn } from "@/lib/utils";
@@ -135,7 +126,6 @@ type MarkdownContentProps = {
 
 function createComponents(
   images: MarkdownContentProps["images"],
-  imageIndexRef: MutableRefObject<number>,
   onPreview: (src: string) => void,
 ): NonNullable<MarkdownReactOptions["components"]> {
   return {
@@ -147,10 +137,8 @@ function createComponents(
     ),
     img:
       images === "placeholder"
-        ? () => {
-            imageIndexRef.current += 1;
-            return <span>[Image {imageIndexRef.current}]</span>;
-          }
+        ? // Numbered by a CSS counter (`.md-image-placeholder`) in document order.
+          () => <span className="md-image-placeholder" />
         : // Apply the stored display width (encoded in the title) and let
           // clicking the image open the centered zoom preview.
           ({ src, alt, title }: ComponentProps<"img">) => {
@@ -189,14 +177,9 @@ export function MarkdownContent({
   images = "show",
   children,
 }: MarkdownContentProps) {
-  const imageIndexRef = useRef(0);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
-  const components = useMemo(
-    () => createComponents(images, imageIndexRef, setPreviewSrc),
-    [images],
-  );
+  const components = useMemo(() => createComponents(images, setPreviewSrc), [images]);
 
-  imageIndexRef.current = 0;
   const math = useMemo(() => mathDocument(content), [content]);
 
   return (

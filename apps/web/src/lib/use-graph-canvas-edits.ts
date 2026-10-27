@@ -1,6 +1,6 @@
 import { armin, errorMessage } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
-import { useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useMutation } from "@tanstack/react-query";
 import type { XYPosition } from "@xyflow/react";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
@@ -53,7 +53,10 @@ export function useGraphCanvasEdits({
   const revision = useRef(graph.version ?? 0);
   const pending = useRef(0);
   const queue = useRef(Promise.resolve());
-  if (pending.current === 0 && graph.version !== undefined) revision.current = graph.version;
+  // Adopt the server's version whenever none of our own writes are in flight.
+  useLayoutEffect(() => {
+    if (pending.current === 0 && graph.version !== undefined) revision.current = graph.version;
+  });
 
   // Serialize our own rapid edits, while rejecting changes from a stale view.
   const writeGraph = <T extends { version: number }>(write: (version: number) => Promise<T>) => {

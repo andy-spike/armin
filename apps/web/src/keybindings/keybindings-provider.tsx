@@ -15,6 +15,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -94,7 +95,9 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
 
   // Keep a live mirror for the keydown closure, which is attached once.
   const keymapRef = useRef(keymap);
-  keymapRef.current = keymap;
+  useLayoutEffect(() => {
+    keymapRef.current = keymap;
+  });
 
   const stackRef = useRef<ScopeInstance[]>([]);
   const seqRef = useRef(0);
@@ -349,7 +352,9 @@ export function useScope(
 ) {
   const ctx = useContext(KeybindingsContext);
   const handlersRef = useRef(handlers);
-  handlersRef.current = handlers;
+  useLayoutEffect(() => {
+    handlersRef.current = handlers;
+  });
   const modal = options?.modal ?? false;
   const enabled = options?.enabled ?? true;
 

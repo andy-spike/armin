@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -125,7 +125,9 @@ function PaneDoubleClickListener({
 }) {
   const { screenToFlowPosition } = useReactFlow();
   const handlerRef = useRef(onDoubleClick);
-  handlerRef.current = onDoubleClick;
+  useLayoutEffect(() => {
+    handlerRef.current = onDoubleClick;
+  });
 
   useEffect(() => {
     const onDblClick = (event: Event) => {
@@ -193,12 +195,14 @@ function PrerequisiteGraphCanvas({
 
   // Always-fresh snapshot of node positions for layout persistence.
   const nodesRef = useRef(nodes);
-  nodesRef.current = nodes;
 
   // Keep `onReady` in a ref so the readiness effect doesn't re-run (and cancel a
   // pending ready signal) when the parent passes a fresh callback identity.
   const onReadyRef = useRef(onReady);
-  onReadyRef.current = onReady;
+  useLayoutEffect(() => {
+    nodesRef.current = nodes;
+    onReadyRef.current = onReady;
+  });
 
   useEffect(() => () => cancelReadySignal.current?.(), []);
 

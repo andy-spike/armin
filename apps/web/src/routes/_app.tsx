@@ -234,9 +234,10 @@ function Shell({ loading, reviewerResetHours }: { loading?: string; reviewerRese
   const [optimisticPathname, setOptimisticPathname] = useState<string | null>(null);
   const activePathname = optimisticPathname ?? pathname;
 
-  useEffect(() => {
-    if (optimisticPathname === pathname) setOptimisticPathname(null);
-  }, [optimisticPathname, pathname]);
+  // Drop the optimistic highlight once the router catches up.
+  if (optimisticPathname !== null && optimisticPathname === pathname) {
+    setOptimisticPathname(null);
+  }
 
   const activateNav = (path: string) => flushSync(() => setOptimisticPathname(path));
   const isActive = (path: string, exact = false) =>
