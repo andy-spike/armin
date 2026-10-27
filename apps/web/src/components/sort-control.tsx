@@ -24,6 +24,8 @@ type SortControlProps<T extends string> = {
   fieldLayout?: boolean;
   label?: ReactNode;
   triggerClassName?: string;
+  /** Puts the sort icon inside the trigger instead of beside it. */
+  inlineIcon?: boolean;
 };
 
 export function SortControl<T extends string>({
@@ -34,6 +36,7 @@ export function SortControl<T extends string>({
   fieldLayout = false,
   label = "Sort",
   triggerClassName,
+  inlineIcon = false,
 }: SortControlProps<T>) {
   const items = options.map((opt) => ({ value: opt.value, label: opt.label }));
 
@@ -43,7 +46,8 @@ export function SortControl<T extends string>({
         className={cn("w-full min-w-[11rem] border-border-strong bg-surface", triggerClassName)}
         aria-label="Sort by"
       >
-        <SelectValue />
+        {inlineIcon && <ArrowUpDown className="size-3.5 text-muted" aria-hidden />}
+        <SelectValue className="flex-1 text-left" />
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false}>
         <SelectGroup>
@@ -68,6 +72,8 @@ export function SortControl<T extends string>({
       </label>
     );
   }
+
+  if (inlineIcon) return <div className={className}>{select}</div>;
 
   return (
     <div className={cn("flex items-center gap-2", className)}>

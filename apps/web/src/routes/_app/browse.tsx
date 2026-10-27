@@ -7,9 +7,9 @@ import {
 } from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Tag, Layers, AlertTriangle, Library, CircleDot, Search } from "lucide-react";
+import { AlertTriangle, CircleDot, Layers, Library, Search, Tag } from "lucide-react";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import {
   FlashcardDeleteDialog,
@@ -44,7 +44,6 @@ import {
   type BrowseSortKey,
 } from "@/lib/browse";
 import { STATE_OPTIONS } from "@/lib/flashcard-filters";
-import { cn } from "@/lib/utils";
 import type { FlashcardDeleteConsequences } from "@/types/window";
 
 const ALL_STATES = "all";
@@ -257,118 +256,81 @@ function BrowsePage() {
 
       {hasLibrary && (
         <>
-          <div className="mb-5 border border-border bg-bg-2 px-4 py-3">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div className="flex flex-wrap items-end gap-4">
-                <FilterField
-                  className="w-full sm:w-64"
-                  label={
-                    <>
-                      <Search className="h-3.5 w-3.5" aria-hidden /> Search
-                    </>
-                  }
-                >
-                  <Input
-                    type="search"
-                    value={searchInput}
-                    onChange={(event) => setSearchInput(event.target.value)}
-                    placeholder="Front, back, or answer…"
-                    aria-label="Search flashcards"
-                    autoComplete="off"
-                  />
-                </FilterField>
-
-                <FilterField
-                  className="w-36"
-                  label={
-                    <>
-                      <CircleDot className="h-3.5 w-3.5" aria-hidden /> State
-                    </>
-                  }
-                >
-                  <Select
-                    value={stateFilter}
-                    items={stateItems}
-                    onValueChange={(value) => setStateFilter(value ?? ALL_STATES)}
-                  >
-                    <SelectTrigger
-                      className="w-full border-border-strong bg-surface"
-                      aria-label="Filter by state"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent alignItemWithTrigger={false}>
-                      <SelectGroup>
-                        <SelectItem value={ALL_STATES}>All states</SelectItem>
-                        {STATE_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={String(opt.value)}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </FilterField>
-
-                <FilterField
-                  className="w-52"
-                  label={
-                    <>
-                      <Layers className="h-3.5 w-3.5" aria-hidden /> Deck
-                    </>
-                  }
-                >
-                  <SearchableSelect
-                    value={deckFilter}
-                    onValueChange={setDeckFilter}
-                    options={deckOptions}
-                    placeholder="All decks"
-                    searchPlaceholder="Search decks…"
-                    emptyText="No decks found."
-                    aria-label="Filter by deck"
-                  />
-                </FilterField>
-
-                {allTags.length > 0 ? (
-                  <FilterField
-                    className="w-44"
-                    label={
-                      <>
-                        <Tag className="h-3.5 w-3.5" aria-hidden /> Tag
-                      </>
-                    }
-                  >
-                    <SearchableMultiSelect
-                      value={tagFilter}
-                      onValueChange={setTagFilter}
-                      options={tagOptions}
-                      placeholder="All tags"
-                      searchPlaceholder="Search tags…"
-                      emptyText="No tags found."
-                      aria-label="Filter by tag"
-                    />
-                  </FilterField>
-                ) : (
-                  <FilterField
-                    className="w-44"
-                    label={
-                      <>
-                        <Tag className="h-3.5 w-3.5" aria-hidden /> Tag
-                      </>
-                    }
-                  >
-                    <p className="flex h-9 items-center text-sm text-muted">No tags</p>
-                  </FilterField>
-                )}
-              </div>
-              <SortControl
-                fieldLayout
-                value={sort}
-                onChange={setSort}
-                options={BROWSE_SORT_OPTIONS}
-                triggerClassName="min-w-[11rem]"
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-auto sm:min-w-56 sm:flex-1">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted"
+                aria-hidden
+              />
+              <Input
+                type="search"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Search front, back, or answer…"
+                aria-label="Search flashcards"
+                autoComplete="off"
+                className="pl-8"
               />
             </div>
+
+            <Select
+              value={stateFilter}
+              items={stateItems}
+              onValueChange={(value) => setStateFilter(value ?? ALL_STATES)}
+            >
+              <SelectTrigger
+                className="w-36 border-border-strong bg-surface"
+                aria-label="Filter by state"
+              >
+                <CircleDot className="size-3.5 text-muted" aria-hidden />
+                <SelectValue className="flex-1 text-left" />
+              </SelectTrigger>
+              <SelectContent alignItemWithTrigger={false}>
+                <SelectGroup>
+                  <SelectItem value={ALL_STATES}>All states</SelectItem>
+                  {STATE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={String(opt.value)}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+
+            <SearchableSelect
+              value={deckFilter}
+              onValueChange={setDeckFilter}
+              options={deckOptions}
+              placeholder="All decks"
+              searchPlaceholder="Search decks…"
+              emptyText="No decks found."
+              aria-label="Filter by deck"
+              icon={<Layers className="size-3.5 shrink-0 text-muted" aria-hidden />}
+              className="w-48"
+            />
+
+            {allTags.length > 0 && (
+              <SearchableMultiSelect
+                value={tagFilter}
+                onValueChange={setTagFilter}
+                options={tagOptions}
+                placeholder="All tags"
+                searchPlaceholder="Search tags…"
+                emptyText="No tags found."
+                aria-label="Filter by tag"
+                icon={<Tag className="size-3.5 shrink-0 text-muted" aria-hidden />}
+                className="w-40"
+              />
+            )}
+
+            <SortControl
+              value={sort}
+              onChange={setSort}
+              options={BROWSE_SORT_OPTIONS}
+              inlineIcon
+              className="sm:ml-auto"
+              triggerClassName="min-w-0 w-44"
+            />
           </div>
 
           <p className="mb-3 text-xs text-muted">
@@ -467,25 +429,6 @@ function BrowsePage() {
         }}
       />
     </div>
-  );
-}
-
-function FilterField({
-  label,
-  children,
-  className,
-}: {
-  label: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <label className={cn("flex flex-col gap-1.5", className)}>
-      <span className="inline-flex h-3.5 items-center gap-1.5 text-xs font-medium text-muted">
-        {label}
-      </span>
-      {children}
-    </label>
   );
 }
 

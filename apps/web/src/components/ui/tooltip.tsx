@@ -15,6 +15,7 @@ export function Tooltip({
   delay = 150,
   className,
   disabled = false,
+  trackCursorAxis,
 }: {
   children: React.ReactElement<Record<string, unknown>>;
   content: React.ReactNode;
@@ -24,10 +25,12 @@ export function Tooltip({
   className?: string;
   /** Keeps the trigger mounted but never opens the tooltip. */
   disabled?: boolean;
+  /** Follows the pointer along an axis, for long triggers such as an edge. */
+  trackCursorAxis?: "x" | "y" | "both";
 }) {
   return (
     <TooltipPrimitive.Provider delay={delay}>
-      <TooltipPrimitive.Root disabled={disabled}>
+      <TooltipPrimitive.Root disabled={disabled} trackCursorAxis={trackCursorAxis}>
         <TooltipPrimitive.Trigger render={children} />
         <TooltipPrimitive.Portal>
           <TooltipPrimitive.Positioner
