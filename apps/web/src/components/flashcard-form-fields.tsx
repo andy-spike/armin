@@ -2,6 +2,7 @@ import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactN
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import { Tooltip } from "@/components/ui/tooltip";
 import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
 import { cn } from "@/lib/utils";
 import { clozeClusters, parseClozes } from "@armin/core/flashcard-rules";
@@ -53,16 +54,7 @@ export function ClozeField({
   };
 
   return (
-    <Field
-      hint={
-        <>
-          Select text, then <Kbd>Ctrl/⌘</Kbd>
-          <Kbd>Shift</Kbd>
-          <Kbd>C</Kbd> or Make cloze. Reuse a number to blank together; {"{{1::answer::hint}}"} for
-          hints.
-        </>
-      }
-    >
+    <Field>
       <div className="space-y-2">
         <AutoGrowTextarea
           ref={ref}
@@ -83,9 +75,29 @@ export function ClozeField({
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={wrapSelection}>
-            Make cloze
-          </Button>
+          <Tooltip
+            content={
+              <div className="space-y-1.5">
+                <p>
+                  Select text, then press{" "}
+                  <span className="inline-flex gap-0.5 align-middle">
+                    <Kbd>Ctrl/⌘</Kbd>
+                    <Kbd>Shift</Kbd>
+                    <Kbd>C</Kbd>
+                  </span>{" "}
+                  or click Make cloze.
+                </p>
+                <p>Reuse a number to hide several blanks on the same card.</p>
+                <p>
+                  Add a hint with <code>{"{{1::answer::hint}}"}</code>.
+                </p>
+              </div>
+            }
+          >
+            <Button type="button" variant="outline" size="sm" onClick={wrapSelection}>
+              Make cloze
+            </Button>
+          </Tooltip>
           {deletions.length > 0 ? (
             <ul className="flex flex-wrap gap-1">
               {deletions.map((d, i) => (
