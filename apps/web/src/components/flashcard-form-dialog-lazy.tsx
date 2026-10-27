@@ -17,7 +17,7 @@ const loadDialog = () =>
   ));
 
 /**
- * The card editor (TipTap and ProseMirror) is the largest thing on the deck,
+ * The card editor (Milkdown Crepe) is the largest thing on the deck,
  * browse, graph, and review pages, but it only appears once a dialog opens. This
  * wrapper keeps it out of those pages' first load: the page renders without it,
  * the code downloads while the browser is idle, and the dialog mounts on its

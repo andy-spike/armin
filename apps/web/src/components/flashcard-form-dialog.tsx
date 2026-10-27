@@ -1,5 +1,5 @@
 import { useConnection } from "@/lib/session";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Dialog } from "@/components/ui/dialog";
@@ -166,6 +166,12 @@ export function FlashcardFormDialog({
     reviewUnitId: reviewUnitId ?? null,
   });
   const [createSession, setCreateSession] = useState(0);
+  const [uploads, setUploads] = useState(0);
+  const uploadCount = useRef(0);
+  const onUploadChange = useCallback((delta: number) => {
+    uploadCount.current += delta;
+    setUploads(uploadCount.current);
+  }, []);
   const [submitting, setSubmitting] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [initialSnapshot, setInitialSnapshot] = useState<string | null>(null);
@@ -207,7 +213,7 @@ export function FlashcardFormDialog({
   // Disconnected: keep the draft but don't start a save whose outcome
   // can't be confirmed.
   const { online } = useConnection();
-  const canSubmit = content !== null && !submitting && online;
+  const canSubmit = content !== null && !submitting && uploads === 0 && online;
 
   const dirty = initialSnapshot !== null && formSnapshot(type, fields, tags) !== initialSnapshot;
 
@@ -225,7 +231,7 @@ export function FlashcardFormDialog({
   };
 
   const handleSubmit = async () => {
-    if (!content || submitting || !online) return;
+    if (!content || submitting || !online || uploadCount.current > 0) return;
     setSubmitting(true);
     try {
       await onSubmit({ type, content, tags });
@@ -355,6 +361,7 @@ export function FlashcardFormDialog({
             <>
               <Field label="Front" hint="The prompt or question.">
                 <MarkdownEditor
+                  onUploadChange={onUploadChange}
                   key={`front-${editorKey}`}
                   autoFocus
                   aria-label="Flashcard front"
@@ -372,6 +379,7 @@ export function FlashcardFormDialog({
                 }
               >
                 <MarkdownEditor
+                  onUploadChange={onUploadChange}
                   key={`back-${editorKey}`}
                   aria-label="Flashcard back"
                   value={fields.back}
@@ -392,6 +400,7 @@ export function FlashcardFormDialog({
           {type === "cloze" && (
             <Field label="Extra" hint="Optional. Shown only after the answer is revealed.">
               <MarkdownEditor
+                onUploadChange={onUploadChange}
                 key={`cloze-extra-${editorKey}`}
                 aria-label="Cloze extra"
                 value={fields.clozeExtra}
@@ -405,6 +414,7 @@ export function FlashcardFormDialog({
             <>
               <Field label="Prompt" hint="The question to answer.">
                 <MarkdownEditor
+                  onUploadChange={onUploadChange}
                   key={`prompt-${editorKey}`}
                   autoFocus
                   aria-label="Prompt"

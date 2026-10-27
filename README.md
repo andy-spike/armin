@@ -100,8 +100,10 @@ lists anything left out before importing. See
 Cards support KaTeX mathematics: `\(x^2\)` or `$x^2$` inline, and
 `\[\frac{a}{b}\]` or `$$\frac{a}{b}$$` for display equations. Chemistry uses
 `\ce{H2O}` inside math delimiters. Use **Edit source** in the card editor to
-write equations; fields containing math open as source with a rendered preview
-so editing and saving preserve the original TeX. Code spans and fenced code
+write equations. The Milkdown Crepe editor supports inline dollar math and
+standalone display equations visually. Legacy equation delimiters, display math
+inside tables/lists/prose, fenced LaTeX samples, and currency text open as source
+to preserve their structure. Source fields with equations include a rendered preview. Code spans and fenced code
 stay literal. Unsupported commands retain their source with a warning.
 
 Anki MathJax delimiters and the legacy `[$]` / `[$$]` math wrappers are converted
