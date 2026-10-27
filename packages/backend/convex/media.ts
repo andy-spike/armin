@@ -7,7 +7,8 @@ import {
 } from "@armin/core/media";
 import { mediaRefFromFileName } from "@armin/core/media-ref";
 import { internal } from "./_generated/api";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalQuery } from "./_generated/server";
+import { internalMutation } from "./functions";
 import type { ActionCtx } from "./_generated/server";
 import { getViewer } from "./model/access";
 

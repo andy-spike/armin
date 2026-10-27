@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { internalMutation, type MutationCtx } from "./_generated/server";
+import { type MutationCtx } from "./_generated/server";
+import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import { bumpRevision } from "./model/study";
 import type { Id, TableNames } from "./_generated/dataModel";
@@ -146,6 +147,9 @@ const LIBRARY_TABLES: [TableNames, string][] = [
   ["agentRequests", "by_library"],
   ["agentRateLimits", "by_library"],
   ["imports", "by_library_status"],
+  // Before units and flashcards, so deleting those finds no summary to rebuild.
+  ["flashcardSummaries", "by_library_created"],
+  ["deckCounters", "by_library"],
   ["reviewLogs", "by_library_review"],
   ["reviewUnits", "by_library"],
   ["prereqs", "by_library"],

@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { prefetchSettingsPage, settingsQuery as settingsQueryOptions } from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { RotateCcw } from "lucide-react";
 import {
   MaximumIntervalInput,
@@ -28,7 +28,6 @@ import { ExportSettings } from "@/components/export-settings";
 import { ImportSettings } from "@/components/import-settings";
 import { KeybindingSettings } from "@/components/keybinding-settings";
 import { useToast } from "@/components/ui/toast";
-import { settingsKeys } from "@/lib/armin-query";
 import {
   fieldDiffersFromPreset,
   PRESET_OPTIONS,
@@ -107,7 +106,6 @@ function settingsEqual(a: SettingsState, b: SettingsState): boolean {
 
 function SettingsPage() {
   const toast = useToast();
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const activeTab = search.tab ?? "scheduling";
@@ -154,9 +152,7 @@ function SettingsPage() {
         savingRef.current = false;
         if (queuedSaveRef.current) {
           flushSaveQueue();
-          return;
         }
-        void queryClient.invalidateQueries({ queryKey: settingsKeys.current });
       },
     });
   };

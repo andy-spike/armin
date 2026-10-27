@@ -260,6 +260,68 @@ export default defineSchema({
     .index("by_flashcard", ["flashcardId"])
     .index("by_deck", ["deckId"]),
 
+  /**
+   * Derived Browse row for each flashcard: its sort keys, search text, and the
+   * aggregate of its review units. Rebuilt in the same mutation as any write
+   * to the flashcard or its units (model/summaries.ts), so Browse pages through
+   * these indexes without reading review units.
+   */
+  flashcardSummaries: defineTable({
+    libraryId: v.id("libraries"),
+    deckId: v.id("decks"),
+    flashcardId: v.id("flashcards"),
+    createdAt: v.number(),
+    locked: v.boolean(),
+    archived: v.boolean(),
+    tagKeys: v.array(v.string()),
+    frontKey: v.string(),
+    backKey: v.string(),
+    deckKey: v.string(),
+    searchText: v.string(),
+    /** Least-learned unit state and soonest unit due, as the tile shows them. */
+    state: v.number(),
+    due: v.number(),
+    /** 0 scheduled, 1 new, 2 locked: the "due soon" order before `due`. */
+    dueGroup: v.number(),
+    /** Bit per unit state present, for the state filter. */
+    stateMask: v.number(),
+    units: v.number(),
+    newUnits: v.number(),
+    learningUnits: v.number(),
+  })
+    .index("by_flashcard", ["flashcardId"])
+    .index("by_library_created", ["libraryId", "createdAt"])
+    .index("by_library_due", ["libraryId", "dueGroup", "due"])
+    .index("by_library_front", ["libraryId", "frontKey"])
+    .index("by_library_back", ["libraryId", "backKey"])
+    .index("by_library_locked", ["libraryId", "locked", "frontKey"])
+    .index("by_library_state", ["libraryId", "state", "frontKey"])
+    .index("by_library_deck", ["libraryId", "deckKey", "frontKey"])
+    .index("by_deck_created", ["deckId", "createdAt"])
+    .index("by_deck_due", ["deckId", "dueGroup", "due"])
+    .index("by_deck_front", ["deckId", "frontKey"])
+    .index("by_deck_name", ["deckId", "deckKey", "frontKey"])
+    .index("by_deck_back", ["deckId", "backKey"])
+    .index("by_deck_locked", ["deckId", "locked", "frontKey"])
+    .index("by_deck_state", ["deckId", "state", "frontKey"]),
+
+  /** Per-deck totals, the sum of the deck's flashcard summaries. */
+  deckCounters: defineTable({
+    libraryId: v.id("libraries"),
+    deckId: v.id("decks"),
+    flashcards: v.number(),
+    archivedFlashcards: v.number(),
+    /** Unarchived flashcards with review units: the deck's card total. */
+    active: v.number(),
+    /** Archived flashcards with review units. */
+    archived: v.number(),
+    learned: v.number(),
+    newUnits: v.number(),
+    learningUnits: v.number(),
+  })
+    .index("by_deck", ["deckId"])
+    .index("by_library", ["libraryId"]),
+
   prereqs: defineTable({
     libraryId: v.id("libraries"),
     deckId: v.id("decks"),

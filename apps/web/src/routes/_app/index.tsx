@@ -30,8 +30,8 @@ import { SortControl } from "@/components/sort-control";
 import { AnkiImportDialog, preloadAnkiImportDialog } from "@/components/anki-import-dialog-lazy";
 import { useToast } from "@/components/ui/toast";
 import { DECK_SORT_OPTIONS, sortDecks, type DeckSortKey } from "@/lib/sort-decks";
-import { deckKeys, invalidateDeckScopedData } from "@/lib/armin-query";
 import type { UiDeck } from "@/types/view-models";
+import { useStudyClock } from "@/lib/study-clock";
 import {
   decksQuery as decksQueryOptions,
   prefetchDeckPage,
@@ -58,7 +58,7 @@ function DecksPage() {
   // One request id per create dialog, so a retried submit can't add two decks.
   const createRequestId = useRef(newRequestId());
 
-  const decksQuery = useQuery(decksQueryOptions());
+  const decksQuery = useQuery(decksQueryOptions(useStudyClock()));
 
   const decks = decksQuery.data ?? [];
   const sortedDecks = useMemo(
@@ -70,7 +70,6 @@ function DecksPage() {
     mutationFn: (input: { name: string; description?: string | null }) =>
       armin.decks.create({ ...input, requestId: createRequestId.current }),
     onSuccess: (_deck, input) => {
-      void queryClient.invalidateQueries({ queryKey: deckKeys.all });
       toast({ tone: "success", title: "Deck created", description: input.name });
       setClosingAfterCreate(true);
       setOpen(false);
@@ -83,7 +82,6 @@ function DecksPage() {
   const updateDeck = useMutation({
     mutationFn: (input: { id: string; version: number; name: string }) => armin.decks.update(input),
     onSuccess: (_result, deck) => {
-      invalidateDeckScopedData(queryClient, deck.id);
       toast({ tone: "success", title: "Deck renamed", description: deck.name });
       setClosingAfterRename(true);
       setRenameOpen(false);
@@ -93,12 +91,7 @@ function DecksPage() {
 
   const deleteDeck = useMutation({
     mutationFn: (id: string) => armin.decks.delete(id),
-    onSuccess: (_result, id) => {
-      queryClient.setQueryData<UiDeck[]>(deckKeys.all, (current) =>
-        current?.filter((deck) => deck.id !== id),
-      );
-      queryClient.removeQueries({ queryKey: deckKeys.detail(id) });
-      invalidateDeckScopedData(queryClient, id);
+    onSuccess: () => {
       toast({ tone: "success", title: "Deck deleted" });
       setClosingAfterDelete(true);
       setDeleteOpen(false);

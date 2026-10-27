@@ -19,7 +19,10 @@ export function getRouter() {
       queries: {
         queryKeyHashFn: convexQueryClient.hashFn(),
         queryFn: convexQueryClient.queryFn(),
-        staleTime: 5_000,
+        // Study data is read through live Convex subscriptions (lib/queries.ts),
+        // which are never stale and set their own cache lifetime. These
+        // defaults cover the few one-off reads, such as a dialog's preview.
+        staleTime: 30_000,
         refetchOnWindowFocus: true,
         retry: false,
       },
@@ -46,5 +49,11 @@ export function getRouter() {
 declare module "@tanstack/react-router" {
   interface Register {
     router: ReturnType<typeof getRouter>;
+  }
+  interface StaticDataRouteOption {
+    /** The page fills the app frame instead of the centered, scrolling page box. */
+    fullbleed?: boolean;
+    /** The page scrolls the document instead of the app frame's panes. */
+    documentScroll?: boolean;
   }
 }

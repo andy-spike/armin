@@ -1,11 +1,7 @@
 import { v } from "convex/values";
 import { generateReviewUnits } from "@armin/core/flashcard-types";
-import {
-  internalMutation,
-  internalQuery,
-  type MutationCtx,
-  type QueryCtx,
-} from "./_generated/server";
+import { internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internalMutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { agentAccess, canAccessDeck, requireDeck } from "./model/agentAuth";
 import { agentToolSchemas } from "./model/agentTools";

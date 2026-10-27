@@ -1,7 +1,8 @@
 import { rowsInDecks } from "./model/access";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internalQuery, query } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import { getViewer, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
 import { EXPORT_TTL_MS } from "./model/limits";

@@ -1,10 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { decksQuery as decksQueryOptions, prefetchReviewPage } from "@/lib/queries";
+import { deckNamesQuery, prefetchReviewPage, reviewQueueQuery } from "@/lib/queries";
 import { plural } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { convexQuery } from "@convex-dev/react-query";
-import { api } from "@armin/backend/api";
 import { Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,22 +16,21 @@ import {
 import { ReviewSession } from "@/components/review-session";
 import { toUiReviewUnit } from "@/types/view-models";
 import { useReviewActions } from "@/lib/use-review-actions";
-import { useNow } from "@/lib/session";
+import { useStudyClock } from "@/lib/study-clock";
 
 const ALL_DECKS = "all";
 
 function ReviewsPage() {
   const [selectedDeckId, setSelectedDeckId] = useState(ALL_DECKS);
-  const now = useNow();
+  const now = useStudyClock();
 
-  const decksQuery = useQuery(decksQueryOptions());
+  const decksQuery = useQuery(deckNamesQuery());
 
   // A live Convex query, not a poll: the client keeps the session in sync when
-  // a rating unlocks a dependent that the server queue admits.
+  // a rating unlocks a dependent that the server queue admits, and the study
+  // clock moves when a unit falls due.
   const queueQuery = useQuery(
-    selectedDeckId === ALL_DECKS
-      ? convexQuery(api.review.queue, { now })
-      : convexQuery(api.review.queue, { deckId: selectedDeckId, now }),
+    reviewQueueQuery(selectedDeckId === ALL_DECKS ? undefined : selectedDeckId, now),
   );
 
   const queue = useMemo(
@@ -52,7 +49,7 @@ function ReviewsPage() {
     [decksQuery.data],
   );
 
-  const actions = useReviewActions(selectedDeckId === ALL_DECKS ? undefined : selectedDeckId);
+  const actions = useReviewActions();
 
   return (
     <ReviewSession

@@ -2,13 +2,8 @@ import { v } from "convex/values";
 import { generateReviewUnits } from "@armin/core/flashcard-types";
 import { pickFsrsFieldsMs, PENDING_DUE, type FsrsFieldsMs } from "@armin/core/scheduler";
 import { internal } from "./_generated/api";
-import {
-  internalMutation,
-  mutation,
-  query,
-  type MutationCtx,
-  type QueryCtx,
-} from "./_generated/server";
+import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { fsrsSnapshot } from "./schema";
 import { readableLibrary, writableLibrary } from "./model/access";

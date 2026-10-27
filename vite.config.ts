@@ -32,6 +32,25 @@ export default defineConfig({
       // `role="status"` on a div is as accessible as `<output>`.
       "jsx-a11y/prefer-tag-over-role": "off",
     },
+    overrides: [
+      {
+        // Mutations come from convex/functions.ts, which keeps the derived
+        // Browse summaries and deck counters in step with every write.
+        files: ["packages/backend/convex/**/*.ts"],
+        rules: {
+          "no-restricted-imports": [
+            "error",
+            {
+              paths: ["./_generated/server", "../_generated/server"].map((name) => ({
+                name,
+                importNames: ["mutation", "internalMutation"],
+                message: "Import mutation builders from convex/functions.ts.",
+              })),
+            },
+          ],
+        },
+      },
+    ],
     ignorePatterns: ignored,
     options: {
       typeAware: true,

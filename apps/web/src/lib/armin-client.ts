@@ -56,11 +56,6 @@ export function newRequestId() {
   return crypto.randomUUID();
 }
 
-/** Coarse clock tick passed to time-dependent queries so they re-evaluate. */
-export function nowTick(stepMs = 30_000) {
-  return Math.floor(Date.now() / stepMs) * stepMs;
-}
-
 const q = () => convexClient();
 
 function toDate(value: number | null) {
@@ -90,10 +85,6 @@ export type ImportedMedia = { ref: string; fileName: string; mime: string; bytes
 
 export const armin = {
   decks: {
-    list: async () => (await q().query(api.decks.list, { now: nowTick() })) ?? [],
-    listNames: async () => (await q().query(api.decks.listNames, {})) ?? [],
-    get: async (id: string) =>
-      (await q().query(api.decks.get, { deckId: id, now: nowTick() })) ?? null,
     create: ({
       requestId,
       ...input
@@ -122,39 +113,6 @@ export const armin = {
     delete: (id: string) => q().mutation(api.decks.remove, { deckId: id as Id<"decks"> }),
   },
   flashcards: {
-    list: async (deckId: string) =>
-      (await q().query(api.flashcards.listByDeck, { deckId, now: nowTick() })) ?? [],
-    /** Offset pages over the server's bounded, sorted browse result. */
-    browse: async ({
-      offset = 0,
-      ...input
-    }: {
-      offset?: number;
-      limit: number;
-      sort: string;
-      state?: number;
-      deckId?: string;
-      tags?: string[];
-      search?: string;
-    }) => {
-      const page = await q().query(api.flashcards.browse, {
-        ...input,
-        limit: offset + input.limit,
-        now: nowTick(),
-      });
-      if (!page)
-        return {
-          flashcards: [],
-          filteredTotal: 0,
-          filteredArchived: 0,
-          libraryTotal: 0,
-          libraryArchived: 0,
-        };
-      return { ...page, flashcards: page.flashcards.slice(offset) };
-    },
-    listTags: async () => (await q().query(api.flashcards.listTags, {})) ?? [],
-    listDeckTags: async (deckId: string) =>
-      (await q().query(api.flashcards.listDeckTags, { deckId })) ?? [],
     get: async (id: string) => (await q().query(api.flashcards.get, { flashcardId: id })) ?? null,
     deleteConsequences: async (id: string) => {
       const result = await q().query(api.flashcards.deleteConsequences, {
@@ -219,15 +177,10 @@ export const armin = {
       }),
   },
   review: {
-    queue: async (deckId?: string) =>
-      (await q().query(api.review.queue, {
-        deckId: deckId as Id<"decks"> | undefined,
-        now: nowTick(),
-      })) ?? null,
     preview: async (reviewUnitId: string) =>
       (await q().query(api.review.preview, {
         reviewUnitId: reviewUnitId as Id<"reviewUnits">,
-        now: nowTick(15_000),
+        now: Date.now(),
       })) ?? null,
     rate: (input: {
       reviewUnitId: string;
@@ -279,11 +232,6 @@ export const armin = {
       }),
   },
   settings: {
-    get: async () => {
-      const settings = await q().query(api.settings.get, {});
-      if (!settings) throw new Error("Settings are not available.");
-      return settings;
-    },
     update: (patch: SettingsUpdate) => q().mutation(api.settings.update, patch),
     getDeck: async (deckId: string) => {
       const result = await q().query(api.settings.getDeck, { deckId: deckId as Id<"decks"> });
@@ -316,7 +264,6 @@ export const armin = {
   },
   exports: {
     start: () => q().mutation(api.exports.start, {}),
-    list: async () => (await q().query(api.exports.list, {})) ?? [],
   },
 };
 

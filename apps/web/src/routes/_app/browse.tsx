@@ -1,21 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   BROWSE_PAGE_SORT,
-  browseQuery as browseQueryOptions,
-  decksQuery as decksQueryOptions,
+  deckNamesQuery,
   prefetchBrowsePage,
   tagsQuery as tagsQueryOptions,
 } from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Tag, Layers, AlertTriangle, Library, CircleDot, Search } from "lucide-react";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import {
@@ -41,7 +34,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
-import { flashcardKeys, invalidateCoreData, type BrowseQueryFilters } from "@/lib/armin-query";
+import type { BrowseQueryFilters } from "@/lib/armin-query";
+import { useBrowse } from "@/lib/use-browse";
 import { toUiBrowseFlashcard, type UiBrowseFlashcard } from "@/types/view-models";
 import {
   BROWSE_SORT_OPTIONS,
@@ -57,7 +51,6 @@ const ALL_STATES = "all";
 const SEARCH_DEBOUNCE_MS = 250;
 
 function BrowsePage() {
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -93,31 +86,24 @@ function BrowsePage() {
     return filters;
   }, [sort, stateFilter, deckFilter, tagFilter, search]);
 
-  const decksQuery = useQuery(decksQueryOptions());
+  const decksQuery = useQuery(deckNamesQuery());
   const tagsQuery = useQuery(tagsQueryOptions());
 
-  const browseQuery = useInfiniteQuery({
-    ...browseQueryOptions(browseFilters),
-    placeholderData: keepPreviousData,
-  });
+  const browseQuery = useBrowse(browseFilters);
 
   const displayed = useMemo(
-    () =>
-      (browseQuery.data?.pages ?? []).flatMap((page) => page.flashcards).map(toUiBrowseFlashcard),
-    [browseQuery.data],
+    () => browseQuery.flashcards.map(toUiBrowseFlashcard),
+    [browseQuery.flashcards],
   );
 
-  const filteredTotal = browseQuery.data?.pages[0]?.filteredTotal ?? 0;
-  const filteredArchived = browseQuery.data?.pages[0]?.filteredArchived ?? 0;
-  const libraryTotal = browseQuery.data?.pages[0]?.libraryTotal ?? 0;
-  const libraryArchived = browseQuery.data?.pages[0]?.libraryArchived ?? 0;
+  const { filteredTotal, filteredArchived, libraryTotal, libraryArchived } = browseQuery;
   const filteredActive = Math.max(0, filteredTotal - filteredArchived);
   const libraryActive = Math.max(0, libraryTotal - libraryArchived);
   const countSummary =
     filteredTotal === libraryTotal
       ? formatCardCounts(filteredActive, filteredArchived)
       : `${formatCardCounts(filteredActive, filteredArchived)} of ${formatCardCounts(libraryActive, libraryArchived)}`;
-  const hasMore = browseQuery.hasNextPage ?? false;
+  const hasMore = browseQuery.hasNextPage;
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = browseQuery;
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -130,7 +116,7 @@ function BrowsePage() {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
-          void fetchNextPage();
+          fetchNextPage();
         }
       },
       { root, rootMargin: "240px" },
@@ -172,9 +158,7 @@ function BrowsePage() {
   const updateCard = useMutation({
     mutationFn: (values: CardFormValues & { id: string; version: number }) =>
       armin.flashcards.update(values),
-    onSuccess: (_card, values) => {
-      invalidateCoreData(queryClient, editing?.deckId);
-      if (values.id) void queryClient.invalidateQueries({ queryKey: flashcardKeys.all });
+    onSuccess: () => {
       toast({ tone: "success", title: "Flashcard updated" });
       closeDialog();
     },
@@ -183,8 +167,7 @@ function BrowsePage() {
 
   const deleteCard = useMutation({
     mutationFn: (card: UiBrowseFlashcard) => armin.flashcards.delete(card.id).then(() => card),
-    onSuccess: (card) => {
-      invalidateCoreData(queryClient, card.deckId);
+    onSuccess: () => {
       toast({ tone: "error", title: "Flashcard deleted" });
     },
     onError: () => toast({ tone: "error", title: "Couldn’t delete flashcard" }),
@@ -193,8 +176,7 @@ function BrowsePage() {
   const archiveCard = useMutation({
     mutationFn: ({ card, archived }: { card: UiBrowseFlashcard; archived: boolean }) =>
       armin.flashcards.archive(card.id, archived).then(() => card),
-    onSuccess: (card, { archived }) => {
-      invalidateCoreData(queryClient, card.deckId);
+    onSuccess: (_card, { archived }) => {
       toast({
         tone: "success",
         title: archived ? "Flashcard archived" : "Flashcard unarchived",
@@ -254,7 +236,7 @@ function BrowsePage() {
           <p className="mt-1 max-w-[40ch] text-sm text-muted">
             Check your connection and try again. Your saved data is safe.
           </p>
-          <Button variant="outline" className="mt-5" onClick={() => void browseQuery.refetch()}>
+          <Button variant="outline" className="mt-5" onClick={browseQuery.refetch}>
             Try again
           </Button>
         </div>

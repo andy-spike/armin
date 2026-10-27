@@ -1,6 +1,6 @@
 import { armin } from "@/lib/armin-client";
 import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import {
@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { deckKeys, invalidateCoreData } from "@/lib/armin-query";
+import { deckNamesQuery } from "@/lib/queries";
 import { buildDeckFilterOptions } from "@/lib/browse";
 import { stripMarkdownForPreview } from "@/lib/markdown-preview";
 
@@ -43,14 +43,9 @@ export function MoveFlashcardDialog({
   onMoved?: (targetDeckId: string) => void;
 }) {
   const toast = useToast();
-  const queryClient = useQueryClient();
   const [targetDeckId, setTargetDeckId] = useState<string | null>(null);
 
-  const decksQuery = useQuery({
-    queryKey: deckKeys.all,
-    queryFn: () => armin.decks.list(),
-    enabled: open,
-  });
+  const decksQuery = useQuery({ ...deckNamesQuery(), enabled: open });
   const consequencesQuery = useQuery({
     queryKey: ["flashcards", "move-consequences", flashcard?.id],
     queryFn: () => armin.flashcards.moveConsequences(flashcard!.id),
@@ -75,10 +70,7 @@ export function MoveFlashcardDialog({
   const move = useMutation({
     mutationFn: () => armin.flashcards.move(flashcard!.id, targetDeckId!),
     onSuccess: () => {
-      const sourceDeckId = flashcard!.deckId;
       const destinationDeckId = targetDeckId!;
-      invalidateCoreData(queryClient, sourceDeckId);
-      invalidateCoreData(queryClient, destinationDeckId);
       toast({ tone: "success", title: "Flashcard moved" });
       onMoved?.(destinationDeckId);
       onClose();

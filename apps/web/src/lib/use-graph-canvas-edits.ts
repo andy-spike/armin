@@ -1,10 +1,9 @@
 import { armin, errorMessage } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import { useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import type { XYPosition } from "@xyflow/react";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
-import { invalidateCoreData } from "@/lib/armin-query";
 import type { UiDeckGraph } from "@/types/view-models";
 
 type Toast = (input: {
@@ -49,7 +48,6 @@ export function useGraphCanvasEdits({
   refetchGraph,
   toast,
 }: UseGraphCanvasEditsInput) {
-  const queryClient = useQueryClient();
   const [nodePlacements, setNodePlacements] = useState<Record<string, XYPosition>>({});
 
   const revision = useRef(graph.version ?? 0);
@@ -80,7 +78,6 @@ export function useGraphCanvasEdits({
   const addPrereq = useMutation({
     mutationFn: (edge: GraphEdge) =>
       writeGraph((version) => armin.graph.addPrereq(edge.prereqId, edge.dependentId, version)),
-    onSuccess: () => invalidateCoreData(queryClient),
     onError: (error) => {
       toast({
         tone: "error",
@@ -94,7 +91,6 @@ export function useGraphCanvasEdits({
   const removePrereq = useMutation({
     mutationFn: (edge: GraphEdge) =>
       writeGraph((version) => armin.graph.removePrereq(edge.prereqId, edge.dependentId, version)),
-    onSuccess: () => invalidateCoreData(queryClient),
     onError: () => {
       toast({ tone: "error", title: "Couldn’t remove link" });
       refetchGraph();
@@ -141,7 +137,6 @@ export function useGraphCanvasEdits({
           dependentId: card.id,
         });
       }
-      invalidateCoreData(queryClient, inheritedDeckId ?? createDeckId ?? undefined);
       toast({ tone: "success", title: "Flashcard added to graph" });
       closeDialog();
     },
@@ -152,7 +147,6 @@ export function useGraphCanvasEdits({
     mutationFn: (values: CardFormValues & { id: string; version: number }) =>
       armin.flashcards.update(values),
     onSuccess: () => {
-      invalidateCoreData(queryClient, inheritedDeckId ?? undefined);
       toast({ tone: "success", title: "Flashcard updated" });
       closeDialog();
     },
@@ -161,8 +155,7 @@ export function useGraphCanvasEdits({
 
   const deleteCard = useMutation({
     mutationFn: ({ id }: { id: string; deckId?: string }) => armin.flashcards.delete(id),
-    onSuccess: (_result, { deckId }) => {
-      invalidateCoreData(queryClient, deckId);
+    onSuccess: () => {
       toast({ tone: "success", title: "Flashcard deleted" });
     },
     onError: () => {

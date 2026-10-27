@@ -18,7 +18,8 @@ generated API.
   hosted MCP transport, and atomic agent authoring. See
   [AI assistant connections](../../docs/agent-connections.md).
 - `convex/account.ts` — viewer, idempotent library provisioning, account
-  timezone, and the library revision clients subscribe to.
+  timezone, and the library revision (kept for clients from before live
+  subscriptions; exports use the revision as a snapshot check).
 - `convex/decks.ts`, `flashcards.ts`, `graph.ts`, `settings.ts` — authoring,
   browse, prerequisite graph, and scheduling settings.
 - `convex/review.ts` — queue, rating previews, rate, and undo.
@@ -26,8 +27,10 @@ generated API.
 - `convex/media.ts`, `exports.ts`, `exportBuilder.ts` — private images and the
   ZIP export job.
 - `convex/deletion.ts`, `maintenance.ts`, `crons.ts` — bounded cleanup jobs.
+- `convex/functions.ts` — the `mutation` and `internalMutation` builders every
+  mutation uses (lint rejects the raw ones from `_generated/server`).
 - `convex/model/` — shared server logic: access checks, queue selection, lock
-  propagation, limits, and error codes.
+  propagation, limits, error codes, and the derived Browse summaries.
 
 Client entry points (see `package.json` `exports`):
 
@@ -61,6 +64,16 @@ Client entry points (see `package.json` `exports`):
   stale save returns a conflict and changes nothing. Creates, ratings, and
   undos take a client request ID so an application-level retry returns the
   first result instead of applying twice.
+- Browse summaries (`flashcardSummaries`) and deck counters (`deckCounters`)
+  are derived data, never written directly. Triggers in `model/summaries.ts`
+  note each flashcard a mutation touches, and the mutation rebuilds those
+  summaries before it commits; each summary change moves its deck's counters by
+  the difference. Browse pages through the summary indexes with cursors, and
+  deck totals read the counters, so neither reads review units.
+- Clients read through live subscriptions. A query that depends on time takes
+  a `now` argument that the client moves only when `review.status` says time
+  alone next changes a due count (its `refreshAt`), so subscriptions re-run
+  for writes and for due times, never on a fixed tick.
 - Images are validated by their bytes (type sniffing, size), counted against a
   per-library quota, content-addressed, and only served through authenticated
   routes. No storage URL is ever returned to a client.

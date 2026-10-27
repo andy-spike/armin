@@ -6,6 +6,7 @@ import {
   redirect,
   useNavigate,
   useRouter,
+  useMatches,
   useRouterState,
 } from "@tanstack/react-router";
 import { createIsomorphicFn } from "@tanstack/react-start";
@@ -17,6 +18,7 @@ import { isStepsPrefix, parseBinding } from "@/lib/keybindings/keys";
 import { KeyboardOverlays } from "@/components/keyboard-overlays";
 import { PageSkeleton } from "@/components/page-skeletons";
 import { AppSidebar } from "@/components/app-sidebar";
+import { StudyClockSync } from "@/components/study-clock-sync";
 import { LandingPage } from "@/components/landing/landing-page";
 import {
   SidebarInset,
@@ -242,6 +244,14 @@ function Shell({ loading, reviewerResetHours }: { loading?: string; reviewerRese
       : activePathname === path || activePathname.startsWith(`${path}/`);
 
   const { sidebarOpen, sidebarWidth } = Route.useRouteContext();
+  // A full-bleed route (the prerequisite graph) fills the frame instead of the
+  // centered page box. Read from the matched routes, which <Outlet/> renders,
+  // rather than `:has()` on these wrappers: Chrome re-checks `:has()` on every
+  // DOM change below them, which made panning the graph drop frames.
+  const fullbleed =
+    useMatches({
+      select: (matches) => matches.some((match) => match.staticData.fullbleed),
+    }) || undefined;
 
   return (
     <SidebarProvider
@@ -250,6 +260,8 @@ function Shell({ loading, reviewerResetHours }: { loading?: string; reviewerRese
       className="h-dvh min-h-0 overflow-hidden"
     >
       <ShellKeybindings activateNav={activateNav} />
+      {!loading && <IdlePreload />}
+      {!loading && <StudyClockSync />}
       <AppSidebar ready={!loading} isActive={isActive} onNavigate={activateNav} />
       <SidebarInset className="min-w-0 overflow-hidden">
         <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border bg-bg px-2 md:hidden">
@@ -273,8 +285,14 @@ function Shell({ loading, reviewerResetHours }: { loading?: string; reviewerRese
           </div>
         )}
         <div className="route-view flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-          <div className="route-scroll armin-scrollbar armin-scrollbar-gutter-bg notebook-bg min-h-0 flex-1 overflow-y-auto">
-            <div className="route-pad mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+          <div
+            data-fullbleed={fullbleed}
+            className="route-scroll armin-scrollbar armin-scrollbar-gutter-bg notebook-bg min-h-0 flex-1 overflow-y-auto"
+          >
+            <div
+              data-fullbleed={fullbleed}
+              className="route-pad mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8"
+            >
               {loading ? (
                 <div role="status" aria-busy className="h-full">
                   <span className="sr-only">{loading}</span>
@@ -290,6 +308,32 @@ function Shell({ loading, reviewerResetHours }: { loading?: string; reviewerRese
       <KeyboardOverlays />
     </SidebarProvider>
   );
+}
+
+/** Pages the sidebar always links to; their code and data load while idle. */
+const IDLE_PRELOAD_PATHS = ["/", "/review", "/browse"] as const;
+
+/**
+ * Hovering a link preloads its page, but a quick click or a keyboard shortcut
+ * can beat it. Once the signed-in app is idle, load the main pages' code and
+ * first data in the background, so their first visit doesn't wait.
+ */
+function IdlePreload() {
+  const router = useRouter();
+  useEffect(() => {
+    const preload = () => {
+      for (const to of IDLE_PRELOAD_PATHS) {
+        void router.preloadRoute({ to }).catch(() => undefined);
+      }
+    };
+    if ("requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(preload, { timeout: 3000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(preload, 1500);
+    return () => clearTimeout(id);
+  }, [router]);
+  return null;
 }
 
 const NAV_COMMANDS = {

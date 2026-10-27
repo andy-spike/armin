@@ -2,7 +2,8 @@ import { v } from "convex/values";
 import { checkParameters } from "ts-fsrs";
 import { SCHEDULING_PRESET_VALUES } from "@armin/core/scheduling-presets";
 import { resolveEffectiveSettings } from "@armin/core/study";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./functions";
 import { ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
 import {

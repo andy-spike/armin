@@ -73,6 +73,14 @@ export async function dueEligibleUnits(
   );
 }
 
+/** Reads a caller has already made, so listing many decks repeats none of them. */
+export type SessionReads = {
+  /** Every unit of the selected deck, from which the due ones are taken. */
+  deckUnits?: Doc<"reviewUnits">[];
+  today?: Awaited<ReturnType<typeof introducedToday>>;
+  settings?: SettingsCache;
+};
+
 export type SessionSelection = {
   reviews: Doc<"reviewUnits">[];
   frontier: Doc<"reviewUnits">[];
@@ -88,19 +96,29 @@ export async function selectSession(
   library: Doc<"libraries">,
   deckId: Id<"decks"> | null,
   now: number,
+  reads: SessionReads = {},
 ): Promise<SessionSelection> {
-  const units = await dueEligibleUnits(ctx, library, deckId, now);
+  const units = reads.deckUnits
+    ? reads.deckUnits.filter(
+        (unit) =>
+          !unit.locked &&
+          !unit.archived &&
+          unit.due <= now &&
+          unit.libraryId === library._id &&
+          !isPendingSchedule(unit),
+      )
+    : await dueEligibleUnits(ctx, library, deckId, now);
   const reviews = units.filter((unit) => unit.state !== State.New).sort((a, b) => a.due - b.due);
   const newUnits = units.filter((unit) => unit.state === State.New && unit.lastReview == null);
 
-  const settings = new SettingsCache(ctx, library._id);
+  const settings = reads.settings ?? new SettingsCache(ctx, library._id);
   const global = await settings.globalSettings();
   const siblingGrouping = new Map<Id<"decks">, boolean>();
   for (const id of new Set(newUnits.map((unit) => unit.deckId))) {
     siblingGrouping.set(id, (await settings.forDeck(id)).keepSiblingReviewUnitsTogether);
   }
   const keepSiblings = (unit: Doc<"reviewUnits">) => siblingGrouping.get(unit.deckId) ?? false;
-  const today = await introducedToday(ctx, library, now);
+  const today = reads.today ?? (await introducedToday(ctx, library, now));
   const remaining = Math.max(0, global.newReviewUnitsPerDay - today.units.size);
 
   const continuing = newUnits.filter(

@@ -1,6 +1,6 @@
 import { MarkerType, Position, type Edge, type XYPosition } from "@xyflow/react";
 import type { UiDeckGraph } from "@/types/view-models";
-import { CARD_NODE_HEIGHT, CARD_NODE_WIDTH } from "@/lib/graph-layout";
+import { CARD_NODE_HEIGHT, CARD_NODE_WIDTH } from "@/lib/graph-dimensions";
 import type { CardFlowNode } from "@/components/prerequisite-graph/flashcard-node";
 
 const CARD_PREVIEW_LIMIT = 240;
