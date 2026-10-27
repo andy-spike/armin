@@ -17,7 +17,7 @@ shared.
 | `armin/plugin.json`                 | OpenAI    | Portable Agent Plugins manifest. Listing and review cases live in `extensions.com.openai`. |
 | `armin/mcp.json`                    | OpenAI    | The same server, `type: "streamable-http"`. Sign-in uses OAuth discovery and DCR.          |
 | `armin/skills/writing-study-cards/` | Both      | Card-writing guidance. Must match `.agents/skills/writing-study-cards/`.                   |
-| `armin/assets/logo.png`             | Both      | 512×512 listing icon, from the mobile app icon.                                            |
+| `armin/assets/logo.png`             | Both      | 512×512 listing icon, exported from `design/logo` (see its README).                        |
 | `.claude-plugin/marketplace.json`   | Claude    | Lets Claude Code and claude.ai install the plugin straight from this repository.           |
 | `.agents/plugins/marketplace.json`  | Codex     | Lets Codex install the plugin straight from this repository.                               |
 

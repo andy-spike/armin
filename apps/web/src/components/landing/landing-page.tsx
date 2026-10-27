@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, Brain, Check, Lock } from "lucide-react";
+import { ArminMark, ArminWordmark } from "@/components/brand";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { UnlockGraph } from "./unlock-graph";
@@ -49,10 +50,10 @@ export function LandingPage() {
         >
           <Link
             to="/"
-            className="mr-auto flex items-center gap-2 font-serif text-xl font-semibold tracking-tight text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="mr-auto flex items-center gap-2 text-xl text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            <Brain className="size-5 text-accent" strokeWidth={1.75} aria-hidden />
-            Armin
+            <ArminMark className="size-5" />
+            <ArminWordmark />
           </Link>
           <a
             href={GITHUB_URL}
@@ -211,9 +212,9 @@ export function LandingPage() {
 
       <footer className="border-t border-border-strong bg-bg">
         <div className="mx-auto flex max-w-[76rem] flex-wrap items-center gap-x-6 gap-y-2 px-5 py-6 text-sm text-muted sm:px-8">
-          <span className="mr-auto flex items-center gap-2 font-serif text-base font-semibold text-ink">
-            <Brain className="size-4 text-accent" strokeWidth={1.75} aria-hidden />
-            Armin
+          <span className="mr-auto flex items-center gap-2 text-base text-ink">
+            <ArminMark className="size-4.5" />
+            <ArminWordmark />
           </span>
           <span>Open source under the MIT license</span>
           <a
