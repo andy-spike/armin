@@ -312,67 +312,73 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
   React.useEffect(() => endDrag, [endDrag]);
 
   return (
-    <button
-      data-sidebar="rail"
-      data-slot="sidebar-rail"
-      aria-label="Toggle Sidebar"
-      tabIndex={-1}
-      title={state === "expanded" ? "Drag to resize, click to collapse" : "Expand sidebar"}
-      onPointerDown={(event) => {
-        suppressClick.current = false;
-        if (event.button !== 0 || state !== "expanded") return;
-        const side =
-          event.currentTarget.closest<HTMLElement>("[data-side]")?.dataset.side === "right"
-            ? "right"
-            : "left";
-        drag.current = {
-          startX: event.clientX,
-          startWidth: width,
-          side,
-          dragging: false,
-        };
-        event.currentTarget.setPointerCapture(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        const d = drag.current;
-        if (!d) return;
-        const delta = (event.clientX - d.startX) * (d.side === "left" ? 1 : -1);
-        if (!d.dragging) {
-          if (Math.abs(delta) < SIDEBAR_DRAG_THRESHOLD) return;
-          d.dragging = true;
-          setResizing(true);
-          document.body.style.cursor = "col-resize";
-          document.body.style.userSelect = "none";
-        }
-        setWidth(d.startWidth + delta);
-      }}
-      onPointerUp={(event) => {
-        const d = drag.current;
-        if (!d) return;
-        event.currentTarget.releasePointerCapture(event.pointerId);
-        suppressClick.current = d.dragging;
-        endDrag();
-      }}
-      onPointerCancel={endDrag}
-      onClick={(event) => {
-        // The second click of a double-click is handled by onDoubleClick.
-        if (suppressClick.current || event.detail > 1) return;
-        toggleSidebar();
-      }}
-      onDoubleClick={() => {
-        if (state === "expanded") setWidth(SIDEBAR_WIDTH_DEFAULT);
-      }}
-      className={cn(
-        "absolute inset-y-0 z-20 hidden w-4 touch-none transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] hover:after:bg-sidebar-border group-data-resizing/sidebar-wrapper:after:bg-sidebar-border sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2",
-        "in-data-[state=expanded]:cursor-col-resize",
-        "[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize",
-        "group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full hover:group-data-[collapsible=offcanvas]:bg-sidebar",
-        "[[data-side=left][data-collapsible=offcanvas]_&]:-right-2",
-        "[[data-side=right][data-collapsible=offcanvas]_&]:-left-2",
-        className,
-      )}
-      {...props}
-    />
+    <Tooltip
+      content={state === "expanded" ? "Drag to resize, click to collapse" : "Expand sidebar"}
+      side="right"
+      className="px-2.5 py-1.5"
+      trackCursorAxis="y"
+    >
+      <button
+        data-sidebar="rail"
+        data-slot="sidebar-rail"
+        aria-label="Toggle Sidebar"
+        tabIndex={-1}
+        onPointerDown={(event) => {
+          suppressClick.current = false;
+          if (event.button !== 0 || state !== "expanded") return;
+          const side =
+            event.currentTarget.closest<HTMLElement>("[data-side]")?.dataset.side === "right"
+              ? "right"
+              : "left";
+          drag.current = {
+            startX: event.clientX,
+            startWidth: width,
+            side,
+            dragging: false,
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          const d = drag.current;
+          if (!d) return;
+          const delta = (event.clientX - d.startX) * (d.side === "left" ? 1 : -1);
+          if (!d.dragging) {
+            if (Math.abs(delta) < SIDEBAR_DRAG_THRESHOLD) return;
+            d.dragging = true;
+            setResizing(true);
+            document.body.style.cursor = "col-resize";
+            document.body.style.userSelect = "none";
+          }
+          setWidth(d.startWidth + delta);
+        }}
+        onPointerUp={(event) => {
+          const d = drag.current;
+          if (!d) return;
+          event.currentTarget.releasePointerCapture(event.pointerId);
+          suppressClick.current = d.dragging;
+          endDrag();
+        }}
+        onPointerCancel={endDrag}
+        onClick={(event) => {
+          // The second click of a double-click is handled by onDoubleClick.
+          if (suppressClick.current || event.detail > 1) return;
+          toggleSidebar();
+        }}
+        onDoubleClick={() => {
+          if (state === "expanded") setWidth(SIDEBAR_WIDTH_DEFAULT);
+        }}
+        className={cn(
+          "absolute inset-y-0 z-20 hidden w-4 touch-none transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] hover:after:bg-sidebar-border group-data-resizing/sidebar-wrapper:after:bg-sidebar-border sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2",
+          "in-data-[state=expanded]:cursor-col-resize",
+          "[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize",
+          "group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full hover:group-data-[collapsible=offcanvas]:bg-sidebar",
+          "[[data-side=left][data-collapsible=offcanvas]_&]:-right-2",
+          "[[data-side=right][data-collapsible=offcanvas]_&]:-left-2",
+          className,
+        )}
+        {...props}
+      />
+    </Tooltip>
   );
 }
 
