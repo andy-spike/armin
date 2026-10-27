@@ -21,7 +21,7 @@ import {
   type ReactNode,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { settingsKeys } from "@/lib/armin-query";
+import { settingsQuery as settingsQueryOptions } from "@/lib/queries";
 import { isEditableTarget } from "@/lib/keybindings/editable";
 import {
   serializeSteps,
@@ -84,11 +84,7 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const hasBackend = useLibraryReady();
 
-  const settingsQuery = useQuery({
-    queryKey: settingsKeys.current,
-    queryFn: () => armin.settings.get(),
-    enabled: hasBackend,
-  });
+  const settingsQuery = useQuery({ ...settingsQueryOptions(), enabled: hasBackend });
 
   const overrides = useMemo(
     () => parseOverrides(settingsQuery.data?.keybindings),
@@ -246,14 +242,14 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
       armin.settings.update({
         keybindings: Object.keys(next).length ? JSON.stringify(next) : null,
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKeys.current }),
   });
 
   const commitKeymap = useCallback(
     (next: Keymap) => {
       const diff = diffFromFactory(next);
       // Optimistic local update so keys respond before the round-trip settles.
-      queryClient.setQueryData(settingsKeys.current, (prev: typeof settingsQuery.data) =>
+      // The live result replaces it once the save lands.
+      queryClient.setQueryData(settingsQueryOptions().queryKey, (prev) =>
         prev
           ? {
               ...prev,

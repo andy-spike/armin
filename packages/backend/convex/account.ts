@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { defaultSchedulingSettings, isValidTimeZone } from "@armin/core/study";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./functions";
 import { getViewer } from "./model/access";
 import { fail } from "./model/errors";
 import { bumpRevision } from "./model/study";

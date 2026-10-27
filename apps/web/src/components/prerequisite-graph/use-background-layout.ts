@@ -10,6 +10,31 @@ import type { CardFlowNode } from "./flashcard-node";
 
 type NodePlacement = { flashcardId: string; x: number; y: number };
 
+function createLayoutWorker() {
+  return new Worker(new URL("../../lib/graph-layout.worker.ts", import.meta.url), {
+    type: "module",
+  });
+}
+
+/**
+ * Lay out the whole graph off the main thread (Tidy layout). The layout code
+ * lives only in the worker, so the graph page never downloads it.
+ */
+export function layoutInWorker(request: Omit<GraphLayoutWorkerRequest, "requestId">) {
+  return new Promise<NodePlacement[]>((resolve, reject) => {
+    const worker = createLayoutWorker();
+    worker.onmessage = (event: MessageEvent<GraphLayoutWorkerResponse>) => {
+      worker.terminate();
+      resolve(event.data.placements);
+    };
+    worker.onerror = (event) => {
+      worker.terminate();
+      reject(new Error(event.message || "Layout failed."));
+    };
+    worker.postMessage({ ...request, requestId: 0 } satisfies GraphLayoutWorkerRequest);
+  });
+}
+
 /**
  * Give cards without a saved or pending position a place on the canvas. Once
  * the graph is interactive, a Web Worker lays out the unplaced cards around
@@ -60,11 +85,7 @@ export function useBackgroundLayout({
     const cancelScheduled = scheduleGraphWork(() => {
       if (cancelled) return;
       markGraphPerf("backgroundLayout:start");
-      const worker =
-        layoutWorker.current ??
-        new Worker(new URL("../../lib/graph-layout.worker.ts", import.meta.url), {
-          type: "module",
-        });
+      const worker = layoutWorker.current ?? createLayoutWorker();
       layoutWorker.current = worker;
       const requestId = ++layoutRequestId.current;
       const request: GraphLayoutWorkerRequest = {

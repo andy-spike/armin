@@ -4,6 +4,7 @@ import {
   BackgroundVariant,
   MiniMap,
   Panel,
+  Position,
   ReactFlow,
   ReactFlowProvider,
   addEdge,
@@ -39,19 +40,13 @@ import {
   styleEdgeForEmphasis,
   toFlowNode,
 } from "@/lib/graph-flow";
-import { layoutGraph } from "@/lib/graph-layout";
 import { cn } from "@/lib/utils";
 import { FloatingEdge } from "./floating-edge";
-import {
-  FlashcardNode,
-  type CardFlowNode,
-  type CardNodeData,
-  type NodeEmphasis,
-} from "./flashcard-node";
+import { FlashcardNode, type CardFlowNode, type NodeEmphasis } from "./flashcard-node";
 import { afterCanvasPaint, markGraphPerf, measureGraphPerf } from "@/lib/graph-perf";
 import { GraphContextMenu, type GraphMenuItem } from "./graph-context-menu";
 import { GraphToolbar } from "./graph-toolbar";
-import { useBackgroundLayout } from "./use-background-layout";
+import { layoutInWorker, useBackgroundLayout } from "./use-background-layout";
 import { useGraphSearch } from "./use-graph-search";
 import { MAX_ZOOM, MIN_ZOOM, ZoomControl } from "./zoom-control";
 import { GraphLinkPicker, linkPickerContent, type LinkPickerRequest } from "./graph-link-picker";
@@ -629,11 +624,34 @@ function PrerequisiteGraphCanvas({
   }, [persistLayout]);
 
   const onTidy = useCallback(() => {
-    const { nodes: laidOut } = layoutGraph<CardNodeData>(nodesRef.current, edges);
-    const typed = laidOut as CardFlowNode[];
-    setNodes(typed);
-    persistLayout(typed);
-    requestAnimationFrame(() => fitView({ padding: 0.2, maxZoom: 1, duration: 300 }));
+    void layoutInWorker({
+      all: true,
+      nodes: nodesRef.current.map((node) => ({
+        id: node.id,
+        position: node.position,
+        placed: true,
+      })),
+      edges: edges.map((edge) => ({ source: edge.source, target: edge.target })),
+    })
+      .then((placements) => {
+        const byId = new Map(placements.map((placement) => [placement.flashcardId, placement]));
+        // Apply to the current nodes, so a card added while the layout ran stays.
+        const laidOut = nodesRef.current.map((node) => {
+          const placement = byId.get(node.id);
+          return placement
+            ? {
+                ...node,
+                position: { x: placement.x, y: placement.y },
+                targetPosition: Position.Top,
+                sourcePosition: Position.Bottom,
+              }
+            : node;
+        });
+        setNodes(laidOut);
+        persistLayout(laidOut);
+        requestAnimationFrame(() => fitView({ padding: 0.2, maxZoom: 1, duration: 300 }));
+      })
+      .catch(() => undefined);
   }, [edges, fitView, persistLayout, setNodes]);
 
   function menuItemsFor(current: MenuState): GraphMenuItem[] {

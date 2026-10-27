@@ -14,6 +14,8 @@ export type GraphLayoutWorkerEdge = {
 
 export type GraphLayoutWorkerRequest = {
   requestId: number;
+  /** Return every node's position (Tidy layout), not only the unplaced ones. */
+  all?: boolean;
   nodes: GraphLayoutWorkerNode[];
   edges: GraphLayoutWorkerEdge[];
 };
@@ -47,7 +49,7 @@ export function computeGraphLayoutResponse(
   return {
     requestId: request.requestId,
     placements: nodes
-      .filter((node) => unplacedIds.has(node.id))
+      .filter((node) => request.all || unplacedIds.has(node.id))
       .map((node) => ({
         flashcardId: node.id,
         x: node.position.x,

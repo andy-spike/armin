@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { ConvexHttpClient } from "convex/browser";
@@ -78,22 +78,4 @@ export function useConnection() {
     readConnection,
     () => cached,
   );
-}
-
-/** A clock that ticks every `stepMs`, aligned to the step boundary. */
-export function useNow(stepMs = 30_000) {
-  const [now, setNow] = useState(() => Math.floor(Date.now() / stepMs) * stepMs);
-  useEffect(() => {
-    const tick = () => setNow(Math.floor(Date.now() / stepMs) * stepMs);
-    const id = window.setInterval(tick, Math.min(stepMs, 15_000));
-    const onVisible = () => {
-      if (document.visibilityState === "visible") tick();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [stepMs]);
-  return now;
 }

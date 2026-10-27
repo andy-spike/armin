@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { action, internalQuery, query } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import { readableLibrary, writableLibrary } from "./model/access";
 import { DAY, HOUR, hashSecret, newSecret, permissionFields } from "./model/agentAuth";

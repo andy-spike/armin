@@ -175,9 +175,17 @@ export function hydrateFromUnits(
   units: Doc<"reviewUnits">[],
   deckName?: string,
 ) {
+  return hydrateTile(flashcard, aggregate(units), deckName);
+}
+
+/** Tile view of a flashcard whose unit aggregate is already known. */
+export function hydrateTile(
+  flashcard: Doc<"flashcards">,
+  { state, due }: { state: number; due: number },
+  deckName?: string,
+) {
   const { type, content } = parseFlashcard(flashcard);
   const display = flashcardDisplay(type, content);
-  const { state, due } = aggregate(units);
   return {
     id: flashcard._id,
     deckId: flashcard.deckId,

@@ -107,8 +107,13 @@ export function Dialog({
       // focus it already placed inside the panel.
       if (panel?.contains(document.activeElement)) return;
       const autofocusHost = panel?.querySelector<HTMLElement>("[data-autofocus]");
+      const hostEditor = autofocusHost?.querySelector<HTMLElement>('[contenteditable="true"]');
+      // A field that asked for focus but isn't editable yet (the Markdown
+      // editor's first-paint copy) focuses itself once ready; moving focus to
+      // a later input meanwhile would scroll the dialog away from it.
+      if (autofocusHost && !hostEditor) return;
       const target =
-        autofocusHost?.querySelector<HTMLElement>('[contenteditable="true"]') ??
+        hostEditor ??
         panel?.querySelector<HTMLElement>('[contenteditable="true"]') ??
         panel?.querySelector<HTMLElement>("[autofocus], input, textarea, select") ??
         panel;

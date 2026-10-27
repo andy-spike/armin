@@ -1,25 +1,23 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { deckQuery as deckQueryOptions, prefetchReviewPage } from "@/lib/queries";
+import { deckQuery as deckQueryOptions, prefetchReviewPage, reviewQueueQuery } from "@/lib/queries";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { convexQuery } from "@convex-dev/react-query";
-import { api } from "@armin/backend/api";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ReviewSession } from "@/components/review-session";
 import { useReviewActions } from "@/lib/use-review-actions";
-import { useNow } from "@/lib/session";
+import { useStudyClock } from "@/lib/study-clock";
 import { toUiReviewUnit } from "@/types/view-models";
 
 function ReviewPage() {
   const { deckId } = Route.useParams();
-  const now = useNow();
-  const actions = useReviewActions(deckId);
+  const now = useStudyClock();
+  const actions = useReviewActions();
 
-  const deckQuery = useQuery(deckQueryOptions(deckId));
+  const deckQuery = useQuery(deckQueryOptions(deckId, now));
   // Live so newly unlocked or newly due units appear without a reload, and
-  // `now` advances so units become due without any data write.
-  const queueQuery = useQuery(convexQuery(api.review.queue, { deckId, now }));
+  // the study clock advances so units become due without any data write.
+  const queueQuery = useQuery(reviewQueueQuery(deckId, now));
 
   const queue = useMemo(
     () => (queueQuery.data?.items ?? []).map(toUiReviewUnit),

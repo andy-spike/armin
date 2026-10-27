@@ -5,6 +5,7 @@ import {
   Outlet,
   Scripts,
   createRootRouteWithContext,
+  useMatches,
   useRouteContext,
 } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
@@ -19,7 +20,6 @@ import { getToken } from "@/lib/auth-server";
 import { ThemeProvider } from "@/theme/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { KeybindingsProvider } from "@/keybindings/keybindings-provider";
-import { LibrarySync } from "@/components/library-sync";
 import { RouteNotFound } from "@/components/route-status";
 
 /** Read the Better Auth session cookie on the server and mint a Convex token. */
@@ -141,7 +141,6 @@ function RootComponent() {
         <ThemeProvider>
           <ToastProvider>
             <KeybindingsProvider>
-              <LibrarySync />
               <Outlet />
             </KeybindingsProvider>
           </ToastProvider>
@@ -152,8 +151,26 @@ function RootComponent() {
 }
 
 function RootDocument({ children }: { children: ReactNode }) {
+  // The app frame scrolls inside its own panes, so the root is locked; the
+  // landing and legal pages scroll the document instead, which keeps Space,
+  // Page Down, and the browser's own scroll restoration working. An attribute
+  // set while rendering, rather than `html:has(...)`, which Chrome re-checks on
+  // every DOM change anywhere in the page.
+  const documentScroll = useMatches({
+    select: (matches) =>
+      matches.some(
+        (match) =>
+          match.staticData.documentScroll ||
+          (match.context as { landing?: boolean } | undefined)?.landing,
+      ),
+  });
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning>
+    <html
+      lang="en"
+      data-theme="light"
+      data-scroll={documentScroll ? "document" : undefined}
+      suppressHydrationWarning
+    >
       <head>
         <HeadContent />
       </head>

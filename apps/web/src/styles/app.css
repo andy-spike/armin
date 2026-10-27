@@ -310,13 +310,12 @@
   }
 
   /* A full-bleed route (e.g. the prerequisite graph) opts out of the centered
-     page box and page scroll by rendering an element marked `data-fullbleed`.
-     Keying off the rendered content, rather than the router pathname, keeps the
-     layout in lockstep with <Outlet/>. */
-  .route-scroll:has([data-fullbleed]) {
+     page box and page scroll; the app frame marks both wrappers from the
+     matched route's `staticData.fullbleed`. */
+  .route-scroll[data-fullbleed] {
     overflow: hidden;
   }
-  .route-pad:has([data-fullbleed]) {
+  .route-pad[data-fullbleed] {
     height: 100%;
     max-width: none;
     margin: 0;
@@ -695,17 +694,14 @@
  * graph: a spine links each section, and each node fills in once read.
  * ------------------------------------------------------------------ */
 /* The app frame scrolls inside its own panes, so the root is locked; the
-   landing and legal pages scroll the document instead, which keeps Space, Page Down,
-   and the browser's own scroll restoration working. */
-html:has(.landing),
-html:has(.landing) body,
-html:has(.legal),
-html:has(.legal) body {
+   landing and legal pages scroll the document instead (`data-scroll`, set by
+   the root document from the matched route). */
+html[data-scroll="document"],
+html[data-scroll="document"] body {
   height: auto;
   overflow: visible;
 }
-html:has(.landing),
-html:has(.legal) {
+html[data-scroll="document"] {
   scrollbar-color: var(--color-ui-3) var(--color-bg);
 }
 

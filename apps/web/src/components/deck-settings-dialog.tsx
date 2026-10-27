@@ -1,6 +1,6 @@
 import { armin } from "@/lib/armin-client";
 import { useEffect, useId, useState, type ReactNode } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { RotateCcw, X } from "lucide-react";
 import {
   MaximumIntervalInput,
@@ -13,7 +13,6 @@ import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
-import { settingsKeys } from "@/lib/armin-query";
 import { cn } from "@/lib/utils";
 import type { DeckSettingsOverrides, SchedulingSettings } from "@armin/core/study";
 
@@ -44,13 +43,15 @@ export function DeckSettingsDialog({
   onClose: () => void;
 }) {
   const toast = useToast();
-  const queryClient = useQueryClient();
   const [overrides, setOverrides] = useState<DeckSettingsOverrides | null>(null);
 
+  // A form reads a snapshot when it opens; a live update must never replace
+  // overrides being edited.
   const query = useQuery({
-    queryKey: settingsKeys.deck(deckId),
+    queryKey: ["deck-settings", deckId],
     queryFn: () => armin.settings.getDeck(deckId),
     enabled: open,
+    staleTime: 0,
   });
 
   useEffect(() => {
@@ -61,7 +62,6 @@ export function DeckSettingsDialog({
     mutationFn: (patch: DeckSettingsOverrides) => armin.settings.updateDeck(deckId, patch),
     onSuccess: (saved) => {
       setOverrides(saved.overrides);
-      void queryClient.invalidateQueries({ queryKey: settingsKeys.deck(deckId) });
       toast({ tone: "success", title: "Deck settings saved" });
       onClose();
     },

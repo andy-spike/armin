@@ -26,6 +26,21 @@ In a worktree, whose `.env.local` selects a local deployment, prefix Convex
 commands with `CONVEX_DEPLOYMENT=dev:oceanic-fly-888` so the CLI resolves the
 cloud project; `--prod` and `deploy` then target production.
 
+### One-time data backfills
+
+Some backend releases add derived data that existing rows need. Run the
+backfill right after the deploy that introduces it, before deploying the web
+app. Each one schedules itself in bounded batches and is safe to rerun.
+
+| Introduced with                    | Command                                                    |
+| ---------------------------------- | ---------------------------------------------------------- |
+| Browse summaries and deck counters | `npx convex run --prod maintenance:backfillSummaries '{}'` |
+
+Until the summaries backfill finishes, Browse lists only cards changed since
+the deploy, and a deck's totals count only those cards once one of them has
+changed, so start it immediately. The backfill adds each remaining card to its
+deck's counters.
+
 ## Web app
 
 The Cloudflare Vite plugin builds the server for Workers (`apps/web/wrangler.jsonc`).

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { flashcardDisplay } from "@armin/core/flashcard-types";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import { ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
