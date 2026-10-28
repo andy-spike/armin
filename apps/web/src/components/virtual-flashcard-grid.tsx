@@ -12,26 +12,31 @@ function getColumnCount(width: number) {
   return 1;
 }
 
-function chunkCards(cards: UiFlashcard[], columns: number) {
-  const rows: UiFlashcard[][] = [];
+function chunkCards<TCard>(cards: readonly TCard[], columns: number) {
+  const rows: TCard[][] = [];
   for (let index = 0; index < cards.length; index += columns) {
     rows.push(cards.slice(index, index + columns));
   }
   return rows;
 }
 
-export function VirtualFlashcardGrid({
+/**
+ * Flashcard tiles in a responsive grid that mounts only the rows near the
+ * viewport, and asks for the next Browse page when the loader row comes into
+ * range. Used by the deck page and Browse.
+ */
+export function VirtualFlashcardGrid<TCard extends UiFlashcard>({
   cards,
   hasMore,
   isFetchingNextPage,
   fetchNextPage,
   renderCard,
 }: {
-  cards: UiFlashcard[];
+  cards: readonly TCard[];
   hasMore: boolean;
   isFetchingNextPage: boolean;
   fetchNextPage: () => void;
-  renderCard: (card: UiFlashcard) => ReactNode;
+  renderCard: (card: TCard) => ReactNode;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [scrollElement, setScrollElement] = useState<Element | null>(null);

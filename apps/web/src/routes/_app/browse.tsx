@@ -7,7 +7,7 @@ import {
 } from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CircleDot, Layers, Library, Search, Tag } from "lucide-react";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
@@ -22,7 +22,7 @@ import { SortControl } from "@/components/sort-control";
 import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect, SearchableSelect } from "@/components/ui/combobox";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { VirtualFlashcardGrid } from "@/components/virtual-flashcard-grid";
 import { BrowseContentSkeleton } from "@/components/page-skeletons";
 import { Button } from "@/components/ui/button";
 import {
@@ -105,27 +105,6 @@ function BrowsePage() {
       ? formatCardCounts(filteredActive, filteredArchived)
       : `${formatCardCounts(filteredActive, filteredArchived)} of ${formatCardCounts(libraryActive, libraryArchived)}`;
   const hasMore = browseQuery.hasNextPage;
-  const { hasNextPage, isFetchingNextPage, fetchNextPage } = browseQuery;
-
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const sentinel = loadMoreRef.current;
-    if (!sentinel || !hasMore || isFetchingNextPage) return;
-
-    const root = sentinel.closest(".route-scroll");
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
-        }
-      },
-      { root, rootMargin: "240px" },
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMore, hasNextPage, isFetchingNextPage, fetchNextPage, browseFilters]);
 
   const openEdit = (card: UiBrowseFlashcard) => {
     setEditing(card);
@@ -343,8 +322,12 @@ function BrowsePage() {
 
           {filteredTotal > 0 ? (
             <>
-              <ul className="card-grid grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {displayed.map((card) => (
+              <VirtualFlashcardGrid
+                cards={displayed}
+                hasMore={hasMore}
+                isFetchingNextPage={browseQuery.isFetchingNextPage}
+                fetchNextPage={browseQuery.fetchNextPage}
+                renderCard={(card) => (
                   <FlashcardTile
                     key={`${card.deckId}-${card.id}`}
                     card={card}
@@ -370,17 +353,8 @@ function BrowsePage() {
                       await deleteCard.mutateAsync(card);
                     }}
                   />
-                ))}
-              </ul>
-              {hasMore || browseQuery.isFetchingNextPage ? (
-                <div ref={loadMoreRef} className="mt-4 flex justify-center py-2" aria-hidden>
-                  {browseQuery.isFetchingNextPage ? (
-                    <Skeleton className="h-4 w-28" />
-                  ) : (
-                    <div className="h-px w-full" />
-                  )}
-                </div>
-              ) : null}
+                )}
+              />
             </>
           ) : (
             <div className="border border-border bg-bg-2 px-6 py-10 text-center">

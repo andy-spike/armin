@@ -13,7 +13,7 @@ const REVIEW_STATE = 2;
 const RATING_AGAIN = 1;
 
 export const STATS_HEATMAP_WEEKS = 52;
-export const STATS_COMPACT_HEATMAP_WEEKS = 16;
+export const STATS_COMPACT_HEATMAP_WEEKS = 26;
 export const STATS_RECENT_DAYS = 30;
 export const STATS_FORECAST_DAYS = 30;
 

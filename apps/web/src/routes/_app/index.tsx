@@ -233,38 +233,69 @@ function StudyActivity({
   loading: boolean;
 }) {
   return (
-    <section className="mb-6 flex flex-col gap-4 border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0 flex-1">
+    <section className="mb-8 border border-border bg-surface">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border px-4 py-3 sm:px-5">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 className="text-sm font-semibold text-ink">Study activity</h2>
           <span className="text-xs text-muted">Last {STATS_COMPACT_HEATMAP_WEEKS} weeks</span>
         </div>
+        <Link
+          to="/stats"
+          className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-accent-deep transition-colors hover:text-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+        >
+          View stats
+          <ArrowRight className="size-3.5" aria-hidden />
+        </Link>
+      </div>
+      <div className="p-4 sm:p-5">
         {loading ? (
-          <div className="mt-3 space-y-2">
-            <Skeleton className="h-3.5 w-48 rounded-none" />
-            <Skeleton className="h-[58px] w-40 rounded-none" />
+          <div className="flex flex-col gap-6 md:flex-row" role="status" aria-busy>
+            <span className="sr-only">Loading study activity</span>
+            <div className="grid grid-cols-3 gap-4 md:w-40 md:grid-cols-1">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <Skeleton key={index} className="h-10 w-full rounded-none" />
+              ))}
+            </div>
+            <Skeleton className="h-[170px] w-full max-w-[600px] rounded-none" />
           </div>
         ) : heatmap ? (
-          <>
-            <p className="mt-1 text-xs text-muted">
-              {heatmap.total === 0
-                ? "No reviews yet."
-                : `${plural(heatmap.total, "review")} · ${plural(heatmap.streak.current, "day")} streak`}
-            </p>
-            <ReviewHeatmap days={heatmap.days} size="compact" className="mt-2" />
-          </>
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:gap-8">
+            <ActivitySummary heatmap={heatmap} />
+            <ReviewHeatmap days={heatmap.days} size="compact" className="flex-1" />
+          </div>
         ) : (
-          <p className="mt-1 text-xs text-muted">Activity is unavailable right now.</p>
+          <p className="text-sm text-muted">Activity is unavailable right now.</p>
         )}
       </div>
-      <Link
-        to="/stats"
-        className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-accent-deep transition-colors hover:text-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
-      >
-        View stats
-        <ArrowRight className="size-3.5" aria-hidden />
-      </Link>
     </section>
+  );
+}
+
+function ActivitySummary({ heatmap }: { heatmap: StatsHeatmap }) {
+  const today = heatmap.days.at(-1)?.count ?? 0;
+  const items = [
+    { label: "Today", value: today, unit: today === 1 ? "review" : "reviews" },
+    {
+      label: "Streak",
+      value: heatmap.streak.current,
+      unit: heatmap.streak.current === 1 ? "day" : "days",
+    },
+    { label: "Total", value: heatmap.total, unit: heatmap.total === 1 ? "review" : "reviews" },
+  ];
+  return (
+    <dl className="grid shrink-0 grid-cols-3 gap-4 md:w-40 md:grid-cols-1 md:gap-3 md:border-r md:border-border md:pr-6">
+      {items.map((item) => (
+        <div key={item.label} className="min-w-0">
+          <dt className="text-xs text-muted">{item.label}</dt>
+          <dd className="mt-0.5 flex items-baseline gap-1.5">
+            <span className="font-serif text-2xl leading-none font-semibold tabular-nums text-ink">
+              {item.value}
+            </span>
+            <span className="text-xs text-muted">{item.unit}</span>
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
