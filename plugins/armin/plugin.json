@@ -16,7 +16,7 @@
       "interface": {
         "displayName": "Armin",
         "shortDescription": "Turn reading into study cards",
-        "longDescription": "Armin is a spaced-repetition flashcard app whose cards form a prerequisite graph: a card stays locked until the cards it depends on are learned, and FSRS schedules every review.\n\nShare an article, lecture notes, a document, or code, and ask for study cards. The model reads the material, writes focused question-and-answer, cloze, reversed, and typed-answer cards, links foundations to the ideas built on them, and saves the deck to your Armin library with a link to start studying.\n\nYou approve each connection in Armin. By default a connection can only see and change the decks it creates; you can choose to share existing decks and allow edits. Armin never fetches web pages or runs a model itself, and the plugin cannot permanently delete cards or decks, upload images, change review history, or manage your account. Archiving a card is reversible.\n\nRequires an Armin account at armincards.app.",
+        "longDescription": "Armin is a spaced-repetition flashcard app whose cards form a prerequisite graph: a card stays locked until the cards it depends on are learned, and FSRS schedules every review.\n\nShare an article, lecture notes, a document, or code, and ask for study cards. The model reads the material, writes focused question-and-answer, cloze, reversed, and typed-answer cards, links foundations to the ideas built on them, and saves the deck to your Armin library with a link to start studying.\n\nYou approve each connection in Armin. One approval gives the assistant all nine Armin tools on your whole library, including decks and cards you add later. Armin never fetches web pages or runs a model itself, and the plugin cannot permanently delete cards or decks, upload images, change review history, or manage your account. Archiving a card is reversible.\n\nRequires an Armin account at armincards.app.",
         "developerName": "Andy Spike",
         "category": "Education & Research",
         "capabilities": ["Create study decks", "Read decks", "Edit cards", "Link prerequisites"],
@@ -44,10 +44,10 @@
               "expected_behavior": "Saves several focused cards in a new deck named HTTP basics, links the definition of HTTP as a prerequisite of the method and status-code cards, and returns the deck link."
             },
             {
-              "description": "List the decks the connection can access",
+              "description": "List the decks in the library",
               "prompt": "Which Armin decks can you see?",
               "tools_triggered": "list_decks",
-              "expected_behavior": "Lists only decks this connection is allowed to access, with their names, and explains that other decks stay private unless shared in Armin."
+              "expected_behavior": "Lists the decks in the user's library with their names and explains that this approved connection can work across the whole library."
             },
             {
               "description": "Read back a saved deck",

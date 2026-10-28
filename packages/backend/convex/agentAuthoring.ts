@@ -3,7 +3,7 @@ import { generateReviewUnits } from "@armin/core/flashcard-types";
 import { internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { internalMutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
-import { agentAccess, canAccessDeck, requireDeck } from "./model/agentAuth";
+import { agentAccess, agentUser, requireDeck } from "./model/agentAuth";
 import { agentToolSchemas } from "./model/agentTools";
 import { fail } from "./model/errors";
 import { MAX_DECKS, MAX_FLASHCARDS, MAX_PREREQS_PER_DECK } from "./model/limits";
@@ -36,11 +36,6 @@ async function cardForEdit(
   const card = cardId ? await ctx.db.get(cardId) : null;
   if (!card || card.libraryId !== connection.libraryId) fail("NOT_FOUND", "Card not found.");
   await requireDeck(ctx, connection, card.deckId);
-  if (!connection.allowEdits && card.agentConnectionId !== connection._id)
-    fail(
-      "INVALID",
-      "Editing existing cards is disabled. Change this connection's permissions in Armin.",
-    );
   if (card.version !== expectedVersion)
     fail(
       "CONFLICT",
@@ -78,42 +73,23 @@ function assertAcyclic(edges: { prereqId: string; dependentId: string }[]) {
   if (visited !== indegree.size) fail("INVALID", "Prerequisites cannot form a cycle.");
 }
 
-export const authenticate = internalQuery({
-  args: { tokenHash: v.string(), resource: v.string() },
-  handler: async (ctx, args) => {
-    const { connection } = await agentAccess(ctx, args.tokenHash);
-    if (connection.resource !== args.resource)
-      fail("UNAUTHENTICATED", "Token audience does not match this server.");
-    return { id: connection._id };
-  },
-});
-
 export const read = internalQuery({
-  args: { tokenHash: v.string(), tool: v.string(), input: v.any() },
-  handler: async (ctx, { tokenHash, tool, input }) => {
-    const { connection, library } = await agentAccess(ctx, tokenHash);
+  args: { user: agentUser, tool: v.string(), input: v.any() },
+  handler: async (ctx, { user, tool, input }) => {
+    const { connection, library } = await agentAccess(ctx, user);
     if (tool === "list_decks") {
       agentToolSchemas.list_decks.parse(input);
       const decks = await ctx.db
         .query("decks")
         .withIndex("by_library", (q) => q.eq("libraryId", library._id))
         .collect();
-      const permitted = [];
-      for (const deck of decks)
-        if (await canAccessDeck(ctx, connection, deck._id))
-          permitted.push({
-            id: deck._id,
-            name: deck.name,
-            description: deck.description,
-            version: deck.version,
-          });
       return {
-        decks: permitted,
-        permissions: {
-          scope: connection.scope,
-          allowCreateDecks: connection.allowCreateDecks,
-          allowEdits: connection.allowEdits,
-        },
+        decks: decks.map((deck) => ({
+          id: deck._id,
+          name: deck.name,
+          description: deck.description,
+          version: deck.version,
+        })),
         retryWindowDays: 7,
       };
     }
@@ -135,7 +111,6 @@ export const read = internalQuery({
           tags: c.tags,
           archived: c.archived,
           version: c.version,
-          editable: connection.allowEdits || c.agentConnectionId === connection._id,
         })),
         nextCursor: page.isDone ? null : page.continueCursor,
       };
@@ -172,8 +147,6 @@ async function saveCards(ctx: MutationCtx, connection: Doc<"agentConnections">, 
     fail("QUOTA", `A library can hold ${MAX_FLASHCARDS} cards.`);
   let deckId: Id<"decks">;
   if (args.deck.mode === "new") {
-    if (!connection.allowCreateDecks)
-      fail("INVALID", "Creating decks is disabled for this connection.");
     const decks = await ctx.db
       .query("decks")
       .withIndex("by_library", (q) => q.eq("libraryId", connection.libraryId))
@@ -195,7 +168,7 @@ async function saveCards(ctx: MutationCtx, connection: Doc<"agentConnections">, 
   } else {
     const id = ctx.db.normalizeId("decks", args.deck.deckId);
     if (!id) fail("NOT_FOUND", "Deck not found.");
-    await requireDeck(ctx, connection, id, true);
+    await requireDeck(ctx, connection, id);
     deckId = id;
   }
   const ids = new Map<string, Id<"flashcards">>();
@@ -322,7 +295,7 @@ async function editDeck(ctx: MutationCtx, connection: Doc<"agentConnections">, i
   const args = agentToolSchemas.update_deck.parse(input);
   const id = ctx.db.normalizeId("decks", args.deckId);
   if (!id) fail("NOT_FOUND", "Deck not found.");
-  const deck = await requireDeck(ctx, connection, id, true);
+  const deck = await requireDeck(ctx, connection, id);
   if (deck.version !== args.expectedVersion)
     fail("CONFLICT", "This deck changed elsewhere. Read it again before editing.");
   await ctx.db.patch(id, {
@@ -342,7 +315,7 @@ async function setPrerequisite(
   const args = agentToolSchemas.set_prerequisite.parse(input);
   const deckId = ctx.db.normalizeId("decks", args.deckId);
   if (!deckId) fail("NOT_FOUND", "Deck not found.");
-  await requireDeck(ctx, connection, deckId, true);
+  await requireDeck(ctx, connection, deckId);
   if ((await revision(ctx, connection.libraryId)) !== args.expectedRevision)
     fail("CONFLICT", "The library changed. Read the graph again before changing prerequisites.");
   const prereq = await cardForEdit(
@@ -395,7 +368,7 @@ async function moveCard(ctx: MutationCtx, connection: Doc<"agentConnections">, i
   const card = await cardForEdit(ctx, connection, args.cardId, args.expectedVersion);
   const target = ctx.db.normalizeId("decks", args.targetDeckId);
   if (!target) fail("NOT_FOUND", "Deck not found.");
-  await requireDeck(ctx, connection, target, true);
+  await requireDeck(ctx, connection, target);
   const incoming = await ctx.db
     .query("prereqs")
     .withIndex("by_dependent", (q) => q.eq("dependentId", card._id))
@@ -428,9 +401,9 @@ async function moveCard(ctx: MutationCtx, connection: Doc<"agentConnections">, i
 }
 
 export const write = internalMutation({
-  args: { tokenHash: v.string(), tool: v.string(), input: v.any(), fingerprint: v.string() },
-  handler: async (ctx, { tokenHash, tool, input, fingerprint }) => {
-    const { connection } = await agentAccess(ctx, tokenHash);
+  args: { user: agentUser, tool: v.string(), input: v.any(), fingerprint: v.string() },
+  handler: async (ctx, { user, tool, input, fingerprint }) => {
+    const { connection } = await agentAccess(ctx, user);
     const key = tool as keyof typeof agentToolSchemas;
     const schema = agentToolSchemas[key];
     if (!schema) fail("INVALID", "Unknown tool.");
@@ -481,7 +454,6 @@ export const write = internalMutation({
     const result = await operation(ctx, connection, input);
     const now = Date.now();
     await bumpRevision(ctx, connection.libraryId);
-    await ctx.db.patch(connection._id, { lastUsedAt: now });
     await ctx.db.insert("agentRequests", {
       libraryId: connection.libraryId,
       connectionId: connection._id,

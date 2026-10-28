@@ -12,7 +12,7 @@ export const Route = createFileRoute("/docs/mcp")({
       {
         name: "description",
         content:
-          "Connect Claude, ChatGPT, Claude Code, or Codex to Armin. Set deck permissions, manage connections, and troubleshoot the hosted MCP server.",
+          "Connect Claude, ChatGPT, Claude Code, or Codex to Armin. Review whole-library access, manage connections, and troubleshoot the hosted MCP server.",
       },
     ],
   }),

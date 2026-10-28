@@ -25,6 +25,7 @@ import type * as graph from "../graph.js";
 import type * as http from "../http.js";
 import type * as imports from "../imports.js";
 import type * as maintenance from "../maintenance.js";
+import type * as mcp from "../mcp.js";
 import type * as media from "../media.js";
 import type * as model_access from "../model/access.js";
 import type * as model_agentAuth from "../model/agentAuth.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   imports: typeof imports;
   maintenance: typeof maintenance;
+  mcp: typeof mcp;
   media: typeof media;
   "model/access": typeof model_access;
   "model/agentAuth": typeof model_agentAuth;
@@ -119,4 +121,5 @@ export declare const internal: FilterApi<
 export declare const components: {
   betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
   resend: import("@convex-dev/resend/_generated/component.js").ComponentApi<"resend">;
+  mcp: import("@convex-dev/mcp/_generated/component.js").ComponentApi<"mcp">;
 };
