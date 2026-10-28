@@ -10,7 +10,7 @@ in the conversation.
 
 ## Install
 
-For connection steps, permissions, tools, and troubleshooting, read the
+For connection steps, access, tools, and troubleshooting, read the
 [MCP server documentation](https://armincards.app/docs/mcp).
 
 In Claude or ChatGPT, search for Armin in the plugin directory and add it.
@@ -57,16 +57,18 @@ protected. Use a personal account for private or persistent work.
 
 The plugin runs no programs on your computer and has no hooks.
 
-## Permissions
+## Access
 
-You approve every connection in Armin and can change or revoke it at any time
-under Settings → AI assistants. By default a connection can only see and change
-the decks it creates. You can choose to share existing decks or your whole
-library, and separately allow edits to existing content.
+You approve every connection in Armin and can disconnect it at any time under
+Settings → AI assistants. One approval gives the assistant all nine Armin tools
+on your whole library, including decks and cards you add later. There are no
+per-deck, read-only, or edit/create access options.
 
 The assistant cannot permanently delete cards or decks, upload images, rate
 reviews or change scheduling, export your library, or change your account.
-Archiving a card is reversible and keeps its review history.
+Archiving a card is reversible and keeps its review history. Each connection
+allows up to 120 successful writes per hour, and an account can have up to 20
+active connections.
 
 ## Data
 

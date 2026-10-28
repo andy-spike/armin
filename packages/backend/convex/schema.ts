@@ -1,13 +1,14 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { permissionFields } from "./model/agentAuth";
 
 /**
- * Study data belongs to a library derived from the first-party session or
- * an explicitly authorized agent grant, never a caller-supplied account ID.
- * OAuth client registration and pre-consent requests are not account data.
+ * Study data belongs to a library derived from the first-party session or a
+ * component-verified assistant grant, never a caller-supplied account ID.
+ * Retired OAuth tables are kept until their bounded cleanup drains them.
  * Timestamps are epoch milliseconds.
  */
+
+const legacyAgentScope = v.union(v.literal("created"), v.literal("selected"), v.literal("library"));
 
 export const fsrsFields = {
   due: v.number(),
@@ -47,12 +48,17 @@ const importCounts = v.object({
 });
 
 export default defineSchema({
+  /**
+   * Retired dynamic client registration. No code writes these rows; the hourly
+   * prune removes them once their expiry passes.
+   */
   agentClients: defineTable({
     name: v.string(),
     redirectUris: v.array(v.string()),
     createdAt: v.number(),
     expiresAt: v.number(),
   }).index("by_expiry", ["expiresAt"]),
+  /** Retired consent requests from the Armin OAuth server; pruned by expiry. */
   agentAuthorizations: defineTable({
     requestHash: v.string(),
     clientId: v.id("agentClients"),
@@ -69,15 +75,29 @@ export default defineSchema({
     .index("by_code", ["codeHash"])
     .index("by_expiry", ["expiresAt"])
     .index("by_library", ["libraryId"]),
+  /**
+   * One app-side record per approved assistant connection. The `@convex-dev/mcp`
+   * component owns the credential; `componentConnectionId` links this row to its
+   * grant. Rows are kept after revocation for provenance, activity, and retries.
+   */
   agentConnections: defineTable({
     libraryId: v.id("libraries"),
-    clientId: v.id("agentClients"),
+    /** Component grant id. Absent on connections from the retired OAuth server. */
+    componentConnectionId: v.optional(v.string()),
+    /** @deprecated Retired OAuth client. */
+    clientId: v.optional(v.id("agentClients")),
     name: v.string(),
+    /** OAuth resource audience; the component also binds tokens to it. */
     resource: v.string(),
-    ...permissionFields,
+    /** @deprecated Per-deck permissions were removed; kept for old rows only. */
+    scope: v.optional(legacyAgentScope),
+    deckIds: v.optional(v.array(v.id("decks"))),
+    allowCreateDecks: v.optional(v.boolean()),
+    allowEdits: v.optional(v.boolean()),
     createdAt: v.number(),
     lastUsedAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
+    /** @deprecated Retired token hashes; the migration clears them. */
     accessHash: v.optional(v.string()),
     accessExpiresAt: v.optional(v.number()),
     refreshHash: v.optional(v.string()),
@@ -85,8 +105,8 @@ export default defineSchema({
   })
     .index("by_library", ["libraryId"])
     .index("by_library_revoked", ["libraryId", "revokedAt"])
-    .index("by_access", ["accessHash"])
-    .index("by_refresh", ["refreshHash"]),
+    .index("by_component", ["componentConnectionId"]),
+  /** @deprecated Retired refresh-token replay records; pruned by expiry. */
   agentUsedRefreshTokens: defineTable({
     libraryId: v.id("libraries"),
     connectionId: v.id("agentConnections"),

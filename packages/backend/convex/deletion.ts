@@ -200,6 +200,11 @@ export const cleanupLibrary = internalMutation({
       });
       return;
     }
+    // Library status already denies assistant access. Revoke the component
+    // grants one at a time so their token rows never exceed a transaction.
+    await ctx.scheduler.runAfter(0, internal.agents.revokeAccountGrants, {
+      userId: library.ownerId,
+    });
     await ctx.db.delete(libraryId);
   },
 });

@@ -116,16 +116,17 @@ supported. The web app renders equations with KaTeX and bundled fonts.
 Armin works with ChatGPT, Claude, Claude Code, and Codex through Armin sign-in.
 Chat app users install the [Armin plugin](plugins/armin/README.md) from Claude's
 or ChatGPT's plugin directory; coding agents connect to Armin's hosted MCP
-server directly. Settings → AI assistants shows the steps for each. Assistants can generate text
-cards and prerequisite graphs from material the user provides, save decks, and
-manage authorized content. New connections can only access decks they create;
-sharing existing decks and allowing edits are explicit choices. Agent tools
-cannot permanently delete content or remove review history through structural
-card edits.
+server directly. Settings → AI assistants shows the steps for each. After you
+approve a connection, its assistant can use all nine Armin tools on your whole
+library: reading, creating, editing, archiving, moving, and linking cards, plus
+creating and renaming decks, across every deck, including decks you add later.
+It cannot permanently delete content, upload images, rate reviews, change
+scheduling, export your library, or manage your account. You can disconnect any
+assistant at any time.
 
-See [AI assistant connections](docs/agent-connections.md) for the permission
-model, OAuth/MCP endpoints, operation limits, and deployment verification needs,
-and [publishing the plugin](plugins/PUBLISHING.md) for directory submission.
+See [AI assistant connections](docs/agent-connections.md) for the access model,
+OAuth/MCP endpoints, operation limits, and deployment verification needs, and
+[publishing the plugin](plugins/PUBLISHING.md) for directory submission.
 Provider account restrictions apply.
 
 ## Card-writing skill
