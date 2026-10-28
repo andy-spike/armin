@@ -6,7 +6,7 @@
  * clean media ref stays in the URL, so main-process media validation is
  * unaffected, and any human caption after the token is preserved verbatim.
  * These helpers are the single place that encodes/decodes that convention,
- * shared by the Tiptap editor node and the read-only react-markdown renderer.
+ * shared by the Milkdown editor node and the read-only react-markdown renderer.
  */
 
 /** A standalone `w=<px>` token anywhere in the title (whitespace/edge bounded). */

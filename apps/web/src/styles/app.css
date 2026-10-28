@@ -370,147 +370,9 @@
 }
 
 /* ------------------------------------------------------------------ *
- * Tiptap markdown fields (card authoring)
+ * Milkdown Crepe card authoring
  * ------------------------------------------------------------------ */
 @layer components {
-  .markdown-editor {
-    overflow-y: hidden;
-  }
-
-  .markdown-editor[data-overflowing] {
-    overflow-y: auto;
-  }
-
-  .markdown-editor .tiptap {
-    min-height: 4.5rem;
-    overflow-wrap: anywhere;
-  }
-
-  .markdown-editor .tiptap p {
-    margin: 0;
-  }
-
-  .markdown-editor .tiptap p + p {
-    margin-top: 0.5rem;
-  }
-
-  .markdown-editor .tiptap strong {
-    font-weight: 600;
-  }
-
-  .markdown-editor .tiptap code {
-    border-radius: var(--radius-sm);
-    background-color: var(--color-surface-sunken);
-    padding: 0.1em 0.35em;
-    font-family: var(--font-mono);
-    font-size: 0.9em;
-  }
-
-  .markdown-editor .tiptap img {
-    display: block;
-    max-width: 100%;
-    height: auto;
-    margin: 0.5rem 0;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border);
-  }
-
-  .markdown-editor .tiptap img.ProseMirror-selectednode {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 1px;
-  }
-
-  /* Resizable image node view (ResizableNodeView). The container is the node's
-   * DOM; the wrapper is positioned relative so handles and the magnifier button
-   * can sit on the image. Margin lives on the container so the resize box hugs
-   * the image. */
-  .markdown-editor .tiptap [data-resize-container] {
-    margin: 0.5rem 0;
-    max-width: 100%;
-  }
-
-  .markdown-editor .tiptap [data-resize-wrapper] {
-    max-width: 100%;
-  }
-
-  .markdown-editor .tiptap [data-resize-wrapper] img {
-    margin: 0;
-  }
-
-  .markdown-editor .tiptap [data-resize-handle] {
-    width: 12px;
-    height: 12px;
-    border-radius: 9999px;
-    background: var(--color-accent);
-    border: 2px solid var(--color-surface);
-    opacity: 0;
-    transition: opacity 0.12s ease;
-  }
-
-  .markdown-editor .tiptap [data-resize-wrapper]:hover [data-resize-handle],
-  .markdown-editor .tiptap [data-resize-container][data-resize-state="true"] [data-resize-handle] {
-    opacity: 1;
-  }
-
-  .markdown-editor .tiptap [data-resize-handle="top-left"] {
-    margin: -6px 0 0 -6px;
-    cursor: nwse-resize;
-  }
-  .markdown-editor .tiptap [data-resize-handle="top-right"] {
-    margin: -6px -6px 0 0;
-    cursor: nesw-resize;
-  }
-  .markdown-editor .tiptap [data-resize-handle="bottom-left"] {
-    margin: 0 0 -6px -6px;
-    cursor: nesw-resize;
-  }
-  .markdown-editor .tiptap [data-resize-handle="bottom-right"] {
-    margin: 0 -6px -6px 0;
-    cursor: nwse-resize;
-  }
-
-  .markdown-editor .tiptap .tiptap-image-zoom {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border);
-    background: color-mix(in srgb, var(--color-surface) 85%, transparent);
-    color: var(--color-ink);
-    opacity: 0;
-    cursor: pointer;
-    transition:
-      opacity 0.12s ease,
-      background-color 0.12s ease;
-  }
-
-  .markdown-editor .tiptap [data-resize-wrapper]:hover .tiptap-image-zoom {
-    opacity: 1;
-  }
-
-  .markdown-editor .tiptap .tiptap-image-zoom:hover {
-    background: var(--color-surface);
-  }
-
-  .markdown-editor .tiptap .tiptap-image-zoom svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .markdown-editor .tiptap p.is-editor-empty:first-child::before,
-  .markdown-editor .tiptap p.is-empty::before {
-    float: left;
-    height: 0;
-    pointer-events: none;
-    color: var(--color-muted);
-    content: attr(data-placeholder);
-  }
-
   /* Read-only rendered Markdown (react-markdown, review cards). Typography
    * (size, weight, leading) is inherited from the wrapper's utility classes. */
   .markdown-content {
@@ -993,4 +855,40 @@ html[data-scroll="document"] {
 }
 .markdown-content .katex {
   font-size: 1.1em;
+}
+
+/* Unlayered to override the vendor theme, which is also unlayered. */
+.card-markdown-editor .milkdown {
+  --crepe-color-background: var(--color-surface);
+  --crepe-color-on-background: var(--color-ink);
+  --crepe-color-surface: var(--color-surface);
+  --crepe-color-on-surface: var(--color-ink);
+  --crepe-color-outline: var(--color-border);
+  --crepe-color-primary: var(--color-accent);
+  --crepe-font-default: var(--font-sans);
+  --crepe-font-code: var(--font-mono);
+  background: transparent;
+  font-size: inherit;
+  line-height: inherit;
+}
+.card-markdown-editor .milkdown .ProseMirror {
+  padding: 0;
+  min-height: 72px;
+  font-size: inherit;
+  line-height: inherit;
+  overflow-wrap: anywhere;
+}
+.card-editor-image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+.card-editor-image-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.75rem;
+}
+.card-editor-image-controls input {
+  max-width: 50%;
 }
