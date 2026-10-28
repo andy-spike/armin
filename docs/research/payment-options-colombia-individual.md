@@ -239,6 +239,26 @@ or exceed the platform fee.
 
 ## Recommendation
 
+**Verdict for the first paid year: Paddle, priced annually, paid out through
+Payoneer.** At 25 subscribers it is the cheapest or within a couple of dollars of
+the cheapest on every billing model, and it has the method coverage that the
+cheapest options lack.
+
+All-in at 25 subscribers, including the payout rail rather than just the platform
+fee:
+
+| Setup                          | Monthly plan ($125)  | Annual plan ($1,200)   |
+| ------------------------------ | -------------------- | ---------------------- |
+| Paddle + Payoneer (~1.5%)      | $20.63 → net $104.37 | $90.50 → net $1,109.50 |
+| Paddle + wire ($15/payout)     | $33.75 → net $91.25  | $252.50 → net $947.50  |
+| Dodo (payout fee unpublished)  | $17.50 + payout      | $82 + payout           |
+| Creem ($7 per payout, 2x/mo)   | $28.88 → net $96.12  | $224.80 → net $975.20  |
+| Apple (fee + $99/year program) | $27.00 → net $98.00  | $279 → net $921        |
+
+Creem's lower percentage is the clearest trap: its $7-per-payout charge, applied
+twice a month, costs more than the fee it saves. Paddle's wire fee does the same
+damage, which is why the payout rail is part of the decision, not an afterthought.
+
 **Primary: Paddle, with Dodo as the fee challenger and Creem only if you accept a
 cards-only checkout.**
 
