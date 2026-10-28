@@ -297,10 +297,6 @@ export type SessionRateResult =
   | { status: "ok"; reviewLogId: string; version: number }
   | { status: "stale" | "ineligible"; message: string };
 
-export type SessionUndoResult =
-  | { status: "ok"; version: number }
-  | { status: "stale"; message: string };
-
 export type ReviewSessionProps = {
   /** Cards due for this session. Tag cards with `deck` to show the source. */
   queue: UiReviewUnit[];

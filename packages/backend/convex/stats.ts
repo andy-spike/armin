@@ -83,14 +83,25 @@ async function readScopedFlashcardIds(
 }
 
 /**
- * Scheduled review activity plus history from other study modes. Cram sessions
- * are not part of `reviewLogs`, so their timestamps are merged here when that
- * feature lands; retention must keep reading only scheduled reviews.
+ * Cram (practice) answers in the window. They count as study activity for the
+ * heatmap and streaks, but never for retention, which reads only scheduled
+ * reviews.
  */
-function mergeActivityTimestamps(scheduled: number[], extra: number[] = []) {
-  // TODO(cram): merge cramLogs review timestamps for this library, deck, and
-  // date range into the activity buckets and streaks.
-  return scheduled.concat(extra);
+async function readCramTimestamps(
+  ctx: QueryCtx,
+  library: Doc<"libraries">,
+  since: number,
+  flashcardIds: Set<Id<"flashcards">>,
+) {
+  const rows = await ctx.db
+    .query("cramLogs")
+    .withIndex("by_library_review", (q) => q.eq("libraryId", library._id).gte("review", since))
+    .order("desc")
+    .take(MAX_STATS_REVIEW_LOGS);
+  return {
+    timestamps: rows.filter((log) => flashcardIds.has(log.flashcardId)).map((log) => log.review),
+    truncated: rows.length >= MAX_STATS_REVIEW_LOGS,
+  };
 }
 
 function clampHeatmapWeeks(weeks: number | undefined) {
@@ -169,8 +180,15 @@ export const overview = query({
     const dailyStarts = studyDayStarts(now, timeZone, STATS_RECENT_DAYS);
     const decks = scope.deckId ? new Set([scope.deckId]) : await activeDeckIds(ctx, library._id);
     const flashcardIds = await readScopedFlashcardIds(ctx, library, scope.deckId, decks);
-    const { logs, truncated } = await readReviewLogs(ctx, library, heatmapStarts[0], flashcardIds);
-    const timestamps = mergeActivityTimestamps(logs.map((log) => log.review));
+    const { logs, truncated: logsTruncated } = await readReviewLogs(
+      ctx,
+      library,
+      heatmapStarts[0],
+      flashcardIds,
+    );
+    const cram = await readCramTimestamps(ctx, library, heatmapStarts[0], flashcardIds);
+    const timestamps = logs.map((log) => log.review).concat(cram.timestamps);
+    const truncated = logsTruncated || cram.truncated;
 
     const heatmapDays = bucketStudyDayCounts(timestamps, heatmapStarts, timeZone);
     const dailyDays = bucketStudyDayCounts(timestamps, dailyStarts, timeZone);
@@ -186,7 +204,7 @@ export const overview = query({
       daily: studyDaySeries(dailyDays),
       forecast: studyDaySeries(
         bucketForecast(
-          forecastUnits.map((unit) => unit.due),
+          forecastUnits.filter((unit) => unit.state !== 0).map((unit) => unit.due),
           forecasts,
           timeZone,
         ),
@@ -216,8 +234,15 @@ export const heatmap = query({
     const starts = studyDayWindowStarts(now, timeZone, heatmapDayCount(clampHeatmapWeeks(weeks)));
     const decks = scope.deckId ? new Set([scope.deckId]) : await activeDeckIds(ctx, library._id);
     const flashcardIds = await readScopedFlashcardIds(ctx, library, scope.deckId, decks);
-    const { logs, truncated } = await readReviewLogs(ctx, library, starts[0], flashcardIds);
-    const timestamps = mergeActivityTimestamps(logs.map((log) => log.review));
+    const { logs, truncated: logsTruncated } = await readReviewLogs(
+      ctx,
+      library,
+      starts[0],
+      flashcardIds,
+    );
+    const cram = await readCramTimestamps(ctx, library, starts[0], flashcardIds);
+    const timestamps = logs.map((log) => log.review).concat(cram.timestamps);
+    const truncated = logsTruncated || cram.truncated;
     const days = bucketStudyDayCounts(timestamps, starts, timeZone);
 
     return {

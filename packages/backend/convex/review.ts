@@ -19,6 +19,7 @@ import {
   displayFor,
   findRequest,
   fsrsSnapshot,
+  parseFlashcard,
   recordRequest,
   refreshAfterPrereqChange,
   schedulerFor,

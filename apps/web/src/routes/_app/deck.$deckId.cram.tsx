@@ -70,7 +70,12 @@ function CramPage() {
         // The session names the log id generically; cram's log is its own table.
         return result.status === "ok" ? { ...result, reviewLogId: result.cramLogId } : result;
       }}
-      onUndo={(entry, requestId) => armin.cram.undo({ cramLogId: entry.reviewLogId, requestId })}
+      onUndo={async (entry, requestId) =>
+        // Cram has no bury action, so its history only holds ratings.
+        entry.kind === "review"
+          ? armin.cram.undo({ cramLogId: entry.reviewLogId, requestId })
+          : { status: "stale", message: "Only answers can be undone while cramming." }
+      }
       header={
         <div className="min-w-0">
           <Link
