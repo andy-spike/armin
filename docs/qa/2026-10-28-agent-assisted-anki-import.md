@@ -106,3 +106,31 @@ Passed validation: `pnpm check`, `pnpm --filter @armin/web build`,
 Fixture/lifecycle walkthroughs used temporary local scripts under ignored
 `.armin/`; no unit, integration or E2E suite was added. Actual hosted chat-client
 execution and production end-to-end delivery remain release verification tasks.
+
+## Integration with current master before PR
+
+Integrated `683d530` from master, including the MCP component migration and the
+cram/statistics features. Import tools now register with the component-managed
+server and pass its verified identity into import queries and mutations. Scoped
+image uploads and scheduled materialization recheck the live component grant,
+not retired token hashes or per-deck permission flags. Staging decks are also
+excluded from the new per-deck cram and statistics routes.
+
+Repeated the authenticated HTTP lifecycle checks using disposable component
+OAuth grants. Component grant revocation (without setting an app-side revoked
+flag) invalidated the scoped image upload token. Repeated both the successful
+2,000-card materialization and cancellation-during-materialization walkthroughs.
+All passed. Temporary operator helpers and disposable grants/libraries were
+removed after verification.
+
+The shared scheduler changes require converter kit 1.0.1 and a new published
+checksum. Downloaded that kit from the local server into an isolated directory
+and repeated modern, legacy, 2,000-card text and 2,000-image parity checks against
+the updated converter; all passed. Web build, iOS/Android bundles, plugin
+packaging and kit reproducibility also passed after integration. Previous
+version-1.0.0 results above remain the record of the pre-integration checks.
+
+After integration, repeated the signed-in browser walkthrough in the local
+worktree app: the Anki dialog opens with the assistant recommendation and local
+file chooser; its setup link navigates to the current AI assistants settings
+panel. The final `pnpm check` passed formatting, lint and typechecking.

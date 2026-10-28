@@ -2,6 +2,7 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@armin/backend/api";
 import type { FunctionArgs, FunctionReference } from "convex/server";
+import { STATS_COMPACT_HEATMAP_WEEKS } from "@armin/core/stats";
 import { BROWSE_PAGE_SIZE } from "@armin/core/study";
 import type { BrowseQueryFilters } from "@/lib/armin-query";
 import { studyClockNow } from "@/lib/study-clock";
@@ -72,9 +73,45 @@ export const browseCountsQuery = ({ sort: _sort, ...filters }: BrowseQueryFilter
 export const reviewStatusQuery = (now = studyClockNow()) =>
   queryOptions(live(api.review.status, { now }));
 
+/** All Stats page sections for the library or one deck. */
+export const statsOverviewQuery = (deckId?: string, now = studyClockNow()) =>
+  queryOptions({ ...live(api.stats.overview, defined({ deckId, now })) });
+
+/** Compact heatmap and streak for the Decks page. */
+export const statsHeatmapQuery = (weeks = STATS_COMPACT_HEATMAP_WEEKS, now = studyClockNow()) =>
+  queryOptions({ ...live(api.stats.heatmap, { weeks, now }) });
+
 /** The review queue for one deck, or for every deck. */
 export const reviewQueueQuery = (deckId?: string, now = studyClockNow()) =>
   queryOptions(live(api.review.queue, defined({ deckId, now })));
+
+/** The filters a cram setup sends to the count and queue queries. */
+export type CramFilters = {
+  states: number[];
+  tag?: string;
+  forgottenWithinDays?: number;
+  includeLocked: boolean;
+};
+
+const cramArgs = (deckId: string, filters: CramFilters) =>
+  defined({
+    deckId,
+    states: filters.states,
+    tag: filters.tag,
+    forgottenWithinDays: filters.forgottenWithinDays,
+    includeLocked: filters.includeLocked,
+  });
+
+/** Live match count for the cram setup dialog. */
+export const cramCountQuery = (deckId: string, filters: CramFilters) =>
+  queryOptions({
+    ...live(api.cram.count, cramArgs(deckId, filters)),
+    select: (result) => result?.count ?? 0,
+  });
+
+/** Every unit matching a cram setup; the session shuffles and limits locally. */
+export const cramQueueQuery = (deckId: string, filters: CramFilters) =>
+  queryOptions(live(api.cram.queue, cramArgs(deckId, filters)));
 
 /** Interval labels for a unit's rating buttons. */
 export const reviewPreviewQuery = (reviewUnitId: string, now = studyClockNow()) =>
@@ -134,6 +171,13 @@ function prefetchBrowse(queryClient: QueryClient, filters: BrowseQueryFilters) {
 export function prefetchDecksPage(queryClient: QueryClient) {
   if (!inBrowser()) return;
   void queryClient.prefetchQuery(decksQuery());
+  void queryClient.prefetchQuery(statsHeatmapQuery());
+}
+
+export function prefetchStatsPage(queryClient: QueryClient) {
+  if (!inBrowser()) return;
+  void queryClient.prefetchQuery(deckNamesQuery());
+  void queryClient.prefetchQuery(statsOverviewQuery());
 }
 
 export function prefetchDeckPage(queryClient: QueryClient, deckId: string) {
@@ -161,6 +205,12 @@ export function prefetchReviewPage(queryClient: QueryClient, deckId?: string) {
   if (deckId) void queryClient.prefetchQuery(deckQuery(deckId));
   else void queryClient.prefetchQuery(deckNamesQuery());
   void queryClient.prefetchQuery(reviewQueueQuery(deckId));
+}
+
+/** Cram's queue depends on the setup search, so only the deck is prefetched. */
+export function prefetchCramPage(queryClient: QueryClient, deckId: string) {
+  if (!inBrowser()) return;
+  void queryClient.prefetchQuery(deckQuery(deckId));
 }
 
 export function prefetchSettingsPage(queryClient: QueryClient) {

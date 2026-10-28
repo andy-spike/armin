@@ -15,6 +15,7 @@ import type * as agentImportHttp from "../agentImportHttp.js";
 import type * as agentImports from "../agentImports.js";
 import type * as agents from "../agents.js";
 import type * as auth from "../auth.js";
+import type * as cram from "../cram.js";
 import type * as crons from "../crons.js";
 import type * as decks from "../decks.js";
 import type * as deletion from "../deletion.js";
@@ -33,11 +34,13 @@ import type * as graph from "../graph.js";
 import type * as http from "../http.js";
 import type * as imports from "../imports.js";
 import type * as maintenance from "../maintenance.js";
+import type * as mcp from "../mcp.js";
 import type * as media from "../media.js";
 import type * as model_access from "../model/access.js";
 import type * as model_agentAuth from "../model/agentAuth.js";
 import type * as model_agentImportTools from "../model/agentImportTools.js";
 import type * as model_agentTools from "../model/agentTools.js";
+import type * as model_cram from "../model/cram.js";
 import type * as model_deletion from "../model/deletion.js";
 import type * as model_email from "../model/email.js";
 import type * as model_errors from "../model/errors.js";
@@ -52,6 +55,7 @@ import type * as model_usage from "../model/usage.js";
 import type * as review from "../review.js";
 import type * as reviewer from "../reviewer.js";
 import type * as settings from "../settings.js";
+import type * as stats from "../stats.js";
 
 import type {
   ApiFromModules,
@@ -67,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   agentImports: typeof agentImports;
   agents: typeof agents;
   auth: typeof auth;
+  cram: typeof cram;
   crons: typeof crons;
   decks: typeof decks;
   deletion: typeof deletion;
@@ -85,11 +90,13 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   imports: typeof imports;
   maintenance: typeof maintenance;
+  mcp: typeof mcp;
   media: typeof media;
   "model/access": typeof model_access;
   "model/agentAuth": typeof model_agentAuth;
   "model/agentImportTools": typeof model_agentImportTools;
   "model/agentTools": typeof model_agentTools;
+  "model/cram": typeof model_cram;
   "model/deletion": typeof model_deletion;
   "model/email": typeof model_email;
   "model/errors": typeof model_errors;
@@ -104,6 +111,7 @@ declare const fullApi: ApiFromModules<{
   review: typeof review;
   reviewer: typeof reviewer;
   settings: typeof settings;
+  stats: typeof stats;
 }>;
 
 /**
@@ -135,4 +143,5 @@ export declare const internal: FilterApi<
 export declare const components: {
   betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
   resend: import("@convex-dev/resend/_generated/component.js").ComponentApi<"resend">;
+  mcp: import("@convex-dev/mcp/_generated/component.js").ComponentApi<"mcp">;
 };

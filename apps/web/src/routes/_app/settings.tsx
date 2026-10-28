@@ -7,6 +7,7 @@ import {
   MaximumIntervalInput,
   NewCardsPerDayInput,
   RetentionInput,
+  ReviewsPerDayInput,
   StabilityFloorInput,
   StepsInput,
 } from "@/components/scheduling-inputs";
@@ -53,6 +54,7 @@ type SettingsState = Pick<
   | "weights"
   | "prereqStabilityFloor"
   | "newReviewUnitsPerDay"
+  | "reviewsPerDay"
   | "keepSiblingReviewUnitsTogether"
 > & { schedulingPreset: SchedulingPreset };
 
@@ -95,6 +97,7 @@ function toSettingsState(settings: Settings): SettingsState {
     weights: settings.weights,
     prereqStabilityFloor: settings.prereqStabilityFloor,
     newReviewUnitsPerDay: settings.newReviewUnitsPerDay,
+    reviewsPerDay: settings.reviewsPerDay,
     keepSiblingReviewUnitsTogether: settings.keepSiblingReviewUnitsTogether,
     schedulingPreset: settings.schedulingPreset as SchedulingPreset,
   };
@@ -391,7 +394,7 @@ function SettingsPage() {
 
           <Section
             title="Learning path"
-            description="How prerequisite flashcards unlock and how many new review units enter each day."
+            description="How prerequisite flashcards unlock and how many review units enter each day."
           >
             <Row
               label="Prerequisite stability"
@@ -415,6 +418,19 @@ function SettingsPage() {
                 <NewCardsPerDayInput
                   value={s.newReviewUnitsPerDay}
                   onChange={(v) => set("newReviewUnitsPerDay", v)}
+                  aria-labelledby={labelId}
+                />
+              )}
+            </Row>
+            <Row
+              label="Reviews per day"
+              hint="Maximum total reviews (new and due) across all your decks each day, counted in your account time zone. Leave empty for no limit."
+              {...resetProps("reviewsPerDay")}
+            >
+              {(labelId) => (
+                <ReviewsPerDayInput
+                  value={s.reviewsPerDay}
+                  onChange={(v) => set("reviewsPerDay", v)}
                   aria-labelledby={labelId}
                 />
               )}

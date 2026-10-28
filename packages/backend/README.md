@@ -14,15 +14,20 @@ generated API.
   adapter, email verification and password reset through Resend, Google sign-in,
   verified account linking, and the authenticated `/media/*` and `/export/*`
   HTTP routes and authenticated raw-byte image upload.
-- `convex/agents.ts`, `agentHttp.ts`, `agentAuthoring.ts` — scoped OAuth grants,
-  hosted MCP transport, and atomic agent authoring. See
+- `convex/mcp.ts`, `agents.ts`, `agentHttp.ts`, `agentAuthoring.ts` — the
+  hosted MCP server (OAuth, tokens, and protocol through `@convex-dev/mcp`),
+  app-side connection records, and atomic agent authoring. See
   [AI assistant connections](../../docs/agent-connections.md).
 - `convex/account.ts` — viewer, idempotent library provisioning, account
   timezone, and the library revision (kept for clients from before live
   subscriptions; exports use the revision as a snapshot check).
 - `convex/decks.ts`, `flashcards.ts`, `graph.ts`, `settings.ts` — authoring,
   browse, prerequisite graph, and scheduling settings.
-- `convex/review.ts` — queue, rating previews, rate, and undo.
+- `convex/review.ts` — queue, rating previews, rate, bury/unbury, card info, and undo.
+- `convex/cram.ts` — practice-only cram selection and `cramLogs`; never
+  schedules, locks, or writes review history.
+- `convex/stats.ts` — review activity, streaks, retention, due forecast, and
+  card-state totals, all scoped to the caller's library.
 - `convex/imports.ts` — batched Anki import (see below).
 - `convex/media.ts`, `exports.ts`, `exportBuilder.ts` — private images and the
   ZIP export job.
@@ -44,22 +49,33 @@ Client entry points (see `package.json` `exports`):
   (`model/access.ts`), never from a caller-supplied account ID. Lookups by ID
   check `libraryId` before returning or changing anything; a foreign ID behaves
   as "not found".
-- External MCP calls use a separate OAuth grant derived from a verified Armin
-  session at consent. Agent functions recheck the active grant, resource audience,
-  active library, and deck permissions. Agent tokens never impersonate a user in
-  first-party Convex functions. Account deletion invalidates grants immediately.
+- External MCP calls act through a grant verified by the MCP component and
+  created from a verified Armin session at consent. Every read and write
+  re-reads the component grant, its resource audience, the active library, and
+  the app-side connection record in the same transaction, so a revocation that
+  commits first denies the operation. One approved connection can use all nine
+  tools on its user's whole library; there are no per-deck, read-only, or edit
+  permissions. Agent tokens never impersonate a user in first-party Convex
+  functions. Account deletion invalidates grants immediately and schedules their
+  bounded removal.
 - Writes require a verified email and an `active` library. Account deletion
   marks the library `deleting` in the same transaction as the auth user removal,
   so access ends immediately; `deletion.cleanupLibrary` then removes rows and
   files in bounded batches.
-- The account-wide Frontier cap (in the account timezone) limits which new
-  units the review queue admits. A rating validates the displayed review-unit
-  version and current eligibility (locks, archive, due time), but not the cap,
-  so an answer to a card already admitted to a session is never discarded
-  when the budget runs out mid-session. It runs FSRS at server time, and writes the schedule, the review log,
-  and prerequisite lock changes in one mutation. Undo restores the exact saved
-  pre-review schedule only while that review is still the unit's latest. Earned
-  prerequisite access is permanent and survives lapses, Undo, and authoring changes.
+- The account-wide Frontier cap and daily review cap (in the account timezone)
+  limit which units the review queue admits. Due reviews enter oldest-first up
+  to the remaining review budget; new units then get the smaller of the
+  remaining new-unit allowance and the remaining total budget. `null` means no
+  daily review limit. A rating validates the displayed review-unit version and
+  current eligibility (locks, archive, bury, due time), but not either cap, so
+  an answer to a card already admitted to a session is never discarded when a
+  budget runs out mid-session. It runs FSRS at server time, and writes the
+  schedule, the review log, and prerequisite lock changes in one mutation.
+  Burying hides every review unit of a flashcard until the start of the next
+  study day; units reappear automatically, and Undo restores the exact prior
+  `buriedUntil` values. Undo restores the exact saved pre-review schedule only
+  while that review is still the unit's latest. Earned prerequisite access is
+  permanent and survives lapses, Undo, and authoring changes.
 - Edits name the version they started from. The first accepted edit wins; a
   stale save returns a conflict and changes nothing. Creates, ratings, and
   undos take a client request ID so an application-level retry returns the
@@ -160,6 +176,21 @@ It preserves unlocked cards, restores locked cards with surviving review history
 and leaves unreviewed locked cards gated. No lifetime review-log scan is needed.
 Run this only against the intended deployment; development checkouts target
 their own local deployment. New flashcards record their access state immediately.
+
+When moving an existing deployment from the retired Armin OAuth server to the
+MCP component, run this bounded, idempotent cleanup after pushing the new
+backend:
+
+```bash
+pnpm --filter @armin/backend exec convex run agents:retireLegacyConnections '{}'
+```
+
+It pages through pre-migration connections, marks them revoked, and clears their
+stored token hashes. Rows, created-content provenance, activity, and retry
+records are kept. Those connections must be reconnected; component grants
+created after the migration are unaffected. The hourly prune job removes the
+retired OAuth tables (`agentClients`, `agentAuthorizations`,
+`agentUsedRefreshTokens`) once their rows expire.
 
 Development uses a local Convex deployment per checkout, never a cloud dev
 deployment. Run `pnpm dev:setup` from the repository root (with Node 20, 22, or

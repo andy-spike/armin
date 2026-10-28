@@ -6,7 +6,7 @@ import { internalQuery, type MutationCtx, type QueryCtx } from "./_generated/ser
 import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { agentAccess, hashSecret } from "./model/agentAuth";
+import { agentAccess, agentUser, AGENT_SCOPE, hashSecret } from "./model/agentAuth";
 import { agentImportToolSchemas } from "./model/agentImportTools";
 import { deleteDeckCascade } from "./model/deletion";
 import { fail } from "./model/errors";
@@ -31,6 +31,24 @@ function isActive(status: Doc<"agentImports">["status"]): status is ActiveStatus
 
 function expired(row: Doc<"agentImports">) {
   return row.expiresAt <= Date.now() || !isActive(row.status);
+}
+
+async function activeImportConnection(
+  ctx: QueryCtx,
+  connection: Doc<"agentConnections">,
+  library: Doc<"libraries">,
+) {
+  if (!connection.componentConnectionId) return false;
+  try {
+    const access = await agentAccess(ctx, {
+      userId: library.ownerId,
+      connectionId: connection.componentConnectionId,
+      scopes: [AGENT_SCOPE],
+    });
+    return access.connection._id === connection._id;
+  } catch {
+    return false;
+  }
 }
 
 async function ownedImport(
@@ -174,20 +192,10 @@ async function remember(
   });
 }
 
-export const authenticate = internalQuery({
-  args: { tokenHash: v.string(), resource: v.string() },
-  handler: async (ctx, args) => {
-    const { connection } = await agentAccess(ctx, args.tokenHash);
-    if (connection.resource !== args.resource)
-      fail("UNAUTHENTICATED", "Token audience does not match this server.");
-    return { connectionId: connection._id };
-  },
-});
-
 export const read = internalQuery({
-  args: { tokenHash: v.string(), tool: v.string(), input: v.any() },
-  handler: async (ctx, { tokenHash, tool, input }) => {
-    const { connection } = await agentAccess(ctx, tokenHash);
+  args: { user: agentUser, tool: v.string(), input: v.any() },
+  handler: async (ctx, { user, tool, input }) => {
+    const { connection } = await agentAccess(ctx, user);
     const key = tool as ToolName;
     const schema = agentImportToolSchemas[key];
     if (!schema) fail("INVALID", "Unknown Anki import tool.");
@@ -287,8 +295,6 @@ async function start(
   uploadTokenHash: string | undefined,
 ) {
   const parsed = agentImportToolSchemas.anki_import_start.parse(input);
-  if (!connection.allowCreateDecks)
-    fail("INVALID", "Creating decks is disabled for this connection.");
   const existing = await Promise.all(
     (["staging", "materializing"] as const).map((status) =>
       ctx.db
@@ -590,14 +596,14 @@ async function cancel(
 
 export const write = internalMutation({
   args: {
-    tokenHash: v.string(),
+    user: agentUser,
     tool: v.string(),
     input: v.any(),
     fingerprint: v.string(),
     uploadTokenHash: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { connection } = await agentAccess(ctx, args.tokenHash);
+    const { connection } = await agentAccess(ctx, args.user);
     const key = args.tool as ToolName;
     const schema = agentImportToolSchemas[key];
     if (!schema) fail("INVALID", "Unknown Anki import tool.");
@@ -618,8 +624,6 @@ export const write = internalMutation({
           ? { ...previous, uploadTokenIssued: false, uploadTokenExpiresAt: null }
           : previous;
     }
-    if (key !== "anki_import_cancel" && !connection.allowCreateDecks)
-      fail("INVALID", "Creating decks is disabled for this connection.");
     await writeRateLimit(ctx, connection);
     let result: Record<string, unknown>;
     if (key === "anki_import_start") {
@@ -675,8 +679,8 @@ export const mediaTarget = internalQuery({
       library.status !== "active" ||
       !connection ||
       connection.revokedAt ||
-      !connection.allowCreateDecks ||
-      connection.libraryId !== row.libraryId
+      connection.libraryId !== row.libraryId ||
+      !(await activeImportConnection(ctx, connection, library))
     )
       return null;
     return { importId: row._id, libraryId: row.libraryId, connectionId: row.connectionId };
@@ -710,8 +714,8 @@ export const recordMedia = internalMutation({
       library.status !== "active" ||
       !connection ||
       connection.revokedAt ||
-      !connection.allowCreateDecks ||
-      connection.libraryId !== row.libraryId
+      connection.libraryId !== row.libraryId ||
+      !(await activeImportConnection(ctx, connection, library))
     )
       return { ok: false as const, reason: "cancelled" as const };
     if (!/^[a-f0-9]{64}\.(?:png|jpg|gif|webp|bmp|avif)$/.test(args.fileName))
@@ -792,8 +796,8 @@ export const materializeNext = internalMutation({
         library.status !== "active" ||
         !connection ||
         connection.revokedAt ||
-        !connection.allowCreateDecks ||
-        connection.libraryId !== row.libraryId
+        connection.libraryId !== row.libraryId ||
+        !(await activeImportConnection(ctx, connection, library))
       )
         throw new Error("The import authorization is no longer active.");
       const cards = await ctx.db

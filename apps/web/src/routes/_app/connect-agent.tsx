@@ -1,16 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { ShieldQuestion } from "lucide-react";
 import { api } from "@armin/backend/api";
-import {
-  AgentGuardrails,
-  AgentPermissionsFields,
-  DEFAULT_AGENT_PERMISSIONS,
-  normalizePermissions,
-  permissionsProblem,
-} from "@/components/agent-permissions";
+import { AgentAccess } from "@/components/agent-access";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { convexClient, errorMessage } from "@/lib/armin-client";
@@ -26,23 +20,6 @@ function isNavigableUrl(value: string) {
   } catch {
     return false;
   }
-}
-
-function formatClock(timestamp: number) {
-  return new Date(timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
-
-/** True once the clock passes `expiresAt`, so an open page can't approve a dead request. */
-function useExpired(expiresAt: number | undefined) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (expiresAt === undefined) return;
-    // Wake just after expiry. Requests are short-lived; the clamp keeps the delay a valid timer.
-    const delay = Math.min(Math.max(expiresAt - Date.now(), 0) + 50, 2 ** 31 - 1);
-    const timer = window.setTimeout(() => setNow(Date.now()), delay);
-    return () => window.clearTimeout(timer);
-  }, [expiresAt]);
-  return expiresAt !== undefined && expiresAt <= now;
 }
 
 function PageShell({ children }: { children: React.ReactNode }) {
@@ -91,8 +68,6 @@ function ConnectAgentPage() {
 function Consent({ requestId }: { requestId: string }) {
   const { online } = useConnection();
   const authorization = useQuery(convexQuery(api.agents.authorization, { requestId }));
-  const expired = useExpired(authorization.data?.expiresAt);
-  const [permissions, setPermissions] = useState(DEFAULT_AGENT_PERMISSIONS);
   const [leaving, setLeaving] = useState(false);
 
   const leave = (redirectUrl: string) => {
@@ -103,11 +78,7 @@ function Consent({ requestId }: { requestId: string }) {
   };
 
   const approve = useMutation({
-    mutationFn: () =>
-      convexClient().action(api.agents.approve, {
-        requestId,
-        ...normalizePermissions(permissions),
-      }),
+    mutationFn: () => convexClient().action(api.agents.approve, { requestId }),
     onSuccess: ({ redirectUrl }) => leave(redirectUrl),
   });
   const deny = useMutation({
@@ -144,7 +115,7 @@ function Consent({ requestId }: { requestId: string }) {
   }
 
   const request = authorization.data;
-  if (!request || expired) {
+  if (!request) {
     return (
       <Notice
         title="This request has expired"
@@ -155,7 +126,6 @@ function Consent({ requestId }: { requestId: string }) {
   }
 
   const working = approve.isPending || deny.isPending || leaving;
-  const problem = permissionsProblem(permissions);
   const failure = approve.error ?? deny.error;
 
   return (
@@ -165,7 +135,7 @@ function Consent({ requestId }: { requestId: string }) {
           Connect an AI assistant
         </h1>
         <p className="mt-2 max-w-[60ch] text-sm text-muted">
-          Choose what it can do in your library. You can change this or revoke it later in Settings.
+          Review who is asking and what it can do. You can disconnect it later in Settings.
         </p>
       </header>
 
@@ -193,11 +163,7 @@ function Consent({ requestId }: { requestId: string }) {
         </div>
       </section>
 
-      <div className="mt-6">
-        <AgentPermissionsFields value={permissions} onChange={setPermissions} disabled={working} />
-      </div>
-
-      <AgentGuardrails className="mt-4" />
+      <AgentAccess className="mt-6" />
 
       {failure && (
         <p
@@ -214,7 +180,7 @@ function Consent({ requestId }: { requestId: string }) {
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <Button
           busy={approve.isPending || (leaving && approve.isSuccess)}
-          disabled={working || problem !== null || !online}
+          disabled={working || !online}
           onClick={() => approve.mutate()}
         >
           Allow access
@@ -225,9 +191,9 @@ function Consent({ requestId }: { requestId: string }) {
           disabled={working}
           onClick={() => deny.mutate()}
         >
-          Cancel
+          Deny
         </Button>
-        <p className="text-xs text-muted">Valid until {formatClock(request.expiresAt)}.</p>
+        <p className="text-xs text-muted">Connection requests expire after a few minutes.</p>
       </div>
     </PageShell>
   );

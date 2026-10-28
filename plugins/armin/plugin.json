@@ -10,22 +10,16 @@
   "homepage": "https://armincards.app",
   "repository": "https://github.com/andy-spike/armin",
   "license": "MIT",
-  "keywords": ["flashcards", "spaced-repetition", "study", "learning", "fsrs", "anki"],
+  "keywords": ["flashcards", "spaced-repetition", "study", "learning", "fsrs"],
   "extensions": {
     "com.openai": {
       "interface": {
         "displayName": "Armin",
         "shortDescription": "Turn reading into study cards",
-        "longDescription": "Armin is a spaced-repetition flashcard app whose cards form a prerequisite graph: a card stays locked until the cards it depends on are learned, and FSRS schedules every review.\n\nShare an article, lecture notes, a document, or code, and ask for study cards. The model reads the material, writes focused question-and-answer, cloze, reversed, and typed-answer cards, links foundations to the ideas built on them, and saves the deck to your Armin library with a link to start studying.\n\nYou approve each connection in Armin. By default a connection can only see and change the decks it creates; you can choose to share existing decks and allow edits. Armin never fetches web pages or runs a model itself. Ordinary card authoring is text-only. A separate guided Anki import can run Armin's versioned converter in your assistant's sandbox, preserve supported images through a narrowly scoped upload, and stage new decks until you approve the final preview. Anki imports always start fresh. The plugin cannot permanently delete cards or decks, change review history, or manage your account. Archiving a card is reversible.\n\nRequires an Armin account at armincards.app.",
+        "longDescription": "Armin is a spaced-repetition flashcard app whose cards form a prerequisite graph: a card stays locked until the cards it depends on are learned, and FSRS schedules every review.\n\nShare an article, lecture notes, a document, or code, and ask for study cards. The model reads the material, writes focused question-and-answer, cloze, reversed, and typed-answer cards, links foundations to the ideas built on them, and saves the deck to your Armin library with a link to start studying.\n\nYou approve each connection in Armin. One approval gives the assistant Armin authoring and import tools on your whole library, including decks and cards you add later. Armin never fetches web pages or runs a model itself, and the plugin cannot permanently delete cards or decks, change review history, or manage your account. Archiving a card is reversible.\n\nFor Anki exports, a capable assistant can download and run Armin’s deterministic converter, preserve supported images through scoped upload tools, and publish new decks after you approve the preview. Imports start fresh; requested repairs or polishing are separate. Requires file access and Node.js execution.\n\nRequires an Armin account at armincards.app.",
         "developerName": "Andy Spike",
         "category": "Education & Research",
-        "capabilities": [
-          "Create study decks",
-          "Read decks",
-          "Edit cards",
-          "Link prerequisites",
-          "Import Anki decks"
-        ],
+        "capabilities": ["Create study decks", "Read decks", "Edit cards", "Link prerequisites"],
         "websiteURL": "https://armincards.app",
         "supportURL": "https://github.com/andy-spike/armin/issues",
         "privacyPolicyURL": "https://armincards.app/privacy",
@@ -50,10 +44,10 @@
               "expected_behavior": "Saves several focused cards in a new deck named HTTP basics, links the definition of HTTP as a prerequisite of the method and status-code cards, and returns the deck link."
             },
             {
-              "description": "List the decks the connection can access",
+              "description": "List the decks in the library",
               "prompt": "Which Armin decks can you see?",
               "tools_triggered": "list_decks",
-              "expected_behavior": "Lists only decks this connection is allowed to access, with their names, and explains that other decks stay private unless shared in Armin."
+              "expected_behavior": "Lists the decks in the user's library with their names and explains that this approved connection can work across the whole library."
             },
             {
               "description": "Read back a saved deck",
@@ -72,12 +66,6 @@
               "prompt": "Archive the card about POST requests in HTTP basics.",
               "tools_triggered": "read_deck, set_card_archived",
               "expected_behavior": "Archives that one card, explains that archiving hides it from study while keeping its content and review history, and that it can be unarchived."
-            },
-            {
-              "description": "Import an Anki deck with its images",
-              "prompt": "Import this Anki deck into Armin. Keep the images and show me what needs repair before saving.",
-              "tools_triggered": "get_anki_import_guide, anki_import_start, anki_import_add_batch, anki_import_preview, anki_import_finalize",
-              "expected_behavior": "Downloads and verifies Armin's converter kit, runs it locally, stages the converted cards and supported images, lists every unresolved note, asks the user to approve the final preview, and finalizes only after approval. No Anki scheduling history is applied and no prerequisites are invented."
             }
           ],
           "negative": [
@@ -92,10 +80,6 @@
             {
               "description": "Account administration is not available",
               "prompt": "Change my Armin password and email address."
-            },
-            {
-              "description": "Silent rewriting during an Anki import is not allowed",
-              "prompt": "Import this Anki deck and quietly rewrite any cards you think are weak, adding prerequisites where they make sense."
             }
           ]
         },
@@ -104,7 +88,7 @@
         "demo_recording_url": "https://youtu.be/mcg9uTu5DkM"
       },
       "publication": {
-        "release_notes": "Adds a guided, staged Anki import with deterministic conversion, supported image upload, explicit repair or skip decisions, and approval before saving."
+        "release_notes": "First release: create, read, edit, archive, and link Armin study cards, with card-writing guidance."
       }
     }
   }

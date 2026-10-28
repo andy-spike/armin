@@ -1,3 +1,4 @@
+import { v } from "convex/values";
 import { z } from "zod";
 
 const id = z.string().min(1).max(100);
@@ -133,3 +134,71 @@ export const agentImportToolDescriptions = {
   anki_import_cancel:
     "Cancel a staged or materializing Anki import and remove its cards, staging decks, and unshared uploaded images. Late uploads and batches are refused.",
 } as const;
+
+/** Component input schemas; Zod above enforces bounds and exact input at the write boundary. */
+export const agentImportToolArgs = {
+  get_anki_import_guide: {},
+  anki_import_status: { importId: v.optional(v.string()) },
+  anki_import_preview: { importId: v.string() },
+  anki_import_start: {
+    requestId: v.string(),
+    fileName: v.string(),
+    sourceSha256: v.string(),
+    kitVersion: v.string(),
+    decks: v.array(
+      v.object({
+        key: v.string(),
+        name: v.string(),
+        ankiName: v.optional(v.string()),
+        cardCount: v.optional(v.number()),
+      }),
+    ),
+    planKeys: v.array(v.string()),
+    totals: v.object({ flashcards: v.number(), reviewUnits: v.number(), mediaFiles: v.number() }),
+    warnings: v.optional(
+      v.array(v.object({ code: v.string(), count: v.number(), message: v.string() })),
+    ),
+    unresolved: v.optional(
+      v.array(
+        v.object({
+          key: v.string(),
+          deckKey: v.string(),
+          reason: v.string(),
+          message: v.optional(v.string()),
+          notetypeName: v.optional(v.string()),
+          cardCount: v.optional(v.number()),
+        }),
+      ),
+    ),
+  },
+  anki_import_add_batch: {
+    requestId: v.string(),
+    importId: v.string(),
+    cards: v.array(
+      v.object({
+        key: v.string(),
+        deckKey: v.string(),
+        type: v.string(),
+        content: v.any(),
+        tags: v.optional(v.array(v.string())),
+        origin: v.optional(
+          v.union(v.literal("converter"), v.literal("repaired"), v.literal("polished")),
+        ),
+        source: v.optional(v.any()),
+      }),
+    ),
+    skipped: v.optional(v.array(v.object({ key: v.string(), reason: v.string() }))),
+  },
+  anki_import_upload_token: { importId: v.string() },
+  anki_import_finalize: {
+    requestId: v.string(),
+    importId: v.string(),
+    previewChecksum: v.string(),
+    confirm: v.literal(true),
+  },
+  anki_import_cancel: {
+    requestId: v.string(),
+    importId: v.string(),
+    reason: v.optional(v.string()),
+  },
+};

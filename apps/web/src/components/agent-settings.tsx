@@ -1,19 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { Link } from "@tanstack/react-router";
 import { Check, Copy } from "lucide-react";
 import { api } from "@armin/backend/api";
-import type { Id } from "@armin/backend/types";
-import {
-  AgentGuardrails,
-  AgentPermissionsFields,
-  normalizePermissions,
-  permissionsProblem,
-  summarizePermissions,
-  useDeckNames,
-  type AgentPermissions,
-} from "@/components/agent-permissions";
+import { AgentLimits } from "@/components/agent-access";
 import { Section } from "@/components/settings-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -374,8 +365,8 @@ function ConnectGuide({ another }: { another: boolean }) {
 
       <Step number={3} title="Approve access and ask for a deck">
         <p className="text-sm text-ink">
-          Armin shows what the assistant is asking for. The defaults are the safe ones: it can only
-          use decks it creates, and it can’t edit anything you already have.
+          Armin asks you to approve one level of access: all nine tools on your whole library. You
+          can disconnect the assistant at any time in Settings.
         </p>
         <p className="mt-3 text-[0.8125rem] text-muted">Then try something like:</p>
         <div className="mt-1.5">
@@ -401,13 +392,13 @@ function useConnectionsQuery() {
   return useQuery(convexQuery(api.agents.connections, {}));
 }
 
-function toPermissions(connection: Connection): AgentPermissions {
-  return {
-    scope: connection.scope,
-    deckIds: connection.deckIds,
-    allowCreateDecks: connection.allowCreateDecks,
-    allowEdits: connection.allowEdits,
-  };
+/** Deck names for activity links. Access itself covers the whole library. */
+function useDeckNames() {
+  const decks = useQuery(convexQuery(api.decks.listNames, {}));
+  return useMemo(
+    () => new Map((decks.data ?? []).map((deck) => [deck.id as string, deck.name])),
+    [decks.data],
+  );
 }
 
 function RowsSkeleton({ rows }: { rows: number }) {
@@ -426,37 +417,31 @@ function RowsSkeleton({ rows }: { rows: number }) {
 
 function ConnectionRow({
   connection,
-  deckNames,
-  onManage,
-  onRevoke,
+  onDisconnect,
 }: {
   connection: Connection;
-  deckNames: Map<string, string> | undefined;
-  onManage: () => void;
-  onRevoke: () => void;
+  onDisconnect: () => void;
 }) {
-  const revoked = connection.revokedAt !== undefined;
+  const ended = connection.revokedAt !== undefined;
   return (
     <li
       className={cn(
         "grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-6 gap-y-2 border-b border-border px-4 py-3.5 last:border-b-0 max-sm:grid-cols-1",
-        revoked && "bg-surface-sunken",
+        ended && "bg-surface-sunken",
       )}
     >
       <div className="min-w-0">
         <p className="flex items-center gap-2 text-sm font-medium text-ink">
           <span className="truncate">{connection.name}</span>
-          {revoked && (
+          {ended && (
             <span className="shrink-0 rounded-sm bg-bg-2 px-1.5 py-0.5 text-xs font-medium text-muted">
-              Revoked
+              Disconnected
             </span>
           )}
         </p>
-        <p className="mt-0.5 text-[0.8125rem] text-muted">
-          {summarizePermissions(toPermissions(connection), deckNames)}
-        </p>
+        <p className="mt-0.5 text-[0.8125rem] text-muted">Whole library · all nine tools</p>
         <p className="mt-0.5 text-xs text-muted">
-          {revoked && connection.revokedAt !== undefined ? (
+          {ended && connection.revokedAt !== undefined ? (
             <>
               Access ended <When timestamp={connection.revokedAt} />
             </>
@@ -472,24 +457,16 @@ function ConnectionRow({
           Connected <When timestamp={connection.createdAt} />
         </p>
       </div>
-      {!revoked && (
+      {!ended && (
         <div className="flex shrink-0 items-center gap-1.5 max-sm:justify-start">
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label={`Manage ${connection.name}, connected ${formatExact(connection.createdAt)}`}
-            onClick={onManage}
-          >
-            Manage
-          </Button>
           <Button
             variant="ghost"
             size="sm"
             className="text-again hover:text-again-deep"
-            aria-label={`Revoke ${connection.name}, connected ${formatExact(connection.createdAt)}`}
-            onClick={onRevoke}
+            aria-label={`Disconnect ${connection.name}, connected ${formatExact(connection.createdAt)}`}
+            onClick={onDisconnect}
           >
-            Revoke
+            Disconnect
           </Button>
         </div>
       )}
@@ -499,18 +476,19 @@ function ConnectionRow({
 
 function ConnectionsSection() {
   const connections = useConnectionsQuery();
-  const { byId: deckNames } = useDeckNames();
-  const [managing, setManaging] = useState<{ connection: Connection; open: boolean } | null>(null);
-  const [revoking, setRevoking] = useState<{ connection: Connection; open: boolean } | null>(null);
+  const [disconnecting, setDisconnecting] = useState<{
+    connection: Connection;
+    open: boolean;
+  } | null>(null);
 
   const all = connections.data?.connections ?? [];
   const active = all.filter((connection) => connection.revokedAt === undefined);
-  const revoked = all.filter((connection) => connection.revokedAt !== undefined);
+  const ended = all.filter((connection) => connection.revokedAt !== undefined);
 
   return (
     <Section
       title="Connected assistants"
-      description="Each connection has its own access. Changes apply to its next request."
+      description="Every approved assistant can use all nine tools on your whole library. Disconnecting ends access immediately; saved cards and decks stay."
     >
       {connections.isLoading ? (
         <RowsSkeleton rows={2} />
@@ -528,129 +506,31 @@ function ConnectionsSection() {
         </p>
       ) : (
         <ul>
-          {[...active, ...revoked].map((connection) => (
+          {[...active, ...ended].map((connection) => (
             <ConnectionRow
               key={connection._id}
               connection={connection}
-              deckNames={deckNames}
-              onManage={() => setManaging({ connection, open: true })}
-              onRevoke={() => setRevoking({ connection, open: true })}
+              onDisconnect={() => setDisconnecting({ connection, open: true })}
             />
           ))}
         </ul>
       )}
+      <AgentLimits className="border-t border-border px-4 py-3.5" />
 
-      {managing && (
-        <ManageDialog
-          key={managing.connection._id}
-          connection={managing.connection}
-          ended={
-            all.find((candidate) => candidate._id === managing.connection._id)?.revokedAt !==
-            undefined
-          }
-          open={managing.open}
-          onClose={() => setManaging((current) => current && { ...current, open: false })}
-          onExitComplete={() => setManaging(null)}
-        />
-      )}
-      {revoking && (
-        <RevokeDialog
-          key={revoking.connection._id}
-          connection={revoking.connection}
-          open={revoking.open}
-          onClose={() => setRevoking((current) => current && { ...current, open: false })}
-          onExitComplete={() => setRevoking(null)}
+      {disconnecting && (
+        <DisconnectDialog
+          key={disconnecting.connection._id}
+          connection={disconnecting.connection}
+          open={disconnecting.open}
+          onClose={() => setDisconnecting((current) => current && { ...current, open: false })}
+          onExitComplete={() => setDisconnecting(null)}
         />
       )}
     </Section>
   );
 }
 
-function ManageDialog({
-  connection,
-  ended,
-  open,
-  onClose,
-  onExitComplete,
-}: {
-  connection: Connection;
-  /** The live list says this access was revoked while the dialog was open. */
-  ended: boolean;
-  open: boolean;
-  onClose: () => void;
-  onExitComplete: () => void;
-}) {
-  const toast = useToast();
-  const { online } = useConnection();
-  const [draft, setDraft] = useState(() => toPermissions(connection));
-  const problem = permissionsProblem(draft);
-
-  const save = useMutation({
-    mutationFn: () =>
-      convexClient().mutation(api.agents.updateConnection, {
-        connectionId: connection._id as Id<"agentConnections">,
-        ...normalizePermissions(draft),
-      }),
-    onSuccess: () => {
-      toast({ tone: "success", title: "Access updated", description: connection.name });
-      onClose();
-    },
-  });
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      onExitComplete={onExitComplete}
-      title={`Manage ${connection.name}`}
-      description="Changes apply to its next request."
-      className="max-w-lg"
-      footer={
-        <div className="flex flex-col gap-3">
-          {ended ? (
-            <p role="alert" className="text-[0.8125rem] text-ink">
-              This assistant’s access was revoked, so it can’t be changed. It has to connect again.
-            </p>
-          ) : problem ? (
-            <p role="alert" className="text-[0.8125rem] text-ink">
-              {problem}
-            </p>
-          ) : (
-            save.isError && (
-              <p role="alert" className="text-[0.8125rem] text-again">
-                {errorMessage(save.error, "Couldn’t update access. Try again.")}
-              </p>
-            )
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              busy={save.isPending}
-              disabled={problem !== null || ended || !online}
-              onClick={() => save.mutate()}
-            >
-              Save changes
-            </Button>
-          </div>
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        <AgentPermissionsFields
-          value={draft}
-          onChange={setDraft}
-          disabled={save.isPending}
-          showProblem={false}
-        />
-        <AgentGuardrails />
-      </div>
-    </Dialog>
-  );
-}
-
-function RevokeDialog({
+function DisconnectDialog({
   connection,
   open,
   onClose,
@@ -664,13 +544,13 @@ function RevokeDialog({
   const toast = useToast();
   const { online } = useConnection();
 
-  const revoke = useMutation({
+  const disconnect = useMutation({
     mutationFn: () =>
       convexClient().mutation(api.agents.revoke, {
-        connectionId: connection._id as Id<"agentConnections">,
+        connectionId: connection._id,
       }),
     onSuccess: () => {
-      toast({ tone: "success", title: "Access revoked", description: connection.name });
+      toast({ tone: "success", title: "Assistant disconnected", description: connection.name });
       onClose();
     },
   });
@@ -680,13 +560,13 @@ function RevokeDialog({
       open={open}
       onClose={onClose}
       onExitComplete={onExitComplete}
-      title={`Revoke ${connection.name}?`}
+      title={`Disconnect ${connection.name}?`}
       description="It loses access right away. Cards and decks it already saved stay in your library."
       footer={
         <div className="flex flex-col gap-3">
-          {revoke.isError && (
+          {disconnect.isError && (
             <p role="alert" className="text-[0.8125rem] text-again">
-              {errorMessage(revoke.error, "Couldn’t revoke access. Try again.")}
+              {errorMessage(disconnect.error, "Couldn’t disconnect the assistant. Try again.")}
             </p>
           )}
           <div className="flex justify-end gap-2">
@@ -695,11 +575,11 @@ function RevokeDialog({
             </Button>
             <Button
               variant="destructive"
-              busy={revoke.isPending}
+              busy={disconnect.isPending}
               disabled={!online}
-              onClick={() => revoke.mutate()}
+              onClick={() => disconnect.mutate()}
             >
-              Revoke access
+              Disconnect
             </Button>
           </div>
         </div>
@@ -718,7 +598,7 @@ const ACTIVITY_PAGE = 8;
 
 function ActivitySection() {
   const connections = useConnectionsQuery();
-  const { byId: deckNames } = useDeckNames();
+  const deckNames = useDeckNames();
   const [shown, setShown] = useState(ACTIVITY_PAGE);
   const activity = connections.data?.activity ?? [];
 
@@ -787,7 +667,7 @@ function ActivitySection() {
 /** The Settings > AI assistants tab: guided setup, connections, and activity. */
 export function AgentSettings() {
   const connections = useConnectionsQuery();
-  // Once something is connected, managing it matters more than setting up another.
+  // Once something is connected, seeing and disconnecting it matters more than setting up another.
   const hasActive = (connections.data?.connections ?? []).some(
     (connection) => connection.revokedAt === undefined,
   );

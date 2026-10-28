@@ -7,6 +7,7 @@ import {
   Archive,
   ArchiveRestore,
   FolderInput,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -138,6 +139,7 @@ export function FlashcardDeleteDialog({
 
 function CardActionItems({
   onOpen,
+  onInfo,
   onDelete,
   onGoToDeck,
   onMove,
@@ -147,6 +149,7 @@ function CardActionItems({
   Separator,
 }: {
   onOpen: () => void;
+  onInfo?: () => void;
   onDelete: () => void;
   onGoToDeck?: () => void;
   onMove?: () => void;
@@ -161,6 +164,12 @@ function CardActionItems({
         <Pencil className="h-4 w-4" />
         Edit flashcard
       </Item>
+      {onInfo && (
+        <Item onClick={onInfo}>
+          <Info className="h-4 w-4" />
+          Card info
+        </Item>
+      )}
       {onGoToDeck && (
         <Item onClick={onGoToDeck}>
           <Layers className="h-4 w-4" />
@@ -201,6 +210,7 @@ function showDueLabel(card: UiFlashcard) {
 
 function CardActionsMenu({
   onOpen,
+  onInfo,
   onDelete,
   onGoToDeck,
   onMove,
@@ -208,6 +218,7 @@ function CardActionsMenu({
   archived,
 }: {
   onOpen: () => void;
+  onInfo?: () => void;
   onDelete: () => void;
   onGoToDeck?: () => void;
   onMove?: () => void;
@@ -232,6 +243,7 @@ function CardActionsMenu({
         <DropdownMenuContent align="end" className="min-w-40">
           <CardActionItems
             onOpen={onOpen}
+            onInfo={onInfo}
             onDelete={onDelete}
             onGoToDeck={onGoToDeck}
             onMove={onMove}
@@ -252,6 +264,7 @@ function DeferredCardActionsMenu({
 }: {
   ready: boolean;
   onOpen: () => void;
+  onInfo?: () => void;
   onDelete: () => void;
   onGoToDeck?: () => void;
   onMove?: () => void;
@@ -269,6 +282,7 @@ function FlashcardTileBody({
   card,
   deckName,
   onOpen,
+  onInfo,
   onDelete,
   onGoToDeck,
   onMove,
@@ -278,6 +292,7 @@ function FlashcardTileBody({
   card: UiFlashcard;
   deckName?: string;
   onOpen: () => void;
+  onInfo?: () => void;
   onDelete: () => void;
   onGoToDeck?: () => void;
   onMove?: () => void;
@@ -288,6 +303,7 @@ function FlashcardTileBody({
     <DeferredCardActionsMenu
       ready={actionsReady}
       onOpen={onOpen}
+      onInfo={onInfo}
       onDelete={onDelete}
       onGoToDeck={onGoToDeck}
       onMove={onMove}
@@ -389,6 +405,7 @@ function FlashcardTileBody({
 export const FlashcardTile = memo(function FlashcardTile({
   card,
   onOpen,
+  onInfo,
   onDelete,
   onGoToDeck,
   onMove,
@@ -399,6 +416,8 @@ export const FlashcardTile = memo(function FlashcardTile({
 }: {
   card: UiFlashcard;
   onOpen: () => void;
+  /** When set, adds a menu item to show the card's review state and history. */
+  onInfo?: () => void;
   onDelete: () => void | Promise<void>;
   /** When set (e.g. on Browse), adds a menu item to open the card's deck. */
   onGoToDeck?: () => void;
@@ -523,6 +542,7 @@ export const FlashcardTile = memo(function FlashcardTile({
               card={card}
               deckName={deckName}
               onOpen={onOpen}
+              onInfo={onInfo}
               actionsReady
               onDelete={openDeleteConfirm}
               onGoToDeck={onGoToDeck}
@@ -534,6 +554,7 @@ export const FlashcardTile = memo(function FlashcardTile({
           <ContextMenuContent className="min-w-40">
             <CardActionItems
               onOpen={onOpen}
+              onInfo={onInfo}
               onDelete={openDeleteConfirm}
               onGoToDeck={onGoToDeck}
               onMove={onMove}
@@ -549,6 +570,7 @@ export const FlashcardTile = memo(function FlashcardTile({
           card={card}
           deckName={deckName}
           onOpen={onOpen}
+          onInfo={onInfo}
           actionsReady={actionsReady}
           onDelete={openDeleteConfirm}
           onGoToDeck={onGoToDeck}

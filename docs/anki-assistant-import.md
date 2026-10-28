@@ -61,7 +61,7 @@ conversion.
 ## Run the kit
 
 ```bash
-unzip armin-anki-kit-1.0.0.zip
+unzip armin-anki-kit-1.0.1.zip
 node armin-anki-kit.mjs path/to/deck.apkg --out ./armin-import
 ```
 
@@ -132,8 +132,8 @@ uses the normal unreferenced-image collector so images shared with existing card
 are never deleted. Uploads are content-addressed and validated by bytes; the
 per-library image quota still applies.
 
-Only a connection with permission to create decks can start an import. All new
-decks are recorded as created by that connection. The ordinary `save_cards` tool
+Only an active approved connection can start an import. All new
+decks retain provenance for that connection. The ordinary `save_cards` tool
 remains text-only; the import media endpoint is the only agent image path and is
 scoped to one active staging session.
 
