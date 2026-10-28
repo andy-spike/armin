@@ -30,15 +30,19 @@ That single constraint removes the default answer for most SaaS projects.
    is the legal seller: it charges the customer, handles VAT/GST/sales tax, refunds,
    and chargebacks, and pays you a net amount, so Armin never registers for tax in
    30 countries.
-3. **Judge every option by global coverage, not by the headline fee.** A gateway
-   that only settles in COP is useless when the buyers are in Berlin, São Paulo,
-   and Seoul. What matters is which countries can pay, in which currency, with
-   which local method, and who remits the tax.
+3. **Judge every option by global coverage and by whether it can pay you.** Two
+   families fail that test and are out of the table: Colombian gateways cannot
+   serve buyers abroad, and Stripe cannot open a seller account for a Colombian
+   individual. Every remaining option charges customers in 190+ countries and
+   settles to a Colombian bank account.
 4. **Do not build app-store billing yet.** The Expo app is not distributed; when it
    is, digital subscriptions must go through in-app purchase (15% under the Small
    Business Program) or the app can simply let an existing subscriber sign in.
 5. **Bill yearly by default.** At a $5 monthly price, the fixed per-transaction fee
    eats 8–10% of revenue; yearly billing cuts the blended fee roughly in half.
+6. **At 25 paying subscribers you keep $104–110 a month, not $125.** Platform fees
+   are $15–21; payout fees add $2–15 more depending on the rail. The low-volume
+   projections below are the realistic starting picture.
 
 ## How the money would flow
 
@@ -65,24 +69,26 @@ suggests, and international-card surcharges (where they exist) appear in the fee
 table below. "Colombian individual" means a natural person with no registered
 company, verified with a cedula/passport and a personal bank account.
 
-| Option                                                     | Who is the seller | Colombian individual                                                                                                                                                                                                                                        | Buyer coverage                                                                           | Non-card / local methods                                                                                                                                                                                           | Price localization                                                       | Fee (published)                                                                                                     | Payout to Colombia                                              | Fit for a global launch                                                                                                                |
-| ---------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| **Paddle**                                                 | Paddle            | Yes ([not on unsupported list](https://www.paddle.com/help/start/intro-to-paddle/which-countries-are-supported-by-paddle); [no business verification for individuals](https://www.paddle.com/help/start/account-verification/what-is-account-verification)) | [200+ countries](https://developer.paddle.com/concepts/sell/supported-countries-locales) | PayPal, iDEAL/Wero, Bancontact, BLIK, MB WAY, Pix, UPI, Alipay, WeChat, Korean wallets and cards, wire ([full list](https://developer.paddle.com/concepts/payment-methods))                                        | Country-specific prices plus automatic currency conversion, COP included | [5% + $0.50](https://www.paddle.com/pricing)                                                                        | Monthly, min $100, wire (USD, ~$15 SWIFT) or Payoneer           | **Best default**: widest method mix with the least tax work; one-month payout lag                                                      |
-| **Dodo Payments**                                          | Dodo              | Yes ([accepted countries](https://docs.dodopayments.com/miscellaneous/accepted-countries-and-territories))                                                                                                                                                  | [220+ countries](https://docs.dodopayments.com/introduction)                             | [40+ methods](https://docs.dodopayments.com/features/payment-methods): iDEAL, Bancontact, BLIK, EPS, Multibanco, Pix, UPI, Klarna, Afterpay, Korean wallets, Alipay HK, GCash, stablecoins; PayPal temporarily off | Adaptive currency in 80+ currencies                                      | [4% + $0.40, +1.5% intl cards, +0.5% subscriptions](https://dodopayments.com/pricing)                               | Bi-monthly, $50 minimum                                         | **Value challenger**: cheapest broad-coverage option at low prices; youngest provider                                                  |
-| **Creem**                                                  | Creem             | Yes ([Colombia listed, bank-partner restriction flagged](https://docs.creem.io/merchant-of-record/supported-countries))                                                                                                                                     | [190+ countries for tax](https://docs.creem.io/getting-started/introduction)             | Cards, Apple Pay, Google Pay only ([methods](https://docs.creem.io/merchant-of-record/finance/payment-methods)); PayPal "coming soon"                                                                              | Charged in the customer's currency                                       | [3.9% + $0.40](https://www.creem.io/pricing)                                                                        | 1st and 15th, min $50, bank transfer ($7 or 1%) or USDC         | Lowest fee, but cards-only checkout will cost conversions in Europe, Brazil, and India                                                 |
-| **Polar**                                                  | Polar             | Yes ([Colombia on the payout list](https://polar.sh/docs/merchant-of-record/supported-countries))                                                                                                                                                           | Global except sanctioned countries                                                       | Cards, Apple/Google Pay, Link, Amazon Pay (US/DE), Cash App, WeChat, iDEAL, Bancontact, EPS, UPI, Korean wallets; **no PayPal** ([methods](https://polar.sh/docs/features/checkout/payment-methods))               | Per-product currency                                                     | [5% + $0.50 Starter, +1.5% non-US cards](https://polar.sh/docs/merchant-of-record/fees)                             | Stripe Connect Express, manual withdrawals                      | Good developer fit; no PayPal and thinner local coverage                                                                               |
-| **Lemon Squeezy**                                          | Lemon Squeezy     | Yes ([COP bank payouts](https://docs.lemonsqueezy.com/help/getting-started/supported-countries))                                                                                                                                                            | Global except the unsupported list                                                       | 16 methods including PayPal ([fees](https://docs.lemonsqueezy.com/help/getting-started/fees))                                                                                                                      | 95 currencies                                                            | 5% + $0.50, +1.5% intl, +0.5% subscriptions                                                                         | Twice monthly, 13-day hold, $50 min                             | Solid today, but being absorbed into Stripe Managed Payments, which [excludes Colombia](https://www.lemonsqueezy.com/blog/2026-update) |
-| **Gumroad**                                                | Gumroad           | Yes (COP payouts, min COP 140,000)                                                                                                                                                                                                                          | Global                                                                                   | Cards and PayPal                                                                                                                                                                                                   | Local payout currency only                                               | [10% + $0.50 plus card processing](https://gumroad.com/pricing)                                                     | Weekly-ish, per-market minimums                                 | ~25-29% on a $5 sale; only for a one-off supporter purchase                                                                            |
-| **Apple / Google in-app purchase**                         | Apple / Google    | Yes ([Apple individual, $99/yr](https://developer.apple.com/help/account/membership/program-enrollment/); [Play merchant registration](https://support.google.com/googleplay/android-developer/answer/7161440))                                             | Worldwide storefronts                                                                    | Store wallets, carrier billing, local methods per storefront                                                                                                                                                       | Store price tiers per country                                            | 15% with the [Small Business Program](https://developer.apple.com/app-store/small-business-program/), 30% otherwise | Apple: COP bank, min $100, ~45 days. Google: USD wire, min $100 | Mandatory only for digital sales _inside_ a store-distributed app; not a web strategy                                                  |
-| **Stripe via a US LLC**                                    | Your LLC          | Only by incorporating in the US                                                                                                                                                                                                                             | 195+ countries                                                                           | Stripe's full method catalogue                                                                                                                                                                                     | Full control                                                             | 2.9% + $0.30, plus Billing, Tax, and your own registrations                                                         | USD to a US business account                                    | Best coverage and DX, but you own worldwide VAT/GST/sales-tax registration and filing                                                  |
-| **Colombian gateways** (Mercado Pago, Wompi, ePayco, PayU) | You               | Yes, persona natural                                                                                                                                                                                                                                        | Colombia only; Wompi accepts foreign cards but only in COP                               | PSE, Nequi, Daviplata, Efecty, Bancolombia button, cash                                                                                                                                                            | COP only                                                                 | 2.6-3.5% + COP 690-900 + IVA, plus retenciones at ePayco                                                            | COP, days                                                       | Not a global checkout; at most an add-on so Colombian customers can pay locally                                                        |
-| **PayPal (standalone)**                                    | You               | Yes ([COP withdrawals COP 3,500](https://www.paypal.com/co/digital-wallet/paypal-consumer-fees))                                                                                                                                                            | 200+ markets                                                                             | PayPal balance, cards                                                                                                                                                                                              | Buyer's currency                                                         | ~3.4% + fixed, plus 3.5-4.5% conversion                                                                             | COP 3,500 per withdrawal                                        | Useful as an extra button, not as the billing system: no dunning, proration, or tax handling                                           |
+| Option                             | Who is the seller | Colombian individual                                                                                                                                                                                                                                        | Buyer coverage                                                                           | Non-card / local methods                                                                                                                                                                                           | Price localization                                                       | Fee (published)                                                                                                     | Payout to Colombia                                              | Fit for a global launch                                                                                                                |
+| ---------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Paddle**                         | Paddle            | Yes ([not on unsupported list](https://www.paddle.com/help/start/intro-to-paddle/which-countries-are-supported-by-paddle); [no business verification for individuals](https://www.paddle.com/help/start/account-verification/what-is-account-verification)) | [200+ countries](https://developer.paddle.com/concepts/sell/supported-countries-locales) | PayPal, iDEAL/Wero, Bancontact, BLIK, MB WAY, Pix, UPI, Alipay, WeChat, Korean wallets and cards, wire ([full list](https://developer.paddle.com/concepts/payment-methods))                                        | Country-specific prices plus automatic currency conversion, COP included | [5% + $0.50](https://www.paddle.com/pricing)                                                                        | Monthly, min $100, wire (USD, ~$15 SWIFT) or Payoneer           | **Best default**: widest method mix with the least tax work; one-month payout lag                                                      |
+| **Dodo Payments**                  | Dodo              | Yes ([accepted countries](https://docs.dodopayments.com/miscellaneous/accepted-countries-and-territories))                                                                                                                                                  | [220+ countries](https://docs.dodopayments.com/introduction)                             | [40+ methods](https://docs.dodopayments.com/features/payment-methods): iDEAL, Bancontact, BLIK, EPS, Multibanco, Pix, UPI, Klarna, Afterpay, Korean wallets, Alipay HK, GCash, stablecoins; PayPal temporarily off | Adaptive currency in 80+ currencies                                      | [4% + $0.40, +1.5% intl cards, +0.5% subscriptions](https://dodopayments.com/pricing)                               | Bi-monthly, $50 minimum                                         | **Value challenger**: cheapest broad-coverage option at low prices; youngest provider                                                  |
+| **Creem**                          | Creem             | Yes ([Colombia listed, bank-partner restriction flagged](https://docs.creem.io/merchant-of-record/supported-countries))                                                                                                                                     | [190+ countries for tax](https://docs.creem.io/getting-started/introduction)             | Cards, Apple Pay, Google Pay only ([methods](https://docs.creem.io/merchant-of-record/finance/payment-methods)); PayPal "coming soon"                                                                              | Charged in the customer's currency                                       | [3.9% + $0.40](https://www.creem.io/pricing)                                                                        | 1st and 15th, min $50, bank transfer ($7 or 1%) or USDC         | Lowest fee, but cards-only checkout will cost conversions in Europe, Brazil, and India                                                 |
+| **Polar**                          | Polar             | Yes ([Colombia on the payout list](https://polar.sh/docs/merchant-of-record/supported-countries))                                                                                                                                                           | Global except sanctioned countries                                                       | Cards, Apple/Google Pay, Link, Amazon Pay (US/DE), Cash App, WeChat, iDEAL, Bancontact, EPS, UPI, Korean wallets; **no PayPal** ([methods](https://polar.sh/docs/features/checkout/payment-methods))               | Per-product currency                                                     | [5% + $0.50 Starter, +1.5% non-US cards](https://polar.sh/docs/merchant-of-record/fees)                             | Stripe Connect Express, manual withdrawals                      | Good developer fit; no PayPal and thinner local coverage                                                                               |
+| **Lemon Squeezy**                  | Lemon Squeezy     | Yes ([COP bank payouts](https://docs.lemonsqueezy.com/help/getting-started/supported-countries))                                                                                                                                                            | Global except the unsupported list                                                       | 16 methods including PayPal ([fees](https://docs.lemonsqueezy.com/help/getting-started/fees))                                                                                                                      | 95 currencies                                                            | 5% + $0.50, +1.5% intl, +0.5% subscriptions                                                                         | Twice monthly, 13-day hold, $50 min                             | Solid today, but being absorbed into Stripe Managed Payments, which [excludes Colombia](https://www.lemonsqueezy.com/blog/2026-update) |
+| **Gumroad**                        | Gumroad           | Yes (COP payouts, min COP 140,000)                                                                                                                                                                                                                          | Global                                                                                   | Cards and PayPal                                                                                                                                                                                                   | Local payout currency only                                               | [10% + $0.50 plus card processing](https://gumroad.com/pricing)                                                     | Weekly-ish, per-market minimums                                 | ~25-29% on a $5 sale; only for a one-off supporter purchase                                                                            |
+| **Apple / Google in-app purchase** | Apple / Google    | Yes ([Apple individual, $99/yr](https://developer.apple.com/help/account/membership/program-enrollment/); [Play merchant registration](https://support.google.com/googleplay/android-developer/answer/7161440))                                             | Worldwide storefronts                                                                    | Store wallets, carrier billing, local methods per storefront                                                                                                                                                       | Store price tiers per country                                            | 15% with the [Small Business Program](https://developer.apple.com/app-store/small-business-program/), 30% otherwise | Apple: COP bank, min $100, ~45 days. Google: USD wire, min $100 | Mandatory only for digital sales _inside_ a store-distributed app; not a web strategy                                                  |
+| **PayPal (standalone)**            | You               | Yes ([COP withdrawals COP 3,500](https://www.paypal.com/co/digital-wallet/paypal-consumer-fees))                                                                                                                                                            | 200+ markets                                                                             | PayPal balance, cards                                                                                                                                                                                              | Buyer's currency                                                         | ~3.4% + fixed, plus 3.5-4.5% conversion                                                                             | COP 3,500 per withdrawal                                        | Useful as an extra button, not as the billing system: no dunning, proration, or tax handling                                           |
+
+Excluded by the international + Colombia-payout test: Mercado Pago, Wompi,
+ePayco, and PayU (buyers must pay in COP through Colombian rails) and Stripe (no
+Colombian seller account; a US LLC would pay out to a US bank, not Colombia).
 
 ### What "international" changes
 
-- **Coverage is the first filter, not the fee.** Mercado Pago, Wompi, ePayco, and
-  PayU can only charge in COP with Colombian rails, so they cannot serve the
-  product's actual audience. They are an optional local add-on, not the checkout.
+- **Coverage is the first filter, not the fee.** Every option left can charge a
+  customer in 190+ countries and settle to a Colombian bank account; that pair is
+  what removed the local gateways and Stripe.
 - **Local methods and PayPal are conversion features.** Cards-only is the most
   common reason a European or Brazilian buyer abandons. Paddle, Dodo, and Lemon
   Squeezy ship PayPal and local rails; Creem and Polar do not (yet).
@@ -111,9 +117,6 @@ customer's tax rate to the real cost.
 | Gumroad (10% + $0.50 + 2.9% + $0.30)              | $1.45             | 28.9%     | $6.99             | 14.6%     |
 | Apple / Google (15%)                              | $0.75             | 15.0%     | $7.20             | 15.0%     |
 
-A Colombian buyer paying in COP through a local gateway costs 7-10% at the same
-ticket size, but you take on the seller role and the buyer has to be in Colombia.
-
 Three conclusions:
 
 - The spread between MoRs at this price point is about four points. The gap
@@ -137,8 +140,102 @@ Three conclusions:
   country price rather than a coupon, so the checkout stays one click.
 - **Anchor annual.** A 40-48 USD yearly price against 5-6 USD monthly keeps the
   fee under 7% and matches a semester of study.
-- **Colombian buyers** pay USD at their card's exchange rate by default; a COP
-  price only becomes worthwhile with a local gateway.
+- **Colombian buyers** pay USD at their card's exchange rate. A COP catalogue
+  would need a gateway that cannot serve the rest of the audience, so keep one USD
+  price list.
+
+## Revenue projections at a low starting volume
+
+These are deliberately pessimistic: five to a hundred paying subscribers, which is
+what a free beta converts into if one to five percent of active users ever pay.
+
+Assumptions:
+
+- One plan, priced at **$5/month or $48/year** (20% off for paying up front).
+- **International card**, so the international-card surcharges below are included.
+- **USD/COP at COP 3,157.94**, the TRM published for 27 October 2026.
+- Platform fees only. VAT/sales tax is not revenue to you and is excluded; payout
+  fees, bank charges, and Colombian income tax are in the next table, not this one.
+- Fees are `percentage × revenue + fixed × subscribers`: Paddle 5% + $0.50, Dodo
+  6% + $0.40 (4% + 1.5% international + 0.5% subscription), Creem 3.9% + $0.40,
+  Polar 6.5% + $0.50, Lemon Squeezy 7% + $0.50, Gumroad 12.9% + $0.80, Apple and
+  Google 15%, PayPal 7.9% + $0.30 (cross-border plus conversion, approximate).
+
+### Monthly plan at $5
+
+| Provider       | 5 subs · $25       | 10 subs · $50       | 25 subs · $125       | 50 subs · $250       | 100 subs · $500       |
+| -------------- | ------------------ | ------------------- | -------------------- | -------------------- | --------------------- |
+| Paddle         | $3.75 · COP 11,842 | $7.50 · COP 23,685  | $18.75 · COP 59,211  | $37.50 · COP 118,423 | $75.00 · COP 236,846  |
+| Dodo           | $3.50 · COP 11,053 | $7.00 · COP 22,106  | $17.50 · COP 55,264  | $35.00 · COP 110,528 | $70.00 · COP 221,056  |
+| Creem          | $2.98 · COP 9,395  | $5.95 · COP 18,790  | $14.88 · COP 46,974  | $29.75 · COP 93,949  | $59.50 · COP 187,897  |
+| Polar          | $4.13 · COP 13,027 | $8.25 · COP 26,053  | $20.63 · COP 65,133  | $41.25 · COP 130,265 | $82.50 · COP 260,530  |
+| Lemon Squeezy  | $4.25 · COP 13,421 | $8.50 · COP 26,842  | $21.25 · COP 67,106  | $42.50 · COP 134,212 | $85.00 · COP 268,425  |
+| Gumroad        | $7.22 · COP 22,816 | $14.45 · COP 45,632 | $36.12 · COP 114,081 | $72.25 · COP 228,161 | $144.50 · COP 456,322 |
+| Apple / Google | $3.75 · COP 11,842 | $7.50 · COP 23,685  | $18.75 · COP 59,211  | $37.50 · COP 118,423 | $75.00 · COP 236,846  |
+| PayPal         | $3.48 · COP 10,974 | $6.95 · COP 21,948  | $17.38 · COP 54,869  | $34.75 · COP 109,738 | $69.50 · COP 219,477  |
+
+### Annual plan at $48
+
+Cash collected once per subscriber; the COP column is the fee converted at the
+same TRM, not a yearly average.
+
+| Provider       | 5 subs · $240        | 10 subs · $480       | 25 subs · $1,200      | 50 subs · $2,400        | 100 subs · $4,800       |
+| -------------- | -------------------- | -------------------- | --------------------- | ----------------------- | ----------------------- |
+| Paddle         | $14.50 · COP 45,790  | $29.00 · COP 91,580  | $72.50 · COP 228,951  | $145.00 · COP 457,901   | $290.00 · COP 915,803   |
+| Dodo           | $16.40 · COP 51,790  | $32.80 · COP 103,580 | $82.00 · COP 258,951  | $164.00 · COP 517,902   | $328.00 · COP 1,035,804 |
+| Creem          | $11.36 · COP 35,874  | $22.72 · COP 71,748  | $56.80 · COP 179,371  | $113.60 · COP 358,742   | $227.20 · COP 717,484   |
+| Polar          | $18.10 · COP 57,159  | $36.20 · COP 114,317 | $90.50 · COP 285,794  | $181.00 · COP 571,587   | $362.00 · COP 1,143,174 |
+| Lemon Squeezy  | $19.30 · COP 60,948  | $38.60 · COP 121,896 | $96.50 · COP 304,741  | $193.00 · COP 609,482   | $386.00 · COP 1,218,965 |
+| Gumroad        | $34.96 · COP 110,402 | $69.92 · COP 220,803 | $174.80 · COP 552,008 | $349.60 · COP 1,104,016 | $699.20 · COP 2,208,032 |
+| Apple / Google | $36.00 · COP 113,686 | $72.00 · COP 227,372 | $180.00 · COP 568,429 | $360.00 · COP 1,136,858 | $720.00 · COP 2,273,717 |
+| PayPal         | $20.46 · COP 64,611  | $40.92 · COP 129,223 | $102.30 · COP 323,057 | $204.60 · COP 646,115   | $409.20 · COP 1,292,229 |
+
+### What actually lands, at 25 subscribers
+
+| Provider       | Monthly plan: fee → net        | Annual plan: fee → net (per year)   |
+| -------------- | ------------------------------ | ----------------------------------- |
+| Paddle         | $18.75 → $106.25 (COP 335,531) | $72.50 → $1,127.50 (COP 3,560,577)  |
+| Dodo           | $17.50 → $107.50 (COP 339,479) | $82.00 → $1,118.00 (COP 3,530,577)  |
+| Creem          | $14.88 → $110.12 (COP 347,768) | $56.80 → $1,143.20 (COP 3,610,157)  |
+| Polar          | $20.63 → $104.37 (COP 329,603) | $90.50 → $1,109.50 (COP 3,503,734)  |
+| Lemon Squeezy  | $21.25 → $103.75 (COP 327,636) | $96.50 → $1,103.50 (COP 3,484,787)  |
+| Gumroad        | $36.12 → $88.88 (COP 280,662)  | $174.80 → $1,025.20 (COP 3,237,520) |
+| Apple / Google | $18.75 → $106.25 (COP 335,531) | $180.00 → $1,020.00 (COP 3,221,099) |
+| PayPal         | $17.38 → $107.62 (COP 339,873) | $102.30 → $1,097.70 (COP 3,466,471) |
+
+### Fixed and payout costs to budget
+
+These are the costs the percentage tables hide, and at this volume they can match
+or exceed the platform fee.
+
+| Provider      | Fixed cost           | Payout cost at 25 subscribers                                                 |
+| ------------- | -------------------- | ----------------------------------------------------------------------------- |
+| Paddle        | None                 | ~$15 per wire payout, paid monthly: ~$180/year; Payoneer is roughly 1-2%      |
+| Dodo          | None                 | Deducted per payout; the docs do not publish the amount — check the dashboard |
+| Creem         | None                 | $7 per payout or 1%, twice monthly, so ~$168/year at this volume              |
+| Polar         | None                 | $2/month active + 0.25% + $0.25 per payout, ~$27/year, plus 0.25-1% FX        |
+| Lemon Squeezy | None                 | 1% per payout, ~$11/year                                                      |
+| Gumroad       | None                 | Not published; per-market payout minimums apply                               |
+| Apple         | $99/year program fee | No Apple payout fee; COP 100 minimum, payments ~45 days after month end       |
+| Google        | $25 one-time         | Wire fees charged by your bank, $0-50                                         |
+| PayPal        | None                 | COP 3,500 per withdrawal, ~$13/year at monthly withdrawals                    |
+
+### Reading the projections
+
+- **At 25 monthly subscribers ($125/month) the platform takes $15-21, or 12-17%.**
+  With the payout rail included, Paddle lands near $92 kept and Creem near $96.
+  That is the honest starting number, not $125.
+- **Payout fees dominate before platform fees do.** A $15 wire on $106 of proceeds
+  is another 14 points. Use Payoneer or a 1% payout where the provider allows it,
+  and do not withdraw more often than you need to.
+- **Annual billing is where the margin is.** The same 25 subscribers paying $48
+  up front produce $1,200 and a $57-97 fee (4.7-8%), before payout costs.
+- **Below $50/month, several providers cannot pay you at all.** Paddle's default
+  minimum is $100, Creem and Dodo $50. Early revenue accumulates as a balance.
+- **The store is the worst deal at this scale.** Apple charges $99/year plus 15%:
+  at 5 annual subscribers that is $135 of a $240 year, and at 100 it is still 18%.
+- **Nothing here includes Colombian income tax, the 4x1,000 tax, or bank fees.**
+  Those come out of the net figures above.
 
 ## Recommendation
 
@@ -178,16 +275,10 @@ and a product id, not a rewrite.
 wallets are enough.** For a global launch they usually are not: no PayPal, and no
 local rails in the markets where cards underperform.
 
-**Do not build your own international checkout.** Any combination of Stripe (via
-a US entity) plus your own VAT/sales-tax registration is a year-two problem, not a
-beta problem: the compliance surface grows with revenue, exactly when engineering
-time is scarcest.
-
-**Add later, only if Colombia becomes a real segment: Mercado Pago.** Its
-Subscriptions API gives you a COP plan with local methods and settles in days, and
-a persona natural can open the account with a cédula and a Colombian bank account.
-Do not add it in the first release: it doubles the webhook surface, the entitlement
-states, and the reconciliation work, and it cannot serve buyers outside Colombia.
+**Excluded by your own payout test.** Colombian gateways cannot charge buyers
+outside Colombia, and Stripe has no Colombian seller account; a US LLC would pay
+out to a US bank, not to Colombia. If a US entity ever becomes worth its filings,
+Stripe re-enters as a separate project, not as an upgrade to this one.
 
 **Mobile: no in-app purchase until the app is in a store.** If and when it ships,
 the cheapest compliant setup is:
@@ -196,12 +287,6 @@ the cheapest compliant setup is:
   for multi-platform services, with no link out;
 - if you do sell inside the app, enrol in the Small Business Program (15%) and
   expect a second, store-specific price catalogue.
-
-**Do not pursue Stripe via a US LLC now.** Atlas plus a registered agent plus
-annual US filings (Form 5472 with a $25,000 penalty for a missed filing) is more
-fixed cost and admin than a free beta can justify. Revisit above roughly $10k/month
-of revenue, when 3% versus 5% starts to matter and an accountant is already in
-place.
 
 ## Colombian side: what the individual has to do
 
@@ -273,7 +358,7 @@ Ask each provider these, in writing, before building:
 
 ## Sources
 
-Stripe: [global availability](https://stripe.com/global), [46 countries](https://stripe.com/use-cases/global-businesses).
+Stripe: [global availability](https://stripe.com/global) (used only for the exclusion note).
 Paddle: [unsupported seller countries](https://www.paddle.com/help/start/intro-to-paddle/which-countries-are-supported-by-paddle), [individual verification](https://www.paddle.com/help/start/account-verification/what-is-account-verification), [pricing](https://www.paddle.com/pricing), [payouts](https://www.paddle.com/help/start/intro-to-paddle/when-and-how-do-i-get-paid), [accepted countries and currencies](https://developer.paddle.com/concepts/sell/supported-countries-locales).
 Paddle methods: [payment methods](https://developer.paddle.com/concepts/payment-methods), [supported countries and currencies](https://developer.paddle.com/concepts/sell/supported-countries-locales).
 Creem: [supported countries](https://docs.creem.io/merchant-of-record/supported-countries), [pricing](https://www.creem.io/pricing), [payouts](https://docs.creem.io/merchant-of-record/finance/payouts), [payment methods](https://docs.creem.io/merchant-of-record/finance/payment-methods).
@@ -281,10 +366,6 @@ Polar: [supported countries](https://polar.sh/docs/merchant-of-record/supported-
 Dodo: [accepted countries](https://docs.dodopayments.com/miscellaneous/accepted-countries-and-territories), [pricing](https://dodopayments.com/pricing), [payment methods](https://docs.dodopayments.com/features/payment-methods), [countries for buyers](https://docs.dodopayments.com/miscellaneous/list-of-countries-we-accept-payments-from).
 Lemon Squeezy: [supported countries](https://docs.lemonsqueezy.com/help/getting-started/supported-countries), [fees](https://docs.lemonsqueezy.com/help/getting-started/fees), [2026 status update](https://www.lemonsqueezy.com/blog/2026-update).
 Gumroad: [fees](https://gumroad.com/help/article/66-gumroads-fees), [payouts by country](https://gumroad.com/help/article/13-getting-paid).
-Mercado Pago: [checkout fees](https://www.mercadopago.com.co/herramientas-para-vender/check-out), [subscriptions](https://www.mercadopago.com.co/developers/es/docs/subscriptions/overview).
-Wompi: [plans and fees](https://www.wompi.com/es/co/planes-tarifas/), [account requirements](https://wompi.com/es/co/ayuda/como-crear-cuenta), [payment methods and recurring](https://docs.wompi.co/docs/colombia/metodos-de-pago/).
-ePayco: [fees](https://epayco.com/tarifas/), [recurring billing](https://epayco.com/fonts/doc/recurrent_billing/).
-PayU: [account and fees](https://ecommerce.payulatam.com/crear-cuenta/col/canales/adwords-display/index.html).
 PayPal: [consumer fees, Colombia](https://www.paypal.com/co/digital-wallet/paypal-consumer-fees).
 Apple: [individual enrollment](https://developer.apple.com/help/account/membership/program-enrollment/), [Small Business Program](https://developer.apple.com/app-store/small-business-program/), [minimum payment thresholds](https://developer.apple.com/help/app-store-connect/reference/minimum-payment-threshold/), [EU payment options](https://developer.apple.com/support/payment-options-on-the-app-store-in-the-eu/).
 Google: [supported locations](https://support.google.com/googleplay/android-developer/answer/9306917), [Colombia merchant bank details](https://support.google.com/googleplay/android-developer/answer/7161440), [wire payouts](https://support.google.com/googleplay/android-developer/answer/2700656).
