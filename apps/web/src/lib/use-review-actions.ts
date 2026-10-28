@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
+import type { HistoryEntry, SessionUndoResult } from "@/components/review-session";
 import { useToast } from "@/components/ui/toast";
 import { armin, errorMessage } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
@@ -58,12 +59,20 @@ export function useReviewActions() {
         version: card.version,
         requestId,
       }),
-    onUndo: (entry: { reviewLogId: string; version: number }, requestId: string) =>
-      armin.review.undo({
-        reviewLogId: entry.reviewLogId,
-        version: entry.version,
-        requestId,
-      }),
+    onUndo: (entry: HistoryEntry, requestId: string): Promise<SessionUndoResult> =>
+      entry.kind === "bury"
+        ? armin.review.unbury({
+            flashcardId: entry.flashcardId,
+            units: entry.units,
+            requestId,
+          })
+        : armin.review.undo({
+            reviewLogId: entry.reviewLogId,
+            version: entry.version,
+            requestId,
+          }),
+    onBury: (flashcardId: string, requestId: string) =>
+      armin.review.bury({ flashcardId, requestId }),
     loadCard: async (flashcardId: string) => {
       const flashcard = await armin.flashcards.get(flashcardId);
       return flashcard ? toUiFlashcard(flashcard) : undefined;

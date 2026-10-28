@@ -126,6 +126,20 @@ export const COMMANDS: readonly CommandDef[] = [
     defaultBinding: "4",
   },
   {
+    id: "review.info",
+    scope: "review",
+    group: "Review",
+    label: "Show card info",
+    defaultBinding: "i",
+  },
+  {
+    id: "review.bury",
+    scope: "review",
+    group: "Review",
+    label: "Bury card until tomorrow",
+    defaultBinding: "b",
+  },
+  {
     id: "review.prev",
     scope: "review",
     group: "Review",

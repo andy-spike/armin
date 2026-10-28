@@ -18,6 +18,8 @@ export type PresetValues = {
   relearningSteps: string;
   prereqStabilityFloor: number;
   newReviewUnitsPerDay: number;
+  /** `null` means unlimited. Every named preset leaves the daily total uncapped. */
+  reviewsPerDay: number | null;
   keepSiblingReviewUnitsTogether: boolean;
 };
 
@@ -31,6 +33,7 @@ export const PRESET_FIELDS = [
   "relearningSteps",
   "prereqStabilityFloor",
   "newReviewUnitsPerDay",
+  "reviewsPerDay",
   "keepSiblingReviewUnitsTogether",
 ] as const satisfies readonly (keyof PresetValues)[];
 
@@ -40,7 +43,9 @@ export const PRESET_FIELDS = [
  * minimal same-day learning step. Aggressive and relaxed adjust only the dials
  * that change study intensity: desired retention (review frequency), the
  * prerequisite stability floor (how solid a prereq must be before it unlocks
- * dependents), and how many new review units enter per day.
+ * dependents), and how many new review units enter per day. The daily review
+ * cap stays unlimited in every preset: it is a personal ceiling for the day,
+ * not a study-intensity style.
  */
 export const PRESET_VALUES: Record<Exclude<SchedulingPreset, "custom">, PresetValues> = {
   balanced: {
@@ -52,6 +57,7 @@ export const PRESET_VALUES: Record<Exclude<SchedulingPreset, "custom">, PresetVa
     relearningSteps: "10m",
     prereqStabilityFloor: 2,
     newReviewUnitsPerDay: 10,
+    reviewsPerDay: null,
     keepSiblingReviewUnitsTogether: true,
   },
   aggressive: {
@@ -63,6 +69,7 @@ export const PRESET_VALUES: Record<Exclude<SchedulingPreset, "custom">, PresetVa
     relearningSteps: "10m",
     prereqStabilityFloor: 4,
     newReviewUnitsPerDay: 20,
+    reviewsPerDay: null,
     keepSiblingReviewUnitsTogether: true,
   },
   relaxed: {
@@ -74,6 +81,7 @@ export const PRESET_VALUES: Record<Exclude<SchedulingPreset, "custom">, PresetVa
     relearningSteps: "10m",
     prereqStabilityFloor: 1,
     newReviewUnitsPerDay: 5,
+    reviewsPerDay: null,
     keepSiblingReviewUnitsTogether: true,
   },
 };
