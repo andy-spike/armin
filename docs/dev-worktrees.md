@@ -52,9 +52,10 @@ settings are machine/app settings; another machine must register the same action
 4. Make changes and run the validation required by `AGENTS.md`. Record app
    walkthroughs under `docs/qa/`. Commit regenerated Convex and route files when
    they change. Keep `.armin/`, `.env.local`, and `.convex/` out of commits.
-5. Open the PR against `master`. Bring the PR up to date with `master` and wait
-   for the required `Verify` check to pass before merging through GitHub. Direct
-   pushes and local Worktrunk merges into `master` are not part of this workflow.
+5. Open a PR against `master` only when the user asks for one. When you do, bring
+   it up to date with `master` and wait for the required `Verify` check to pass
+   before merging through GitHub. Direct pushes and local Worktrunk merges into
+   `master` are not part of this workflow.
    Retain the task branch and worktree unless cleanup is requested. Stop
    servers with Ctrl+C before removing the worktree. Code merges through Git;
    fixture accounts, data, and environment variables stay in the local deployment.
