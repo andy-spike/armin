@@ -92,26 +92,27 @@ function StatsPage() {
 
 function StatsContent({ stats, deckLabel }: { stats: StatsOverview; deckLabel: string }) {
   const weeks = Math.round(stats.heatmap.days.length / 7);
+  const activeDays = stats.heatmap.days.filter((day) => day.count > 0).length;
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <Panel
         title="Review activity"
-        hint={`${deckLabel} · ${plural(stats.heatmap.total, "review")} in ${weeks} weeks`}
+        hint={`${deckLabel} · ${plural(stats.heatmap.total, "review")} in the last ${weeks} weeks`}
       >
         <ReviewHeatmap days={stats.heatmap.days} />
         {stats.heatmap.total === 0 && (
-          <p className="mt-3 border-t border-border pt-3 text-sm text-muted">
+          <p className="mt-4 border-t border-border pt-4 text-sm text-muted">
             No reviews yet. Finish a review session and your activity will appear here.
           </p>
         )}
         {stats.truncated && (
-          <p className="mt-2 text-xs text-muted">
+          <p className="mt-3 text-xs text-muted">
             Activity only includes your most recent reviews in this range.
           </p>
         )}
       </Panel>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="Reviews per day" hint="Last 30 days">
           <DayBarChart
             series={stats.daily}
@@ -132,17 +133,16 @@ function StatsContent({ stats, deckLabel }: { stats: StatsOverview; deckLabel: s
               stats.forecast.total,
               "review unit",
             )}.`}
-            forecast
           />
         </Panel>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-3">
         <Panel title="True retention" hint="Last 30 days" className="lg:col-span-2">
           <Retention retention={stats.retention} />
         </Panel>
-        <Panel title="Streaks" hint="Consecutive review days · last 52 weeks">
-          <Streaks streak={stats.streak} />
+        <Panel title="Streaks" hint={`Last ${weeks} weeks`}>
+          <Streaks streak={stats.streak} activeDays={activeDays} />
         </Panel>
       </div>
 
@@ -168,72 +168,123 @@ function Panel({
   className?: string;
 }) {
   return (
-    <section className={cn("border border-border bg-surface p-4 sm:p-5", className)}>
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h2 className="text-base font-semibold text-ink">{title}</h2>
+    <section className={cn("flex flex-col border border-border bg-surface", className)}>
+      <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-border px-4 py-3 sm:px-5">
+        <h2 className="text-sm font-semibold text-ink">{title}</h2>
         {hint && <span className="text-xs text-muted">{hint}</span>}
-      </div>
-      {children}
+      </header>
+      <div className="flex-1 p-4 sm:p-5">{children}</div>
     </section>
   );
 }
 
-const BAR_OPACITY = {
-  review: 1,
-  due: 0.5,
+/** A large figure with its unit, used for each panel's headline number. */
+function Figure({
+  value,
+  unit,
+  size = "lg",
+}: {
+  value: React.ReactNode;
+  unit?: string;
+  size?: "lg" | "md";
+}) {
+  return (
+    <span className="flex items-baseline gap-1.5">
+      <span
+        className={cn(
+          "font-serif leading-none font-semibold tabular-nums text-ink",
+          size === "lg" ? "text-4xl" : "text-2xl",
+        )}
+      >
+        {value}
+      </span>
+      {unit && <span className="text-sm text-muted">{unit}</span>}
+    </span>
+  );
+}
+
+const SHORT_DAY_FORMAT = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
+
+function shortStudyDay(key: string) {
+  const [year, month, day] = key.split("-").map(Number);
+  return SHORT_DAY_FORMAT.format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+const BAR_TONES = {
+  review: { opacity: 1, unit: "review" },
+  due: { opacity: 0.55, unit: "review unit" },
 } as const;
 
 /**
- * TanStack Charts bars over study-day buckets. Pointer and keyboard focus name
- * each bar's date and count in a tooltip; the chart's accessible label carries
- * the series total.
+ * TanStack Charts bars over study-day buckets, under a headline total. Pointer
+ * and keyboard focus name each bar's date and count in a tooltip; the chart's
+ * accessible label carries the series total. The forecast's first bar is
+ * today and includes overdue units.
  */
 function DayBarChart({
   series,
   tone,
   empty,
   ariaLabel,
-  forecast = false,
 }: {
   series: StatsOverview["daily"];
-  tone: keyof typeof BAR_OPACITY;
+  tone: keyof typeof BAR_TONES;
   empty: string;
   ariaLabel: string;
-  forecast?: boolean;
 }) {
+  const { opacity, unit } = BAR_TONES[tone];
+  const forecast = tone === "due";
   const definition = useMemo(() => {
     const keys = series.days.map((day) => day.key);
-    const unit = tone === "review" ? "review" : "review unit";
-    const dayLabel = (key: string) => (forecast && key === keys[0] ? "Today" : formatStudyDay(key));
+    const tickLabel = (key: string) => (forecast && key === keys[0] ? "Today" : shortStudyDay(key));
+    const tooltipLabel = (key: string) =>
+      forecast && key === keys[0] ? "Today (with overdue)" : formatStudyDay(key);
     return defineChart({
       marks: [
         barY(series.days, {
           x: "key",
           y: "count",
           fill: "var(--color-accent)",
-          fillOpacity: BAR_OPACITY[tone],
+          fillOpacity: opacity,
           radius: { end: 1 },
         }),
       ],
       scales: {
         x: {
-          scale: () => scaleBand<string>().domain(keys).padding(0.12),
+          scale: () => scaleBand<string>().domain(keys).padding(0.18),
           axis: {
-            line: { stroke: "var(--color-border)" },
+            line: { stroke: "var(--color-border-strong)" },
             ticks: {
               values: [keys[0], keys[Math.floor(keys.length / 2)], keys[keys.length - 1]],
-              format: dayLabel,
+              format: tickLabel,
               line: false,
+              padding: 10,
+            },
+            // The end labels hang inward so they stay inside the plot.
+            tickLabels: {
+              anchor: ({ index }) => (index === 0 ? "start" : index === 2 ? "end" : "middle"),
             },
           },
         },
         y: {
           scale: scaleLinear,
           nice: true,
-          grid: { stroke: "var(--color-border)" },
+          // An empty series still draws a readable 0–1 frame.
+          domain: series.max === 0 ? [0, 1] : undefined,
+          grid: { stroke: "var(--color-border)", strokeDasharray: "2 3" },
           axis: {
             line: false,
-            ticks: { count: 3, line: false, format: (value) => String(value) },
+            ticks: {
+              count: 3,
+              line: false,
+              padding: 10,
+              // The baseline already marks zero; labeling it crowds the dates.
+              format: (value) => (value !== 0 && Number.isInteger(value) ? String(value) : ""),
+            },
           },
         },
       },
@@ -243,15 +294,27 @@ function DayBarChart({
       },
       tooltip: {
         use: tooltip,
-        format: (point) => `${dayLabel(point.datum.key)}: ${plural(point.datum.count, unit)}`,
+        format: (point) => `${tooltipLabel(point.datum.key)}: ${plural(point.datum.count, unit)}`,
       },
     });
-  }, [series, tone, forecast]);
+  }, [series, opacity, unit, forecast]);
+
+  const first = series.days[0]?.count ?? 0;
+  const average = series.days.length === 0 ? 0 : series.total / series.days.length;
+  const detail =
+    series.total === 0
+      ? empty
+      : forecast
+        ? `${first === 0 ? "Nothing" : first} due today · busiest day ${series.max}`
+        : `${average < 10 ? average.toFixed(1) : Math.round(average)} a day on average · best day ${series.max}`;
 
   return (
-    <div>
-      <Chart definition={definition} ariaLabel={ariaLabel} height={160} initialWidth={520} />
-      {series.total === 0 && <p className="mt-2 text-sm text-muted">{empty}</p>}
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <Figure value={series.total} unit={series.total === 1 ? unit : `${unit}s`} size="md" />
+        <span className="text-xs text-muted">{detail}</span>
+      </div>
+      <Chart definition={definition} ariaLabel={ariaLabel} height={176} initialWidth={520} />
     </div>
   );
 }
@@ -262,61 +325,71 @@ function Retention({ retention }: { retention: StatsOverview["retention"] }) {
   const retainedPct = retention.reviews === 0 ? 0 : (retention.retained / retention.reviews) * 100;
 
   return (
-    <div>
-      <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
-        <span className="font-serif text-4xl leading-none font-semibold tabular-nums text-ink">
-          {percent === null ? "—" : `${percent}%`}
-        </span>
-        <span className="pb-0.5 text-sm text-muted">
+    <div className="flex h-full flex-col">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <Figure value={percent === null ? "—" : `${percent}%`} />
+        <span className="text-sm text-muted">
           {retention.reviews === 0
             ? "No Review-state answers in the last 30 days."
-            : `${retention.retained} of ${retention.reviews} kept`}
+            : `${retention.retained} of ${plural(retention.reviews, "answer")} recalled`}
         </span>
       </div>
 
-      <div className="mt-4 flex h-2 bg-border">
-        {retention.reviews > 0 && (
-          <>
-            <div className="h-full bg-good" style={{ width: `${retainedPct}%` }} />
-            <div className="h-full flex-1 bg-again" />
-          </>
+      <div
+        className="mt-5 flex h-2.5 gap-px overflow-hidden bg-border"
+        role="img"
+        aria-label={
+          retention.reviews === 0
+            ? "No answers to show."
+            : `${retention.retained} recalled, ${missed} forgotten.`
+        }
+      >
+        {retention.retained > 0 && (
+          <div className="h-full bg-good" style={{ width: `${retainedPct}%` }} />
         )}
+        {missed > 0 && <div className="h-full flex-1 bg-again" />}
       </div>
 
-      <div className="mt-2 flex flex-wrap justify-between gap-x-4 gap-y-1 text-xs text-muted">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="size-1.5 bg-good" aria-hidden />
-          Hard · Good · Easy — {retention.retained}
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="size-1.5 bg-again" aria-hidden />
-          Again — {missed}
-        </span>
-      </div>
-      <p className="mt-3 text-xs text-muted">
+      <dl className="mt-3 flex flex-wrap justify-between gap-x-6 gap-y-1 text-xs">
+        <div className="flex items-center gap-1.5">
+          <span className="size-2 bg-good" aria-hidden />
+          <dt className="text-muted">Recalled (Hard, Good, Easy)</dt>
+          <dd className="font-medium tabular-nums text-ink">{retention.retained}</dd>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="size-2 bg-again" aria-hidden />
+          <dt className="text-muted">Forgot (Again)</dt>
+          <dd className="font-medium tabular-nums text-ink">{missed}</dd>
+        </div>
+      </dl>
+      <p className="mt-auto pt-5 text-xs text-muted">
         Only answers to cards already in Review state count; learning steps are excluded.
       </p>
     </div>
   );
 }
 
-function Streaks({ streak }: { streak: StatsOverview["streak"] }) {
+function Streaks({ streak, activeDays }: { streak: StatsOverview["streak"]; activeDays: number }) {
+  const rows = [
+    { label: "Longest streak", value: plural(streak.longest, "day") },
+    { label: "Days studied", value: plural(activeDays, "day") },
+  ];
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="flex h-full flex-col gap-5">
       <div>
-        <div className="font-serif text-3xl leading-none font-semibold tabular-nums text-ink">
-          {streak.current}
-        </div>
-        <div className="mt-2 text-xs font-medium text-muted">Current streak</div>
-        <div className="text-[11px] text-muted">{plural(streak.current, "day")}</div>
+        <Figure value={streak.current} unit={streak.current === 1 ? "day" : "days"} />
+        <p className="mt-2 text-xs text-muted">
+          {streak.current === 0 ? "Review today to start a streak." : "Current streak"}
+        </p>
       </div>
-      <div>
-        <div className="font-serif text-3xl leading-none font-semibold tabular-nums text-ink">
-          {streak.longest}
-        </div>
-        <div className="mt-2 text-xs font-medium text-muted">Longest streak</div>
-        <div className="text-[11px] text-muted">{plural(streak.longest, "day")}</div>
-      </div>
+      <dl className="mt-auto divide-y divide-border border-t border-border pt-1 text-sm">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-baseline justify-between gap-3 py-2 last:pb-0">
+            <dt className="text-muted">{row.label}</dt>
+            <dd className="font-medium tabular-nums text-ink">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
@@ -330,19 +403,53 @@ const STATE_ITEMS = [
   { key: "archivedCount", label: "Archived", color: "bg-border-strong" },
 ] as const;
 
+/** States that split the studyable units without overlap. */
+const ACTIVE_STATE_ITEMS = STATE_ITEMS.slice(0, 4);
+
 function StateCounts({ states }: { states: StatsOverview["states"] }) {
+  const active = ACTIVE_STATE_ITEMS.reduce((sum, item) => sum + states[item.key], 0);
+  // Locked and archived can overlap, so the bar shows them as one remainder.
+  const setAside = states.total - active;
   return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
-      {STATE_ITEMS.map((item) => (
-        <div key={item.key}>
-          <dt className="flex items-center gap-1.5 text-xs text-muted">
-            <span className={cn("size-2", item.color)} aria-hidden />
-            {item.label}
-          </dt>
-          <dd className="mt-1 font-mono text-lg tabular-nums text-ink">{states[item.key]}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className="space-y-5">
+      <div
+        className="flex h-2.5 gap-px overflow-hidden bg-border"
+        role="img"
+        aria-label={`${plural(active, "studyable unit")} and ${setAside} locked or archived.`}
+      >
+        {ACTIVE_STATE_ITEMS.map(
+          (item) =>
+            states[item.key] > 0 && (
+              <div
+                key={item.key}
+                className={cn("h-full", item.color)}
+                style={{ flexGrow: states[item.key] }}
+              />
+            ),
+        )}
+        {setAside > 0 && <div className="h-full bg-ui-3" style={{ flexGrow: setAside }} />}
+      </div>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-6">
+        {STATE_ITEMS.map((item) => {
+          const count = states[item.key];
+          const share = states.total === 0 ? 0 : Math.round((count / states.total) * 100);
+          return (
+            <div key={item.key} className="min-w-0">
+              <dt className="flex items-center gap-1.5 text-xs text-muted">
+                <span className={cn("size-2 shrink-0", item.color)} aria-hidden />
+                {item.label}
+              </dt>
+              <dd className="mt-1.5 flex items-baseline gap-1.5">
+                <span className="font-serif text-2xl leading-none font-semibold tabular-nums text-ink">
+                  {count}
+                </span>
+                {count > 0 && <span className="text-xs tabular-nums text-muted">{share}%</span>}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </div>
   );
 }
 
