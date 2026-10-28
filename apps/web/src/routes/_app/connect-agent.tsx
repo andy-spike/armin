@@ -44,9 +44,9 @@ function Notice({
   );
 }
 
-const toSettings = (
-  <Link to="/settings" search={{ tab: "assistants" }}>
-    <Button variant="outline">Go to AI assistants</Button>
+const toSetup = (
+  <Link to="/ai-setup">
+    <Button variant="outline">Go to AI setup</Button>
   </Link>
 );
 
@@ -57,8 +57,8 @@ function ConnectAgentPage() {
     return (
       <Notice
         title="This link is incomplete"
-        body="Start the connection again from your assistant. If you’re setting one up, Settings has the address to add."
-        action={toSettings}
+        body="Start the connection again from your assistant. If you’re setting one up, AI setup in the sidebar has the steps."
+        action={toSetup}
       />
     );
   }
@@ -120,7 +120,7 @@ function Consent({ requestId }: { requestId: string }) {
       <Notice
         title="This request has expired"
         body="Connection requests are only valid for a few minutes, and each can be used once. Start the connection again from your assistant."
-        action={toSettings}
+        action={toSetup}
       />
     );
   }

@@ -446,11 +446,7 @@ function ChooseStep({
           <Bot className="mt-0.5 h-5 w-5 shrink-0 text-accent-deep" strokeWidth={1.5} aria-hidden />
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <Link
-            to="/settings"
-            search={{ tab: "assistants" }}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
+          <Link to="/ai-setup" className={buttonVariants({ variant: "outline", size: "sm" })}>
             Set up an assistant
           </Link>
           <span className="text-[0.75rem] text-muted">Imported cards start fresh.</span>
@@ -458,7 +454,7 @@ function ChooseStep({
         <details className="mt-3 text-[0.8125rem] leading-relaxed text-muted">
           <summary className="cursor-pointer text-ink">How assistant import works</summary>
           <p className="mt-2">
-            Connect an assistant in Settings → AI assistants, give it your Anki file, and ask it to
+            Connect an assistant from AI setup in the sidebar, give it your Anki file, and ask it to
             import into Armin. It needs file access and a workspace that can run Node.js. You review
             the converted cards and approve them before they appear in your library. Ask for repairs
             or polishing whenever you need them.

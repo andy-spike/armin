@@ -17,6 +17,7 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppAiSetupRouteImport } from './routes/_app/ai-setup'
 import { Route as AppBrowseRouteImport } from './routes/_app/browse'
 import { Route as AppConnectAgentRouteImport } from './routes/_app/connect-agent'
 import { Route as AppReviewRouteImport } from './routes/_app/review'
@@ -68,6 +69,11 @@ const TermsRoute = TermsRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAiSetupRoute = AppAiSetupRouteImport.update({
+  id: '/ai-setup',
+  path: '/ai-setup',
   getParentRoute: () => AppRoute,
 } as any)
 const AppBrowseRoute = AppBrowseRouteImport.update({
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/terms': typeof TermsRoute
+  '/ai-setup': typeof AppAiSetupRoute
   '/browse': typeof AppBrowseRoute
   '/connect-agent': typeof AppConnectAgentRoute
   '/review': typeof AppReviewRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/terms': typeof TermsRoute
+  '/ai-setup': typeof AppAiSetupRoute
   '/browse': typeof AppBrowseRoute
   '/connect-agent': typeof AppConnectAgentRoute
   '/review': typeof AppReviewRoute
@@ -189,6 +197,7 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/terms': typeof TermsRoute
+  '/_app/ai-setup': typeof AppAiSetupRoute
   '/_app/browse': typeof AppBrowseRoute
   '/_app/connect-agent': typeof AppConnectAgentRoute
   '/_app/review': typeof AppReviewRoute
@@ -214,6 +223,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/terms'
+    | '/ai-setup'
     | '/browse'
     | '/connect-agent'
     | '/review'
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/terms'
+    | '/ai-setup'
     | '/browse'
     | '/connect-agent'
     | '/review'
@@ -258,6 +269,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/terms'
+    | '/_app/ai-setup'
     | '/_app/browse'
     | '/_app/connect-agent'
     | '/_app/review'
@@ -344,6 +356,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/ai-setup': {
+      id: '/_app/ai-setup'
+      path: '/ai-setup'
+      fullPath: '/ai-setup'
+      preLoaderRoute: typeof AppAiSetupRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/browse': {
@@ -441,6 +460,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAiSetupRoute: typeof AppAiSetupRoute
   AppBrowseRoute: typeof AppBrowseRoute
   AppConnectAgentRoute: typeof AppConnectAgentRoute
   AppReviewRoute: typeof AppReviewRoute
@@ -454,6 +474,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAiSetupRoute: AppAiSetupRoute,
   AppBrowseRoute: AppBrowseRoute,
   AppConnectAgentRoute: AppConnectAgentRoute,
   AppReviewRoute: AppReviewRoute,
