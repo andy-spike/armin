@@ -2,6 +2,7 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@armin/backend/api";
 import type { FunctionArgs, FunctionReference } from "convex/server";
+import { STATS_COMPACT_HEATMAP_WEEKS } from "@armin/core/stats";
 import { BROWSE_PAGE_SIZE } from "@armin/core/study";
 import type { BrowseQueryFilters } from "@/lib/armin-query";
 import { studyClockNow } from "@/lib/study-clock";
@@ -72,6 +73,14 @@ export const browseCountsQuery = ({ sort: _sort, ...filters }: BrowseQueryFilter
 export const reviewStatusQuery = (now = studyClockNow()) =>
   queryOptions(live(api.review.status, { now }));
 
+/** All Stats page sections for the library or one deck. */
+export const statsOverviewQuery = (deckId?: string, now = studyClockNow()) =>
+  queryOptions({ ...live(api.stats.overview, defined({ deckId, now })) });
+
+/** Compact heatmap and streak for the Decks page. */
+export const statsHeatmapQuery = (weeks = STATS_COMPACT_HEATMAP_WEEKS, now = studyClockNow()) =>
+  queryOptions({ ...live(api.stats.heatmap, { weeks, now }) });
+
 /** The review queue for one deck, or for every deck. */
 export const reviewQueueQuery = (deckId?: string, now = studyClockNow()) =>
   queryOptions(live(api.review.queue, defined({ deckId, now })));
@@ -134,6 +143,13 @@ function prefetchBrowse(queryClient: QueryClient, filters: BrowseQueryFilters) {
 export function prefetchDecksPage(queryClient: QueryClient) {
   if (!inBrowser()) return;
   void queryClient.prefetchQuery(decksQuery());
+  void queryClient.prefetchQuery(statsHeatmapQuery());
+}
+
+export function prefetchStatsPage(queryClient: QueryClient) {
+  if (!inBrowser()) return;
+  void queryClient.prefetchQuery(deckNamesQuery());
+  void queryClient.prefetchQuery(statsOverviewQuery());
 }
 
 export function prefetchDeckPage(queryClient: QueryClient, deckId: string) {

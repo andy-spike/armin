@@ -3,7 +3,7 @@ import { plural } from "@/lib/utils";
 import { armin, errorMessage, newRequestId } from "@/lib/armin-client";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Layers, Plus, AlertTriangle, Ellipsis, Upload } from "lucide-react";
+import { Layers, Plus, AlertTriangle, Ellipsis, Upload, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
@@ -25,6 +25,8 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { DeckGridSkeleton } from "@/components/page-skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ReviewHeatmap } from "@/components/review-heatmap";
 import { SortControl } from "@/components/sort-control";
 import { AnkiImportDialog, preloadAnkiImportDialog } from "@/components/anki-import-dialog-lazy";
 import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
@@ -36,7 +38,10 @@ import {
   decksQuery as decksQueryOptions,
   prefetchDeckPage,
   prefetchDecksPage,
+  statsHeatmapQuery,
 } from "@/lib/queries";
+import { STATS_COMPACT_HEATMAP_WEEKS } from "@armin/core/stats";
+import type { StatsHeatmap } from "@armin/backend/types";
 
 function DecksPage() {
   const queryClient = useQueryClient();
@@ -51,10 +56,15 @@ function DecksPage() {
   // One request id per create dialog, so a retried submit can't add two decks.
   const createRequestId = useRef(newRequestId());
 
-  const decksQuery = useQuery(decksQueryOptions(useStudyClock()));
+  const now = useStudyClock();
+  const decksQuery = useQuery(decksQueryOptions(now));
   const deckActions = useDeckActions();
 
   const decks = decksQuery.data ?? [];
+  const heatmapQuery = useQuery({
+    ...statsHeatmapQuery(STATS_COMPACT_HEATMAP_WEEKS, now),
+    enabled: decks.length > 0,
+  });
   const sortedDecks = useMemo(
     () => sortDecks(decksQuery.data ?? [], sort),
     [decksQuery.data, sort],
@@ -108,6 +118,10 @@ function DecksPage() {
           </Button>
         </div>
       </header>
+
+      {decks.length > 0 && (
+        <StudyActivity heatmap={heatmapQuery.data} loading={heatmapQuery.isLoading} />
+      )}
 
       {decksQuery.isLoading && <DeckGridSkeleton />}
 
@@ -208,6 +222,49 @@ function DecksPage() {
 
       {deckActions.dialogs}
     </div>
+  );
+}
+
+function StudyActivity({
+  heatmap,
+  loading,
+}: {
+  heatmap: StatsHeatmap | null | undefined;
+  loading: boolean;
+}) {
+  return (
+    <section className="mb-6 flex flex-col gap-4 border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="text-sm font-semibold text-ink">Study activity</h2>
+          <span className="text-xs text-muted">Last {STATS_COMPACT_HEATMAP_WEEKS} weeks</span>
+        </div>
+        {loading ? (
+          <div className="mt-3 space-y-2">
+            <Skeleton className="h-3.5 w-48 rounded-none" />
+            <Skeleton className="h-[58px] w-40 rounded-none" />
+          </div>
+        ) : heatmap ? (
+          <>
+            <p className="mt-1 text-xs text-muted">
+              {heatmap.total === 0
+                ? "No reviews yet."
+                : `${plural(heatmap.total, "review")} · ${plural(heatmap.streak.current, "day")} streak`}
+            </p>
+            <ReviewHeatmap days={heatmap.days} size="compact" className="mt-2" />
+          </>
+        ) : (
+          <p className="mt-1 text-xs text-muted">Activity is unavailable right now.</p>
+        )}
+      </div>
+      <Link
+        to="/stats"
+        className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-accent-deep transition-colors hover:text-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+      >
+        View stats
+        <ArrowRight className="size-3.5" aria-hidden />
+      </Link>
+    </section>
   );
 }
 
