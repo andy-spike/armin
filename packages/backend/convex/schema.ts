@@ -257,8 +257,24 @@ export default defineSchema({
     .index("by_unit_review", ["reviewUnitId", "review"])
     .index("by_library_review", ["libraryId", "review"])
     .index("by_library_state_review", ["libraryId", "state", "review"])
+    .index("by_library_rating_review", ["libraryId", "rating", "review"])
     .index("by_flashcard", ["flashcardId"])
     .index("by_deck", ["deckId"]),
+
+  /**
+   * Practice-only cram ratings. They never feed the FSRS schedule, locks, or
+   * `reviewLogs`; deleting a card, deck, or library clears them with history.
+   */
+  cramLogs: defineTable({
+    libraryId: v.id("libraries"),
+    deckId: v.id("decks"),
+    flashcardId: v.id("flashcards"),
+    reviewUnitId: v.id("reviewUnits"),
+    rating: v.number(),
+    review: v.number(),
+  })
+    .index("by_library_review", ["libraryId", "review"])
+    .index("by_unit_review", ["reviewUnitId", "review"]),
 
   /**
    * Derived Browse row for each flashcard: its sort keys, search text, and the

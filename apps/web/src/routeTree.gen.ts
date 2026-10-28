@@ -26,6 +26,7 @@ import { Route as MediaSplatRouteImport } from './routes/media/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiExportSplatRouteImport } from './routes/api/export/$'
 import { Route as AppDeckDeckIdIndexRouteImport } from './routes/_app/deck.$deckId.index'
+import { Route as AppDeckDeckIdCramRouteImport } from './routes/_app/deck.$deckId.cram'
 import { Route as AppDeckDeckIdGraphRouteImport } from './routes/_app/deck.$deckId.graph'
 import { Route as AppDeckDeckIdReviewRouteImport } from './routes/_app/deck.$deckId.review'
 
@@ -113,6 +114,11 @@ const AppDeckDeckIdIndexRoute = AppDeckDeckIdIndexRouteImport.update({
   path: '/deck/$deckId/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDeckDeckIdCramRoute = AppDeckDeckIdCramRouteImport.update({
+  id: '/deck/$deckId/cram',
+  path: '/deck/$deckId/cram',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDeckDeckIdGraphRoute = AppDeckDeckIdGraphRouteImport.update({
   id: '/deck/$deckId/graph',
   path: '/deck/$deckId/graph',
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/media/$': typeof MediaSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/export/$': typeof ApiExportSplatRoute
+  '/deck/$deckId/cram': typeof AppDeckDeckIdCramRoute
   '/deck/$deckId/graph': typeof AppDeckDeckIdGraphRoute
   '/deck/$deckId/review': typeof AppDeckDeckIdReviewRoute
   '/deck/$deckId/': typeof AppDeckDeckIdIndexRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/export/$': typeof ApiExportSplatRoute
+  '/deck/$deckId/cram': typeof AppDeckDeckIdCramRoute
   '/deck/$deckId/graph': typeof AppDeckDeckIdGraphRoute
   '/deck/$deckId/review': typeof AppDeckDeckIdReviewRoute
   '/deck/$deckId': typeof AppDeckDeckIdIndexRoute
@@ -182,6 +190,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/export/$': typeof ApiExportSplatRoute
+  '/_app/deck/$deckId/cram': typeof AppDeckDeckIdCramRoute
   '/_app/deck/$deckId/graph': typeof AppDeckDeckIdGraphRoute
   '/_app/deck/$deckId/review': typeof AppDeckDeckIdReviewRoute
   '/_app/deck/$deckId/': typeof AppDeckDeckIdIndexRoute
@@ -204,6 +213,7 @@ export interface FileRouteTypes {
     | '/media/$'
     | '/api/auth/$'
     | '/api/export/$'
+    | '/deck/$deckId/cram'
     | '/deck/$deckId/graph'
     | '/deck/$deckId/review'
     | '/deck/$deckId/'
@@ -224,6 +234,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/auth/$'
     | '/api/export/$'
+    | '/deck/$deckId/cram'
     | '/deck/$deckId/graph'
     | '/deck/$deckId/review'
     | '/deck/$deckId'
@@ -245,6 +256,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/api/auth/$'
     | '/api/export/$'
+    | '/_app/deck/$deckId/cram'
     | '/_app/deck/$deckId/graph'
     | '/_app/deck/$deckId/review'
     | '/_app/deck/$deckId/'
@@ -385,6 +397,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDeckDeckIdIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/deck/$deckId/cram': {
+      id: '/_app/deck/$deckId/cram'
+      path: '/deck/$deckId/cram'
+      fullPath: '/deck/$deckId/cram'
+      preLoaderRoute: typeof AppDeckDeckIdCramRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/deck/$deckId/graph': {
       id: '/_app/deck/$deckId/graph'
       path: '/deck/$deckId/graph'
@@ -408,6 +427,7 @@ interface AppRouteChildren {
   AppReviewRoute: typeof AppReviewRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppDeckDeckIdCramRoute: typeof AppDeckDeckIdCramRoute
   AppDeckDeckIdGraphRoute: typeof AppDeckDeckIdGraphRoute
   AppDeckDeckIdReviewRoute: typeof AppDeckDeckIdReviewRoute
   AppDeckDeckIdIndexRoute: typeof AppDeckDeckIdIndexRoute
@@ -419,6 +439,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppReviewRoute: AppReviewRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
+  AppDeckDeckIdCramRoute: AppDeckDeckIdCramRoute,
   AppDeckDeckIdGraphRoute: AppDeckDeckIdGraphRoute,
   AppDeckDeckIdReviewRoute: AppDeckDeckIdReviewRoute,
   AppDeckDeckIdIndexRoute: AppDeckDeckIdIndexRoute,

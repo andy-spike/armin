@@ -23,6 +23,8 @@ generated API.
 - `convex/decks.ts`, `flashcards.ts`, `graph.ts`, `settings.ts` — authoring,
   browse, prerequisite graph, and scheduling settings.
 - `convex/review.ts` — queue, rating previews, rate, and undo.
+- `convex/cram.ts` — practice-only cram selection and `cramLogs`; never
+  schedules, locks, or writes review history.
 - `convex/imports.ts` — batched Anki import (see below).
 - `convex/media.ts`, `exports.ts`, `exportBuilder.ts` — private images and the
   ZIP export job.

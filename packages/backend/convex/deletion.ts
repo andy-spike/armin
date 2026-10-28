@@ -12,7 +12,7 @@ const BATCH = 400;
 // formatting expansion. Cards carry the same bounded authored content.
 const CONTENT_BATCH = 20;
 
-/** Remove a deleted deck's review history in bounded batches. */
+/** Remove a deleted deck's review and cram history in bounded batches. */
 export const cleanupUnitLogs = internalMutation({
   args: { reviewUnitId: v.id("reviewUnits") },
   handler: async (ctx, { reviewUnitId }) => {
@@ -21,8 +21,18 @@ export const cleanupUnitLogs = internalMutation({
       .withIndex("by_unit_review", (q) => q.eq("reviewUnitId", reviewUnitId))
       .take(BATCH);
     for (const log of logs) await ctx.db.delete(log._id);
-    if (logs.length === BATCH)
+    const cramBudget = BATCH - logs.length;
+    const cramLogs =
+      cramBudget > 0
+        ? await ctx.db
+            .query("cramLogs")
+            .withIndex("by_unit_review", (q) => q.eq("reviewUnitId", reviewUnitId))
+            .take(cramBudget)
+        : [];
+    for (const log of cramLogs) await ctx.db.delete(log._id);
+    if (logs.length + cramLogs.length >= BATCH) {
       await ctx.scheduler.runAfter(0, internal.deletion.cleanupUnitLogs, { reviewUnitId });
+    }
   },
 });
 
@@ -41,6 +51,13 @@ export const cleanupRemovedUnits = internalMutation({
       for (const log of logs) await ctx.db.delete(log._id);
       budget -= logs.length;
       // If we filled the batch, revisit this unit to catch any remaining logs.
+      if (budget === 0) break;
+      const cramLogs = await ctx.db
+        .query("cramLogs")
+        .withIndex("by_unit_review", (q) => q.eq("reviewUnitId", id))
+        .take(budget);
+      for (const log of cramLogs) await ctx.db.delete(log._id);
+      budget -= cramLogs.length;
       if (budget === 0) break;
     }
     const remaining = unitIds.slice(index);
@@ -151,6 +168,7 @@ const LIBRARY_TABLES: [TableNames, string][] = [
   ["flashcardSummaries", "by_library_created"],
   ["deckCounters", "by_library"],
   ["reviewLogs", "by_library_review"],
+  ["cramLogs", "by_library_review"],
   ["reviewUnits", "by_library"],
   ["prereqs", "by_library"],
   ["flashcardMedia", "by_library_file"],

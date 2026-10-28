@@ -76,6 +76,34 @@ export const reviewStatusQuery = (now = studyClockNow()) =>
 export const reviewQueueQuery = (deckId?: string, now = studyClockNow()) =>
   queryOptions(live(api.review.queue, defined({ deckId, now })));
 
+/** The filters a cram setup sends to the count and queue queries. */
+export type CramFilters = {
+  states: number[];
+  tag?: string;
+  forgottenWithinDays?: number;
+  includeLocked: boolean;
+};
+
+const cramArgs = (deckId: string, filters: CramFilters) =>
+  defined({
+    deckId,
+    states: filters.states,
+    tag: filters.tag,
+    forgottenWithinDays: filters.forgottenWithinDays,
+    includeLocked: filters.includeLocked,
+  });
+
+/** Live match count for the cram setup dialog. */
+export const cramCountQuery = (deckId: string, filters: CramFilters) =>
+  queryOptions({
+    ...live(api.cram.count, cramArgs(deckId, filters)),
+    select: (result) => result?.count ?? 0,
+  });
+
+/** Every unit matching a cram setup; the session shuffles and limits locally. */
+export const cramQueueQuery = (deckId: string, filters: CramFilters) =>
+  queryOptions(live(api.cram.queue, cramArgs(deckId, filters)));
+
 /** Interval labels for a unit's rating buttons. */
 export const reviewPreviewQuery = (reviewUnitId: string, now = studyClockNow()) =>
   queryOptions(
@@ -161,6 +189,12 @@ export function prefetchReviewPage(queryClient: QueryClient, deckId?: string) {
   if (deckId) void queryClient.prefetchQuery(deckQuery(deckId));
   else void queryClient.prefetchQuery(deckNamesQuery());
   void queryClient.prefetchQuery(reviewQueueQuery(deckId));
+}
+
+/** Cram's queue depends on the setup search, so only the deck is prefetched. */
+export function prefetchCramPage(queryClient: QueryClient, deckId: string) {
+  if (!inBrowser()) return;
+  void queryClient.prefetchQuery(deckQuery(deckId));
 }
 
 export function prefetchSettingsPage(queryClient: QueryClient) {

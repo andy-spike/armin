@@ -12,12 +12,11 @@ import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { activeDeckIds, owned, readableLibrary, writableLibrary } from "./model/access";
-import { checkEligible, selectSession } from "./model/queue";
+import { checkEligible, selectSession, toQueueItems } from "./model/queue";
 import {
   bumpRevision,
   findRequest,
   fsrsSnapshot,
-  parseFlashcard,
   recordRequest,
   refreshAfterPrereqChange,
   schedulerFor,
@@ -25,42 +24,6 @@ import {
 } from "./model/study";
 
 const GRADES: Grade[] = [Rating.Again, Rating.Hard, Rating.Good, Rating.Easy];
-
-async function toQueueItems(
-  ctx: Parameters<typeof readableLibrary>[0],
-  units: Doc<"reviewUnits">[],
-) {
-  const flashcards = new Map<Id<"flashcards">, Doc<"flashcards"> | null>();
-  const decks = new Map<Id<"decks">, string>();
-  const items = [];
-  for (const unit of units) {
-    if (!flashcards.has(unit.flashcardId)) {
-      flashcards.set(unit.flashcardId, await ctx.db.get(unit.flashcardId));
-    }
-    const flashcard = flashcards.get(unit.flashcardId);
-    if (!flashcard) continue;
-    if (!decks.has(unit.deckId)) {
-      decks.set(unit.deckId, (await ctx.db.get(unit.deckId))?.name ?? "");
-    }
-    const { type, content } = parseFlashcard(flashcard);
-    items.push({
-      reviewUnitId: unit._id,
-      flashcardId: unit.flashcardId,
-      deckId: unit.deckId,
-      deckName: decks.get(unit.deckId) ?? "",
-      type,
-      content,
-      subKey: unit.subKey,
-      front: unit.front,
-      back: unit.back,
-      version: unit.version,
-      flashcardVersion: flashcard.version,
-      due: unit.due,
-      isNew: unit.state === 0,
-    });
-  }
-  return items;
-}
 
 /**
  * Session queue for one deck or the whole library: due reviews (oldest due

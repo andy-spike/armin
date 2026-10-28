@@ -3,7 +3,41 @@ import { selectFrontier, startOfStudyDayMs } from "@armin/core/study";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { activeDeckIds } from "./access";
-import { SettingsCache } from "./study";
+import { parseFlashcard, SettingsCache } from "./study";
+
+/** Queue-shaped items for the review and cram renderers. */
+export async function toQueueItems(ctx: QueryCtx, units: Doc<"reviewUnits">[]) {
+  const flashcards = new Map<Id<"flashcards">, Doc<"flashcards"> | null>();
+  const decks = new Map<Id<"decks">, string>();
+  const items = [];
+  for (const unit of units) {
+    if (!flashcards.has(unit.flashcardId)) {
+      flashcards.set(unit.flashcardId, await ctx.db.get(unit.flashcardId));
+    }
+    const flashcard = flashcards.get(unit.flashcardId);
+    if (!flashcard) continue;
+    if (!decks.has(unit.deckId)) {
+      decks.set(unit.deckId, (await ctx.db.get(unit.deckId))?.name ?? "");
+    }
+    const { type, content } = parseFlashcard(flashcard);
+    items.push({
+      reviewUnitId: unit._id,
+      flashcardId: unit.flashcardId,
+      deckId: unit.deckId,
+      deckName: decks.get(unit.deckId) ?? "",
+      type,
+      content,
+      subKey: unit.subKey,
+      front: unit.front,
+      back: unit.back,
+      version: unit.version,
+      flashcardVersion: flashcard.version,
+      due: unit.due,
+      isNew: unit.state === 0,
+    });
+  }
+  return items;
+}
 
 /** Stable 32-bit hash used to rank Frontier candidates for a study day. */
 function rank(text: string) {
