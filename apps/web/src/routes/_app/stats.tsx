@@ -2,6 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Layers } from "lucide-react";
+import { barY, defineChart } from "@tanstack/charts";
+import { Chart } from "@tanstack/charts/react";
+import { scaleBand } from "@tanstack/charts/scales/band";
+import { scaleLinear } from "@tanstack/charts/scales/linear";
+import { tooltip } from "@tanstack/charts/tooltip";
 import type { StatsOverview } from "@armin/backend/types";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/combobox";
@@ -173,14 +178,15 @@ function Panel({
   );
 }
 
-const BAR_TONES = {
-  review: "bg-accent",
-  due: "bg-accent/50",
+const BAR_OPACITY = {
+  review: 1,
+  due: 0.5,
 } as const;
 
 /**
- * Plain CSS bars over study-day buckets. Each bar names its date and count in a
- * tooltip; the chart's accessible label carries the series total.
+ * TanStack Charts bars over study-day buckets. Pointer and keyboard focus name
+ * each bar's date and count in a tooltip; the chart's accessible label carries
+ * the series total.
  */
 function DayBarChart({
   series,
@@ -190,49 +196,61 @@ function DayBarChart({
   forecast = false,
 }: {
   series: StatsOverview["daily"];
-  tone: keyof typeof BAR_TONES;
+  tone: keyof typeof BAR_OPACITY;
   empty: string;
   ariaLabel: string;
   forecast?: boolean;
 }) {
-  const peak = Math.max(1, series.max);
-  const first = series.days[0];
-  const middle = series.days[Math.floor(series.days.length / 2)];
-  const last = series.days[series.days.length - 1];
-  const unit = tone === "review" ? "review" : "review unit";
+  const definition = useMemo(() => {
+    const keys = series.days.map((day) => day.key);
+    const unit = tone === "review" ? "review" : "review unit";
+    const dayLabel = (key: string) => (forecast && key === keys[0] ? "Today" : formatStudyDay(key));
+    return defineChart({
+      marks: [
+        barY(series.days, {
+          x: "key",
+          y: "count",
+          fill: "var(--color-accent)",
+          fillOpacity: BAR_OPACITY[tone],
+          radius: { end: 1 },
+        }),
+      ],
+      scales: {
+        x: {
+          scale: () => scaleBand<string>().domain(keys).padding(0.12),
+          axis: {
+            line: { stroke: "var(--color-border)" },
+            ticks: {
+              values: [keys[0], keys[Math.floor(keys.length / 2)], keys[keys.length - 1]],
+              format: dayLabel,
+              line: false,
+            },
+          },
+        },
+        y: {
+          scale: scaleLinear,
+          nice: true,
+          grid: { stroke: "var(--color-border)" },
+          axis: {
+            line: false,
+            ticks: { count: 3, line: false, format: (value) => String(value) },
+          },
+        },
+      },
+      theme: {
+        foreground: "var(--color-ink)",
+        muted: "var(--color-muted)",
+      },
+      tooltip: {
+        use: tooltip,
+        format: (point) => `${dayLabel(point.datum.key)}: ${plural(point.datum.count, unit)}`,
+      },
+    });
+  }, [series, tone, forecast]);
 
   return (
     <div>
-      <div
-        className="flex h-32 items-end gap-px border-b border-border"
-        role="img"
-        aria-label={ariaLabel}
-      >
-        {series.days.map((day) => {
-          const height = day.count === 0 ? 2 : Math.max(4, (day.count / peak) * 100);
-          const dateLabel = forecast && day.key === first?.key ? "Today" : formatStudyDay(day.key);
-          return (
-            <div
-              key={day.key}
-              title={`${dateLabel}: ${plural(day.count, unit)}`}
-              className="flex h-full flex-1 items-end"
-            >
-              <div
-                className={cn(
-                  "w-full transition-colors",
-                  day.count === 0 ? "bg-border" : BAR_TONES[tone],
-                )}
-                style={{ height: `${height}%` }}
-              />
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-2 flex justify-between gap-2 text-[11px] text-muted">
-        <span>{forecast ? "Today" : first ? formatStudyDay(first.key) : ""}</span>
-        <span>{middle ? formatStudyDay(middle.key) : ""}</span>
-        <span>{last ? formatStudyDay(last.key) : ""}</span>
-      </div>
+      <Chart definition={definition} ariaLabel={ariaLabel} height={160} initialWidth={520} />
       {series.total === 0 && <p className="mt-2 text-sm text-muted">{empty}</p>}
     </div>
   );

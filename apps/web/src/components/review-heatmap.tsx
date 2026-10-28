@@ -1,3 +1,9 @@
+import { useMemo } from "react";
+import { cell, defineChart } from "@tanstack/charts";
+import { Chart } from "@tanstack/charts/react";
+import { scaleBand } from "@tanstack/charts/scales/band";
+import { scaleOrdinal } from "@tanstack/charts/scales/ordinal";
+import { tooltip } from "@tanstack/charts/tooltip";
 import { cn } from "@/lib/utils";
 
 export type HeatmapDay = {
@@ -15,6 +21,15 @@ const LEVEL_CLASSES = [
   "bg-accent/70",
   "bg-accent",
 ] as const;
+
+/** Chart fills matching LEVEL_CLASSES, from no reviews to the busiest days. */
+const LEVEL_FILLS = [
+  "var(--color-border)",
+  "color-mix(in srgb, var(--color-accent) 25%, transparent)",
+  "color-mix(in srgb, var(--color-accent) 45%, transparent)",
+  "color-mix(in srgb, var(--color-accent) 70%, transparent)",
+  "var(--color-accent)",
+];
 
 const WEEKDAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
 
@@ -49,10 +64,10 @@ function levelFor(count: number, peak: number) {
 }
 
 /**
- * Review activity as a GitHub-style calendar. Weeks run top-to-bottom in seven
- * columns, oldest to newest, with days aligned to their weekday in the
- * library's time zone. `compact` drops the weekday labels and legend for the
- * panel on the Decks page.
+ * Review activity as a GitHub-style calendar drawn with TanStack Charts. Weeks
+ * run top-to-bottom in seven columns, oldest to newest, with days aligned to
+ * their weekday in the library's time zone. `compact` drops the weekday labels
+ * and legend for the panel on the Decks page.
  */
 export function ReviewHeatmap({
   days,
@@ -63,13 +78,9 @@ export function ReviewHeatmap({
   size?: "compact" | "full";
   className?: string;
 }) {
-  const peak = Math.max(1, ...days.map((day) => day.count));
+  const offset = days[0]?.weekday ?? 0;
+  const weeks = Math.max(1, Math.ceil((offset + days.length) / 7));
   const total = days.reduce((sum, day) => sum + day.count, 0);
-  const cells: (HeatmapDay | null)[] = Array.from({ length: days[0]?.weekday ?? 0 }, () => null);
-  cells.push(...days);
-  while (cells.length % 7 !== 0) cells.push(null);
-
-  const weeks = cells.length / 7;
   // Cells stretch to fill the panel, up to a comfortable maximum, and keep a
   // readable minimum on narrow screens (the calendar scrolls instead).
   const maxCell = size === "compact" ? 14 : 18;
@@ -80,6 +91,45 @@ export function ReviewHeatmap({
     total === 0
       ? `No reviews in the last ${days.length} days.`
       : `Review activity: ${total} ${total === 1 ? "review" : "reviews"} across ${days.length} days.`;
+
+  const definition = useMemo(() => {
+    const peak = Math.max(1, ...days.map((day) => day.count));
+    const cells = days.map((day, index) => ({
+      ...day,
+      week: Math.floor((offset + index) / 7),
+      level: levelFor(day.count, peak),
+    }));
+    const band = (count: number) => () =>
+      scaleBand<number>()
+        .domain(Array.from({ length: count }, (_, index) => index))
+        .paddingInner(gapPx / (maxCell + gapPx));
+    return defineChart({
+      marks: [
+        cell(cells, {
+          x: "week",
+          y: "weekday",
+          color: "level",
+          key: "key",
+          inset: 0,
+          radius: 2,
+        }),
+      ],
+      scales: {
+        x: { scale: band(weeks), axis: false },
+        y: { scale: band(7), axis: false },
+      },
+      color: {
+        scale: scaleOrdinal<number, string>().domain([0, 1, 2, 3, 4]).range(LEVEL_FILLS),
+      },
+      tooltip: {
+        use: tooltip,
+        format: (point) =>
+          `${DAY_WEEKDAY_FORMAT.format(dateFromKey(point.datum.key))}: ${point.datum.count} ${
+            point.datum.count === 1 ? "review" : "reviews"
+          }`,
+      },
+    });
+  }, [days, offset, weeks, gapPx, maxCell]);
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
@@ -103,30 +153,13 @@ export function ReviewHeatmap({
           </div>
         )}
         <div className="armin-scrollbar min-w-0 flex-1 overflow-x-auto pb-1">
-          <div
-            role="img"
-            aria-label={label}
-            className={cn("grid grid-flow-col grid-rows-7", gap)}
-            style={{
-              gridTemplateColumns: `repeat(${weeks}, minmax(${minCell}px, 1fr))`,
-            }}
-          >
-            {cells.map((day, index) =>
-              day ? (
-                <span
-                  key={day.key}
-                  title={`${DAY_WEEKDAY_FORMAT.format(dateFromKey(day.key))}: ${day.count} ${
-                    day.count === 1 ? "review" : "reviews"
-                  }`}
-                  className={cn(
-                    "aspect-square rounded-[2px] transition-colors",
-                    LEVEL_CLASSES[levelFor(day.count, peak)],
-                  )}
-                />
-              ) : (
-                <span key={`blank-${index}`} className="aspect-square" />
-              ),
-            )}
+          <div style={{ minWidth: weeks * minCell + (weeks - 1) * gapPx }}>
+            <Chart
+              definition={definition}
+              ariaLabel={label}
+              aspectRatio={(weeks * (maxCell + gapPx) - gapPx) / (7 * (maxCell + gapPx) - gapPx)}
+              initialWidth={weeks * (maxCell + gapPx)}
+            />
           </div>
         </div>
       </div>
