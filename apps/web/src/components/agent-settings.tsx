@@ -1,35 +1,17 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { Link } from "@tanstack/react-router";
-import { Check, Copy } from "lucide-react";
 import { api } from "@armin/backend/api";
 import { AgentLimits } from "@/components/agent-access";
 import { Section } from "@/components/settings-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { convexClient, errorMessage } from "@/lib/armin-client";
 import { useConnection } from "@/lib/session";
 import { cn } from "@/lib/utils";
-
-/** The Convex HTTP site serves the MCP endpoint, not the app origin. */
-const MCP_ENDPOINT = `${String(import.meta.env.VITE_CONVEX_SITE_URL ?? "").replace(/\/$/, "")}/mcp`;
-
-/** Hosted assistants need a public HTTPS address; development servers aren't one. */
-const MCP_IS_PUBLIC = (() => {
-  try {
-    const { protocol, hostname } = new URL(MCP_ENDPOINT);
-    return protocol === "https:" && hostname !== "localhost" && !hostname.endsWith(".localhost");
-  } catch {
-    return false;
-  }
-})();
-
-const EXAMPLE_PROMPT =
-  "Read this article and save a deck of study cards from it to Armin. Keep each card to one idea.";
 
 /* ------------------------------------------------------------- helpers */
 
@@ -63,321 +45,24 @@ function When({ timestamp }: { timestamp: number }) {
   );
 }
 
-function useCopy() {
-  const toast = useToast();
-  const [copied, setCopied] = useState<string | null>(null);
-  const timeout = useRef<number | undefined>(undefined);
-
-  useEffect(() => () => window.clearTimeout(timeout.current), []);
-
-  const copy = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(text);
-      window.clearTimeout(timeout.current);
-      timeout.current = window.setTimeout(() => setCopied(null), 2000);
-    } catch {
-      toast({
-        tone: "error",
-        title: "Couldn’t copy",
-        description: "Select the text and copy it yourself.",
-      });
-    }
-  };
-  return { copy, copied };
-}
-
 /* ------------------------------------------------------- connect guide */
 
-type ClientGuide = {
-  id: string;
-  label: string;
-  steps: string[];
-  note: string;
-} & (
-  | {
-      /** Chat apps install Armin's plugin from their directory. */
-      kind: "chat";
-      directory: {
-        /** Flip once the directory approves and publishes the plugin. See plugins/PUBLISHING.md. */
-        listed: boolean;
-        url: string;
-        name: string;
-        steps: string[];
-        note: string;
-      };
-    }
-  | {
-      /** Coding agents connect to the MCP server from the terminal. */
-      kind: "agent";
-      command: (endpoint: string) => string[];
-    }
-);
-
-const CLIENTS: ClientGuide[] = [
-  {
-    id: "claude",
-    label: "Claude",
-    kind: "chat",
-    directory: {
-      listed: false,
-      url: "https://claude.ai/customize/plugins",
-      name: "Claude’s plugins",
-      steps: [
-        "Open Customize, then Plugins, and find Armin under Discover.",
-        "Choose Add, open the plugin’s Connectors tab, and choose Connect.",
-        "Approve access in the Armin page that opens.",
-      ],
-      note: "The plugin directory is on Pro, Max, Team, and Enterprise plans. On Team and Enterprise, an owner may need to add the Armin connector before you can connect it.",
-    },
-    steps: [
-      "Open Customize, then Connectors, and choose Add custom connector.",
-      "Paste the address above and choose Add.",
-      "Choose Connect, then approve access in Armin.",
-    ],
-    note: "On Team and Enterprise plans, an owner adds it first under Organization settings, then Connectors. Everyone else then chooses Connect on it.",
-  },
-  {
-    id: "chatgpt",
-    label: "ChatGPT",
-    kind: "chat",
-    directory: {
-      listed: false,
-      url: "https://chatgpt.com/plugins",
-      name: "ChatGPT’s plugins",
-      steps: [
-        "Open Plugins in ChatGPT and search for Armin.",
-        "Choose Add, then sign in when ChatGPT asks.",
-        "Approve access in the Armin page that opens.",
-      ],
-      note: "In a workspace, an admin decides which plugins members can add.",
-    },
-    steps: [
-      "Open chatgpt.com/plugins, choose the plus button, and add a custom MCP server.",
-      "Name it Armin and paste the address above under Connection.",
-      "Pick OAuth when asked how to sign in, accept the risk warning, then approve access in Armin.",
-    ],
-    note: "Plans and workspace policies decide who can add a custom MCP server. In a workspace, an admin may need to allow it.",
-  },
-  {
-    id: "claude-code",
-    label: "Claude Code",
-    kind: "agent",
-    command: (endpoint) => [`claude mcp add --transport http armin ${endpoint}`],
-    steps: [
-      "Run this command in your terminal.",
-      "In a Claude Code session, run /mcp, pick armin, and choose Authenticate.",
-      "Approve access in the Armin page that opens.",
-    ],
-    note: "By default this applies to the current project. Add --scope user to use Armin from any project.",
-  },
-  {
-    id: "codex",
-    label: "Codex",
-    kind: "agent",
-    command: (endpoint) => [`codex mcp add armin --url ${endpoint}`, "codex mcp login armin"],
-    steps: [
-      "Run these two commands in your terminal.",
-      "Approve access in the Armin page that opens.",
-    ],
-    note: "If Codex doesn’t know the login command, update Codex.",
-  },
-];
-
-function CopyButton({
-  text,
-  label,
-  className,
-}: {
-  text: string;
-  label: string;
-  className?: string;
-}) {
-  const { copy, copied } = useCopy();
-  const done = copied === text;
-  return (
-    <>
-      <Button
-        variant="outline"
-        size="sm"
-        className={cn("shrink-0", className)}
-        aria-label={label}
-        onClick={() => void copy(text)}
-      >
-        {done ? <Check className="size-4 text-good" /> : <Copy className="size-4" />}
-        Copy
-      </Button>
-      <span role="status" className="sr-only">
-        {done ? "Copied to clipboard" : ""}
-      </span>
-    </>
-  );
-}
-
-function CodeLine({ text, label, wrap }: { text: string; label: string; wrap?: boolean }) {
-  return (
-    <div className={cn("flex gap-2", wrap ? "items-start" : "items-center")}>
-      <code
-        className={cn(
-          "min-w-0 flex-1 border border-border bg-surface-sunken px-3 py-1.5 font-mono text-[0.8125rem] leading-6 text-ink select-all",
-          wrap
-            ? "break-words whitespace-pre-wrap"
-            : "armin-scrollbar overflow-x-auto whitespace-nowrap",
-        )}
-      >
-        {text}
-      </code>
-      <CopyButton text={text} label={label} />
-    </div>
-  );
-}
-
-function Step({ number, title, children }: { number: number; title: string; children: ReactNode }) {
-  return (
-    <div className="border-b border-border px-4 py-4 last:border-b-0">
-      <h3 className="text-sm font-medium text-ink">
-        <span className="mr-2 font-mono text-[0.8125rem] text-accent-deep tabular-nums">
-          {number}
-        </span>
-        {title}
-      </h3>
-      <div className="mt-2.5 pl-5">{children}</div>
-    </div>
-  );
-}
-
-function StepList({ steps }: { steps: string[] }) {
-  return (
-    <ol className="list-decimal space-y-1 pl-5 text-sm text-ink marker:text-muted">
-      {steps.map((step) => (
-        <li key={step} className="pl-1">
-          {step}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function AddressLine() {
-  return (
-    <div>
-      <CodeLine text={MCP_ENDPOINT} label="Copy Armin’s address" />
-      <p className="mt-2 text-[0.8125rem] text-muted">
-        This is Armin’s remote MCP server. Your assistant signs in to Armin through your browser, so
-        you never paste a password or token.
-      </p>
-    </div>
-  );
-}
-
-/** Claude and ChatGPT install the plugin; until it is listed, they use the address directly. */
-function ChatClientSetup({ client }: { client: Extract<ClientGuide, { kind: "chat" }> }) {
-  const { directory } = client;
-  if (directory.listed)
-    return (
-      <>
-        <StepList steps={directory.steps} />
-        <a
-          href={directory.url}
-          target="_blank"
-          rel="noreferrer"
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          Open {directory.name}
-        </a>
-        <p className="text-[0.8125rem] text-muted">{directory.note}</p>
-      </>
-    );
-  return (
-    <>
-      <p className="text-sm text-ink">
-        Armin’s {client.label} plugin is waiting for directory review. Until it’s listed, add Armin
-        by its address:
-      </p>
-      <AddressLine />
-      <StepList steps={client.steps} />
-      <p className="text-[0.8125rem] text-muted">{client.note}</p>
-      {!MCP_IS_PUBLIC && (
-        <p className="text-[0.8125rem] text-ink">
-          {client.label} connects from the cloud, so it can’t reach this address. It only works from
-          tools running on this computer, such as Claude Code and Codex.
-        </p>
-      )}
-      <p className="text-[0.8125rem] text-muted">
-        Menus move around. If a step doesn’t match what you see, search your provider’s help for
-        “custom connector” or “remote MCP server”.
-      </p>
-    </>
-  );
-}
-
-function AgentClientSetup({ client }: { client: Extract<ClientGuide, { kind: "agent" }> }) {
-  return (
-    <>
-      <AddressLine />
-      <div className="space-y-2">
-        {client.command(MCP_ENDPOINT).map((command) => (
-          <CodeLine key={command} text={command} label={`Copy command: ${command}`} />
-        ))}
-      </div>
-      <StepList steps={client.steps} />
-      <p className="text-[0.8125rem] text-muted">{client.note}</p>
-    </>
-  );
-}
-
-function ConnectGuide({ another }: { another: boolean }) {
-  const [clientId, setClientId] = useState(CLIENTS[0].id);
-  const client = CLIENTS.find((candidate) => candidate.id === clientId) ?? CLIENTS[0];
-
+/** Setup steps live on the AI setup page; Settings only points there. */
+function ConnectSection({ another }: { another: boolean }) {
   return (
     <Section
       title={another ? "Connect another assistant" : "Connect an assistant"}
       description="Your assistant reads the article, doc, or code and writes the cards. Armin stores them in your library."
     >
-      <Step number={1} title="Pick your assistant">
-        <Segmented
-          options={CLIENTS.map((candidate) => ({ value: candidate.id, label: candidate.label }))}
-          value={clientId}
-          onChange={setClientId}
-          className="max-w-full flex-wrap"
-        />
-        <p className="mt-2 text-[0.8125rem] text-muted">
-          Claude and ChatGPT add Armin inside the app. Claude Code and Codex connect to Armin’s MCP
-          server from your terminal.
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3.5">
+        <p className="min-w-0 flex-1 text-sm text-ink">
+          Step-by-step guides for Claude, ChatGPT, Gemini, Claude Code, Codex, and any other MCP
+          client.
         </p>
-      </Step>
-
-      <Step
-        number={2}
-        title={
-          client.kind === "chat" && client.directory.listed ? "Add the Armin plugin" : "Add Armin"
-        }
-      >
-        <div className="space-y-3" aria-live="polite">
-          {client.kind === "chat" ? (
-            <ChatClientSetup client={client} />
-          ) : (
-            <AgentClientSetup client={client} />
-          )}
-        </div>
-      </Step>
-
-      <Step number={3} title="Approve access and ask for a deck">
-        <p className="text-sm text-ink">
-          Armin asks you to approve one level of access: all nine tools on your whole library. You
-          can disconnect the assistant at any time in Settings.
-        </p>
-        <p className="mt-3 text-[0.8125rem] text-muted">Then try something like:</p>
-        <div className="mt-1.5">
-          <CodeLine text={EXAMPLE_PROMPT} label="Copy example request" wrap />
-        </div>
-        <p className="mt-3 text-[0.8125rem] text-muted">
-          To bring over an Anki deck, give the assistant the file and ask it to import it into
-          Armin. That route needs file access and a sandbox that can run Node.js; the assistant
-          downloads Armin’s converter, shows a preview, and saves only after you approve it.
-        </p>
-      </Step>
+        <Link to="/ai-setup" className={buttonVariants({ variant: "outline", size: "sm" })}>
+          Open AI setup
+        </Link>
+      </div>
     </Section>
   );
 }
@@ -664,7 +349,7 @@ function ActivitySection() {
 
 /* --------------------------------------------------------------- panel */
 
-/** The Settings > AI assistants tab: guided setup, connections, and activity. */
+/** The Settings > AI assistants tab: connections, activity, and a link to AI setup. */
 export function AgentSettings() {
   const connections = useConnectionsQuery();
   // Once something is connected, seeing and disconnecting it matters more than setting up another.
@@ -675,11 +360,11 @@ export function AgentSettings() {
     <>
       <ConnectionsSection />
       <ActivitySection />
-      <ConnectGuide another />
+      <ConnectSection another />
     </>
   ) : (
     <>
-      <ConnectGuide another={false} />
+      <ConnectSection another={false} />
       <ConnectionsSection />
       <ActivitySection />
     </>

@@ -16,6 +16,8 @@ You need an [Armin account](/sign-up) with a verified email and an assistant tha
 
 The server URL is an integration endpoint, not a webpage. Opening it directly in a browser is not a connection test.
 
+Signed in to Armin, choose **AI setup** in the sidebar for these steps with copy buttons, plus a prompt you can paste into Claude Code or Codex so the agent sets up the connection itself.
+
 ## Connect Claude
 
 While the public directory listing is pending, use a custom connector:
@@ -41,6 +43,20 @@ In a managed workspace, an owner may need to add or allow the connector first. O
 Account and workspace policies control whether custom servers are available. If a client asks for a client ID or secret, use automatic registration when offered; Armin does not supply a shared client secret.
 
 [OpenAI's connection guide](https://developers.openai.com/plugins/deploy/connect-chatgpt)
+
+## Connect Gemini
+
+Gemini calls MCP servers "custom apps". You need a personal Google Account (not work or school), to be 18 or older in the US, Gemini in English, and Keep Activity turned on.
+
+1. On a computer, open [gemini.google.com](https://gemini.google.com).
+2. Open **Settings → Connected Apps** (if it's missing, choose **Personal Intelligence** first).
+3. Under **Custom apps**, choose **Add a custom app**.
+4. Paste the MCP server URL above and choose **Next**. Skip **Advanced features**; Armin registers Gemini automatically.
+5. Sign in to Armin and approve the connection.
+
+Custom apps added on the web also work in the Gemini mobile app.
+
+[Google's custom apps guide](https://support.google.com/gemini/answer/17209137)
 
 ## Connect coding agents
 

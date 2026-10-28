@@ -5,9 +5,11 @@ cards, decks, and prerequisite relationships. The assistant reads the source and
 generates the content. Armin does not fetch sources, run a model, or use an AI
 subscription on the user's behalf.
 
-Settings → AI assistants provides setup instructions for ChatGPT, Claude,
-Claude Code, and Codex, connected assistants, disconnection, and recent
-authoring activity. Connections are available to Armin accounts; the AI
+The **AI setup** page (`/ai-setup`, linked from the sidebar) has step-by-step
+instructions for Claude, ChatGPT, Gemini, Claude Code, Codex, and any other
+remote MCP client, including a prompt that coding agents can run to set
+themselves up. Settings → AI assistants lists connected assistants, handles
+disconnection, and shows recent authoring activity. Connections are available to Armin accounts; the AI
 provider's plan and workspace policy still apply.
 
 ## Plugins for chat apps, MCP for coding agents
@@ -21,10 +23,10 @@ skill; it runs nothing on the user's computer. Installing it still goes through
 the same OAuth consent and access model.
 
 Coding agents connect to the MCP server directly with `claude mcp add` or
-`codex mcp add`, as Settings shows. They can also install the plugin from this
+`codex mcp add`, as AI setup shows. They can also install the plugin from this
 repository's marketplaces.
 
-Until a directory approves the plugin, Settings shows the custom connector
+Until a directory approves the plugin, AI setup shows the custom connector
 steps for that chat app. [Publishing the plugin](../plugins/PUBLISHING.md)
 covers the remaining prerequisites, both submission flows, and the switch to
 flip after approval.

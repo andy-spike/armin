@@ -128,10 +128,13 @@ supported. The web app renders equations with KaTeX and bundled fonts.
 
 ## AI assistant connections
 
-Armin works with ChatGPT, Claude, Claude Code, and Codex through Armin sign-in.
+Armin works with ChatGPT, Claude, Gemini, Claude Code, Codex, and other MCP
+clients through Armin sign-in.
 Chat app users install the [Armin plugin](plugins/armin/README.md) from Claude's
 or ChatGPT's plugin directory; coding agents connect to Armin's hosted MCP
-server directly. Settings → AI assistants shows the steps for each. After you
+server directly. **AI setup** in the sidebar shows step-by-step instructions for
+each, including a prompt that lets a coding agent set itself up; Settings → AI
+assistants lists connections. After you
 approve a connection, its assistant can use Armin authoring and import tools on your whole
 library: reading, creating, editing, archiving, moving, and linking cards, plus
 creating and renaming decks, across every deck, including decks you add later.

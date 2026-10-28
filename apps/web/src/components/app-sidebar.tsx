@@ -1,6 +1,8 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@armin/backend/api";
 import {
   ArrowUpDown,
   Check,
@@ -12,6 +14,7 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  Plug,
   Settings,
   Sun,
   TrendingUp,
@@ -172,6 +175,11 @@ export function AppSidebar({
             active={isActive("/settings")}
             linkProps={linkProps("/settings")}
           />
+          <AiSetupItem
+            ready={ready}
+            active={isActive("/ai-setup")}
+            linkProps={linkProps("/ai-setup")}
+          />
           <ThemeItem />
           <AccountItem />
         </SidebarMenu>
@@ -275,6 +283,62 @@ function NavItem({
         <span className={fade}>{label}</span>
       </SidebarMenuButton>
       {badge}
+    </SidebarMenuItem>
+  );
+}
+
+/** AI setup, with a green dot and count while any assistant is connected. */
+function AiSetupItem({
+  ready,
+  active,
+  linkProps,
+}: {
+  ready: boolean;
+  active: boolean;
+  linkProps: LinkProps;
+}) {
+  const connections = useQuery({ ...convexQuery(api.agents.connections, {}), enabled: ready });
+  const connected = (connections.data?.connections ?? []).filter(
+    (connection) => connection.revokedAt === undefined,
+  ).length;
+  const status = connected > 0 ? `${plural(connected, "assistant")} connected` : undefined;
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        isActive={active}
+        tooltip={status ? `AI setup · ${status}` : "AI setup"}
+        className={cn(navButton, "relative")}
+        render={
+          <Link
+            to="/ai-setup"
+            aria-label={status ? `AI setup, ${status}` : "AI setup"}
+            {...linkProps}
+          />
+        }
+      >
+        <Plug strokeWidth={1.5} />
+        <span className={fade}>AI setup</span>
+        {connected > 0 && (
+          <>
+            {/* The count hides with the labels; the rail keeps the dot. */}
+            <span
+              aria-hidden
+              className={cn(
+                fade,
+                "ml-auto flex items-center gap-1.5 text-xs font-medium text-muted tabular-nums",
+              )}
+            >
+              <span className="size-1.5 rounded-full bg-good" />
+              {connected}
+            </span>
+            <span
+              aria-hidden
+              className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-good opacity-0 transition-opacity duration-150 group-data-[collapsible=icon]:opacity-100 group-data-[collapsible=icon]:delay-100"
+            />
+          </>
+        )}
+      </SidebarMenuButton>
     </SidebarMenuItem>
   );
 }
