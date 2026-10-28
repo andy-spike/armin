@@ -58,9 +58,10 @@ protection paths remain in the authoring code.
 
 ## Remaining release checks
 
-Actual Claude Code, Codex, ChatGPT, and Claude sessions have not been repeated
-with this implementation. Local HTTP probes are not equivalent to those
-clients. Hosted clients need a reachable HTTPS staging deployment. Natural
+Actual Codex verification subsequently passed; see
+[the Codex walkthrough](2026-10-28-codex-mcp-component.md). Claude Code,
+ChatGPT, and Claude sessions have not been repeated with this implementation.
+Local HTTP probes are not equivalent to those clients. Hosted clients need a reachable HTTPS staging deployment. Natural
 expiry, refresh-replay races, account deletion during an in-flight operation,
 and concurrent approval/admission at the limit were inspected in source but
 not independently reproduced by the parent.
