@@ -173,6 +173,16 @@ export function pickFsrsFieldsMs(row: FsrsFieldsMs): FsrsFieldsMs {
   };
 }
 
+/**
+ * Current recall probability (0–1) for a review unit, using the same FSRS
+ * forgetting curve that schedules it. `null` before the first review, where
+ * retrievability has no meaning.
+ */
+export function retrievabilityAt(row: FsrsFieldsMs, now: number, scheduler: FSRS): number | null {
+  if (row.state === State.New || row.lastReview == null) return null;
+  return scheduler.get_retrievability(toFsrsCard(fsrsFieldsFromMs(row)), new Date(now), false);
+}
+
 /** A prerequisite is secured enough to unlock dependents. */
 export function isPrereqSecured(
   reviewUnit: { state: number; stability: number },

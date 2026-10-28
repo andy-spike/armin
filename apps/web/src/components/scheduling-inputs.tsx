@@ -7,6 +7,7 @@ import {
   isValidMaximumInterval,
   isValidNewCardsPerDay,
   isValidRetention,
+  isValidReviewsPerDay,
   isValidStabilityFloor,
   isValidStepDuration,
   NEW_CARDS_PER_DAY_MAX,
@@ -14,6 +15,7 @@ import {
   parseDays,
   parseRetentionPercent,
   parseStepsString,
+  REVIEWS_PER_DAY_MAX,
   type StepDuration,
 } from "@/lib/scheduling-settings";
 import { useState } from "react";
@@ -318,6 +320,68 @@ export function NewCardsPerDayInput({
         className={cn("w-16 text-right tabular-nums", invalid && invalidInputClass)}
       />
       <UnitLabel>review units</UnitLabel>
+    </div>
+  );
+}
+
+type ReviewsPerDayInputProps = {
+  /** `null` means no daily limit. */
+  value: number | null;
+  onChange: (value: number | null) => void;
+  "aria-labelledby"?: string;
+};
+
+const formatReviewsPerDay = (value: number | null) => (value == null ? "" : String(value));
+
+export function ReviewsPerDayInput({
+  value,
+  onChange,
+  "aria-labelledby": labelledBy,
+}: ReviewsPerDayInputProps) {
+  const [draft, setDraft] = useState(formatReviewsPerDay(value));
+  const [invalid, setInvalid] = useState(false);
+  const [syncedValue, setSyncedValue] = useState(value);
+
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    setDraft(formatReviewsPerDay(value));
+    setInvalid(false);
+  }
+
+  const handleBlur = () => {
+    if (draft.trim() === "") {
+      setInvalid(false);
+      setDraft("");
+      onChange(null);
+      return;
+    }
+    const parsed = parseBoundedInt(draft, REVIEWS_PER_DAY_MAX);
+    if (parsed !== null && isValidReviewsPerDay(parsed)) {
+      setInvalid(false);
+      setDraft(String(parsed));
+      onChange(parsed);
+      return;
+    }
+    setInvalid(true);
+    setDraft(formatReviewsPerDay(value));
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        inputMode="numeric"
+        value={draft}
+        placeholder="Unlimited"
+        onChange={(event) => {
+          setInvalid(false);
+          setDraft(event.target.value.replace(/[^\d]/g, ""));
+        }}
+        onBlur={handleBlur}
+        aria-labelledby={labelledBy}
+        aria-invalid={invalid}
+        className={cn("w-24 text-right tabular-nums", invalid && invalidInputClass)}
+      />
+      <UnitLabel>reviews</UnitLabel>
     </div>
   );
 }

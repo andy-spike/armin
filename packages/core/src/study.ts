@@ -18,6 +18,13 @@ export type SchedulingSettings = {
   weights: string | null;
   prereqStabilityFloor: number;
   newReviewUnitsPerDay: number;
+  /**
+   * Maximum review units (due reviews plus new Frontier units) admitted per
+   * study day, account-wide across every deck. `null` means no limit. Like
+   * `newReviewUnitsPerDay` this is an admission budget, not a rating gate: a
+   * unit already in a session stays answerable if the budget runs out.
+   */
+  reviewsPerDay: number | null;
   keepSiblingReviewUnitsTogether: boolean;
 };
 
@@ -31,14 +38,18 @@ export const SCHEDULING_SETTING_KEYS = [
   "weights",
   "prereqStabilityFloor",
   "newReviewUnitsPerDay",
+  "reviewsPerDay",
   "keepSiblingReviewUnitsTogether",
 ] as const satisfies readonly (keyof SchedulingSettings)[];
 
-/** The Frontier cap is account-wide, so decks cannot override it. */
-export type DeckSettingOverrideKey = Exclude<keyof SchedulingSettings, "newReviewUnitsPerDay">;
+/** The Frontier and daily review caps are account-wide, so decks cannot override them. */
+export type DeckSettingOverrideKey = Exclude<
+  keyof SchedulingSettings,
+  "newReviewUnitsPerDay" | "reviewsPerDay"
+>;
 
 export const DECK_SETTING_OVERRIDE_KEYS = SCHEDULING_SETTING_KEYS.filter(
-  (key): key is DeckSettingOverrideKey => key !== "newReviewUnitsPerDay",
+  (key): key is DeckSettingOverrideKey => key !== "newReviewUnitsPerDay" && key !== "reviewsPerDay",
 );
 
 export type DeckSettingsOverrides = {

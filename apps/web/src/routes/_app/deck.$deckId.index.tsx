@@ -9,8 +9,19 @@ import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Play, Layers, AlertTriangle, Share2, Tag, Settings } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  Play,
+  Layers,
+  AlertTriangle,
+  Share2,
+  Tag,
+  Settings,
+  Brain,
+} from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { CramDialog } from "@/components/cram-dialog";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
 import {
@@ -19,6 +30,7 @@ import {
   type FlashcardDeleteRequest,
 } from "@/components/flashcard-tile";
 import { MoveFlashcardDialog } from "@/components/move-flashcard-dialog";
+import { CardInfoDialog } from "@/components/card-info-dialog";
 import { VirtualFlashcardGrid } from "@/components/virtual-flashcard-grid";
 import { SortControl } from "@/components/sort-control";
 import { SearchableMultiSelect } from "@/components/ui/combobox";
@@ -47,8 +59,10 @@ function DeckPage() {
 
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [cramOpen, setCramOpen] = useState(false);
   const [editing, setEditing] = useState<UiFlashcard | null>(null);
   const [moveTarget, setMoveTarget] = useState<UiFlashcard | null>(null);
+  const [infoCardId, setInfoCardId] = useState<string | null>(null);
   const [deleteRequest, setDeleteRequest] = useState<FlashcardDeleteRequest | null>(null);
   const [deleteConsequences, setDeleteConsequences] = useState<FlashcardDeleteConsequences | null>(
     null,
@@ -242,6 +256,7 @@ function DeckPage() {
           deck={deck}
           dueCount={dueCount}
           onSettings={() => setSettingsOpen(true)}
+          onCram={() => setCramOpen(true)}
           onAddCard={openNew}
         />
       ) : (
@@ -328,6 +343,7 @@ function DeckPage() {
                     card={card}
                     onOpen={() => openEdit(card)}
                     onMove={() => setMoveTarget(card)}
+                    onInfo={() => setInfoCardId(card.id)}
                     onArchiveToggle={() =>
                       void archiveCard.mutateAsync({
                         id: card.id,
@@ -372,10 +388,23 @@ function DeckPage() {
           onClose={() => setSettingsOpen(false)}
         />
       )}
+      {deck && (
+        <CramDialog
+          deckId={deck.id}
+          tags={deckTags}
+          open={cramOpen}
+          onClose={() => setCramOpen(false)}
+        />
+      )}
       <MoveFlashcardDialog
         flashcard={moveTarget}
         open={Boolean(moveTarget)}
         onClose={() => setMoveTarget(null)}
+      />
+      <CardInfoDialog
+        flashcardId={infoCardId}
+        open={infoCardId !== null}
+        onClose={() => setInfoCardId(null)}
       />
       <FlashcardDeleteDialog
         request={deleteRequest}
@@ -401,11 +430,13 @@ function DeckHeader({
   deck,
   dueCount,
   onSettings,
+  onCram,
   onAddCard,
 }: {
   deck: UiDeck;
   dueCount: number;
   onSettings: () => void;
+  onCram: () => void;
   onAddCard: () => void;
 }) {
   return (
@@ -440,6 +471,9 @@ function DeckHeader({
           onClick={onSettings}
         >
           <Settings className="h-4 w-4" />
+        </Button>
+        <Button variant="outline" onClick={onCram}>
+          <Brain className="h-4 w-4" /> Cram
         </Button>
         {dueCount > 0 && (
           <Link to="/deck/$deckId/review" params={{ deckId: deck.id }} className={buttonVariants()}>

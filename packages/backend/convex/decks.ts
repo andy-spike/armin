@@ -7,7 +7,7 @@ import { ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
 import { MAX_DECKS, MAX_DESCRIPTION_CHARS, MAX_NAME_CHARS } from "./model/limits";
 import { deleteDeckCascade } from "./model/deletion";
-import { introducedToday, selectSession, type SessionReads } from "./model/queue";
+import { introducedToday, reviewsDoneToday, selectSession, type SessionReads } from "./model/queue";
 import { bumpRevision, findRequest, recordRequest, SettingsCache } from "./model/study";
 
 /** The deck's totals the slow way, for a deck whose counters aren't built yet. */
@@ -77,10 +77,18 @@ export const list = query({
       .withIndex("by_library", (q) => q.eq("libraryId", library._id))
       .collect();
     const now = Date.now();
-    // Today's introductions and the settings are account-wide; read them once.
+    // Today's introductions, reviews, and the settings are account-wide; read
+    // them once and share them across every deck's session selection.
+    const settings = new SettingsCache(ctx, library._id);
+    const today = await introducedToday(ctx, library, now);
+    const reviewsPerDay = (await settings.globalSettings()).reviewsPerDay;
     const shared: SessionReads = {
-      today: await introducedToday(ctx, library, now),
-      settings: new SettingsCache(ctx, library._id),
+      today,
+      settings,
+      reviewsDoneToday:
+        reviewsPerDay == null
+          ? 0
+          : await reviewsDoneToday(ctx, library, today.since, reviewsPerDay),
     };
     const out = [];
     for (const deck of decks) out.push(await deckStats(ctx, library, deck, now, shared));

@@ -35,6 +35,8 @@ export const schedulingFields = {
   weights: v.union(v.string(), v.null()),
   prereqStabilityFloor: v.number(),
   newReviewUnitsPerDay: v.number(),
+  /** Maximum reviews per study day; null = unlimited. Optional on older rows. */
+  reviewsPerDay: v.optional(v.union(v.number(), v.null())),
   keepSiblingReviewUnitsTogether: v.boolean(),
 };
 
@@ -223,6 +225,12 @@ export default defineSchema({
     ...fsrsFields,
     locked: v.boolean(),
     archived: v.boolean(),
+    /**
+     * Hidden until this epoch-ms instant (the start of the next study day in
+     * the library time zone). Optional so rows written before bury existed
+     * stay valid, and absent means never buried.
+     */
+    buriedUntil: v.optional(v.number()),
     /** Incremented on every schedule or display change; reviews name the version shown. */
     version: v.number(),
     createdAt: v.number(),
@@ -257,8 +265,25 @@ export default defineSchema({
     .index("by_unit_review", ["reviewUnitId", "review"])
     .index("by_library_review", ["libraryId", "review"])
     .index("by_library_state_review", ["libraryId", "state", "review"])
+    .index("by_library_rating_review", ["libraryId", "rating", "review"])
     .index("by_flashcard", ["flashcardId"])
+    .index("by_flashcard_review", ["flashcardId", "review"])
     .index("by_deck", ["deckId"]),
+
+  /**
+   * Practice-only cram ratings. They never feed the FSRS schedule, locks, or
+   * `reviewLogs`; deleting a card, deck, or library clears them with history.
+   */
+  cramLogs: defineTable({
+    libraryId: v.id("libraries"),
+    deckId: v.id("decks"),
+    flashcardId: v.id("flashcards"),
+    reviewUnitId: v.id("reviewUnits"),
+    rating: v.number(),
+    review: v.number(),
+  })
+    .index("by_library_review", ["libraryId", "review"])
+    .index("by_unit_review", ["reviewUnitId", "review"]),
 
   /**
    * Derived Browse row for each flashcard: its sort keys, search text, and the

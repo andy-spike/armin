@@ -17,6 +17,7 @@ import {
   type FlashcardDeleteRequest,
 } from "@/components/flashcard-tile";
 import { MoveFlashcardDialog } from "@/components/move-flashcard-dialog";
+import { CardInfoDialog } from "@/components/card-info-dialog";
 import { SortControl } from "@/components/sort-control";
 import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect, SearchableSelect } from "@/components/ui/combobox";
@@ -62,6 +63,7 @@ function BrowsePage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<UiBrowseFlashcard | null>(null);
   const [moveTarget, setMoveTarget] = useState<UiBrowseFlashcard | null>(null);
+  const [infoCardId, setInfoCardId] = useState<string | null>(null);
   const [deleteRequest, setDeleteRequest] = useState<FlashcardDeleteRequest | null>(null);
   const [deleteConsequences, setDeleteConsequences] = useState<FlashcardDeleteConsequences | null>(
     null,
@@ -355,6 +357,7 @@ function BrowsePage() {
                       })
                     }
                     onMove={() => setMoveTarget(card)}
+                    onInfo={() => setInfoCardId(card.id)}
                     onArchiveToggle={() =>
                       void archiveCard.mutateAsync({
                         card,
@@ -411,6 +414,11 @@ function BrowsePage() {
         flashcard={moveTarget}
         open={Boolean(moveTarget)}
         onClose={() => setMoveTarget(null)}
+      />
+      <CardInfoDialog
+        flashcardId={infoCardId}
+        open={infoCardId !== null}
+        onClose={() => setInfoCardId(null)}
       />
       <FlashcardDeleteDialog
         request={deleteRequest}

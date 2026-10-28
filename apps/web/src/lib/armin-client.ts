@@ -2,7 +2,17 @@ import type { ConvexReactClient } from "convex/react";
 import type { FunctionArgs } from "convex/server";
 import { ConvexError } from "convex/values";
 import { api } from "@armin/backend/api";
-import type { Id, RateResult, UndoResult, UpdateResult } from "@armin/backend/types";
+import type {
+  BuryResult,
+  BuryUnit,
+  CramRateResult,
+  CramUndoResult,
+  Id,
+  RateResult,
+  UndoResult,
+  UnburyResult,
+  UpdateResult,
+} from "@armin/backend/types";
 import type { FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
 import type { Grade } from "@/types/window";
 
@@ -202,6 +212,41 @@ export const armin = {
       q().mutation(api.review.undo, {
         reviewLogId: input.reviewLogId as Id<"reviewLogs">,
         expectedVersion: input.version,
+        requestId: input.requestId,
+      }),
+    cardInfo: async (flashcardId: string) =>
+      (await q().query(api.review.cardInfo, { flashcardId })) ?? null,
+    bury: (input: { flashcardId: string; requestId: string }): Promise<BuryResult> =>
+      q().mutation(api.review.bury, {
+        flashcardId: input.flashcardId as Id<"flashcards">,
+        requestId: input.requestId,
+      }),
+    unbury: (input: {
+      flashcardId: string;
+      units: BuryUnit[];
+      requestId: string;
+    }): Promise<UnburyResult> =>
+      q().mutation(api.review.unbury, {
+        flashcardId: input.flashcardId as Id<"flashcards">,
+        units: input.units,
+        requestId: input.requestId,
+      }),
+  },
+  cram: {
+    /** Practice rating: appends a cram log and never changes the FSRS schedule. */
+    rate: (input: {
+      reviewUnitId: string;
+      rating: Grade;
+      requestId: string;
+    }): Promise<CramRateResult> =>
+      q().mutation(api.cram.rate, {
+        reviewUnitId: input.reviewUnitId as Id<"reviewUnits">,
+        rating: input.rating,
+        requestId: input.requestId,
+      }),
+    undo: (input: { cramLogId: string; requestId: string }): Promise<CramUndoResult> =>
+      q().mutation(api.cram.undo, {
+        cramLogId: input.cramLogId as Id<"cramLogs">,
         requestId: input.requestId,
       }),
   },

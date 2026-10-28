@@ -58,6 +58,19 @@ daily capacity for new material, with the chosen deck able to use the remaining
 capacity.
 _Avoid_: Backlog, new queue
 
+**Daily review cap**:
+The account-wide maximum number of review units admitted by the queue in one
+study day, due reviews first and then new units. Reviews already answered today
+count against it. It is an admission budget, not a limit on answering a card
+already in the session; unlimited is the default.
+_Avoid_: Review limit, daily quota
+
+**Bury**:
+A reversible action that hides every review unit of one flashcard until the start
+of the next study day in the account time zone. The schedule is unchanged, the
+units reappear automatically, and Undo reverses the bury.
+_Avoid_: Suspend, snooze, postpone
+
 **Secured**:
 The bar a prerequisite flashcard must clear to initially unlock its dependents:
 every review unit it generates is in FSRS Review state with stability at or above

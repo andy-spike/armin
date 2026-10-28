@@ -404,6 +404,7 @@ function resolveEffective(
     weights: overrides.weights ?? global.weights,
     prereqStabilityFloor: overrides.prereqStabilityFloor ?? global.prereqStabilityFloor,
     newReviewUnitsPerDay: global.newReviewUnitsPerDay,
+    reviewsPerDay: global.reviewsPerDay,
     keepSiblingReviewUnitsTogether:
       overrides.keepSiblingReviewUnitsTogether ?? global.keepSiblingReviewUnitsTogether,
   };
