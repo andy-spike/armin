@@ -862,21 +862,97 @@ html[data-scroll="document"] {
   --crepe-color-background: var(--color-surface);
   --crepe-color-on-background: var(--color-ink);
   --crepe-color-surface: var(--color-surface);
+  --crepe-color-surface-low: var(--color-surface-sunken);
   --crepe-color-on-surface: var(--color-ink);
-  --crepe-color-outline: var(--color-border);
+  --crepe-color-on-surface-variant: var(--color-muted);
+  --crepe-color-outline: var(--color-muted);
   --crepe-color-primary: var(--color-accent);
+  --crepe-color-secondary: var(--color-accent-tint);
+  --crepe-color-on-secondary: var(--color-accent-deep);
+  --crepe-color-inverse: var(--color-surface-sunken);
+  --crepe-color-on-inverse: var(--color-ink);
+  --crepe-color-inline-code: var(--color-ink);
+  --crepe-color-error: var(--color-again);
+  --crepe-color-hover: var(--color-surface-sunken);
+  --crepe-color-selected: var(--color-accent-tint);
+  --crepe-color-inline-area: var(--color-surface-sunken);
+  --crepe-font-title: var(--font-serif);
   --crepe-font-default: var(--font-sans);
   --crepe-font-code: var(--font-mono);
+  --crepe-shadow-1: var(--shadow-overlay);
+  --crepe-shadow-2: var(--shadow-overlay);
   background: transparent;
   font-size: inherit;
   line-height: inherit;
 }
-.card-markdown-editor .milkdown .ProseMirror {
+.card-markdown-editor .milkdown > .ProseMirror {
   padding: 0;
   min-height: 72px;
   font-size: inherit;
   line-height: inherit;
   overflow-wrap: anywhere;
+}
+/* Crepe's reset clears list indentation; match the card renderer instead. */
+.card-markdown-editor .milkdown > .ProseMirror :is(ul, ol) {
+  padding-left: 1.4em;
+}
+/* Crepe's link and equation popovers, drawn like Armin's own popovers. */
+.card-markdown-editor .milkdown :is(.link-preview, .link-edit, .milkdown-latex-inline-edit) {
+  height: auto;
+  min-height: 2.25rem;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-overlay);
+  padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+}
+.card-markdown-editor .milkdown .link-edit > .input-area {
+  font-size: 0.8125rem;
+}
+.card-markdown-editor .milkdown .link-preview > .link-display {
+  color: var(--color-accent-deep);
+  font-size: 0.8125rem;
+}
+.card-markdown-editor .milkdown :is(.link-preview, .link-edit) > :is(.button, .link-icon),
+.card-markdown-editor .milkdown .milkdown-latex-inline-edit button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  line-height: 1;
+  color: var(--color-muted);
+}
+.card-markdown-editor .milkdown :is(.link-preview, .link-edit) > :is(.button, .link-icon) > svg,
+.card-markdown-editor .milkdown .milkdown-latex-inline-edit button svg {
+  width: 1rem;
+  height: 1rem;
+  color: inherit;
+  fill: currentColor;
+}
+.card-markdown-editor .milkdown :is(.link-preview, .link-edit) > :is(.button, .link-icon):hover,
+.card-markdown-editor .milkdown .milkdown-latex-inline-edit button:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+}
+.card-markdown-editor .milkdown .milkdown-latex-inline-edit .container {
+  align-items: center;
+}
+.card-markdown-editor .milkdown .milkdown-latex-inline-edit .ProseMirror {
+  font-size: 0.8125rem;
+  outline: none;
+}
+.card-markdown-editor .milkdown .milkdown-latex-inline-edit .ProseMirror p {
+  margin: 0;
+}
+.card-markdown-editor .milkdown span[data-type="math_inline"] {
+  color: inherit;
+}
+.card-markdown-editor .milkdown span[data-type="math_inline"].ProseMirror-selectednode {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 .card-editor-image img {
   max-width: 100%;
@@ -891,4 +967,19 @@ html[data-scroll="document"] {
 }
 .card-editor-image-controls input {
   max-width: 50%;
+  accent-color: var(--color-accent);
+}
+.card-editor-image-controls button {
+  padding: 0.125rem 0.375rem;
+  color: var(--color-muted);
+  font-weight: 500;
+  cursor: pointer;
+}
+.card-editor-image-controls button:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+}
+.card-editor-image-controls button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }

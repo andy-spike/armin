@@ -9,7 +9,6 @@ import {
 import { replaceAll, insert } from "@milkdown/kit/utils";
 import { paragraphSchema } from "@milkdown/kit/preset/commonmark";
 import { TextSelection } from "@milkdown/kit/prose/state";
-import { ImagePlus } from "lucide-react";
 import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT } from "@armin/core/media";
 import { hasMath, splitMath } from "@armin/core/math";
 import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
@@ -21,6 +20,12 @@ import {
 } from "@/lib/media";
 import { ImageZoomDialog } from "@/components/ui/image-zoom-dialog";
 import { MarkdownContent } from "@/components/ui/markdown-content";
+import {
+  MarkdownEditorToolbar,
+  NO_FORMATS,
+  readFormats,
+  sameFormats,
+} from "@/components/ui/markdown-editor-toolbar";
 import { configureCardImages } from "@/components/ui/markdown-image";
 import { useToast } from "@/components/ui/toast";
 import { armin } from "@/lib/armin-client";
@@ -109,6 +114,7 @@ export function MarkdownEditor({
   const toast = useToast();
   const alive = useRef(true);
 
+  const rootRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const sourceRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -131,6 +137,7 @@ export function MarkdownEditor({
   }, []);
   const [ready, setReady] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [formats, setFormats] = useState(NO_FORMATS);
   useLayoutEffect(() => {
     latest.current = { value, onChange };
   });
@@ -170,7 +177,12 @@ export function MarkdownEditor({
     const crepe = new Crepe({
       root,
       defaultValue: editorMarkdown(latest.current.value),
-      features: { [Crepe.Feature.BlockEdit]: false, [Crepe.Feature.AI]: false },
+      // Armin draws its own fixed toolbar in place of Crepe's selection popup.
+      features: {
+        [Crepe.Feature.BlockEdit]: false,
+        [Crepe.Feature.Toolbar]: false,
+        [Crepe.Feature.AI]: false,
+      },
       featureConfigs: {
         [Crepe.Feature.Placeholder]: { text: placeholder ?? "", mode: "doc" },
         [Crepe.Feature.ImageBlock]: { onUpload: (file) => uploadRef.current(file) },
@@ -213,6 +225,10 @@ export function MarkdownEditor({
           const view = ctx.get(editorViewCtx);
           const previous = view.state.doc;
           view.updateState(view.state.apply(transaction));
+          if (!disposed) {
+            const next = readFormats(ctx, view.state);
+            setFormats((current) => (sameFormats(current, next) ? current : next));
+          }
           if (!disposed && !loading && !replacing.current && !previous.eq(view.state.doc)) {
             const next = persistMediaRefsInMarkdown(ctx.get(serializerCtx)(view.state.doc));
             emitted.current = next;
@@ -246,6 +262,25 @@ export function MarkdownEditor({
       void creating.then(() => crepe.destroy());
     };
   }, [source, placeholder, autoFocus, ariaLabel]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    // Escape closes an open link or equation popover, not the whole dialog.
+    const closePopover = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (!root.querySelector('.milkdown [data-show="true"]')) return;
+      event.stopPropagation();
+      crepeRef.current?.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const end = view.state.doc.resolve(view.state.selection.to);
+        view.dispatch(view.state.tr.setSelection(TextSelection.near(end)));
+        view.focus();
+      });
+    };
+    root.addEventListener("keydown", closePopover);
+    return () => root.removeEventListener("keydown", closePopover);
+  }, []);
 
   useEffect(() => {
     if (source || !ready || value === emitted.current || value === loaded.current) return;
@@ -309,12 +344,28 @@ export function MarkdownEditor({
   return (
     <div
       className={cn(
-        "card-markdown-editor rounded-md border border-border-strong bg-surface focus-within:border-accent",
+        "card-markdown-editor group/editor rounded-md border border-border-strong bg-surface focus-within:border-accent",
         className,
       )}
+      ref={rootRef}
     >
+      <MarkdownEditorToolbar
+        formats={formats}
+        source={source}
+        disabled={!source && !ready}
+        uploading={uploading > 0}
+        onCommand={(command) => crepeRef.current?.editor.action(command)}
+        onAddImage={() => fileRef.current?.click()}
+        onEditSource={() => setSource(true)}
+        onRichText={() => {
+          setReady(false);
+          setFormats(NO_FORMATS);
+          setSource(false);
+        }}
+        richTextBlocked={source && needsSourceMode(value)}
+      />
       <div
-        className="armin-scrollbar max-h-[300px] min-h-[88px] overflow-auto px-3 py-2 text-sm leading-relaxed text-ink"
+        className="min-h-[88px] px-3 py-2 text-sm leading-relaxed text-ink"
         {...(autoFocus ? { "data-autofocus": true } : {})}
       >
         {source ? (
@@ -348,48 +399,22 @@ export function MarkdownEditor({
           Uploading image…
         </p>
       )}
-      {source && (
-        <p className="border-t border-border px-3 py-1.5 text-xs text-muted">
-          Edit Markdown and equation source directly. Saving preserves the source.
-        </p>
-      )}
       {source && hasMath(value) && (
         <div className="border-t border-border px-3 py-2">
           <MarkdownContent content={value} />
         </div>
       )}
-      <div className="flex items-center justify-end border-t border-border px-2 py-1">
-        {!source && (
-          <button
-            type="button"
-            className="mr-auto rounded-sm px-1.5 py-1 text-xs text-muted"
-            disabled={uploading > 0}
-            onClick={() => setSource(true)}
-          >
-            Edit source
-          </button>
-        )}
-        <input
-          ref={fileRef}
-          type="file"
-          accept={UPLOAD_ACCEPT}
-          multiple
-          className="hidden"
-          onChange={(event) => {
-            void insertImages(Array.from(event.target.files ?? []));
-            event.target.value = "";
-          }}
-        />
-        <button
-          type="button"
-          disabled={!source && !ready}
-          onClick={() => fileRef.current?.click()}
-          className="inline-flex items-center gap-1.5 rounded-sm px-1.5 py-1 text-xs font-medium text-muted"
-        >
-          <ImagePlus className="h-3.5 w-3.5" aria-hidden />
-          Add image
-        </button>
-      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept={UPLOAD_ACCEPT}
+        multiple
+        className="hidden"
+        onChange={(event) => {
+          void insertImages(Array.from(event.target.files ?? []));
+          event.target.value = "";
+        }}
+      />
       <ImageZoomDialog src={preview} open={preview !== null} onClose={() => setPreview(null)} />
     </div>
   );
