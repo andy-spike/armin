@@ -175,7 +175,7 @@ function Panel({
 
 const BAR_TONES = {
   review: "bg-accent",
-  due: "bg-ink/55",
+  due: "bg-accent/50",
 } as const;
 
 /**

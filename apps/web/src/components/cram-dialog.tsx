@@ -197,28 +197,14 @@ export function CramDialog({
         </section>
 
         <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <label htmlFor="cram-forgotten" className="block text-sm font-medium text-ink">
-                Forgotten recently
-              </label>
-              <p className="mt-0.5 text-xs text-muted">
-                Only cards rated Again within the last N days.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min={1}
-                max={365}
-                inputMode="numeric"
-                value={forgottenDaysInput}
-                disabled={!forgotten}
-                onChange={(event) => setForgottenDaysInput(event.target.value)}
-                aria-label="Forgotten within this many days"
-                className="w-20"
-              />
-              <span className="text-sm text-muted">days</span>
+          <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <label htmlFor="cram-forgotten" className="block text-sm font-medium text-ink">
+                  Forgotten recently
+                </label>
+                <p className="mt-0.5 text-xs text-muted">Only cards you rated Again lately.</p>
+              </div>
               <Switch
                 id="cram-forgotten"
                 checked={forgotten}
@@ -226,12 +212,28 @@ export function CramDialog({
                 aria-label="Only cards forgotten recently"
               />
             </div>
+            {forgotten && (
+              <div className="mt-2 flex items-center gap-2 text-sm text-muted">
+                <span>Within the last</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={365}
+                  inputMode="numeric"
+                  value={forgottenDaysInput}
+                  onChange={(event) => setForgottenDaysInput(event.target.value)}
+                  aria-label="Forgotten within this many days"
+                  className="w-20"
+                />
+                <span>days</span>
+              </div>
+            )}
+            {forgotten && !daysValid && (
+              <p role="alert" className="mt-1 text-xs text-relearning">
+                Enter a whole number of days from 1 to 365.
+              </p>
+            )}
           </div>
-          {forgotten && !daysValid && (
-            <p role="alert" className="text-xs text-relearning">
-              Enter a whole number of days from 1 to 365.
-            </p>
-          )}
 
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -252,8 +254,7 @@ export function CramDialog({
         </section>
 
         <p className="border-t border-border pt-4 text-xs text-muted">
-          Cram ratings are practice only. They never change schedules, locks, versions, or your
-          review history.
+          Cramming is practice only. Your answers here don&apos;t change when cards are due.
         </p>
       </div>
     </Dialog>

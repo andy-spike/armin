@@ -234,7 +234,7 @@ function StudyActivity({
 }) {
   return (
     <section className="mb-6 flex flex-col gap-4 border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 className="text-sm font-semibold text-ink">Study activity</h2>
           <span className="text-xs text-muted">Last {STATS_COMPACT_HEATMAP_WEEKS} weeks</span>

@@ -1080,10 +1080,12 @@ export function ReviewSession({
                     <Info className="h-4 w-4" />
                     Card info
                   </DropdownMenuItem>
-                  <DropdownMenuItem disabled={burying || !online} onClick={() => void buryCard()}>
-                    <Moon className="h-4 w-4" />
-                    Bury until tomorrow
-                  </DropdownMenuItem>
+                  {onBury && (
+                    <DropdownMenuItem disabled={burying || !online} onClick={() => void buryCard()}>
+                      <Moon className="h-4 w-4" />
+                      Bury until tomorrow
+                    </DropdownMenuItem>
+                  )}
                   {onArchiveFlashcard && (
                     <DropdownMenuItem
                       disabled={flashcardActionPending}

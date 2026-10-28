@@ -69,7 +69,12 @@ export function ReviewHeatmap({
   cells.push(...days);
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const cellSize = size === "compact" ? "size-2" : "size-3";
+  const weeks = cells.length / 7;
+  // Cells stretch to fill the panel, up to a comfortable maximum, and keep a
+  // readable minimum on narrow screens (the calendar scrolls instead).
+  const maxCell = size === "compact" ? 14 : 18;
+  const minCell = size === "compact" ? 6 : 8;
+  const gapPx = size === "compact" ? 2 : 3;
   const gap = size === "compact" ? "gap-[2px]" : "gap-[3px]";
   const label =
     total === 0
@@ -78,24 +83,33 @@ export function ReviewHeatmap({
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <div className="flex min-w-0 gap-2">
+      <div
+        className="flex min-w-0 gap-2"
+        style={{ maxWidth: weeks * (maxCell + gapPx) + (size === "full" ? 32 : 0) }}
+      >
         {size === "full" && (
           <div
             aria-hidden
-            className={cn("grid shrink-0 grid-rows-7 text-[9px] leading-none text-muted", gap)}
+            className={cn(
+              "grid shrink-0 grid-rows-7 pb-1 text-[10px] leading-none text-muted",
+              gap,
+            )}
           >
             {WEEKDAY_LABELS.map((text, index) => (
-              <span key={index} className="flex h-3 items-center">
+              <span key={index} className="flex items-center">
                 {text}
               </span>
             ))}
           </div>
         )}
-        <div className="armin-scrollbar min-w-0 overflow-x-auto pb-1">
+        <div className="armin-scrollbar min-w-0 flex-1 overflow-x-auto pb-1">
           <div
             role="img"
             aria-label={label}
-            className={cn("grid w-max grid-flow-col grid-rows-7", gap)}
+            className={cn("grid grid-flow-col grid-rows-7", gap)}
+            style={{
+              gridTemplateColumns: `repeat(${weeks}, minmax(${minCell}px, 1fr))`,
+            }}
           >
             {cells.map((day, index) =>
               day ? (
@@ -105,13 +119,12 @@ export function ReviewHeatmap({
                     day.count === 1 ? "review" : "reviews"
                   }`}
                   className={cn(
-                    cellSize,
-                    "transition-colors",
+                    "aspect-square rounded-[2px] transition-colors",
                     LEVEL_CLASSES[levelFor(day.count, peak)],
                   )}
                 />
               ) : (
-                <span key={`blank-${index}`} className={cn(cellSize, "bg-transparent")} />
+                <span key={`blank-${index}`} className="aspect-square" />
               ),
             )}
           </div>
@@ -122,7 +135,7 @@ export function ReviewHeatmap({
         <div className="flex items-center justify-end gap-1 text-[10px] text-muted">
           <span>Less</span>
           {LEVEL_CLASSES.map((level) => (
-            <span key={level} className={cn("size-2.5", level)} aria-hidden />
+            <span key={level} className={cn("size-2.5 rounded-[2px]", level)} aria-hidden />
           ))}
           <span>More</span>
         </div>

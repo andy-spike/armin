@@ -98,7 +98,7 @@ function CramPage() {
           <Button variant="outline">Back to deck</Button>
         </Link>
       }
-      doneDescription="You practiced every card in this cram session. Nothing was scheduled, and your review history is unchanged."
+      doneDescription="You practiced every card in this session. Your due dates are unchanged."
       emptyDescription="No cards matched this cram setup. Go back to the deck and widen the filters."
     />
   );

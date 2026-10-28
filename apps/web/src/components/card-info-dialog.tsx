@@ -21,15 +21,22 @@ function formatWhen(ms: number) {
   });
 }
 
+/** Relative due time that fits a narrow stat column; the exact time is the tooltip. */
+function formatDue(due: number, now: number) {
+  return due <= now ? "Now" : `in ${formatInterval(now, due)}`;
+}
+
 function formatPercent(value: number | null) {
   return value == null ? "—" : `${Math.round(value * 100)}%`;
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
     <div className="min-w-0">
       <dt className="text-[0.6875rem] font-medium uppercase tracking-wide text-muted">{label}</dt>
-      <dd className="mt-0.5 truncate font-mono text-sm tabular-nums text-ink">{value}</dd>
+      <dd title={title} className="mt-0.5 truncate font-mono text-sm tabular-nums text-ink">
+        {value}
+      </dd>
     </div>
   );
 }
@@ -101,13 +108,27 @@ export function CardInfoDialog({
                         Buried until {unit.buriedUntil ? formatWhen(unit.buriedUntil) : "tomorrow"}
                       </Badge>
                     )}
-                    <span className="ml-auto font-mono text-xs text-muted">v{unit.version}</span>
                   </div>
-                  <p className="mt-2 line-clamp-1 text-pretty text-ink/90">{unit.front}</p>
+                  {data.units.length > 1 && (
+                    <p className="mt-2 line-clamp-1 text-pretty text-ink/90">
+                      {stripMarkdownForPreview(unit.front)}
+                    </p>
+                  )}
                   <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
-                    <Stat label="Due" value={formatWhen(unit.due)} />
-                    <Stat label="Stability" value={unit.stability.toFixed(2)} />
-                    <Stat label="Difficulty" value={unit.difficulty.toFixed(2)} />
+                    <Stat
+                      label="Due"
+                      value={unit.state === 0 ? "—" : formatDue(unit.due, data.serverNow)}
+                      title={unit.state === 0 ? undefined : formatWhen(unit.due)}
+                    />
+                    {/* A never-studied unit has no memory model yet. */}
+                    <Stat
+                      label="Stability"
+                      value={unit.state === 0 ? "—" : `${unit.stability.toFixed(1)}d`}
+                    />
+                    <Stat
+                      label="Difficulty"
+                      value={unit.state === 0 ? "—" : `${unit.difficulty.toFixed(1)} / 10`}
+                    />
                     <Stat label="Retrievability" value={formatPercent(unit.retrievability)} />
                     <Stat label="Reps" value={String(unit.reps)} />
                     <Stat label="Lapses" value={String(unit.lapses)} />
@@ -126,7 +147,7 @@ export function CardInfoDialog({
                 {data.reviews.map((review) => (
                   <li
                     key={review.reviewLogId}
-                    className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-3 py-2"
+                    className="grid grid-cols-[minmax(0,1fr)_4rem_5.5rem_3.5rem] items-baseline gap-x-3 px-3 py-2"
                   >
                     <span className="font-mono text-xs text-muted">
                       {formatWhen(review.review)}
@@ -137,7 +158,10 @@ export function CardInfoDialog({
                       {RATING_LABELS[review.rating] ?? "Rating"}
                     </span>
                     <span className="text-muted">{review.stateName}</span>
-                    <span className="font-mono text-xs tabular-nums text-ink">
+                    <span
+                      title="Interval this review scheduled"
+                      className="text-right font-mono text-xs tabular-nums text-ink"
+                    >
                       {formatInterval(0, review.intervalMs)}
                     </span>
                   </li>
