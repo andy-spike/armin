@@ -40,6 +40,7 @@ export function schedulingFrom(row: Doc<"settings">): SchedulingSettings {
     weights: row.weights,
     prereqStabilityFloor: row.prereqStabilityFloor,
     newReviewUnitsPerDay: row.newReviewUnitsPerDay,
+    reviewsPerDay: row.reviewsPerDay ?? null,
     keepSiblingReviewUnitsTogether: row.keepSiblingReviewUnitsTogether,
   };
 }

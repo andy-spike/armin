@@ -3,11 +3,14 @@ import type { FunctionArgs } from "convex/server";
 import { ConvexError } from "convex/values";
 import { api } from "@armin/backend/api";
 import type {
+  BuryResult,
+  BuryUnit,
   CramRateResult,
   CramUndoResult,
   Id,
   RateResult,
   UndoResult,
+  UnburyResult,
   UpdateResult,
 } from "@armin/backend/types";
 import type { FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
@@ -209,6 +212,23 @@ export const armin = {
       q().mutation(api.review.undo, {
         reviewLogId: input.reviewLogId as Id<"reviewLogs">,
         expectedVersion: input.version,
+        requestId: input.requestId,
+      }),
+    cardInfo: async (flashcardId: string) =>
+      (await q().query(api.review.cardInfo, { flashcardId })) ?? null,
+    bury: (input: { flashcardId: string; requestId: string }): Promise<BuryResult> =>
+      q().mutation(api.review.bury, {
+        flashcardId: input.flashcardId as Id<"flashcards">,
+        requestId: input.requestId,
+      }),
+    unbury: (input: {
+      flashcardId: string;
+      units: BuryUnit[];
+      requestId: string;
+    }): Promise<UnburyResult> =>
+      q().mutation(api.review.unbury, {
+        flashcardId: input.flashcardId as Id<"flashcards">,
+        units: input.units,
         requestId: input.requestId,
       }),
   },

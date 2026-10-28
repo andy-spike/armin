@@ -13,6 +13,8 @@ export const STABILITY_FLOOR_MIN = 0.1;
 export const STABILITY_FLOOR_MAX = 365;
 export const NEW_CARDS_PER_DAY_MIN = 0;
 export const NEW_CARDS_PER_DAY_MAX = 999;
+export const REVIEWS_PER_DAY_MIN = 0;
+export const REVIEWS_PER_DAY_MAX = 999;
 
 export function formatRetentionPercent(value: number): string {
   return String(Math.round(value * 100));
@@ -128,6 +130,10 @@ export function isValidNewCardsPerDay(value: number): boolean {
   return (
     Number.isInteger(value) && value >= NEW_CARDS_PER_DAY_MIN && value <= NEW_CARDS_PER_DAY_MAX
   );
+}
+
+export function isValidReviewsPerDay(value: number): boolean {
+  return Number.isInteger(value) && value >= REVIEWS_PER_DAY_MIN && value <= REVIEWS_PER_DAY_MAX;
 }
 
 export function parseBoundedInt(input: string, max: number): number | null {

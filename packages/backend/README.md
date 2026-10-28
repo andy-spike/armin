@@ -22,7 +22,7 @@ generated API.
   subscriptions; exports use the revision as a snapshot check).
 - `convex/decks.ts`, `flashcards.ts`, `graph.ts`, `settings.ts` — authoring,
   browse, prerequisite graph, and scheduling settings.
-- `convex/review.ts` — queue, rating previews, rate, and undo.
+- `convex/review.ts` — queue, rating previews, rate, bury/unbury, card info, and undo.
 - `convex/cram.ts` — practice-only cram selection and `cramLogs`; never
   schedules, locks, or writes review history.
 - `convex/imports.ts` — batched Anki import (see below).
@@ -54,14 +54,20 @@ Client entry points (see `package.json` `exports`):
   marks the library `deleting` in the same transaction as the auth user removal,
   so access ends immediately; `deletion.cleanupLibrary` then removes rows and
   files in bounded batches.
-- The account-wide Frontier cap (in the account timezone) limits which new
-  units the review queue admits. A rating validates the displayed review-unit
-  version and current eligibility (locks, archive, due time), but not the cap,
-  so an answer to a card already admitted to a session is never discarded
-  when the budget runs out mid-session. It runs FSRS at server time, and writes the schedule, the review log,
-  and prerequisite lock changes in one mutation. Undo restores the exact saved
-  pre-review schedule only while that review is still the unit's latest. Earned
-  prerequisite access is permanent and survives lapses, Undo, and authoring changes.
+- The account-wide Frontier cap and daily review cap (in the account timezone)
+  limit which units the review queue admits. Due reviews enter oldest-first up
+  to the remaining review budget; new units then get the smaller of the
+  remaining new-unit allowance and the remaining total budget. `null` means no
+  daily review limit. A rating validates the displayed review-unit version and
+  current eligibility (locks, archive, bury, due time), but not either cap, so
+  an answer to a card already admitted to a session is never discarded when a
+  budget runs out mid-session. It runs FSRS at server time, and writes the
+  schedule, the review log, and prerequisite lock changes in one mutation.
+  Burying hides every review unit of a flashcard until the start of the next
+  study day; units reappear automatically, and Undo restores the exact prior
+  `buriedUntil` values. Undo restores the exact saved pre-review schedule only
+  while that review is still the unit's latest. Earned prerequisite access is
+  permanent and survives lapses, Undo, and authoring changes.
 - Edits name the version they started from. The first accepted edit wins; a
   stale save returns a conflict and changes nothing. Creates, ratings, and
   undos take a client request ID so an application-level retry returns the

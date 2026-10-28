@@ -46,6 +46,7 @@ function checkRanges(patch: {
   maximumInterval?: number | null;
   prereqStabilityFloor?: number | null;
   newReviewUnitsPerDay?: number | null;
+  reviewsPerDay?: number | null;
 }) {
   const r = patch.requestRetention;
   if (r != null && !(r >= 0.7 && r <= 0.99)) {
@@ -62,6 +63,10 @@ function checkRanges(patch: {
   const n = patch.newReviewUnitsPerDay;
   if (n != null && !(Number.isInteger(n) && n >= 0 && n <= 1000)) {
     fail("INVALID", "New review units per day must be 0–1000.");
+  }
+  const d = patch.reviewsPerDay;
+  if (d != null && !(Number.isInteger(d) && d >= 0 && d <= 1000)) {
+    fail("INVALID", "Reviews per day must be 0–1000, or empty for no limit.");
   }
 }
 
@@ -96,6 +101,7 @@ export const update = mutation({
     weights: v.optional(v.union(v.string(), v.null())),
     prereqStabilityFloor: v.optional(v.number()),
     newReviewUnitsPerDay: v.optional(v.number()),
+    reviewsPerDay: v.optional(v.union(v.number(), v.null())),
     keepSiblingReviewUnitsTogether: v.optional(v.boolean()),
     schedulingPreset: v.optional(v.string()),
     keybindings: v.optional(v.union(v.string(), v.null())),

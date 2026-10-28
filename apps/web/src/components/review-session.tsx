@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import type { BuryResult, BuryUnit } from "@armin/backend/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -13,6 +14,8 @@ import {
   Pencil,
   Archive,
   Trash2,
+  Info,
+  Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +31,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CardInfoDialog } from "@/components/card-info-dialog";
 import { ImageOcclusionReview } from "@/components/image-occlusion-review";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
@@ -158,12 +162,26 @@ function reconcileSessionCards(
   return { cards: [...updated, ...appended], staleActive, missing };
 }
 
-type HistoryEntry = {
-  turnId: string;
-  reviewUnitId: string;
-  reviewLogId: string;
-  version: number;
-};
+export type HistoryEntry =
+  | {
+      kind: "review";
+      turnId: string;
+      reviewUnitId: string;
+      reviewLogId: string;
+      version: number;
+    }
+  | {
+      kind: "bury";
+      turnId: string;
+      flashcardId: string;
+      units: BuryUnit[];
+    };
+
+/** Undo result for either a rating or a bury. */
+export type SessionUndoResult =
+  | { status: "ok"; reviewUnitId: string; version: number }
+  | { status: "ok"; flashcardId: string }
+  | { status: "stale"; message: string };
 
 /** An answer shown as done on screen while the server saves it. */
 type Submission = { turnId: string; card: SessionReviewUnit; rating: Grade; requestId: string };
@@ -331,6 +349,7 @@ export type ReviewSessionProps = {
     reviewUnitId: string,
   ) => Promise<{ version: number; options: PreviewOption[] } | null>;
   onRate: (card: UiReviewUnit, rating: Grade, requestId: string) => Promise<SessionRateResult>;
+  onBury?: (flashcardId: string, requestId: string) => Promise<BuryResult>;
   onUndo?: (entry: HistoryEntry, requestId: string) => Promise<SessionUndoResult>;
   /** False while disconnected: no new answers are submitted. */
   online?: boolean;
@@ -361,6 +380,7 @@ export function ReviewSession({
   online = true,
   loadPreview,
   onRate,
+  onBury,
   onUndo,
   loadCard,
   onEditFlashcard,
@@ -392,6 +412,8 @@ export function ReviewSession({
   );
   const [deleteConsequencesError, setDeleteConsequencesError] = useState(false);
   const [flashcardActionPending, setCardActionPending] = useState(false);
+  const [burying, setBurying] = useState(false);
+  const [infoCardId, setInfoCardId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const cards = isLoading || isError ? [] : sessionCards;
@@ -438,12 +460,12 @@ export function ReviewSession({
     setFlipped(true);
   };
 
-  const removeFromSession = useCallback((reviewUnitId: string) => {
+  const removeCardsFromSession = useCallback((matches: (card: SessionReviewUnit) => boolean) => {
     setSessionCards((prev) => {
-      const next = prev.filter((c) => c.id !== reviewUnitId);
+      const next = prev.filter((card) => !matches(card));
       setIndex((i) => {
         const adjusted = Math.min(
-          i - prev.slice(0, i).filter((c) => c.id === reviewUnitId).length,
+          i - prev.slice(0, i).filter((card) => matches(card)).length,
           next.length,
         );
         if (adjusted < next.length) return adjusted;
@@ -454,11 +476,28 @@ export function ReviewSession({
       });
       return next;
     });
-    setHistory((h) => h.filter((entry) => entry.reviewUnitId !== reviewUnitId));
   }, []);
 
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const removeFromSession = useCallback(
+    (reviewUnitId: string) => {
+      removeCardsFromSession((card) => card.id === reviewUnitId);
+      // A deleted unit cannot be restored by Undo, so drop its answers.
+      setHistory((h) =>
+        h.filter((entry) => entry.kind !== "review" || entry.reviewUnitId !== reviewUnitId),
+      );
+    },
+    [removeCardsFromSession],
+  );
 
+  /** Hide every session occurrence of one flashcard, as a bury does. */
+  const removeFlashcardFromSession = useCallback(
+    (flashcardId: string) => {
+      removeCardsFromSession((card) => card.flashcardId === flashcardId);
+    },
+    [removeCardsFromSession],
+  );
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
   /** Resolve once every answer given so far has a server outcome. */
   const whenSaved = () =>
     submissionsRef.current.length === 0
@@ -496,6 +535,7 @@ export function ReviewSession({
         submissionsRef.current.shift();
         if (result.status === "ok") {
           const entry = {
+            kind: "review" as const,
             turnId: submission.turnId,
             reviewUnitId: submission.card.id,
             reviewLogId: result.reviewLogId,
@@ -597,10 +637,12 @@ export function ReviewSession({
       await whenSaved();
       const last = historyRef.current.at(-1);
       if (!last) return;
-      const result = await onUndo(last, `undo:${last.reviewLogId}`);
+      const requestId =
+        last.kind === "review" ? `undo:${last.reviewLogId}` : `undo:bury:${last.turnId}`;
+      const result = await onUndo(last, requestId);
       historyRef.current = historyRef.current.slice(0, -1);
       setHistory(historyRef.current);
-      if (result.status === "ok") {
+      if (result.status === "ok" && "reviewUnitId" in result && last.kind === "review") {
         // Undo returns to the exact occurrence that was answered, removing
         // any waiting repeat of that unit so it cannot appear twice.
         const restored = sessionRef.current.cards
@@ -614,6 +656,10 @@ export function ReviewSession({
         setStaleCard(null);
         setFlipped(false);
         setTyped("");
+      } else if (result.status === "ok") {
+        // The unburied cards return through the live queue; the merge effect
+        // appends them as soon as the server confirms the bury is gone.
+        setNotice("Card unburied.");
       } else {
         setNotice(result.message);
       }
@@ -663,6 +709,43 @@ export function ReviewSession({
     }
   };
 
+  const buryCard = async () => {
+    if (!card || !onBury || burying || !online) return;
+    setBurying(true);
+    setNotice(null);
+    try {
+      // Let answers already given (including siblings of this flashcard) land
+      // before the whole card's versions change.
+      await whenSaved();
+      const result = await onBury(card.flashcardId, crypto.randomUUID());
+      if (result.status === "ok") {
+        const entry: HistoryEntry = {
+          kind: "bury",
+          turnId: card.turnId,
+          flashcardId: card.flashcardId,
+          units: result.units,
+        };
+        historyRef.current = [...historyRef.current, entry];
+        setHistory(historyRef.current);
+        removeFlashcardFromSession(card.flashcardId);
+        setFlipped(false);
+        setTyped("");
+        setNotice("Card buried until tomorrow.");
+      } else {
+        setNotice(result.message);
+        removeFlashcardFromSession(card.flashcardId);
+      }
+    } catch {
+      setNotice("Couldn't bury this card. Check your connection and try again.");
+    } finally {
+      setBurying(false);
+    }
+  };
+
+  const openInfo = () => {
+    if (card) setInfoCardId(card.flashcardId);
+  };
+
   const openDeleteConfirm = () => {
     if (!card) return;
     setDeleteConsequences(null);
@@ -686,8 +769,6 @@ export function ReviewSession({
       setCardActionPending(false);
     }
   };
-
-  const hasCardActions = Boolean(onEditFlashcard || onArchiveFlashcard || onDeleteFlashcard);
 
   // Load the next cards' rating intervals ahead, so the buttons show them as
   // soon as a card appears.
@@ -816,6 +897,12 @@ export function ReviewSession({
       },
       "review.next": () => {
         if (!flipped) goNext();
+      },
+      "review.info": () => {
+        openInfo();
+      },
+      "review.bury": () => {
+        void buryCard();
       },
     },
     { enabled: reviewActive },
@@ -970,49 +1057,62 @@ export function ReviewSession({
           )}
 
           <div className="relative flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-border-strong bg-paper px-5 py-10 text-center sm:min-h-[300px] sm:px-10 sm:py-12">
-            {hasCardActions && (
-              <div className="absolute top-3 right-3">
-                <DropdownMenu onOpenChange={prefetchFlashcard}>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button variant="ghost" size="icon-sm" aria-label="Flashcard actions" />
-                    }
-                  >
-                    <EllipsisVertical className="h-4 w-4" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-40">
-                    {onEditFlashcard && loadCard && (
-                      <DropdownMenuItem onClick={() => void openEdit()}>
-                        <Pencil className="h-4 w-4" />
-                        Edit flashcard
-                      </DropdownMenuItem>
-                    )}
-                    {onArchiveFlashcard && (
+            <div className="absolute top-3 right-3 flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Card info"
+                title="Card info (I)"
+                onClick={openInfo}
+              >
+                <Info className="h-4 w-4" />
+              </Button>
+              <DropdownMenu onOpenChange={prefetchFlashcard}>
+                <DropdownMenuTrigger
+                  render={<Button variant="ghost" size="icon-sm" aria-label="Flashcard actions" />}
+                >
+                  <EllipsisVertical className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-40">
+                  {onEditFlashcard && loadCard && (
+                    <DropdownMenuItem onClick={() => void openEdit()}>
+                      <Pencil className="h-4 w-4" />
+                      Edit flashcard
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={openInfo}>
+                    <Info className="h-4 w-4" />
+                    Card info
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled={burying || !online} onClick={() => void buryCard()}>
+                    <Moon className="h-4 w-4" />
+                    Bury until tomorrow
+                  </DropdownMenuItem>
+                  {onArchiveFlashcard && (
+                    <DropdownMenuItem
+                      disabled={flashcardActionPending}
+                      onClick={() => void handleArchive()}
+                    >
+                      <Archive className="h-4 w-4" />
+                      Archive
+                    </DropdownMenuItem>
+                  )}
+                  {onDeleteFlashcard && (
+                    <>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem
+                        variant="destructive"
                         disabled={flashcardActionPending}
-                        onClick={() => void handleArchive()}
+                        onClick={openDeleteConfirm}
                       >
-                        <Archive className="h-4 w-4" />
-                        Archive
+                        <Trash2 className="h-4 w-4" />
+                        Delete
                       </DropdownMenuItem>
-                    )}
-                    {onDeleteFlashcard && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          disabled={flashcardActionPending}
-                          onClick={openDeleteConfirm}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
             <ReviewCardPrompt
               card={card}
@@ -1158,6 +1258,12 @@ export function ReviewSession({
           </Button>
         </div>
       </Dialog>
+
+      <CardInfoDialog
+        flashcardId={infoCardId}
+        open={infoCardId !== null}
+        onClose={() => setInfoCardId(null)}
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ export type ReviewQueueItem = ReviewQueue["items"][number];
 export type CramQueue = NonNullable<FunctionReturnType<typeof api.cram.queue>>;
 export type CramQueueItem = CramQueue["items"][number];
 export type ReviewPreview = NonNullable<FunctionReturnType<typeof api.review.preview>>;
+export type CardInfo = NonNullable<FunctionReturnType<typeof api.review.cardInfo>>;
 export type DeckGraph = NonNullable<FunctionReturnType<typeof api.graph.getDeck>>;
 export type AccountSettings = NonNullable<FunctionReturnType<typeof api.settings.get>>;
 export type DeckSettingsView = NonNullable<FunctionReturnType<typeof api.settings.getDeck>>;
@@ -26,6 +27,6 @@ export type FlashcardMoveConsequences = NonNullable<
 export type Viewer = NonNullable<FunctionReturnType<typeof api.account.viewer>>;
 export type ImportView = NonNullable<FunctionReturnType<typeof api.imports.get>>;
 export type ExportRow = NonNullable<FunctionReturnType<typeof api.exports.list>>[number];
-export type { RateResult, UndoResult } from "../review";
+export type { BuryResult, BuryUnit, RateResult, UndoResult, UnburyResult } from "../review";
 export type { CramRateResult, CramUndoResult } from "../cram";
 export type { UpdateResult } from "../flashcards";
