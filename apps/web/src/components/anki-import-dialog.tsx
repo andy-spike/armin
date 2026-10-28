@@ -2,13 +2,13 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
-import { Check, FileUp, LoaderCircle, TriangleAlert } from "lucide-react";
+import { Check, FileUp, LoaderCircle, TriangleAlert, Bot } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@armin/backend/api";
 import type { Id } from "@armin/backend/types";
 import { convertAnkiCollection, type ImportDeck, type ImportPlan } from "@armin/core/anki";
 import type { FlashcardType } from "@armin/core/flashcard-types";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
@@ -425,7 +425,53 @@ function ChooseStep({
   onFile: (file: File | undefined) => void;
 }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <section
+        aria-labelledby="anki-assistant-route"
+        className="border border-accent/30 bg-accent-tint/55 p-4"
+      >
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h3
+              id="anki-assistant-route"
+              className="font-serif text-[1.0625rem] font-semibold text-ink"
+            >
+              Import with an AI assistant · Recommended
+            </h3>
+            <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
+              The assistant runs Armin&apos;s converter, shows what changed, and can repair
+              unsupported cards or skip them only when you ask.
+            </p>
+          </div>
+          <Bot className="mt-0.5 h-5 w-5 shrink-0 text-accent-deep" strokeWidth={1.5} aria-hidden />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Link
+            to="/settings"
+            search={{ tab: "assistants" }}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Set up an assistant
+          </Link>
+          <span className="text-[0.75rem] text-muted">Imported cards start fresh.</span>
+        </div>
+        <details className="mt-3 text-[0.8125rem] leading-relaxed text-muted">
+          <summary className="cursor-pointer text-ink">How assistant import works</summary>
+          <p className="mt-2">
+            Connect an assistant in Settings → AI assistants, give it your Anki file, and ask it to
+            import into Armin. It needs file access and a workspace that can run Node.js. You review
+            the converted cards and approve them before they appear in your library. Ask for repairs
+            or polishing whenever you need them.
+          </p>
+        </details>
+      </section>
+
+      <div className="flex items-center gap-3 text-[0.75rem] text-muted">
+        <span aria-hidden className="h-px flex-1 bg-border" />
+        or import in this browser
+        <span aria-hidden className="h-px flex-1 bg-border" />
+      </div>
+
       <div
         onDragOver={(event) => {
           event.preventDefault();
@@ -437,7 +483,7 @@ function ChooseStep({
           setDragging(false);
           onFile(event.dataTransfer.files[0]);
         }}
-        className={`flex flex-col items-center gap-3 border border-dashed px-6 py-10 text-center transition-colors duration-150 ${
+        className={`flex flex-col items-center gap-3 border border-dashed px-6 py-8 text-center transition-colors duration-150 ${
           dragging ? "border-accent bg-accent-tint" : "border-border-strong bg-bg-2"
         }`}
       >
@@ -470,8 +516,8 @@ function ChooseStep({
         </div>
       )}
       <p className="text-[0.8125rem] text-muted">
-        Everything is read in your browser first. Audio and video aren&apos;t supported, and decks
-        you pick are added next to your existing ones.
+        Browser imports read the file locally. Audio and video aren&apos;t supported, and decks you
+        pick are added next to your existing ones. Keep this tab open while a browser import runs.
       </p>
     </div>
   );

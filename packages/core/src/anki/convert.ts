@@ -18,6 +18,8 @@ import type {
   AnkiNotetype,
   ImportDeck,
   ImportFlashcard,
+  ImportOmitted,
+  ImportOmittedReason,
   ImportOptions,
   ImportPlan,
   ImportReviewUnit,
@@ -385,6 +387,24 @@ export function convertAnkiCollection(
   };
 
   const drafts: Draft[] = [];
+  const omitted: ImportOmitted[] = [];
+
+  const omit = (
+    note: AnkiNote,
+    deckId: string,
+    notetypeName: string,
+    reason: ImportOmittedReason,
+    cardCount: number,
+  ) => {
+    omitted.push({
+      noteId: note.id,
+      notetypeId: note.notetypeId,
+      notetypeName,
+      deckId,
+      cardCount,
+      reason,
+    });
+  };
 
   for (const note of collection.notes) {
     const cards = cardsByNote.get(note.id)?.sort((a, b) => a.ord - b.ord);
@@ -393,6 +413,7 @@ export function convertAnkiCollection(
     const warnings = new Set<ImportWarningCode>();
     if (!notetype) {
       countWarnings(["empty_note_skipped"]);
+      omit(note, cards[0]!.deckId, "", "missing_notetype", cards.length);
       continue;
     }
 
@@ -464,6 +485,11 @@ export function convertAnkiCollection(
     for (const candidate of candidates) {
       const draft = finishFlashcard(candidate, tags, collection, options, reviewsByCard, warnings);
       if (!draft) continue;
+      draft.source = {
+        noteId: note.id,
+        notetypeId: note.notetypeId,
+        ankiCardIds: candidate.cards.map((card) => card.id),
+      };
       drafts.push(draft);
       produced++;
     }
@@ -473,13 +499,23 @@ export function convertAnkiCollection(
         warnings.has(code),
       );
       countWarnings(["empty_note_skipped", ...reasons]);
+      const reason: ImportOmittedReason = warnings.has("missing_media")
+        ? "missing_image"
+        : warnings.has("unsupported_image_removed")
+          ? "unsupported_image"
+          : warnings.has("audio_only_card_skipped")
+            ? "audio_only"
+            : warnings.has("required_content_card_skipped") || kind.kind === "custom"
+              ? "unusable_template"
+              : "empty_content";
+      omit(note, cards[0]!.deckId, notetype.name, reason, cards.length);
       continue;
     }
     if (trimmed) warnings.add("tags_trimmed");
     countWarnings(warnings);
   }
 
-  return buildPlan(collection, decks, drafts, warningCounts);
+  return buildPlan(collection, decks, drafts, warningCounts, omitted);
 }
 
 function finishFlashcard(
@@ -538,6 +574,7 @@ function buildPlan(
   decks: Map<string, { id: string; name: string }>,
   drafts: Draft[],
   warningCounts: Map<ImportWarningCode, number>,
+  omitted: ImportOmitted[],
 ): ImportPlan {
   const counts = new Map<string, number>();
   for (const draft of drafts) counts.set(draft.deckKey, (counts.get(draft.deckKey) ?? 0) + 1);
@@ -573,6 +610,7 @@ function buildPlan(
     decks: importDecks,
     flashcards: drafts,
     warnings,
+    ...(omitted.length > 0 ? { omitted } : {}),
     totals: {
       flashcards: drafts.length,
       reviewUnits,

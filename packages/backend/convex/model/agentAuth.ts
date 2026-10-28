@@ -69,6 +69,7 @@ export async function requireDeck(
   if (
     !deck ||
     deck.libraryId !== connection.libraryId ||
+    deck.staging ||
     !(await canAccessDeck(ctx, connection, deckId))
   ) {
     fail("NOT_FOUND", "Deck not found or not shared with this connection.");

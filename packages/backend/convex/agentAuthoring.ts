@@ -100,7 +100,7 @@ export const read = internalQuery({
         .collect();
       const permitted = [];
       for (const deck of decks)
-        if (await canAccessDeck(ctx, connection, deck._id))
+        if (!deck.staging && (await canAccessDeck(ctx, connection, deck._id)))
           permitted.push({
             id: deck._id,
             name: deck.name,

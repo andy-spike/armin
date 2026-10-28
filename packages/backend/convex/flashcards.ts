@@ -47,7 +47,7 @@ export const listByDeck = query({
     if (!library) return null;
     const id = ctx.db.normalizeId("decks", deckId);
     const deck = id ? await ctx.db.get(id) : null;
-    if (!deck || deck.libraryId !== library._id) return null;
+    if (!deck || deck.libraryId !== library._id || deck.staging) return null;
     const flashcards = await ctx.db
       .query("flashcards")
       .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
@@ -292,7 +292,7 @@ async function browseScope(ctx: QueryCtx, libraryId: Id<"libraries">, deckId?: s
   if (deckId === undefined) return null;
   const id = ctx.db.normalizeId("decks", deckId);
   const deck = id ? await ctx.db.get(id) : null;
-  return deck && deck.libraryId === libraryId ? deck._id : false;
+  return deck && deck.libraryId === libraryId && !deck.staging ? deck._id : false;
 }
 
 type BrowsePageArgs = BrowseFilters & {
@@ -413,7 +413,7 @@ export const listDeckTags = query({
     if (!library) return null;
     const id = ctx.db.normalizeId("decks", deckId);
     const deck = id ? await ctx.db.get(id) : null;
-    if (!deck || deck.libraryId !== library._id) return null;
+    if (!deck || deck.libraryId !== library._id || deck.staging) return null;
     const flashcards = await ctx.db
       .query("flashcards")
       .withIndex("by_deck", (q) => q.eq("deckId", deck._id))

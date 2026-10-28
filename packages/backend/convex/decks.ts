@@ -83,7 +83,9 @@ export const list = query({
       settings: new SettingsCache(ctx, library._id),
     };
     const out = [];
-    for (const deck of decks) out.push(await deckStats(ctx, library, deck, now, shared));
+    for (const deck of decks) {
+      if (!deck.staging) out.push(await deckStats(ctx, library, deck, now, shared));
+    }
     return out;
   },
 });
@@ -98,7 +100,7 @@ export const listNames = query({
       .query("decks")
       .withIndex("by_library", (q) => q.eq("libraryId", library._id))
       .collect();
-    return decks.map((deck) => ({ id: deck._id, name: deck.name }));
+    return decks.filter((deck) => !deck.staging).map((deck) => ({ id: deck._id, name: deck.name }));
   },
 });
 
@@ -110,7 +112,7 @@ export const get = query({
     const id = ctx.db.normalizeId("decks", deckId);
     if (!id) return null;
     const deck = await ctx.db.get(id);
-    if (!deck || deck.libraryId !== library._id) return null;
+    if (!deck || deck.libraryId !== library._id || deck.staging) return null;
     return deckStats(ctx, library, deck, Date.now());
   },
 });
@@ -200,6 +202,8 @@ export const remove = mutation({
     const deck = await ctx.db.get(deckId);
     // Deleting something already gone is a no-op, so retries are safe.
     if (!deck || deck.libraryId !== library._id) return { ok: true as const };
+    // Staging decks belong to an import that publishes or cleans them up itself.
+    if (deck.staging) fail("CONFLICT", "This import is still finishing. Try again in a moment.");
     await deleteDeckCascade(ctx, deck);
     await bumpRevision(ctx, library._id);
     return { ok: true as const };

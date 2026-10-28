@@ -20,7 +20,7 @@ export const getDeck = query({
     if (!library) return null;
     const id = ctx.db.normalizeId("decks", deckId);
     const deck = id ? await ctx.db.get(id) : null;
-    if (!deck || deck.libraryId !== library._id) return null;
+    if (!deck || deck.libraryId !== library._id || deck.staging) return null;
     const flashcards = await ctx.db
       .query("flashcards")
       .withIndex("by_deck", (q) => q.eq("deckId", deck._id))

@@ -12,6 +12,11 @@ import {
   agentToolSchemas,
   agentToolTitles,
 } from "./model/agentTools";
+import {
+  agentImportToolDescriptions,
+  agentImportToolSchemas,
+  agentImportToolTitles,
+} from "./model/agentImportTools";
 
 function baseUrl(request: Request) {
   // The deployment's canonical HTTP origin is the issuer and resource audience.
@@ -372,35 +377,87 @@ export function registerAgentRoutes(http: HttpRouter) {
       { name: "Armin", version: "1.0.0" },
       { instructions: agentInstructions },
     );
-    for (const name of Object.keys(agentToolSchemas) as (keyof typeof agentToolSchemas)[]) {
-      const readOnly = ["list_decks", "read_deck", "read_prerequisites"].includes(name);
+    const importReadTools = ["get_anki_import_guide", "anki_import_status", "anki_import_preview"];
+    const normalTools = Object.keys(agentToolSchemas) as (keyof typeof agentToolSchemas)[];
+    const importTools = Object.keys(
+      agentImportToolSchemas,
+    ) as (keyof typeof agentImportToolSchemas)[];
+    for (const name of [...normalTools, ...importTools] as const) {
+      const isImport = (importTools as string[]).includes(name);
+      const readOnly = isImport
+        ? importReadTools.includes(name)
+        : ["list_decks", "read_deck", "read_prerequisites"].includes(name);
+      const destructive = isImport
+        ? name === "anki_import_cancel"
+        : !readOnly && name !== "save_cards";
+      const inputSchema = isImport
+        ? agentImportToolSchemas[name as keyof typeof agentImportToolSchemas]
+        : agentToolSchemas[name as keyof typeof agentToolSchemas];
+      const title = isImport
+        ? agentImportToolTitles[name as keyof typeof agentImportToolTitles]
+        : agentToolTitles[name as keyof typeof agentToolTitles];
+      const description = isImport
+        ? agentImportToolDescriptions[name as keyof typeof agentImportToolDescriptions]
+        : agentToolDescriptions[name as keyof typeof agentToolDescriptions];
       server.registerTool(
         name,
         {
-          title: agentToolTitles[name],
-          description: agentToolDescriptions[name],
-          inputSchema: agentToolSchemas[name],
+          title,
+          description,
+          inputSchema,
           annotations: {
             readOnlyHint: readOnly,
-            destructiveHint: !readOnly && name !== "save_cards",
-            idempotentHint: true,
+            destructiveHint: destructive,
+            idempotentHint: name !== "anki_import_upload_token",
             openWorldHint: false,
           },
         },
         async (args: unknown) => {
           try {
-            const result: unknown = readOnly
-              ? await ctx.runQuery(internal.agentAuthoring.read, {
+            let result: unknown;
+            if (isImport) {
+              if (readOnly)
+                result = await ctx.runQuery(internal.agentImports.read, {
                   tokenHash,
                   tool: name,
                   input: args,
-                })
-              : await ctx.runMutation(internal.agentAuthoring.write, {
+                });
+              else {
+                const uploadToken =
+                  name === "anki_import_start" || name === "anki_import_upload_token"
+                    ? newSecret()
+                    : undefined;
+                const written = (await ctx.runMutation(internal.agentImports.write, {
                   tokenHash,
                   tool: name,
                   input: args,
                   fingerprint: await hashSecret(JSON.stringify({ tool: name, input: args })),
-                });
+                  ...(uploadToken ? { uploadTokenHash: await hashSecret(uploadToken) } : {}),
+                })) as Record<string, unknown>;
+                result =
+                  uploadToken && written.uploadTokenIssued
+                    ? {
+                        ...written,
+                        uploadToken,
+                        ...(typeof written.importId === "string"
+                          ? { uploadUrl: `${base}/agent-imports/${written.importId}/media` }
+                          : {}),
+                      }
+                    : written;
+              }
+            } else
+              result = readOnly
+                ? await ctx.runQuery(internal.agentAuthoring.read, {
+                    tokenHash,
+                    tool: name,
+                    input: args,
+                  })
+                : await ctx.runMutation(internal.agentAuthoring.write, {
+                    tokenHash,
+                    tool: name,
+                    input: args,
+                    fingerprint: await hashSecret(JSON.stringify({ tool: name, input: args })),
+                  });
             return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
           } catch (error) {
             let message = "The operation failed. No changes were saved. Try again later.";

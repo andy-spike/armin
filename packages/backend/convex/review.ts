@@ -79,7 +79,7 @@ export const queue = query({
       deckId = ctx.db.normalizeId("decks", deckIdArg);
       if (!deckId) return null;
       const deck = await ctx.db.get(deckId);
-      if (!deck || deck.libraryId !== library._id) return null;
+      if (!deck || deck.libraryId !== library._id || deck.staging) return null;
     }
     const now = Date.now();
     const { reviews, frontier } = await selectSession(ctx, library, deckId, now);
@@ -123,8 +123,9 @@ async function nextDueAfter(
   deckId: Id<"decks"> | null,
   now: number,
 ) {
+  const scopedDeck = deckId ? await ctx.db.get(deckId) : null;
   const decks = deckId
-    ? new Set((await ctx.db.get(deckId))?.libraryId === library._id ? [deckId] : [])
+    ? new Set(scopedDeck?.libraryId === library._id && !scopedDeck.staging ? [deckId] : [])
     : await activeDeckIds(ctx, library._id);
   let earliest: number | null = null;
   for (const id of deckId ? (decks.has(deckId) ? [deckId] : []) : decks) {

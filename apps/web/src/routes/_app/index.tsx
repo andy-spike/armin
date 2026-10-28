@@ -26,7 +26,7 @@ import { Progress } from "@/components/ui/progress";
 import { DeckGridSkeleton } from "@/components/page-skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SortControl } from "@/components/sort-control";
-import { AnkiImportDialog, preloadAnkiImportDialog } from "@/components/anki-import-dialog-lazy";
+import { AnkiImportDialog } from "@/components/anki-import-dialog";
 import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
 import { useToast } from "@/components/ui/toast";
 import { DECK_SORT_OPTIONS, sortDecks, type DeckSortKey } from "@/lib/sort-decks";
@@ -213,12 +213,7 @@ function DecksPage() {
 
 function ImportButton({ onClick }: { onClick: () => void }) {
   return (
-    <Button
-      variant="outline"
-      onClick={onClick}
-      onPointerEnter={preloadAnkiImportDialog}
-      onFocus={preloadAnkiImportDialog}
-    >
+    <Button variant="outline" onClick={onClick}>
       <Upload className="h-4 w-4" /> Import from Anki
     </Button>
   );

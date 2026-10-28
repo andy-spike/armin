@@ -6,12 +6,14 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "predev": "node ../../scripts/build-anki-kit.mjs",
     "dev": "vp dev",
+    "prebuild": "node ../../scripts/build-anki-kit.mjs",
     "build": "vp build",
     "start": "vp preview --port 3000 --strictPort",
-    "build:cloudflare": "vp build --mode cloudflare",
-    "preview:cloudflare": "vp build --mode cloudflare && vp preview --mode cloudflare",
-    "deploy": "vp build --mode cloudflare && wrangler deploy"
+    "build:cloudflare": "node ../../scripts/build-anki-kit.mjs && vp build --mode cloudflare",
+    "preview:cloudflare": "pnpm build:cloudflare && vp preview --mode cloudflare",
+    "deploy": "pnpm build:cloudflare && wrangler deploy"
   },
   "dependencies": {
     "@armin/backend": "workspace:*",

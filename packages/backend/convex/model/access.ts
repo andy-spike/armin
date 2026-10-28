@@ -58,7 +58,7 @@ export async function owned<
   T extends "decks" | "flashcards" | "reviewUnits" | "reviewLogs" | "exports",
 >(ctx: QueryCtx, library: Doc<"libraries">, id: Id<T>): Promise<Doc<T> | null> {
   const doc = (await ctx.db.get(id)) as (Doc<T> & { libraryId: Id<"libraries"> }) | null;
-  if (!doc || doc.libraryId !== library._id) return null;
+  if (!doc || doc.libraryId !== library._id || ("staging" in doc && doc.staging)) return null;
   if ("deckId" in doc) {
     // Moved cards keep historical log.deckId; ownership follows the unit's
     // current deck, just as export and Undo do.
@@ -68,7 +68,7 @@ export async function owned<
         : (doc.deckId as Id<"decks">);
     if (!deckId) return null;
     const deck = await ctx.db.get(deckId);
-    if (!deck || deck.libraryId !== library._id) return null;
+    if (!deck || deck.libraryId !== library._id || deck.staging) return null;
   }
   return doc;
 }
@@ -98,7 +98,9 @@ export async function activeDeckIds(ctx: QueryCtx, libraryId: Id<"libraries">) {
         .query("decks")
         .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
         .collect()
-    ).map((deck) => deck._id),
+    )
+      .filter((deck) => !deck.staging)
+      .map((deck) => deck._id),
   );
 }
 

@@ -1,15 +1,16 @@
 # Anki import runs in the browser; the server only sees validated cards
 
 Users import Anki decks (`.apkg`, `.colpkg`, and plain-text exports) from the web
-app. The file is opened and converted **in the browser**, in a Web Worker, and
+app. The file is read **in the browser** in a Web Worker, converted locally, and
 the backend receives ordinary flashcard input in batches through
 `convex/imports.ts`.
 
 ## Why
 
-- Anki packages with media are often hundreds of megabytes. Convex HTTP
-  request bodies and action memory are far smaller, so uploading the package for
-  server-side parsing would fail exactly for the decks people most want to move.
+- Anki packages with media are often hundreds of megabytes. Direct File Storage
+  uploads can accept large files, but hosted Node action memory is bounded. Our
+  benchmark found that compressed inputs can expand beyond that budget. Keeping
+  parsing local avoids building and operating a separate cloud processor.
 - Images already have a trusted path: `/upload-image` sniffs the bytes,
   content-addresses the file, and enforces the per-library quota. The importer
   uploads each referenced image through it rather than adding a second one.
@@ -46,3 +47,21 @@ the backend receives ordinary flashcard input in batches through
   preview names each loss before anything is imported.
 - The beta library limits still apply. The preview blocks a selection that would
   exceed them and lets the user import a subset of decks.
+
+## Assistant-assisted import
+
+The app recommends an assistant route while keeping browser import directly
+available. `get_anki_import_guide` provides a versioned, checksummed kit that
+reuses this converter and reader. A capable agent executes it in its own Node
+workspace; Armin never parses the archive in the cloud. File access and code
+execution are required, and hosted chat compatibility must be verified rather
+than inferred from MCP connectivity.
+
+Assistant imports preserve supported images, start fresh, and create new decks.
+Unresolved content requires a requested repair or an explicit skip. Polishing
+is a separate user request. After reviewing the final preview, the user approves
+its content commitment. Staging and bounded materialization keep incomplete
+imports hidden until all decks publish together. The backend rechecks ownership,
+active grants, quotas, and cancellation, and cleans up abandoned sessions.
+Ordinary agent authoring stays text-only; media upload is scoped to a staging
+import. See [assistant import](../../../../docs/anki-assistant-import.md).

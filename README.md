@@ -85,15 +85,30 @@ backend and web app from `master` as described in
 
 ## Importing from Anki
 
-Settings → Data → Import, or **Import from Anki** on the deck list, brings in
-Anki decks (`.apkg`), whole collections (`.colpkg`, from Anki 2.1 through
-current releases), and plain-text exports (`.txt`, `.csv`, `.tsv`). Each Anki
-deck becomes an Armin deck; Basic, reversed, typed-answer, Cloze, and Image
-Occlusion notes map to the matching Armin card types, and other note types are
-rendered from their templates. Images and, optionally, review progress come
-along; audio and video don't. The file is read in the browser and the preview
-lists anything left out before importing. See
-[ADR 0022](packages/core/docs/adr/0022-anki-import-runs-in-the-browser.md).
+Settings → Data → Import, or **Import from Anki** on the deck list, offers two
+routes.
+
+**Recommended: import with an AI assistant.** A connected assistant receives
+the Anki file, downloads Armin's versioned converter kit, and runs it in its own
+sandbox. The kit uses the same deterministic converter and file reader as the
+browser, extracts supported images, and reports warnings and unresolved notes.
+The assistant stages the result, shows a final preview, and saves only after you
+approve it. Large or image-heavy decks benefit most: unsupported cards can be
+repaired on request, or explicitly skipped with a reason. MCP imports always
+start fresh, with no Anki due dates or review history. The route needs an
+assistant with file access and a sandbox that can run Node.js 20, 22, or 24; chat
+clients without those capabilities should use browser import.
+
+**Browser import** remains directly available and unchanged. It brings in Anki
+decks (`.apkg`), whole collections (`.colpkg`, from Anki 2.1 through current
+releases), and plain-text exports (`.txt`, `.csv`, `.tsv`). Each Anki deck
+becomes an Armin deck; Basic, reversed, typed-answer, Cloze, and Image Occlusion
+notes map to the matching Armin card types, and other note types are rendered
+from their templates. Images and, optionally, review progress come along; audio
+and video don't. The file is read in the browser and the preview lists anything
+left out before importing. See
+[ADR 0022](packages/core/docs/adr/0022-anki-import-runs-in-the-browser.md) and
+[AI assistant Anki import](docs/agent-connections.md#anki-import).
 
 ## Equations
 

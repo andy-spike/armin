@@ -1,6 +1,6 @@
 # Connect your AI assistant to Armin
 
-Armin's hosted MCP server lets your assistant create study cards, link prerequisites, and manage the decks you authorize. Your assistant reads the material you provide and writes the cards; Armin stores them and schedules your reviews.
+Armin's hosted MCP server lets your assistant create study cards, link prerequisites, import Anki decks, and manage the decks you authorize. Your assistant reads the material you provide and writes the cards; Armin stores them and schedules your reviews.
 
 You need an [Armin account](/sign-up) with a verified email and an assistant that supports remote MCP servers with OAuth. Your assistant provider's plan and workspace restrictions apply. Nothing needs to run on your computer for the hosted connection.
 
@@ -61,6 +61,22 @@ codex mcp login armin
 
 Approve the connection in the Armin page that opens. Use a current client version that supports remote MCP and OAuth.
 
+## Import an Anki deck
+
+Give your assistant an Anki `.apkg`, `.colpkg`, or text export and ask it to
+import the deck into Armin. It downloads Armin's versioned converter kit, runs it
+in its own sandbox, shows a preview, and saves through a staged import after you
+approve the final counts. Supported images are preserved. MCP imports always
+start fresh, without Anki due dates or review history.
+
+This route needs an assistant that can receive the file and run Node.js 20, 22,
+or 24. A chat client without file access or code execution cannot run the
+converter; use **Import from Anki** in Armin's deck list instead. Conversion is
+deterministic. Unsupported cards are repaired only if you ask; otherwise they are
+explicitly skipped with a reason. The assistant must not infer prerequisites or
+polish cards unless you ask, and it cannot finalize until every source card has a
+disposition and you approve the preview.
+
 ## Choose what your assistant can access
 
 Every new connection asks for your approval. By default, it can create new decks and manage the work it creates, and cannot read your other decks.
@@ -92,19 +108,24 @@ Open the returned deck link to inspect the result and study in Armin. Review gen
 
 ## Available tools
 
-| Tool                 | What it does                                                                                                        |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `list_decks`         | Lists decks the connection can access and its permission summary.                                                   |
-| `read_deck`          | Reads a deck's cards and versions, up to 20 cards per page.                                                         |
-| `read_prerequisites` | Reads a deck's prerequisite links.                                                                                  |
-| `save_cards`         | Saves 1–50 text cards and up to 100 prerequisite links in one atomic batch, in a new or authorized deck.            |
-| `update_card`        | Edits one card, checking its version and preserving existing review items.                                          |
-| `set_card_archived`  | Archives or unarchives one card without deleting its review history.                                                |
-| `update_deck`        | Changes a deck's name or description.                                                                               |
-| `set_prerequisite`   | Adds or removes a same-deck prerequisite link, rejecting cycles.                                                    |
-| `move_card`          | Moves a card between authorized decks while preserving study state; refuses to silently discard prerequisite links. |
+| Tool                                          | What it does                                                                                                        |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `list_decks`                                  | Lists decks the connection can access and its permission summary.                                                   |
+| `read_deck`                                   | Reads a deck's cards and versions, up to 20 cards per page.                                                         |
+| `read_prerequisites`                          | Reads a deck's prerequisite links.                                                                                  |
+| `save_cards`                                  | Saves 1–50 text cards and up to 100 prerequisite links in one atomic batch, in a new or authorized deck.            |
+| `update_card`                                 | Edits one card, checking its version and preserving existing review items.                                          |
+| `set_card_archived`                           | Archives or unarchives one card without deleting its review history.                                                |
+| `update_deck`                                 | Changes a deck's name or description.                                                                               |
+| `set_prerequisite`                            | Adds or removes a same-deck prerequisite link, rejecting cycles.                                                    |
+| `move_card`                                   | Moves a card between authorized decks while preserving study state; refuses to silently discard prerequisite links. |
+| `get_anki_import_guide`                       | Returns Armin's versioned Anki converter kit, checksum, upload protocol, and limits.                                |
+| `anki_import_start` / `anki_import_add_batch` | Stages converted Anki cards and supported images without exposing them in the library.                              |
+| `anki_import_preview` / `anki_import_status`  | Shows the final manifest, unresolved dispositions, progress, and deck links.                                        |
+| `anki_import_upload_token`                    | Issues a scoped token for one import's image upload endpoint.                                                       |
+| `anki_import_finalize` / `anki_import_cancel` | Commits an approved import into new decks, or removes the staging session.                                          |
 
-Supported card types are basic, reversed, cloze, and typed-answer. The assistant cannot permanently delete cards or decks, upload images, rate reviews, change scheduling, export your library, or administer your account. Edits that would remove existing review items or change image content must be performed in Armin.
+Supported authoring card types are basic, reversed, cloze, and typed-answer. Anki import additionally preserves image occlusion and supported image files through its scoped upload. The assistant cannot permanently delete cards or decks, rate reviews, change scheduling, export your library, or administer your account. Edits that would remove existing review items or change existing image content must be performed in Armin.
 
 Each connection can make up to 120 successful authoring writes per hour. An account can have up to 20 active connections. Normal library quotas also apply. Large card sets need multiple batches; each batch succeeds or fails as a unit. Stale edits are rejected instead of overwriting a newer change.
 

@@ -381,6 +381,11 @@ function ConnectGuide({ another }: { another: boolean }) {
         <div className="mt-1.5">
           <CodeLine text={EXAMPLE_PROMPT} label="Copy example request" wrap />
         </div>
+        <p className="mt-3 text-[0.8125rem] text-muted">
+          To bring over an Anki deck, give the assistant the file and ask it to import it into
+          Armin. That route needs file access and a sandbox that can run Node.js; the assistant
+          downloads Armin’s converter, shows a preview, and saves only after you approve it.
+        </p>
       </Step>
     </Section>
   );

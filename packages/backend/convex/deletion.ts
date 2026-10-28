@@ -147,6 +147,9 @@ const LIBRARY_TABLES: [TableNames, string][] = [
   ["agentRequests", "by_library"],
   ["agentRateLimits", "by_library"],
   ["imports", "by_library_status"],
+  ["agentImportCards", "by_library"],
+  ["agentImportMedia", "by_library"],
+  ["agentImports", "by_library"],
   // Before units and flashcards, so deleting those finds no summary to rebuild.
   ["flashcardSummaries", "by_library_created"],
   ["deckCounters", "by_library"],
@@ -232,7 +235,9 @@ export async function cleanupLibraryData(
     if (reset && RESET_PRESERVED_TABLES.has(table)) continue;
     if (budget <= 0) break;
     const limit =
-      table === "reviewUnits" || table === "flashcards" ? Math.min(budget, CONTENT_BATCH) : budget;
+      table === "reviewUnits" || table === "flashcards" || table === "agentImportCards"
+        ? Math.min(budget, CONTENT_BATCH)
+        : budget;
     const rows = await ctx.db
       .query(table)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
