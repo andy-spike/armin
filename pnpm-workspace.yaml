@@ -47,6 +47,8 @@ catalog:
   vite-plus: 1.4.0
 overrides:
   vite@*: "catalog:"
+  # @tanstack/redact/cloudflare requires Miniflare to resolve this Undici fix.
+  miniflare>undici: 7.30.1
 peerDependencyRules:
   allowAny:
     - vite
