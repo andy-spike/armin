@@ -1,51 +1,40 @@
 # AGENTS.md
 
-## Agent skills
+## Start here
 
-### Issue tracker
+Read @README.md first. The repo is a pnpm monorepo on the Vite+ toolchain (`vp`):
 
-Issues are tracked in GitHub Issues (`andy-spike/armin`) via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+- `apps/web` — TanStack Start web client
+- `apps/mobile` — Expo mobile client
+- `packages/backend` — Convex + Better Auth (`@armin/backend`)
+- `packages/core` — portable study domain (`@armin/core`)
 
-### Triage labels
+Never use npm or yarn, and don't commit `package-lock.json`.
 
-Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+## Git workflow
 
-### Domain docs
+- Work on the branch and checkout the user names.
+- Open a PR only when the user explicitly asks for one; otherwise leave the work in the checkout.
+- Never push directly to `master`. A PR must be up to date and pass the required `Verify` check before merging through GitHub.
+- Keep task branches and worktrees unless the user requests cleanup. Report deployment only when it is verified.
+- In a worktree, read @docs/dev-worktrees.md before starting servers, pushing Convex code, or seeding data, and use `pnpm worktree:setup` plus the root `pnpm dev*` launchers.
 
-Multi-context monorepo. `CONTEXT-MAP.md` at the repo root indexes each context's
-own `CONTEXT.md` and `docs/adr/` (e.g. the study domain under `packages/core/`).
-System-wide decisions live in the root `docs/adr/`. See `docs/agents/domain.md`.
+## Validate
 
-## Agent worktrees
+- `pnpm check` — format, lint, and typecheck across all workspaces. `pnpm format` fixes formatting. Lint and format settings live only in the root `vite.config.ts`; keep scripts in their workspace.
+- For web, backend, or mobile changes also run `pnpm --filter @armin/web build`, the mobile bundle check, and a running-app walkthrough recorded under `docs/qa/`. Never describe an emulated viewport as a real device or browser.
+- Add no new unit, integration, or E2E suites (user decision).
 
-Every repository change, including features, fixes, documentation, and configuration,
-must be made on a task branch in a separate worktree managed by T3 Code. Before
-editing, verify the current branch and checkout. If the session is on `master` or
-in the main checkout, move the task to a T3 Code worktree before making changes.
+## Code rules
 
-Open a GitHub PR targeting `master`, the default branch and release source. Merge
-through GitHub only after the required `Verify` check passes on an up-to-date PR
-and any requested review is resolved. Never push directly to `master`, bypass its
-protections, or merge a task into local `master` with Worktrunk. Keep the task
-branch and worktree available unless the user requests cleanup. Treat production
-deployment as a separate step and report it only when deployment is verified.
+- Put code in `packages/core/` only when it is free of Electron, Node, and database-driver APIs.
+- Components use Base UI, never Radix UI, unless the user explicitly asks for the Radix API.
+- Dialog actions keep a static label; show progress with the `busy` prop on `Button`, never a busy verb like "Deleting…". See @packages/core/docs/adr/0016-dialog-action-labels-stay-static.md.
+- Don't use return types unless a shared library needs them.
+- Backend: read @packages/backend/README.md first. Ownership derives from the session's library, study writes stay in single Convex mutations, and clients import only `@armin/backend/api` and `@armin/backend/types`. Commit regenerated `packages/backend/convex/_generated` and `apps/web/src/routeTree.gen.ts`.
+- Mobile: read @apps/mobile/README.md before changing dependencies or native setup.
 
-Before starting servers, pushing Convex code, or seeding data in a task worktree,
-read `docs/dev-worktrees.md`. Use `pnpm worktree:setup` and the root `pnpm dev*`
-launchers for the checkout's isolated deployment, URLs, ports, and sample account.
+## Docs and issues
 
-## Notes
-
-- The project context is described in @README.md . Always read the file when starting a new session.
-- The repository is a pnpm monorepo using the Vite+ toolchain (`vp`). The web client lives in `apps/web/`, the Expo mobile client in `apps/mobile/`, the Convex backend in `packages/backend/`, and the portable study domain in `packages/core/` (`@armin/core`). Keep project scripts in their workspace. Run root `pnpm check` (format, lint, and type checks across all workspaces); `pnpm format` fixes formatting. Lint and format settings live only in the root `vite.config.ts`. See @docs/adr/0003-vite-plus-toolchain.md .
-- Before changing the mobile app's dependencies or native setup, read `apps/mobile/README.md` for the Expo Go workflow and shared-core runtime requirements.
-- The web SaaS migration lives in `apps/web` (TanStack Start client) and `packages/backend` (`@armin/backend`, Convex + Better Auth). Read `packages/backend/README.md` before changing backend functions: every function derives ownership from the session's library, and study writes stay in single Convex mutations. Clients import only `@armin/backend/api` and `@armin/backend/types`. Commit regenerated `packages/backend/convex/_generated` and `apps/web/src/routeTree.gen.ts`.
-- The web migration adds no new unit, integration, or E2E suites (user decision). Validate web/backend/mobile changes with `pnpm check`, `pnpm --filter @armin/web build`, the mobile bundle check, and a running-app walkthrough; record walkthroughs under `docs/qa/` and never describe an emulated viewport as a real device or browser.
-- Use pnpm, never npm or yarn. Don't commit `package-lock.json`.
-- Put code in `packages/core/` only when it is free of Electron, Node, and database-driver APIs, so every client can run it.
-- Shadcn uses Base UI instead of Radix UI. Use only Base UI, unless the user explictly asks to use the Radix UI API.
-- Dialog action buttons keep a static label. Show "running" with the `busy` prop on `Button`, never by swapping the label to a busy verb ("Deleting…"), which flashes during the dialog's close animation. See @packages/core/docs/adr/0016-dialog-action-labels-stay-static.md .
-
-## TypeScript styling notes
-
-- Don't use return types unless they are needed for a shared library.
+- `CONTEXT-MAP.md` indexes each context's `CONTEXT.md` and `docs/adr/`; system-wide decisions live in the root `docs/adr/`.
+- Issues are tracked in GitHub Issues (`andy-spike/armin`) via the `gh` CLI. Triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/`.
