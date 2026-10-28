@@ -119,7 +119,7 @@ unavailable; the plugin still works without it.
 
 ## After a listing goes live
 
-In `apps/web/src/components/agent-settings.tsx`, set `directory.listed` to
-`true` for the client whose listing went live. Settings → AI assistants then
+In `apps/web/src/components/ai-setup-guide.tsx`, set `directory.listed` to
+`true` for the client whose listing went live. The AI setup page then
 sends Claude or ChatGPT users to the plugin directory instead of the custom
 connector steps. Coding agents keep connecting with the MCP commands.
