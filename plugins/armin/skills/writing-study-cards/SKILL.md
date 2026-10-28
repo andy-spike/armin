@@ -62,7 +62,7 @@ Armin card types and when to reach for each:
 
 Default to `basic`. Don't cram multiple facts into one card to save types — make more cards instead.
 
-Image occlusion cards also exist, but only people create them in Armin itself; the assistant tools save text cards. If a unit is genuinely visual, describe it in a `basic` card or suggest the learner add an image occlusion card.
+Image occlusion cards also exist. Importing an Anki file preserves supported ones through the scoped Anki import route; ordinary `save_cards` and editing tools still save text cards only. If a visual unit is not part of an Anki import, describe it in a `basic` card or suggest the learner add an image occlusion card.
 
 ### 6. Wire prerequisites
 

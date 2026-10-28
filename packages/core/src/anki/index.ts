@@ -2,3 +2,4 @@
 export * from "./types";
 export { armDeckName, convertAnkiCollection } from "./convert";
 export { resolveImportMedia } from "./resolve-media";
+export { ANKI_KIT } from "./kit";

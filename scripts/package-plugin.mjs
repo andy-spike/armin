@@ -21,24 +21,24 @@ const claudeUrl = readJson(".mcp.json").mcpServers.armin?.url;
 if (!openaiUrl || openaiUrl !== claudeUrl)
   problems.push("mcp.json and .mcp.json must point the armin server at the same URL.");
 
-// The repository also publishes the skill for `npx skills add`; keep both copies identical.
+// The repository also publishes each skill for `npx skills add`; keep both copies identical.
 const files = (dir) =>
   readdirSync(dir, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => relative(dir, join(entry.parentPath, entry.name)))
     .sort();
-const bundled = join(plugin, "skills/writing-study-cards");
-const published = join(root, ".agents/skills/writing-study-cards");
-const bundledFiles = files(bundled);
-if (
-  bundledFiles.join() !== files(published).join() ||
-  bundledFiles.some(
-    (file) => !readFileSync(join(bundled, file)).equals(readFileSync(join(published, file))),
+for (const skill of ["writing-study-cards", "importing-anki-decks"]) {
+  const bundled = join(plugin, "skills", skill);
+  const published = join(root, ".agents/skills", skill);
+  const bundledFiles = files(bundled);
+  if (
+    bundledFiles.join() !== files(published).join() ||
+    bundledFiles.some(
+      (file) => !readFileSync(join(bundled, file)).equals(readFileSync(join(published, file))),
+    )
   )
-)
-  problems.push(
-    "plugins/armin/skills/writing-study-cards differs from .agents/skills/writing-study-cards.",
-  );
+    problems.push(`plugins/armin/skills/${skill} differs from .agents/skills/${skill}.`);
+}
 
 if (problems.length) {
   for (const problem of problems) console.error(problem);

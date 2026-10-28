@@ -36,7 +36,7 @@ async function resolveDeckScope(
   const deckId = ctx.db.normalizeId("decks", deckIdArg);
   if (!deckId) return { ok: false as const };
   const deck = await ctx.db.get(deckId);
-  if (!deck || deck.libraryId !== library._id) return { ok: false as const };
+  if (!deck || deck.libraryId !== library._id || deck.staging) return { ok: false as const };
   return { ok: true as const, deckId };
 }
 

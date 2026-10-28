@@ -93,6 +93,7 @@ export async function requireDeck(
   deckId: Id<"decks">,
 ) {
   const deck = await ctx.db.get(deckId);
-  if (!deck || deck.libraryId !== connection.libraryId) fail("NOT_FOUND", "Deck not found.");
+  if (!deck || deck.libraryId !== connection.libraryId || deck.staging)
+    fail("NOT_FOUND", "Deck not found.");
   return deck;
 }

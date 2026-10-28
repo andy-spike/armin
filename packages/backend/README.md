@@ -96,10 +96,10 @@ Client entry points (see `package.json` `exports`):
 
 ## Anki import
 
-The web client parses an Anki file, converts it with `@armin/core/anki`, uploads
-images through `/upload-image`, and sends the result to `convex/imports.ts` in
-batches. Every function uses the first-party session and checks `libraryId`;
-imported cards have no prerequisites and are never locked.
+Browser import: the web client parses an Anki file, converts it with
+`@armin/core/anki`, uploads images through `/upload-image`, and sends the result
+to `convex/imports.ts` in batches. Every function uses the first-party session and
+checks `libraryId`; imported cards have no prerequisites and are never locked.
 
 | Function                         | Does                                                                                                                                             |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -109,6 +109,19 @@ imported cards have no prerequisites and are never locked.
 | `imports.finish`                 | Needs every declared card and review to have arrived, then closes the import.                                                                    |
 | `imports.cancel`                 | Stops the import, then deletes every deck it made in scheduled jobs, one deck per transaction. Clients call it on any failure.                   |
 | `imports.get`, `imports.current` | Status of one import, or of the library's running import (to resume or cancel after a reload).                                                   |
+
+Agent import: `convex/agentImports.ts` runs the staged MCP route. The assistant
+downloads and runs the versioned converter kit itself; the backend never receives
+the archive. Cards stay in `agentImportCards` while staging. Finalization creates
+hidden `decks` (`staging: true`), writes cards in batches, and only then publishes
+the decks together. `activeDeckIds`, deck queries, Browse, queues, exports, and
+agent reads exclude staging decks. Uploads for one session go through
+`POST /agent-imports/{importId}/media` with a scoped token from
+`anki_import_start`, never an arbitrary URL. The existing 2,000-card and
+10,000-review-unit caps are checked at start, per batch, and at commit.
+`agentImports.sweep` expires sessions after 24 hours; `cleanupImport` releases
+staging cards and import-only media tracking. See
+[assistant Anki import](../../docs/anki-assistant-import.md).
 
 Rules:
 

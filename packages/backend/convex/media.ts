@@ -186,6 +186,18 @@ export const collectUnreferenced = internalMutation({
         .withIndex("by_library_file", (q) => q.eq("libraryId", libraryId).eq("fileName", fileName))
         .first();
       if (reference) continue;
+      const staging = await ctx.db
+        .query("agentImportMedia")
+        .withIndex("by_library_file", (q) => q.eq("libraryId", libraryId).eq("fileName", fileName))
+        .first();
+      if (staging) {
+        // A staged import still owns this image; check again after it finishes or expires.
+        await ctx.scheduler.runAfter(60 * 60_000, internal.media.collectUnreferenced, {
+          libraryId,
+          fileNames: [fileName],
+        });
+        continue;
+      }
       const media = await ctx.db
         .query("media")
         .withIndex("by_library_file", (q) => q.eq("libraryId", libraryId).eq("fileName", fileName))

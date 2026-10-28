@@ -84,12 +84,14 @@ export const read = internalQuery({
         .withIndex("by_library", (q) => q.eq("libraryId", library._id))
         .collect();
       return {
-        decks: decks.map((deck) => ({
-          id: deck._id,
-          name: deck.name,
-          description: deck.description,
-          version: deck.version,
-        })),
+        decks: decks
+          .filter((deck) => !deck.staging)
+          .map((deck) => ({
+            id: deck._id,
+            name: deck.name,
+            description: deck.description,
+            version: deck.version,
+          })),
         retryWindowDays: 7,
       };
     }

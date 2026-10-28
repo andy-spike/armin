@@ -60,11 +60,11 @@ The plugin runs no programs on your computer and has no hooks.
 ## Access
 
 You approve every connection in Armin and can disconnect it at any time under
-Settings → AI assistants. One approval gives the assistant all nine Armin tools
+Settings → AI assistants. One approval gives the assistant Armin authoring and import tools
 on your whole library, including decks and cards you add later. There are no
 per-deck, read-only, or edit/create access options.
 
-The assistant cannot permanently delete cards or decks, upload images, rate
+The assistant cannot permanently delete cards or decks, rate
 reviews or change scheduling, export your library, or change your account.
 Archiving a card is reversible and keeps its review history. Each connection
 allows up to 120 successful writes per hour, and an account can have up to 20
@@ -84,3 +84,13 @@ the material. Your AI provider's own policies cover the conversation.
 Report problems in [GitHub Issues](https://github.com/andy-spike/armin/issues).
 Armin's [privacy policy](https://armincards.app/privacy) and
 [terms](https://armincards.app/terms) apply.
+
+## Anki import
+
+A capable assistant can call `get_anki_import_guide`, download and checksum the
+maintained kit, and run it with Node.js and file access. Conversion happens in
+its workspace. Images use a scoped upload endpoint; normalized cards stay in a
+resumable staging session until the user approves the final preview. Unsupported
+content needs requested repair or an explicit skip. Polishing is a separate
+request. New imported decks start fresh; browser import remains available and
+can preserve Anki progress. See [the import guide](../../docs/anki-assistant-import.md).

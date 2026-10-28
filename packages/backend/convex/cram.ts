@@ -43,7 +43,7 @@ async function readableDeck(ctx: Parameters<typeof readableLibrary>[0], deckIdAr
   const deckId = ctx.db.normalizeId("decks", deckIdArg);
   if (!deckId) return null;
   const deck = await ctx.db.get(deckId);
-  if (!deck || deck.libraryId !== library._id) return null;
+  if (!deck || deck.libraryId !== library._id || deck.staging) return null;
   return { library, deckId };
 }
 

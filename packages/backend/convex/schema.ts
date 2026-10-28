@@ -47,6 +47,25 @@ const importCounts = v.object({
   reviewLogs: v.number(),
 });
 
+const agentImportCounts = v.object({
+  flashcards: v.number(),
+  reviewUnits: v.number(),
+  skipped: v.number(),
+});
+
+const agentImportTotals = v.object({
+  flashcards: v.number(),
+  reviewUnits: v.number(),
+  mediaFiles: v.number(),
+});
+
+const agentImportDeck = v.object({
+  key: v.string(),
+  name: v.string(),
+  ankiName: v.string(),
+  cardCount: v.number(),
+});
+
 export default defineSchema({
   /**
    * Retired dynamic client registration. No code writes these rows; the hourly
@@ -208,6 +227,8 @@ export default defineSchema({
     name: v.string(),
     description: v.union(v.string(), v.null()),
     version: v.number(),
+    /** True while an MCP import is materializing cards; excluded from every normal read. */
+    staging: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_library", ["libraryId"]),
@@ -442,6 +463,107 @@ export default defineSchema({
   })
     .index("by_library_status", ["libraryId", "status"])
     .index("by_status_updated", ["status", "updatedAt"]),
+
+  /**
+   * An MCP Anki import. Cards stay in `agentImportCards` while staging; only
+   * finalization creates hidden decks, and those decks become visible together
+   * after every card is written. An abandoned session expires.
+   */
+  agentImports: defineTable({
+    libraryId: v.id("libraries"),
+    connectionId: v.id("agentConnections"),
+    status: v.union(
+      v.literal("staging"),
+      v.literal("materializing"),
+      v.literal("finalized"),
+      v.literal("cancelled"),
+      v.literal("failed"),
+      v.literal("expired"),
+    ),
+    fileName: v.string(),
+    sourceSha256: v.string(),
+    kitVersion: v.string(),
+    decks: v.array(agentImportDeck),
+    /** Kit totals, kept for the preview and manifest. */
+    totals: agentImportTotals,
+    counts: agentImportCounts,
+    polished: v.number(),
+    repaired: v.number(),
+    materialized: v.number(),
+    warnings: v.array(v.object({ code: v.string(), count: v.number(), message: v.string() })),
+    /** Converter plan keys that must each be imported or explicitly skipped. */
+    planKeys: v.array(v.string()),
+    /** Keys already staged. Kept on the row so preview and finalize read no card bodies. */
+    stagedKeys: v.array(v.string()),
+    /** Deck keys that actually received a card; empty declarations are not materialized. */
+    usedDeckKeys: v.array(v.string()),
+    unresolved: v.array(v.object({ key: v.string(), deckKey: v.string(), reason: v.string() })),
+    skipped: v.array(v.object({ key: v.string(), reason: v.string() })),
+    materializedDecks: v.array(v.object({ key: v.string(), deckId: v.id("decks") })),
+    changes: v.optional(
+      v.array(
+        v.object({
+          key: v.string(),
+          origin: v.union(v.literal("repaired"), v.literal("polished")),
+        }),
+      ),
+    ),
+    contentDigest: v.optional(v.string()),
+    previewChecksum: v.optional(v.string()),
+    uploadTokenHash: v.optional(v.string()),
+    uploadTokenExpiresAt: v.optional(v.number()),
+    result: v.optional(
+      v.object({
+        decks: v.array(v.object({ key: v.string(), name: v.string(), deckId: v.id("decks") })),
+        flashcards: v.number(),
+        reviewUnits: v.number(),
+        skipped: v.number(),
+        polished: v.number(),
+        repaired: v.number(),
+      }),
+    ),
+    error: v.optional(v.string()),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_library", ["libraryId"])
+    .index("by_library_status", ["libraryId", "status"])
+    .index("by_status_updated", ["status", "updatedAt"])
+    .index("by_library_updated", ["libraryId", "updatedAt"])
+    .index("by_connection_updated", ["connectionId", "updatedAt"]),
+
+  /** Normalized cards waiting for finalization. Never visible in the library. */
+  agentImportCards: defineTable({
+    libraryId: v.id("libraries"),
+    connectionId: v.id("agentConnections"),
+    importId: v.id("agentImports"),
+    seq: v.number(),
+    key: v.string(),
+    deckKey: v.string(),
+    type: v.string(),
+    content: v.string(),
+    tags: v.array(v.string()),
+    origin: v.union(v.literal("converter"), v.literal("repaired"), v.literal("polished")),
+    createdAt: v.number(),
+  })
+    .index("by_import_seq", ["importId", "seq"])
+    .index("by_import_key", ["importId", "key"])
+    .index("by_library", ["libraryId"]),
+
+  /** Media uploaded for one staging import; cleanup preserves shared images. */
+  agentImportMedia: defineTable({
+    libraryId: v.id("libraries"),
+    connectionId: v.id("agentConnections"),
+    importId: v.id("agentImports"),
+    fileName: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_import_file", ["importId", "fileName"])
+    .index("by_import", ["importId"])
+    .index("by_library_file", ["libraryId", "fileName"])
+    .index("by_library", ["libraryId"])
+    .index("by_created", ["createdAt"]),
 
   exports: defineTable({
     libraryId: v.id("libraries"),

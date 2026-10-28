@@ -3,6 +3,7 @@ import { defineConfig } from "vite-plus";
 // Generated code, recorded QA evidence, and vendored skills (hashed in
 // skills-lock.json) are never rewritten or linted.
 const ignored = [
+  ".anki-kit-build/**",
   "**/convex/_generated/**",
   "**/routeTree.gen.ts",
   "apps/web/src/components/brand-paths.ts",

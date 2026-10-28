@@ -1,7 +1,7 @@
 import { McpServer, tool, type McpUser, type ToolCtx } from "@convex-dev/mcp";
-import type { GenericValidator, Infer } from "convex/values";
+import { v, type GenericValidator, type Infer } from "convex/values";
 import { components, internal } from "./_generated/api";
-import { AGENT_SCOPE, hashSecret } from "./model/agentAuth";
+import { AGENT_SCOPE, hashSecret, newSecret, agentSiteUrl } from "./model/agentAuth";
 import {
   agentInstructions,
   agentToolArgs,
@@ -10,6 +10,12 @@ import {
   agentToolTitles,
   type AgentToolName,
 } from "./model/agentTools";
+
+import {
+  agentImportToolArgs,
+  agentImportToolDescriptions,
+  agentImportToolTitles,
+} from "./model/agentImportTools";
 
 /**
  * The hosted MCP server. The component owns OAuth, token storage, audience
@@ -60,6 +66,55 @@ const annotations = (name: AgentToolName) => ({
   openWorldHint: false,
 });
 
+const importReadOnly = new Set([
+  "get_anki_import_guide",
+  "anki_import_status",
+  "anki_import_preview",
+]);
+const importTools = Object.fromEntries(
+  (Object.keys(agentImportToolArgs) as (keyof typeof agentImportToolArgs)[]).map((name) => [
+    name,
+    tool({
+      title: agentImportToolTitles[name],
+      description: agentImportToolDescriptions[name],
+      args: agentImportToolArgs[name],
+      returns: v.any(),
+      scope: AGENT_SCOPE,
+      annotations: {
+        readOnlyHint: importReadOnly.has(name),
+        destructiveHint: name === "anki_import_cancel",
+        idempotentHint: name !== "anki_import_upload_token",
+        openWorldHint: false,
+      },
+      handler: async (ctx, input, user) => {
+        await ctx.runMutation(internal.agents.touchConnection, { user });
+        if (importReadOnly.has(name))
+          return ctx.runQuery(internal.agentImports.read, { user, tool: name, input });
+        const uploadToken =
+          name === "anki_import_start" || name === "anki_import_upload_token"
+            ? newSecret()
+            : undefined;
+        const result = await ctx.runMutation(internal.agentImports.write, {
+          user,
+          tool: name,
+          input,
+          fingerprint: await hashSecret(JSON.stringify({ tool: name, input })),
+          ...(uploadToken ? { uploadTokenHash: await hashSecret(uploadToken) } : {}),
+        });
+        return uploadToken && result.uploadTokenIssued
+          ? {
+              ...result,
+              uploadToken,
+              ...(typeof result.importId === "string"
+                ? { uploadUrl: `${agentSiteUrl()}/agent-imports/${result.importId}/media` }
+                : {}),
+            }
+          : result;
+      },
+    }),
+  ]),
+);
+
 /** Bound tool request bodies before the component parses JSON. */
 class ArminMcpServer extends McpServer<string> {
   override async handleMcp(ctx: ToolCtx, request: Request) {
@@ -104,6 +159,7 @@ export const mcp = new ArminMcpServer(components.mcp, {
   // Device authorization is off: browser consent is the only approval path.
   deviceFlow: false,
   tools: {
+    ...importTools,
     list_decks: tool({
       title: agentToolTitles.list_decks,
       description: agentToolDescriptions.list_decks,

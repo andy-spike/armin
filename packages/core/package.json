@@ -15,7 +15,8 @@
     "./media-ref": "./src/media-ref.ts",
     "./math": "./src/math.ts",
     "./math-render": "./src/math-render.ts",
-    "./anki": "./src/anki/index.ts"
+    "./anki": "./src/anki/index.ts",
+    "./anki-kit": "./src/anki/kit.ts"
   },
   "dependencies": {
     "katex": "^0.19.1",

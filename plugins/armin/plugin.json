@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "armin",
-  "version": "1.0.0",
-  "description": "Turn articles, notes, and documents into Armin spaced-repetition cards linked by prerequisites, so foundations unlock before the ideas built on them.",
+  "version": "1.1.0",
+  "description": "Turn articles, notes, documents, and Anki decks into Armin spaced-repetition cards, with prerequisites and a guided, image-preserving Anki import.",
   "author": {
     "name": "Andy Spike",
     "url": "https://armincards.app"
@@ -16,7 +16,7 @@
       "interface": {
         "displayName": "Armin",
         "shortDescription": "Turn reading into study cards",
-        "longDescription": "Armin is a spaced-repetition flashcard app whose cards form a prerequisite graph: a card stays locked until the cards it depends on are learned, and FSRS schedules every review.\n\nShare an article, lecture notes, a document, or code, and ask for study cards. The model reads the material, writes focused question-and-answer, cloze, reversed, and typed-answer cards, links foundations to the ideas built on them, and saves the deck to your Armin library with a link to start studying.\n\nYou approve each connection in Armin. One approval gives the assistant all nine Armin tools on your whole library, including decks and cards you add later. Armin never fetches web pages or runs a model itself, and the plugin cannot permanently delete cards or decks, upload images, change review history, or manage your account. Archiving a card is reversible.\n\nRequires an Armin account at armincards.app.",
+        "longDescription": "Armin is a spaced-repetition flashcard app whose cards form a prerequisite graph: a card stays locked until the cards it depends on are learned, and FSRS schedules every review.\n\nShare an article, lecture notes, a document, or code, and ask for study cards. The model reads the material, writes focused question-and-answer, cloze, reversed, and typed-answer cards, links foundations to the ideas built on them, and saves the deck to your Armin library with a link to start studying.\n\nYou approve each connection in Armin. One approval gives the assistant Armin authoring and import tools on your whole library, including decks and cards you add later. Armin never fetches web pages or runs a model itself, and the plugin cannot permanently delete cards or decks, change review history, or manage your account. Archiving a card is reversible.\n\nFor Anki exports, a capable assistant can download and run Armin’s deterministic converter, preserve supported images through scoped upload tools, and publish new decks after you approve the preview. Imports start fresh; requested repairs or polishing are separate. Requires file access and Node.js execution.\n\nRequires an Armin account at armincards.app.",
         "developerName": "Andy Spike",
         "category": "Education & Research",
         "capabilities": ["Create study decks", "Read decks", "Edit cards", "Link prerequisites"],

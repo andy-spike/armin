@@ -173,6 +173,31 @@ export type ImportFlashcard = {
   units: ImportReviewUnit[];
   /** Anki media file names this card's content references. */
   media: string[];
+  /** Which Anki rows this card came from, for previews and provenance. */
+  source?: {
+    noteId: string;
+    notetypeId: string;
+    ankiCardIds: string[];
+  };
+};
+
+export type ImportOmittedReason =
+  | "missing_notetype"
+  | "empty_content"
+  | "missing_image"
+  | "unsupported_image"
+  | "audio_only"
+  | "unusable_template";
+
+/** An Anki note that produced no Armin card, with enough context to repair it. */
+export type ImportOmitted = {
+  noteId: string;
+  notetypeId: string;
+  notetypeName: string;
+  deckId: string;
+  /** Anki cards on the note that had no imported counterpart. */
+  cardCount: number;
+  reason: ImportOmittedReason;
 };
 
 export type ImportWarningCode =
@@ -206,6 +231,8 @@ export type ImportPlan = {
   decks: ImportDeck[];
   flashcards: ImportFlashcard[];
   warnings: ImportWarning[];
+  /** Notes that produced no card. Empty or absent means every source note is represented. */
+  omitted?: ImportOmitted[];
   totals: {
     flashcards: number;
     reviewUnits: number;

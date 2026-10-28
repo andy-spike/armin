@@ -73,7 +73,7 @@ provisioning are included.
 ## Access and protection of existing work
 
 There is one access option. After the user approves a connection, its assistant
-can use all nine tools on the whole active library: every deck and card, plus
+can use all authoring and import tools on the whole active library: every deck and card, plus
 decks and cards added later. Consent and Settings have no per-deck selection,
 read-only sharing, or separate edit/create toggles. Disconnecting the assistant
 or deleting the account ends access.
@@ -84,21 +84,24 @@ accepted only by the agent endpoints, not as a first-party user session. Cards
 record which connection created them for provenance and activity; that record
 does not limit which library content an approved connection can use.
 
-Agents cannot permanently delete cards or decks, upload images, rate reviews,
-change scheduling, export a library, or administer accounts. Their archive tool
-is reversible and preserves study history. Card edits that would remove existing
-review-unit keys are rejected, because ordinary reconciliation would delete
-those units and their review history. Content edits involving existing images
-are also rejected; users perform these changes in Armin. Moving a card refuses
-to discard prerequisite links implicitly.
+Agents cannot permanently delete cards or decks, rate reviews, change
+scheduling, export a library, or administer accounts. Ordinary card authoring
+does not upload images. The separate Anki import route can upload PNG, JPEG,
+GIF, WebP, BMP, or AVIF images through a one-import scoped token, because
+preserving source images is part of faithful conversion; SVG, audio, video, and
+arbitrary URLs are refused. Their archive tool is reversible and preserves study
+history. Card edits that would remove existing review-unit keys are rejected,
+because ordinary reconciliation would delete those units and their review
+history. Content edits involving existing images are also rejected; users
+perform these changes in Armin. Moving a card refuses to discard prerequisite
+links implicitly.
 
 There is no new trash, universal version history, approval queue, or batch undo.
 Users inspect saved content in the ordinary deck and card screens.
 
 ## Authoring contract
 
-The server exposes nine tools. Each carries a display title and read-only or
-destructive annotations, which both plugin directories require:
+The server exposes the authoring tools below plus the [Anki import tools](#anki-import). Each carries a display title and read-only or destructive annotations, which both plugin directories require:
 
 | Tool                 | Behavior                                                                                     |
 | -------------------- | -------------------------------------------------------------------------------------------- |
@@ -131,6 +134,62 @@ MCP initialization includes card-writing guidance distilled from Armin's
 `writing-study-cards` skill, including focused retrieval, choosing types, and
 meaningful prerequisites. Stored cards and source text are treated as untrusted
 data rather than authority to perform actions.
+
+## Anki import
+
+The MCP server offers a staged route for Anki `.apkg`, `.colpkg`, and text
+exports. The assistant downloads Armin's versioned converter kit from
+`/anki-kit/armin-anki-kit-<version>.zip`, verifies its published SHA-256, and runs
+it in its own environment with Node.js. The kit reuses the browser's converter
+and reader, extracts supported images, and writes `plan.json`, `manifest.json`,
+`preview.html`, and content-addressed `media/` files. Conversion is
+deterministic and does not run anything from the source package.
+
+This is not a server-side archive converter. Armin never receives the original
+archive, and the backend does not parse it. The assistant must be able to access
+the file and execute code; chat clients without attachment access or a code
+sandbox are told to use browser import. The tested kit runtime is Node.js 24 on
+Linux x64; Node.js 20 and 22 are the supported code target but have not been
+verified here.
+
+The import uses these tools:
+
+| Tool                       | Behavior                                                                                                                               |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_anki_import_guide`    | Returns the kit URL, checksum, runtime requirements, upload protocol, limits, and exact workflow.                                      |
+| `anki_import_start`        | Creates a staging session from the kit's decks, every plan key, totals, warnings, and unresolved notes. Returns a scoped upload token. |
+| `anki_import_add_batch`    | Stages up to 100 cards and 1,500 review items, plus explicit skip reasons. Idempotent by request ID.                                   |
+| `anki_import_upload_token` | Issues a fresh token if the first one was lost; it is valid only for that staging import's media endpoint.                             |
+| `anki_import_preview`      | Returns final counts, skips, repairs, unresolved dispositions, and an approval checksum.                                               |
+| `anki_import_status`       | Reads progress or the final deck links.                                                                                                |
+| `anki_import_finalize`     | Requires the exact preview checksum and explicit confirmation, then materializes in bounded transactions.                              |
+| `anki_import_cancel`       | Cancels a staging or materializing import and removes its cards, decks, and unshared uploads.                                          |
+
+Media goes to `POST ${CONVEX_SITE_URL}/agent-imports/{importId}/media` with the
+scoped upload token, as raw bytes. The endpoint requires an active staging
+session, sniffs the actual image type, enforces the 10 MiB per-file and 80 MiB
+per-library limits, content-addresses the blob, and tracks it for that import.
+It accepts no URL, filename, or arbitrary storage key. Responses contain an
+`armin-media:` reference that already appears in the kit's content. The upload
+token is separate from the MCP access token so a coding agent can use curl
+without exposing its OAuth credential; it expires with the staging session.
+
+Staged cards and media-owned rows stay outside normal decks. Finalization creates
+hidden decks, writes cards in batches of 20, and flips the decks visible only
+after every staged card is present. If materialization fails or is cancelled,
+the hidden decks, cards, and unshared images are removed. Normal deck lists,
+Browse, queues, exports, and agent reads exclude staging decks. The current
+2,000-flashcard and 10,000-review-unit caps are checked when staging starts, on
+every batch, and again while committing. MCP imports always start fresh: the
+kit omits schedules and review history, and the server never writes either.
+
+Every converter plan key must be imported or explicitly skipped; every
+unresolved note must be repaired or explicitly skipped. `anki_import_finalize`
+rejects a session with any missing disposition, and it requires a checksum from
+an `anki_import_preview` of the exact staged state. AI polishing is separate,
+explicitly requested work; conversion alone never authorizes rewriting, and no
+prerequisites are inferred. Staging expires after 24 hours without activity.
+Record retention is 30 days, and cleanup is bounded.
 
 ## Bounds and operation
 

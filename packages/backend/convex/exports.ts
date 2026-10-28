@@ -129,7 +129,7 @@ export const snapshotCore = internalQuery({
       .query("libraryCounters")
       .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
       .unique();
-    const decks = await byLibrary("decks");
+    const decks = (await byLibrary("decks")).filter((deck) => !deck.staging);
     const ids = new Set(decks.map((deck) => deck._id));
     return {
       revision: counters?.revision ?? 0,

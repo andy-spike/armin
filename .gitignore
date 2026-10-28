@@ -97,6 +97,9 @@ docs/plans/
 # Production build
 dist/
 
+# Generated Anki converter kit (built by `pnpm anki:kit`)
+apps/web/public/anki-kit/
+
 # Test results
 test-results/
 

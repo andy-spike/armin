@@ -12,7 +12,7 @@ You need an [Armin account](/sign-up) with a verified email and an assistant tha
 
 - **Transport:** Streamable HTTP over HTTPS.
 - **Authentication:** OAuth authorization code flow with S256 PKCE and dynamic client registration. Choose OAuth in your client; no personal API key or manually supplied client secret is needed.
-- **Authorization scope:** `armin:author`. Library access is not a separate OAuth scope; approving the connection gives its assistant all nine tools on the whole library.
+- **Authorization scope:** `armin:author`. Library access is not a separate OAuth scope; approving the connection gives its assistant the authoring and import tools on the whole library.
 
 The server URL is an integration endpoint, not a webpage. Opening it directly in a browser is not a connection test.
 
@@ -110,7 +110,7 @@ Open the returned deck link to inspect the result and study in Armin. Review gen
 | `set_prerequisite`   | Adds or removes a same-deck prerequisite link, rejecting cycles.                                         |
 | `move_card`          | Moves a card between decks while preserving study state; refuses to silently discard prerequisite links. |
 
-Supported card types are basic, reversed, cloze, and typed-answer. The assistant cannot permanently delete cards or decks, upload images, rate reviews, change scheduling, export your library, or administer your account. Edits that would remove existing review items or change image content must be performed in Armin.
+Supported card types are basic, reversed, cloze, and typed-answer. The assistant cannot permanently delete cards or decks, rate reviews, change scheduling, export your library, or administer your account. Edits that would remove existing review items or change image content must be performed in Armin.
 
 Each connection can make up to 120 successful authoring writes per hour. An account can have up to 20 active connections. Normal library quotas also apply. Large card sets need multiple batches; each batch succeeds or fails as a unit. Stale edits are rejected instead of overwriting a newer change.
 
@@ -139,3 +139,12 @@ For evaluation, use `reviewer@armincards.app` with password `ArminDemo123!` at [
 Its data is restored to a sample deck roughly every six hours, with up to five minutes of scheduling delay. Sign-in sessions and OAuth connections remain, but links to deleted cards and decks become invalid. Approved connections keep their whole-library access across the reset. The account's credentials and deletion are protected so it remains available to testers.
 
 For permanent study content and private data, create your own account.
+
+## Anki imports
+
+Call `get_anki_import_guide` for the maintained converter kit and staged import
+protocol. Your assistant needs attachment/file access and Node.js execution.
+Conversion runs in the assistant workspace, with supported images preserved.
+Resolve unsupported cards by requested repair or explicit skip, review the final
+preview, and approve before publishing new decks. MCP imports start fresh;
+browser import can preserve study progress. See [the import guide](https://github.com/andy-spike/armin/blob/master/docs/anki-assistant-import.md).
