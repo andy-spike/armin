@@ -25,6 +25,8 @@ export type FlashcardMoveConsequences = NonNullable<
   FunctionReturnType<typeof api.flashcards.moveConsequences>
 >;
 export type Viewer = NonNullable<FunctionReturnType<typeof api.account.viewer>>;
+export type StatsOverview = NonNullable<FunctionReturnType<typeof api.stats.overview>>;
+export type StatsHeatmap = NonNullable<FunctionReturnType<typeof api.stats.heatmap>>;
 export type ImportView = NonNullable<FunctionReturnType<typeof api.imports.get>>;
 export type ExportRow = NonNullable<FunctionReturnType<typeof api.exports.list>>[number];
 export type { BuryResult, BuryUnit, RateResult, UndoResult, UnburyResult } from "../review";

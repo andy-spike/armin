@@ -14,6 +14,7 @@ import {
   PanelLeftOpen,
   Settings,
   Sun,
+  TrendingUp,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -147,6 +148,13 @@ export function AppSidebar({
                 icon={<Library strokeWidth={1.5} />}
                 active={isActive("/browse")}
                 linkProps={linkProps("/browse")}
+              />
+              <NavItem
+                to="/stats"
+                label="Stats"
+                icon={<TrendingUp strokeWidth={1.5} />}
+                active={isActive("/stats")}
+                linkProps={linkProps("/stats")}
               />
             </SidebarMenu>
           </SidebarGroupContent>

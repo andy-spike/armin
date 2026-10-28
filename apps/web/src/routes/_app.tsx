@@ -313,7 +313,7 @@ function Shell({ loading, reviewerResetHours }: { loading?: string; reviewerRese
 }
 
 /** Pages the sidebar always links to; their code and data load while idle. */
-const IDLE_PRELOAD_PATHS = ["/", "/review", "/browse"] as const;
+const IDLE_PRELOAD_PATHS = ["/", "/review", "/browse", "/stats"] as const;
 
 /**
  * Hovering a link preloads its page, but a quick click or a keyboard shortcut

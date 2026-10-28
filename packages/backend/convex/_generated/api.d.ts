@@ -43,6 +43,7 @@ import type * as model_summaries from "../model/summaries.js";
 import type * as review from "../review.js";
 import type * as reviewer from "../reviewer.js";
 import type * as settings from "../settings.js";
+import type * as stats from "../stats.js";
 
 import type {
   ApiFromModules,
@@ -86,6 +87,7 @@ declare const fullApi: ApiFromModules<{
   review: typeof review;
   reviewer: typeof reviewer;
   settings: typeof settings;
+  stats: typeof stats;
 }>;
 
 /**

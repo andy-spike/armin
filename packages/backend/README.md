@@ -25,6 +25,8 @@ generated API.
 - `convex/review.ts` — queue, rating previews, rate, bury/unbury, card info, and undo.
 - `convex/cram.ts` — practice-only cram selection and `cramLogs`; never
   schedules, locks, or writes review history.
+- `convex/stats.ts` — review activity, streaks, retention, due forecast, and
+  card-state totals, all scoped to the caller's library.
 - `convex/imports.ts` — batched Anki import (see below).
 - `convex/media.ts`, `exports.ts`, `exportBuilder.ts` — private images and the
   ZIP export job.
