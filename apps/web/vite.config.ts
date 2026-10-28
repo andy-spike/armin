@@ -1,6 +1,9 @@
 import { defineConfig, loadEnv, lazyPlugins } from "vite-plus";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import { cloudflare } from "@cloudflare/vite-plugin";
+// Redact's copy of @cloudflare/vite-plugin 1.65.0 fixes its development module
+// runner for the Redact runtime; production Worker output is unchanged.
+import { cloudflare } from "@tanstack/redact/cloudflare";
+import { redact } from "@tanstack/redact/vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -13,15 +16,17 @@ export default defineConfig(({ mode }) => {
     },
     resolve: { tsconfigPaths: true },
     ssr: {
-      // The Better Auth component ships ESM that must be bundled for SSR.
-      noExternal: ["@convex-dev/better-auth"],
+      // Redact redirects React imports, so server dependencies must be bundled.
+      noExternal: true,
     },
-    plugins: lazyPlugins(() => [
+    plugins: lazyPlugins(async () => [
       tailwindcss(),
       // Builds and runs the server on Cloudflare Workers (see wrangler.jsonc).
-      cloudflare({ viteEnvironment: { name: "ssr" } }),
+      await cloudflare({ viteEnvironment: { name: "ssr" } }),
       tanstackStart(),
       react(),
+      // Swaps React and React DOM for the smaller synchronous Redact runtime.
+      redact(),
     ]),
   };
 });
