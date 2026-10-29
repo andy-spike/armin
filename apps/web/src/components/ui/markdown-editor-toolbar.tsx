@@ -35,6 +35,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { formatBinding } from "@/lib/keybindings/keys";
+import { clozeRangeAt } from "@/components/ui/markdown-cloze";
 import { Tooltip } from "@/components/ui/tooltip";
 
 // Crepe registers its equation command by name only.
@@ -81,6 +82,11 @@ function nearestList(state: EditorState, types: NodeType[]) {
   return null;
 }
 
+function inCloze(state: EditorState) {
+  const range = clozeRangeAt(state, state.selection.from);
+  return Boolean(range && state.selection.to <= range.to);
+}
+
 export function readFormats(ctx: Ctx, state: EditorState): ActiveFormats {
   const bullet = bulletListSchema.type(ctx);
   const ordered = orderedListSchema.type(ctx);
@@ -95,7 +101,9 @@ export function readFormats(ctx: Ctx, state: EditorState): ActiveFormats {
     math: selection instanceof NodeSelection && selection.node.type.name === "math_inline",
     bulletList: list?.node.type === bullet,
     orderedList: list?.node.type === ordered,
-    cloze: Boolean(state.schema.marks.cloze && hasMark(state, state.schema.marks.cloze)),
+    // The same test as the chip popover: a cursor touching either edge of a
+    // chip counts as in it.
+    cloze: inCloze(state),
   };
 }
 
