@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useBlocker } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
-import { ArrowLeft, Check, ChevronRight, LoaderCircle, TriangleAlert } from "lucide-react";
+import { Check, ChevronRight, LoaderCircle, TriangleAlert } from "lucide-react";
 import { api } from "@armin/backend/api";
 import type { Id } from "@armin/backend/types";
 import type { ImportPlan, ImportWarning, ImportWarningCode } from "@armin/core/anki";
@@ -54,13 +54,6 @@ export function AnkiImportPage() {
   // picker (no `data-narrow`) uses the full content width.
   return (
     <div className="has-data-narrow:mx-auto has-data-narrow:max-w-2xl">
-      <Link
-        to="/"
-        className="mb-3 inline-flex items-center gap-1.5 text-[0.8125rem] text-muted hover:text-ink"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-        Decks
-      </Link>
       {source ? (
         <ImportFlow
           key={source.openedAt}
