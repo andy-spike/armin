@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { linkProblem, type GraphCycleIndex } from "@/lib/graph-cycle";
+import { linkProblem, type GraphCycleIndex } from "@armin/core/prereq-graph";
 import { graphNodePreview } from "@/lib/graph-flow";
 import type { UiDeckGraph } from "@/types/view-models";
 

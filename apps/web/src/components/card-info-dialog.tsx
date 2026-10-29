@@ -3,7 +3,7 @@ import { formatInterval } from "@armin/core/study";
 import { Badge, StateBadge, type ReviewState } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { armin } from "@/lib/armin-client";
+import { cardInfoQuery } from "@/lib/queries";
 import { stripMarkdownForPreview } from "@/lib/markdown-preview";
 import { cn } from "@/lib/utils";
 
@@ -55,12 +55,7 @@ export function CardInfoDialog({
   open: boolean;
   onClose: () => void;
 }) {
-  const query = useQuery({
-    queryKey: ["card-info", flashcardId],
-    queryFn: () => (flashcardId ? armin.review.cardInfo(flashcardId) : Promise.resolve(null)),
-    enabled: open && Boolean(flashcardId),
-    staleTime: 10_000,
-  });
+  const query = useQuery(cardInfoQuery(open ? flashcardId : null));
 
   const data = query.data;
   const front = data ? stripMarkdownForPreview(data.flashcard.front) : "";

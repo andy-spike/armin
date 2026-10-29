@@ -36,6 +36,15 @@ generated API.
   mutation uses (lint rejects the raw ones from `_generated/server`).
 - `convex/model/` — shared server logic: access checks, queue selection, lock
   propagation, limits, error codes, and the derived Browse summaries.
+- `convex/model/flashcards.ts`, `decks.ts`, `prereqs.ts` — every study write
+  (create, edit, archive, move, rename, link, unlink) and its cascade. The app's
+  mutations, the assistant tools, and imports call these after their own
+  ownership, version, and policy checks, so a cascade is fixed in one place.
+- `convex/model/usage.ts` — `checkCapacity`, the one beta-limit check every
+  write that adds decks or flashcards calls; `adjustReviewUnitCount` enforces
+  the review-unit cap as units are written.
+- `convex/model/agentWrites.ts` — `runAgentWrite`: request-ID replay and the
+  hourly write limit shared by the assistant authoring and import tools.
 
 Client entry points (see `package.json` `exports`):
 

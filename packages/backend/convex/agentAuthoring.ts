@@ -6,25 +6,19 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { agentAccess, agentUser, requireDeck } from "./model/agentAuth";
 import { agentToolSchemas } from "./model/agentTools";
 import { fail } from "./model/errors";
-import { MAX_DECKS, MAX_FLASHCARDS, MAX_PREREQS_PER_DECK } from "./model/limits";
-import { insertFlashcard, prepareTags, validateFlashcardInput } from "./model/flashcards";
+import { runAgentWrite } from "./model/agentWrites";
+import { insertDeck, updateDeckDetails } from "./model/decks";
 import {
-  bumpRevision,
-  reconcileReviewUnits,
-  refreshAfterPrereqChange,
-  refreshDependentSubgraph,
-  rememberTags,
-  SettingsCache,
-  type TagCache,
-} from "./model/study";
-
-async function revision(ctx: QueryCtx, libraryId: Id<"libraries">) {
-  const row = await ctx.db
-    .query("libraryCounters")
-    .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
-    .unique();
-  return row?.revision ?? 0;
-}
+  editFlashcard,
+  insertFlashcard,
+  moveFlashcard,
+  setFlashcardArchived,
+  validateFlashcardInput,
+  type ValidatedFlashcard,
+} from "./model/flashcards";
+import { linkPrerequisites, unlinkPrerequisite } from "./model/prereqs";
+import { bumpRevision, libraryRevision, type TagCache } from "./model/study";
+import { checkCapacity } from "./model/usage";
 
 async function cardForEdit(
   ctx: QueryCtx,
@@ -49,28 +43,6 @@ function textInput(type: string, content: unknown) {
   if (type === "image_occlusion" || input.mediaFiles.length)
     fail("INVALID", "Agent authoring currently supports text cards only. Use Armin for images.");
   return input;
-}
-
-/** Validate the whole graph in memory so bounded batch links cannot form cycles. */
-function assertAcyclic(edges: { prereqId: string; dependentId: string }[]) {
-  const next = new Map<string, string[]>();
-  const indegree = new Map<string, number>();
-  for (const edge of edges) {
-    next.set(edge.prereqId, [...(next.get(edge.prereqId) ?? []), edge.dependentId]);
-    indegree.set(edge.prereqId, indegree.get(edge.prereqId) ?? 0);
-    indegree.set(edge.dependentId, (indegree.get(edge.dependentId) ?? 0) + 1);
-  }
-  const queue = [...indegree].filter(([, n]) => n === 0).map(([id]) => id);
-  let visited = 0;
-  for (let i = 0; i < queue.length; i++) {
-    visited++;
-    for (const child of next.get(queue[i]!) ?? []) {
-      const n = indegree.get(child)! - 1;
-      indegree.set(child, n);
-      if (n === 0) queue.push(child);
-    }
-  }
-  if (visited !== indegree.size) fail("INVALID", "Prerequisites cannot form a cycle.");
 }
 
 export const read = internalQuery({
@@ -127,7 +99,7 @@ export const read = internalQuery({
         .withIndex("by_deck", (q) => q.eq("deckId", id))
         .collect();
       return {
-        revision: await revision(ctx, library._id),
+        revision: await libraryRevision(ctx, library._id),
         prerequisites: edges.map((e) => ({
           prerequisiteId: e.prereqId,
           dependentId: e.dependentId,
@@ -141,37 +113,28 @@ export const read = internalQuery({
 async function saveCards(ctx: MutationCtx, connection: Doc<"agentConnections">, input: unknown) {
   const args = agentToolSchemas.save_cards.parse(input);
   const now = Date.now();
-  const count = await ctx.db
-    .query("flashcards")
-    .withIndex("by_library", (q) => q.eq("libraryId", connection.libraryId))
-    .take(MAX_FLASHCARDS + 1);
-  if (count.length + args.cards.length > MAX_FLASHCARDS)
-    fail("QUOTA", `A library can hold ${MAX_FLASHCARDS} cards.`);
-  let deckId: Id<"decks">;
+  await checkCapacity(ctx, connection.libraryId, {
+    decks: args.deck.mode === "new" ? 1 : 0,
+    flashcards: args.cards.length,
+  });
+  let deck: Doc<"decks">;
   if (args.deck.mode === "new") {
-    const decks = await ctx.db
-      .query("decks")
-      .withIndex("by_library", (q) => q.eq("libraryId", connection.libraryId))
-      .take(MAX_DECKS);
-    if (decks.length >= MAX_DECKS) fail("QUOTA", "Your library has reached the deck limit.");
-    deckId = await ctx.db.insert("decks", {
+    const deckId = await insertDeck(ctx, {
       libraryId: connection.libraryId,
       name: args.deck.name,
-      description: args.deck.description ?? null,
-      version: 1,
-      createdAt: now,
-      updatedAt: now,
+      description: args.deck.description,
+      now,
     });
     await ctx.db.insert("agentCreatedDecks", {
       libraryId: connection.libraryId,
       connectionId: connection._id,
       deckId,
     });
+    deck = (await ctx.db.get(deckId))!;
   } else {
     const id = ctx.db.normalizeId("decks", args.deck.deckId);
     if (!id) fail("NOT_FOUND", "Deck not found.");
-    await requireDeck(ctx, connection, id);
-    deckId = id;
+    deck = await requireDeck(ctx, connection, id);
   }
   const ids = new Map<string, Id<"flashcards">>();
   const tagCache: TagCache = new Map();
@@ -180,7 +143,7 @@ async function saveCards(ctx: MutationCtx, connection: Doc<"agentConnections">, 
     const parsed = textInput(item.card.type, item.card.content);
     const id = await insertFlashcard(ctx, {
       libraryId: connection.libraryId,
-      deckId,
+      deckId: deck._id,
       input: parsed,
       tags: item.tags ?? [],
       now,
@@ -189,49 +152,33 @@ async function saveCards(ctx: MutationCtx, connection: Doc<"agentConnections">, 
     });
     ids.set(item.key, id);
   }
-  const edges = await ctx.db
-    .query("prereqs")
-    .withIndex("by_deck", (q) => q.eq("deckId", deckId))
-    .collect();
-  const newEdges = [];
-  const pairs = new Set<string>();
-  for (const edge of args.prerequisites ?? []) {
+  const links = (args.prerequisites ?? []).map((edge) => {
     const prereqId = ids.get(edge.prerequisiteKey);
     const dependentId = ids.get(edge.dependentKey);
     if (!prereqId || !dependentId)
       fail("INVALID", "Prerequisites must refer to card keys in this batch.");
-    const key = `${prereqId}:${dependentId}`;
-    if (pairs.has(key)) continue;
-    pairs.add(key);
-    newEdges.push({ prereqId, dependentId });
-  }
-  if (edges.length + newEdges.length > MAX_PREREQS_PER_DECK)
-    fail("QUOTA", "Too many prerequisites in this deck.");
-  assertAcyclic([...edges, ...newEdges]);
-  for (const edge of newEdges)
-    await ctx.db.insert("prereqs", { ...edge, deckId, libraryId: connection.libraryId });
-  await refreshDependentSubgraph(
-    ctx,
-    [...ids.values()],
-    new SettingsCache(ctx, connection.libraryId),
-    now,
-  );
+    return { prereqId, dependentId };
+  });
+  const added = await linkPrerequisites(ctx, deck, links, now);
   return {
-    deckId,
+    deckId: deck._id,
     cards: [...ids].map(([key, id]) => ({ key, id })),
-    prerequisiteCount: newEdges.length,
-    url: `${process.env.SITE_URL}/deck/${deckId}`,
-    summary: `Created ${ids.size} ${ids.size === 1 ? "card" : "cards"} and ${newEdges.length} ${newEdges.length === 1 ? "prerequisite" : "prerequisites"}`,
+    prerequisiteCount: added.length,
+    url: `${process.env.SITE_URL}/deck/${deck._id}`,
+    summary: `Created ${ids.size} ${ids.size === 1 ? "card" : "cards"} and ${added.length} ${added.length === 1 ? "prerequisite" : "prerequisites"}`,
   };
 }
 
+/**
+ * Assistants may change a card's text and tags, but not remove review items
+ * (and their history) or touch cards with images; those edits stay in Armin.
+ */
 async function editCard(ctx: MutationCtx, connection: Doc<"agentConnections">, input: unknown) {
   const args = agentToolSchemas.update_card.parse(input);
   const card = await cardForEdit(ctx, connection, args.cardId, args.expectedVersion);
-  const patch: Partial<Doc<"flashcards">> = {};
-  const now = Date.now();
+  let parsed: ValidatedFlashcard | undefined;
   if (args.card) {
-    const parsed = textInput(args.card.type, args.card.content);
+    parsed = textInput(args.card.type, args.card.content);
     const newKeys = new Set(generateReviewUnits(parsed.type, parsed.content).map((u) => u.subKey));
     const units = await ctx.db
       .query("reviewUnits")
@@ -247,48 +194,18 @@ async function editCard(ctx: MutationCtx, connection: Doc<"agentConnections">, i
       .withIndex("by_flashcard", (q) => q.eq("flashcardId", card._id))
       .first();
     if (media) fail("INVALID", "Edit cards containing images in Armin.");
-    patch.type = parsed.type;
-    patch.content = parsed.serialized;
-    await reconcileReviewUnits(ctx, { ...card, ...patch }, parsed.type, parsed.content, now);
   }
-  if (args.tags) {
-    patch.tags = await prepareTags(ctx, connection.libraryId, args.tags);
-    await rememberTags(ctx, connection.libraryId, patch.tags);
-  }
-  await ctx.db.patch(card._id, { ...patch, version: card.version + 1, updatedAt: now });
-  if (args.card)
-    await refreshAfterPrereqChange(
-      ctx,
-      card._id,
-      new SettingsCache(ctx, connection.libraryId),
-      now,
-    );
-  return { deckId: card.deckId, version: card.version + 1, summary: "Updated a card" };
+  const version = await editFlashcard(ctx, card, { input: parsed, tags: args.tags }, Date.now());
+  return { deckId: card.deckId, version, summary: "Updated a card" };
 }
 
 async function archiveCard(ctx: MutationCtx, connection: Doc<"agentConnections">, input: unknown) {
   const args = agentToolSchemas.set_card_archived.parse(input);
   const card = await cardForEdit(ctx, connection, args.cardId, args.expectedVersion);
-  const now = Date.now();
-  await ctx.db.patch(card._id, {
-    archived: args.archived,
-    version: card.version + 1,
-    updatedAt: now,
-  });
-  const units = await ctx.db
-    .query("reviewUnits")
-    .withIndex("by_flashcard", (q) => q.eq("flashcardId", card._id))
-    .collect();
-  for (const unit of units)
-    await ctx.db.patch(unit._id, {
-      archived: args.archived,
-      version: unit.version + 1,
-      updatedAt: now,
-    });
-  await refreshAfterPrereqChange(ctx, card._id, new SettingsCache(ctx, connection.libraryId), now);
+  const version = await setFlashcardArchived(ctx, card, args.archived, Date.now());
   return {
     deckId: card.deckId,
-    version: card.version + 1,
+    version,
     summary: args.archived ? "Archived a card" : "Unarchived a card",
   };
 }
@@ -300,13 +217,8 @@ async function editDeck(ctx: MutationCtx, connection: Doc<"agentConnections">, i
   const deck = await requireDeck(ctx, connection, id);
   if (deck.version !== args.expectedVersion)
     fail("CONFLICT", "This deck changed elsewhere. Read it again before editing.");
-  await ctx.db.patch(id, {
-    ...(args.name !== undefined ? { name: args.name } : {}),
-    ...(args.description !== undefined ? { description: args.description } : {}),
-    version: deck.version + 1,
-    updatedAt: Date.now(),
-  });
-  return { deckId: id, version: deck.version + 1, summary: "Updated deck details" };
+  const version = await updateDeckDetails(ctx, deck, args, Date.now());
+  return { deckId: id, version, summary: "Updated deck details" };
 }
 
 async function setPrerequisite(
@@ -317,8 +229,8 @@ async function setPrerequisite(
   const args = agentToolSchemas.set_prerequisite.parse(input);
   const deckId = ctx.db.normalizeId("decks", args.deckId);
   if (!deckId) fail("NOT_FOUND", "Deck not found.");
-  await requireDeck(ctx, connection, deckId);
-  if ((await revision(ctx, connection.libraryId)) !== args.expectedRevision)
+  const deck = await requireDeck(ctx, connection, deckId);
+  if ((await libraryRevision(ctx, connection.libraryId)) !== args.expectedRevision)
     fail("CONFLICT", "The library changed. Read the graph again before changing prerequisites.");
   const prereq = await cardForEdit(
     ctx,
@@ -334,23 +246,16 @@ async function setPrerequisite(
   );
   if (prereq.deckId !== deckId || dependent.deckId !== deckId)
     fail("INVALID", "Prerequisites must stay in the same authorized deck.");
-  const edges = await ctx.db
-    .query("prereqs")
-    .withIndex("by_deck", (q) => q.eq("deckId", deckId))
-    .collect();
-  const existing = edges.find((e) => e.prereqId === prereq._id && e.dependentId === dependent._id);
-  if (args.present && !existing) {
-    if (edges.length >= MAX_PREREQS_PER_DECK) fail("QUOTA", "Too many prerequisites in this deck.");
-    const edge = { prereqId: prereq._id, dependentId: dependent._id };
-    assertAcyclic([...edges, edge]);
-    await ctx.db.insert("prereqs", { ...edge, libraryId: connection.libraryId, deckId });
-  } else if (!args.present && existing) await ctx.db.delete(existing._id);
-  await refreshDependentSubgraph(
-    ctx,
-    [dependent._id],
-    new SettingsCache(ctx, connection.libraryId),
-    Date.now(),
-  );
+  const now = Date.now();
+  if (args.present) {
+    await linkPrerequisites(ctx, deck, [{ prereqId: prereq._id, dependentId: dependent._id }], now);
+  } else {
+    const edge = await ctx.db
+      .query("prereqs")
+      .withIndex("by_pair", (q) => q.eq("prereqId", prereq._id).eq("dependentId", dependent._id))
+      .unique();
+    if (edge) await unlinkPrerequisite(ctx, edge, now);
+  }
   return {
     deckId,
     revision: args.expectedRevision + 1,
@@ -365,6 +270,10 @@ async function getCard(ctx: QueryCtx, id: string) {
   return card;
 }
 
+/**
+ * Assistants may not silently cut a learner's prerequisite chain, so a card
+ * with links must have them removed explicitly before it moves.
+ */
 async function moveCard(ctx: MutationCtx, connection: Doc<"agentConnections">, input: unknown) {
   const args = agentToolSchemas.move_card.parse(input);
   const card = await cardForEdit(ctx, connection, args.cardId, args.expectedVersion);
@@ -384,23 +293,18 @@ async function moveCard(ctx: MutationCtx, connection: Doc<"agentConnections">, i
       "INVALID",
       "This card has prerequisites or dependents. Moving would remove those links; discuss and explicitly remove them first.",
     );
-  const now = Date.now();
-  await ctx.db.patch(card._id, {
-    deckId: target,
-    posX: null,
-    posY: null,
-    version: card.version + 1,
-    updatedAt: now,
-  });
-  const units = await ctx.db
-    .query("reviewUnits")
-    .withIndex("by_flashcard", (q) => q.eq("flashcardId", card._id))
-    .collect();
-  for (const unit of units)
-    await ctx.db.patch(unit._id, { deckId: target, version: unit.version + 1, updatedAt: now });
-  await refreshAfterPrereqChange(ctx, card._id, new SettingsCache(ctx, connection.libraryId), now);
-  return { deckId: target, version: card.version + 1, summary: "Moved a card" };
+  const version = await moveFlashcard(ctx, card, target, Date.now());
+  return { deckId: target, version, summary: "Moved a card" };
 }
+
+const operations = {
+  save_cards: saveCards,
+  update_card: editCard,
+  set_card_archived: archiveCard,
+  update_deck: editDeck,
+  set_prerequisite: setPrerequisite,
+  move_card: moveCard,
+};
 
 export const write = internalMutation({
   args: { user: agentUser, tool: v.string(), input: v.any(), fingerprint: v.string() },
@@ -411,67 +315,36 @@ export const write = internalMutation({
     if (!schema) fail("INVALID", "Unknown tool.");
     const parsed = schema.parse(input);
     if (!("requestId" in parsed)) fail("INVALID", "This is not a write tool.");
-    const previous = await ctx.db
-      .query("agentRequests")
-      .withIndex("by_connection_request", (q) =>
-        q.eq("connectionId", connection._id).eq("requestId", parsed.requestId),
-      )
-      .unique();
-    if (previous) {
-      if (previous.fingerprint !== fingerprint)
-        fail("INVALID", "This request ID was already used for different input. Use a new ID.");
-      const saved = previous.result as { deckId: Id<"decks"> };
-      await requireDeck(ctx, connection, saved.deckId);
-      return previous.result;
-    }
-    // Bound write volume even when a client repeatedly edits one card.
-    const rateKey = `write:${connection._id}`;
-    const bucket = await ctx.db
-      .query("agentRateLimits")
-      .withIndex("by_key", (q) => q.eq("key", rateKey))
-      .unique();
-    if (bucket && bucket.expiresAt > Date.now()) {
-      if (bucket.count >= 120)
-        fail("QUOTA", "This connection reached its hourly limit of 120 writes. Try later.");
-      await ctx.db.patch(bucket._id, { count: bucket.count + 1 });
-    } else if (bucket)
-      await ctx.db.patch(bucket._id, { count: 1, expiresAt: Date.now() + 3_600_000 });
-    else
-      await ctx.db.insert("agentRateLimits", {
-        key: rateKey,
-        libraryId: connection.libraryId,
-        count: 1,
-        expiresAt: Date.now() + 3_600_000,
-      });
-    const operations = {
-      save_cards: saveCards,
-      update_card: editCard,
-      set_card_archived: archiveCard,
-      update_deck: editDeck,
-      set_prerequisite: setPrerequisite,
-      move_card: moveCard,
-    };
     const operation = operations[tool as keyof typeof operations];
     if (!operation) fail("INVALID", "Unknown write tool.");
-    const result = await operation(ctx, connection, input);
-    const now = Date.now();
-    await bumpRevision(ctx, connection.libraryId);
-    await ctx.db.insert("agentRequests", {
-      libraryId: connection.libraryId,
-      connectionId: connection._id,
-      requestId: parsed.requestId,
-      fingerprint,
-      result,
-      createdAt: now,
-    });
-    await ctx.db.insert("agentActivity", {
-      libraryId: connection.libraryId,
-      connectionId: connection._id,
-      clientName: connection.name,
-      summary: result.summary,
-      deckId: result.deckId,
-      createdAt: now,
-    });
-    return result;
+    return runAgentWrite(
+      ctx,
+      connection,
+      { requestId: parsed.requestId, fingerprint },
+      {
+        // A retry still needs access to the deck the first attempt wrote.
+        replay: async (saved) => {
+          await requireDeck(ctx, connection, saved.deckId);
+          return saved;
+        },
+        write: async () => {
+          const result: { deckId: Id<"decks">; summary: string } = await operation(
+            ctx,
+            connection,
+            input,
+          );
+          await bumpRevision(ctx, connection.libraryId);
+          await ctx.db.insert("agentActivity", {
+            libraryId: connection.libraryId,
+            connectionId: connection._id,
+            clientName: connection.name,
+            summary: result.summary,
+            deckId: result.deckId,
+            createdAt: Date.now(),
+          });
+          return result;
+        },
+      },
+    );
   },
 });

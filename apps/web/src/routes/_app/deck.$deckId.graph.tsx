@@ -18,8 +18,13 @@ import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { useGraphCanvasEdits } from "@/lib/use-graph-canvas-edits";
-import { toUiDeckGraph, type UiDeckGraph } from "@/types/view-models";
-import type { FlashcardContent, FlashcardDeleteConsequences, FlashcardType } from "@/types/window";
+import {
+  type FlashcardContent,
+  type FlashcardDeleteConsequences,
+  type FlashcardType,
+  toUiDeckGraph,
+  type UiDeckGraph,
+} from "@/types/view-models";
 import { cn } from "@/lib/utils";
 import { markGraphPerf, measureGraphPerf } from "@/lib/graph-perf";
 

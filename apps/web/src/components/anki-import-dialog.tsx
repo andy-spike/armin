@@ -41,13 +41,39 @@ type Source = {
 type Step = "choose" | "preview" | "importing" | "done" | "failed";
 type ProgressMode = "keep" | "fresh";
 
-const n = (value: number) => value.toLocaleString();
-const plural = (value: number, noun: string) => `${n(value)} ${noun}${value === 1 ? "" : "s"}`;
+const formatCount = (value: number) => value.toLocaleString();
+const plural = (value: number, noun: string) =>
+  `${formatCount(value)} ${noun}${value === 1 ? "" : "s"}`;
 
 function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+/** Why the selected plan can't be imported into this library, as user-facing sentences. */
+function limitProblems(plan: ImportPlan, usage: Usage) {
+  const { limits } = usage;
+  const found: string[] = [];
+  const hasMultiUnit = plan.totals.reviewUnits > plan.totals.flashcards;
+  const room = (limit: number, used: number) => Math.max(0, limit - used);
+  if (usage.decks + plan.decks.length > limits.decks)
+    found.push(
+      `These ${plural(plan.decks.length, "deck")} would bring your library to ${formatCount(usage.decks + plan.decks.length)} decks; the beta allows ${formatCount(limits.decks)}.`,
+    );
+  if (usage.flashcards + plan.totals.flashcards > limits.flashcards)
+    found.push(
+      `This adds ${formatCount(plan.totals.flashcards)} flashcards, but your library has room for ${formatCount(room(limits.flashcards, usage.flashcards))} more (the beta allows ${formatCount(limits.flashcards)}).`,
+    );
+  if (usage.reviewUnits + plan.totals.reviewUnits > limits.reviewUnits)
+    found.push(
+      `This adds ${formatCount(plan.totals.reviewUnits)} review items, but your library has room for ${formatCount(room(limits.reviewUnits, usage.reviewUnits))} more (the beta allows ${formatCount(limits.reviewUnits)}). ${hasMultiUnit ? " Cloze and reversed cards count once per blank or direction." : ""}`,
+    );
+  if (plan.totals.reviewLogs > limits.reviewLogs)
+    found.push(
+      `This carries ${formatCount(plan.totals.reviewLogs)} past reviews; an import can bring at most ${formatCount(limits.reviewLogs)}. Choose “Start fresh” to leave review history behind.`,
+    );
+  return found;
 }
 
 export function AnkiImportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -178,30 +204,10 @@ export function AnkiImportDialog({ open, onClose }: { open: boolean; onClose: ()
       }),
   });
 
-  const problems = useMemo(() => {
-    if (!plan || !usage.data) return [];
-    const { limits } = usage.data;
-    const found: string[] = [];
-    const hasMultiUnit = plan.totals.reviewUnits > plan.totals.flashcards;
-    const room = (limit: number, used: number) => Math.max(0, limit - used);
-    if (usage.data.decks + plan.decks.length > limits.decks)
-      found.push(
-        `These ${plural(plan.decks.length, "deck")} would bring your library to ${n(usage.data.decks + plan.decks.length)} decks; the beta allows ${n(limits.decks)}.`,
-      );
-    if (usage.data.flashcards + plan.totals.flashcards > limits.flashcards)
-      found.push(
-        `This adds ${n(plan.totals.flashcards)} flashcards, but your library has room for ${n(room(limits.flashcards, usage.data.flashcards))} more (the beta allows ${n(limits.flashcards)}).`,
-      );
-    if (usage.data.reviewUnits + plan.totals.reviewUnits > limits.reviewUnits)
-      found.push(
-        `This adds ${n(plan.totals.reviewUnits)} review items, but your library has room for ${n(room(limits.reviewUnits, usage.data.reviewUnits))} more (the beta allows ${n(limits.reviewUnits)}). ${hasMultiUnit ? " Cloze and reversed cards count once per blank or direction." : ""}`,
-      );
-    if (plan.totals.reviewLogs > limits.reviewLogs)
-      found.push(
-        `This carries ${n(plan.totals.reviewLogs)} past reviews; an import can bring at most ${n(limits.reviewLogs)}. Choose “Start fresh” to leave review history behind.`,
-      );
-    return found;
-  }, [plan, usage.data]);
+  const problems = useMemo(
+    () => (plan && usage.data ? limitProblems(plan, usage.data) : []),
+    [plan, usage.data],
+  );
 
   const names = useMemo(() => {
     const map = new Map<string, string>();
@@ -555,7 +561,7 @@ function PreviewStep({
   const allSelected = selected.size === source.decks.length;
   const types = (Object.entries(plan.totals.byType) as [FlashcardType, number][])
     .filter(([, count]) => count > 0)
-    .map(([type, count]) => `${CARD_TYPE_LABELS[type]} ${n(count)}`);
+    .map(([type, count]) => `${CARD_TYPE_LABELS[type]} ${formatCount(count)}`);
   const historyCount = source.initialPlan.totals.reviewLogs;
 
   return (
@@ -684,9 +690,9 @@ function PreviewStep({
       <section aria-label="Library limits" className="space-y-2 border-t border-border pt-4">
         {usage ? (
           <p className="text-[0.8125rem] text-muted tabular-nums">
-            Your library: {n(usage.decks)} of {n(usage.limits.decks)} decks · {n(usage.flashcards)}{" "}
-            of {n(usage.limits.flashcards)} flashcards · {n(usage.reviewUnits)} of{" "}
-            {n(usage.limits.reviewUnits)} review items
+            Your library: {formatCount(usage.decks)} of {formatCount(usage.limits.decks)} decks ·{" "}
+            {formatCount(usage.flashcards)} of {formatCount(usage.limits.flashcards)} flashcards ·{" "}
+            {formatCount(usage.reviewUnits)} of {formatCount(usage.limits.reviewUnits)} review items
           </p>
         ) : (
           <p className="text-[0.8125rem] text-muted">Checking your library…</p>
@@ -767,7 +773,7 @@ function ImportingStep({ progress }: { progress: ImportProgress }) {
                   {phase.label}
                 </span>
                 <span className="ml-auto font-mono text-[0.8125rem] text-muted tabular-nums">
-                  {n(phase.counter.done)} / {n(phase.counter.total)}
+                  {formatCount(phase.counter.done)} / {formatCount(phase.counter.total)}
                 </span>
               </div>
               <Progress

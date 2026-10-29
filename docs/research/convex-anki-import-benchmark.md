@@ -1,5 +1,10 @@
 # Convex Node-action Anki import benchmark
 
+> **Retired experiment.** The Convex action, its reader copy, and the `run.mjs`
+> driver described below were removed once the browser reader moved to
+> `@armin/core/anki/reader`. They remain in Git history; the standalone control
+> and fixture generator are still in [`anki-import-bench/`](anki-import-bench/README.md).
+
 Benchmarked 2026-10-28 against this worktree's isolated local Convex deployment.
 This is an experimental checkpoint, not a production deployment, migration, or
 performance guarantee. No commit, push, PR, or production change was made.

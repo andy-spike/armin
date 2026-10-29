@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { generateReviewUnits } from "@armin/core/flashcard-types";
 import { pickFsrsFieldsMs, PENDING_DUE, type FsrsFieldsMs } from "@armin/core/scheduler";
 import { internal } from "./_generated/api";
-import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { query, type MutationCtx } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { fsrsSnapshot } from "./schema";
@@ -10,8 +10,10 @@ import { readableLibrary, writableLibrary } from "./model/access";
 import { deleteDeckCascade } from "./model/deletion";
 import { fail } from "./model/errors";
 import { insertFlashcard, validateFlashcardInput } from "./model/flashcards";
-import { MAX_DECKS, MAX_FLASHCARDS, MAX_NAME_CHARS, MAX_REVIEW_UNITS } from "./model/limits";
+import { cleanDeckName, insertDeck } from "./model/decks";
+import { MAX_DECKS, MAX_FLASHCARDS, MAX_REVIEW_UNITS } from "./model/limits";
 import { bumpRevision, findRequest, recordRequest, type TagCache } from "./model/study";
+import { checkCapacity, libraryUsage } from "./model/usage";
 
 // Per-call caps keep every mutation inside Convex's write and read limits even
 // when each card is a 60-deletion cloze.
@@ -77,21 +79,6 @@ async function runningImport(ctx: MutationCtx, library: Doc<"libraries">, import
   return row;
 }
 
-async function reviewUnitTotal(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">) {
-  const counter = await ctx.db
-    .query("libraryCounters")
-    .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
-    .unique();
-  if (counter?.reviewUnits !== undefined) return counter.reviewUnits;
-  // Libraries created before the counter existed: count once.
-  return (
-    await ctx.db
-      .query("reviewUnits")
-      .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
-      .collect()
-  ).length;
-}
-
 function checkSchedule(schedule: FsrsFieldsMs, now: number, label: string) {
   const bad = (reason: string) => fail("INVALID", `${label}: ${reason}`);
   const numbers = [
@@ -128,14 +115,6 @@ function checkSchedule(schedule: FsrsFieldsMs, now: number, label: string) {
   }
 }
 
-function cleanDeckName(name: string) {
-  const trimmed = name.trim();
-  if (!trimmed) fail("INVALID", "Deck name is required.");
-  if (trimmed.length > MAX_NAME_CHARS)
-    fail("INVALID", `Deck names are limited to ${MAX_NAME_CHARS} characters.`);
-  return trimmed;
-}
-
 /**
  * Begin an import: reject plans that cannot fit the beta limits, then create
  * one deck per plan deck. Cards and history follow in `addCards` and
@@ -154,8 +133,6 @@ export const start = mutation({
     if (previous) return previous as { importId: Id<"imports">; decks: StartedDeck[] };
 
     if (args.decks.length === 0) fail("INVALID", "There are no decks to import.");
-    if (args.decks.length > MAX_DECKS)
-      fail("QUOTA", `The beta allows ${MAX_DECKS} decks, and this file has ${args.decks.length}.`);
     const keys = new Set(args.decks.map((deck) => deck.key));
     if (keys.has("") || keys.size !== args.decks.length)
       fail("INVALID", "Each deck needs a unique key.");
@@ -181,44 +158,16 @@ export const start = mutation({
         "Another import is still in progress. Wait for it to finish or cancel it first.",
       );
 
-    const [decks, flashcards, reviewUnits] = await Promise.all([
-      ctx.db
-        .query("decks")
-        .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-        .take(MAX_DECKS + 1),
-      ctx.db
-        .query("flashcards")
-        .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-        .take(MAX_FLASHCARDS + 1),
-      reviewUnitTotal(ctx, library._id),
-    ]);
-    if (decks.length + names.length > MAX_DECKS)
-      fail(
-        "QUOTA",
-        `This import adds ${names.length} decks, but the beta allows ${MAX_DECKS} and you have ${decks.length}.`,
-      );
-    if (flashcards.length + totals.flashcards > MAX_FLASHCARDS)
-      fail(
-        "QUOTA",
-        `This import adds ${totals.flashcards} cards, but the beta allows ${MAX_FLASHCARDS} and you have ${flashcards.length}.`,
-      );
-    if (reviewUnits + totals.reviewUnits > MAX_REVIEW_UNITS)
-      fail(
-        "QUOTA",
-        `This import adds ${totals.reviewUnits} review items, but the beta allows ${MAX_REVIEW_UNITS} and you have ${reviewUnits}.`,
-      );
+    await checkCapacity(ctx, library._id, {
+      decks: names.length,
+      flashcards: totals.flashcards,
+      reviewUnits: totals.reviewUnits,
+    });
 
     const now = Date.now();
     const created: StartedDeck[] = [];
     for (const [index, deck] of args.decks.entries()) {
-      const deckId = await ctx.db.insert("decks", {
-        libraryId: library._id,
-        name: names[index]!,
-        description: null,
-        version: 1,
-        createdAt: now,
-        updatedAt: now,
-      });
+      const deckId = await insertDeck(ctx, { libraryId: library._id, name: names[index]!, now });
       created.push({ key: deck.key, deckId });
     }
     const importId = await ctx.db.insert("imports", {
@@ -292,12 +241,7 @@ export const addCards = mutation({
       fail("INVALID", `Send at most ${MAX_UNITS_PER_CALL} review items per call.`);
 
     // Library limits can change while a long import runs, so check them again.
-    const existing = await ctx.db
-      .query("flashcards")
-      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-      .take(MAX_FLASHCARDS + 1);
-    if (existing.length + parsed.length > MAX_FLASHCARDS)
-      fail("QUOTA", `The beta allows ${MAX_FLASHCARDS} flashcards per account.`);
+    await checkCapacity(ctx, library._id, { flashcards: parsed.length, reviewUnits: unitCount });
 
     // A deck deleted mid-import (from another tab) would leave its cards with no deck.
     for (const deckId of new Set(parsed.map((item) => item.deckId))) {
@@ -545,21 +489,8 @@ export const usage = query({
   handler: async (ctx) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const [decks, flashcards, reviewUnits] = await Promise.all([
-      ctx.db
-        .query("decks")
-        .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-        .take(MAX_DECKS + 1),
-      ctx.db
-        .query("flashcards")
-        .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-        .take(MAX_FLASHCARDS + 1),
-      reviewUnitTotal(ctx, library._id),
-    ]);
     return {
-      decks: decks.length,
-      flashcards: flashcards.length,
-      reviewUnits,
+      ...(await libraryUsage(ctx, library._id)),
       limits: {
         decks: MAX_DECKS,
         flashcards: MAX_FLASHCARDS,

@@ -14,7 +14,7 @@ import type {
   AnkiNote,
   AnkiNotetype,
   AnkiTemplate,
-} from "@armin/core/anki";
+} from "../types";
 import { AnkiImportError } from "./errors";
 
 const SEPARATOR_NAMES: Record<string, string> = {

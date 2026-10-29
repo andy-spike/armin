@@ -22,7 +22,7 @@ import type {
   AnkiPackageFormat,
   AnkiReview,
   AnkiTemplate,
-} from "@armin/core/anki";
+} from "../types";
 import type { Database, SqlJsStatic } from "sql.js";
 import { decompress as zstdDecompress } from "fzstd";
 import { AnkiImportError } from "./errors";

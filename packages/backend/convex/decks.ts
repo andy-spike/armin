@@ -5,7 +5,8 @@ import { mutation } from "./functions";
 import type { Doc } from "./_generated/dataModel";
 import { ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
-import { MAX_DECKS, MAX_DESCRIPTION_CHARS, MAX_NAME_CHARS } from "./model/limits";
+import { insertDeck, updateDeckDetails } from "./model/decks";
+import { checkCapacity } from "./model/usage";
 import { deleteDeckCascade } from "./model/deletion";
 import { introducedToday, reviewsDoneToday, selectSession, type SessionReads } from "./model/queue";
 import { bumpRevision, findRequest, recordRequest, SettingsCache } from "./model/study";
@@ -125,23 +126,6 @@ export const get = query({
   },
 });
 
-function cleanName(name: string) {
-  const trimmed = name.trim();
-  if (!trimmed) fail("INVALID", "Deck name is required.");
-  if (trimmed.length > MAX_NAME_CHARS) {
-    fail("INVALID", `Deck names are limited to ${MAX_NAME_CHARS} characters.`);
-  }
-  return trimmed;
-}
-
-function cleanDescription(description: string | null | undefined) {
-  const trimmed = description?.trim() ?? "";
-  if (trimmed.length > MAX_DESCRIPTION_CHARS) {
-    fail("INVALID", `Descriptions are limited to ${MAX_DESCRIPTION_CHARS} characters.`);
-  }
-  return trimmed || null;
-}
-
 export const create = mutation({
   args: {
     name: v.string(),
@@ -152,21 +136,13 @@ export const create = mutation({
     const library = await writableLibrary(ctx);
     const previous = await findRequest(ctx, library._id, args.requestId);
     if (previous) return previous.result as { id: string };
-    const count = (
-      await ctx.db
-        .query("decks")
-        .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-        .take(MAX_DECKS + 1)
-    ).length;
-    if (count >= MAX_DECKS) fail("QUOTA", `The beta allows ${MAX_DECKS} decks.`);
+    await checkCapacity(ctx, library._id, { decks: 1 });
     const now = Date.now();
-    const id = await ctx.db.insert("decks", {
+    const id = await insertDeck(ctx, {
       libraryId: library._id,
-      name: cleanName(args.name),
-      description: cleanDescription(args.description),
-      version: 1,
-      createdAt: now,
-      updatedAt: now,
+      name: args.name,
+      description: args.description,
+      now,
     });
     await bumpRevision(ctx, library._id);
     const result = { id };
@@ -188,17 +164,9 @@ export const update = mutation({
     if (deck.version !== args.expectedVersion) {
       return { status: "conflict" as const, version: deck.version };
     }
-    const now = Date.now();
-    await ctx.db.patch(deck._id, {
-      ...(args.name !== undefined ? { name: cleanName(args.name) } : {}),
-      ...(args.description !== undefined
-        ? { description: cleanDescription(args.description) }
-        : {}),
-      version: deck.version + 1,
-      updatedAt: now,
-    });
+    const version = await updateDeckDetails(ctx, deck, args, Date.now());
     await bumpRevision(ctx, library._id);
-    return { status: "ok" as const, version: deck.version + 1 };
+    return { status: "ok" as const, version };
   },
 });
 

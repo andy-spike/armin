@@ -26,6 +26,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { fail } from "./errors";
 import { MAX_REVIEW_UNITS, MAX_REVIEW_UNITS_PER_FLASHCARD } from "./limits";
+import { reviewUnitTotal } from "./usage";
 
 // --- Settings ---
 
@@ -118,6 +119,15 @@ export function schedulerFor(settings: SchedulingSettings) {
 
 // --- Library revision (export snapshot check) ---
 
+/** The library's revision, which graph and assistant writes compare against. */
+export async function libraryRevision(ctx: QueryCtx, libraryId: Id<"libraries">) {
+  const counters = await ctx.db
+    .query("libraryCounters")
+    .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
+    .unique();
+  return counters?.revision ?? 0;
+}
+
 export async function bumpRevision(ctx: MutationCtx, libraryId: Id<"libraries">) {
   const counters = await ctx.db
     .query("libraryCounters")
@@ -149,14 +159,7 @@ export async function adjustReviewUnitCount(
     .query("libraryCounters")
     .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
     .unique();
-  const current =
-    counters?.reviewUnits ??
-    (
-      await ctx.db
-        .query("reviewUnits")
-        .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
-        .collect()
-    ).length;
+  const current = counters?.reviewUnits ?? (await reviewUnitTotal(ctx, libraryId));
   const next = Math.max(0, current + delta);
   if (delta > 0 && next > MAX_REVIEW_UNITS) {
     fail("QUOTA", `The beta allows ${MAX_REVIEW_UNITS} review units per account.`);

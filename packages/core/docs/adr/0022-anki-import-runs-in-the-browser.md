@@ -24,10 +24,11 @@ the backend receives ordinary flashcard input in batches through
   (`convertAnkiCollection`): notetype mapping, Anki template rendering, HTML to
   Markdown, cloze and image-occlusion conversion, and schedule replay through
   ts-fsrs. It has no SQLite, DOM, or Node dependency, so mobile can reuse it.
-- `apps/web/src/lib/anki/` reads the file (fflate, fzstd, and sql.js loaded on
-  demand inside a worker) into a normalized `AnkiCollection`, and runs the import:
-  upload images, re-validate with real image references, then
-  `start` → `addCards` → `addReviewLogs` → `finish`.
+- `@armin/core/anki/reader` reads the file (fflate and fzstd, with the caller
+  injecting sql.js and the file bytes) into a normalized `AnkiCollection`. The
+  web app runs it on demand inside a worker; the converter kit runs it in Node.
+- `apps/web/src/lib/anki/` runs the import: upload images, re-validate with real
+  image references, then `start` → `addCards` → `addReviewLogs` → `finish`.
 
 ## Consequences
 

@@ -19,6 +19,7 @@ import {
   deleteReviewUnit,
   parseFlashcard,
   reconcileReviewUnits,
+  refreshAfterPrereqChange,
   refreshDependentSubgraph,
   rememberTags,
   SettingsCache,
@@ -70,11 +71,19 @@ export async function prepareTags(
 
 export type ValidatedFlashcard = ReturnType<typeof validateFlashcardInput>;
 
+/*
+ * Flashcard writes. The app's mutations, the assistant tools, and imports all
+ * change flashcards through these functions, so each write's cascade (review
+ * units, image links, tags, and lock state) lives in one place. Callers check
+ * ownership, versions, and their own policy first, and bump the library
+ * revision once per mutation.
+ */
+
 /**
  * The one place a flashcard is created: tags, row, review units, image links,
  * and remembered tag names. Callers validate first (so they can add their own
- * rules, such as the agent's text-only check) and keep the quota checks and
- * `bumpRevision` for themselves, because those depend on the batch they write.
+ * rules, such as the agent's text-only check) and check capacity with
+ * `checkCapacity` once for the whole batch they write.
  */
 export async function insertFlashcard(
   ctx: MutationCtx,
@@ -115,6 +124,110 @@ export async function insertFlashcard(
   if (input.mediaFiles.length > 0) await syncFlashcardMedia(ctx, flashcard, input.mediaFiles);
   await rememberTags(ctx, libraryId, tags, args.tagCache);
   return id;
+}
+
+/**
+ * Save new content and/or tags. Content changes reconcile review units (kept
+ * by subKey, so history survives) and image links, then refresh dependents,
+ * because adding or removing units can change whether they are secured.
+ */
+export async function editFlashcard(
+  ctx: MutationCtx,
+  flashcard: Doc<"flashcards">,
+  change: { input?: ValidatedFlashcard; tags?: string[] },
+  now: number,
+) {
+  const { input } = change;
+  const patch: Partial<Doc<"flashcards">> = {};
+  if (input) {
+    patch.type = input.type;
+    patch.content = input.serialized;
+    await reconcileReviewUnits(ctx, { ...flashcard, ...patch }, input.type, input.content, now);
+    await syncFlashcardMedia(ctx, flashcard, input.mediaFiles);
+  }
+  if (change.tags) {
+    patch.tags = await prepareTags(ctx, flashcard.libraryId, change.tags);
+    await rememberTags(ctx, flashcard.libraryId, patch.tags);
+  }
+  const version = flashcard.version + 1;
+  await ctx.db.patch(flashcard._id, { ...patch, version, updatedAt: now });
+  if (input) {
+    const settings = new SettingsCache(ctx, flashcard.libraryId);
+    await refreshAfterPrereqChange(ctx, flashcard._id, settings, now);
+  }
+  return version;
+}
+
+/** Archived flashcards and their units leave queues and stop gating dependents. */
+export async function setFlashcardArchived(
+  ctx: MutationCtx,
+  flashcard: Doc<"flashcards">,
+  archived: boolean,
+  now: number,
+) {
+  if (flashcard.archived === archived) return flashcard.version;
+  const version = flashcard.version + 1;
+  await ctx.db.patch(flashcard._id, { archived, version, updatedAt: now });
+  for (const unit of await unitsOf(ctx, flashcard._id)) {
+    await ctx.db.patch(unit._id, { archived, version: unit.version + 1, updatedAt: now });
+  }
+  const settings = new SettingsCache(ctx, flashcard.libraryId);
+  await refreshAfterPrereqChange(ctx, flashcard._id, settings, now);
+  return version;
+}
+
+/**
+ * Move a flashcard to another deck of the same library. Prerequisite links
+ * cannot cross decks, so its links are removed, its units follow it, its
+ * canvas position is cleared, and locks are recomputed for it and its former
+ * dependents.
+ */
+export async function moveFlashcard(
+  ctx: MutationCtx,
+  flashcard: Doc<"flashcards">,
+  targetDeckId: Id<"decks">,
+  now: number,
+) {
+  if (flashcard.deckId === targetDeckId) return flashcard.version;
+  const outgoing = await ctx.db
+    .query("prereqs")
+    .withIndex("by_prereq", (q) => q.eq("prereqId", flashcard._id))
+    .collect();
+  const incoming = await ctx.db
+    .query("prereqs")
+    .withIndex("by_dependent", (q) => q.eq("dependentId", flashcard._id))
+    .collect();
+  for (const edge of [...outgoing, ...incoming]) await ctx.db.delete(edge._id);
+  const version = flashcard.version + 1;
+  await ctx.db.patch(flashcard._id, {
+    deckId: targetDeckId,
+    posX: null,
+    posY: null,
+    version,
+    updatedAt: now,
+  });
+  for (const unit of await unitsOf(ctx, flashcard._id)) {
+    await ctx.db.patch(unit._id, {
+      deckId: targetDeckId,
+      version: unit.version + 1,
+      updatedAt: now,
+    });
+  }
+  const settings = new SettingsCache(ctx, flashcard.libraryId);
+  await refreshDependentSubgraph(
+    ctx,
+    [flashcard._id, ...outgoing.map((edge) => edge.dependentId)],
+    settings,
+    now,
+  );
+  return version;
+}
+
+function unitsOf(ctx: QueryCtx, flashcardId: Id<"flashcards">) {
+  return ctx.db
+    .query("reviewUnits")
+    .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcardId))
+    .collect();
 }
 
 /**

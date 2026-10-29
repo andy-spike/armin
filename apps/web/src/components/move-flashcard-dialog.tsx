@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { deckNamesQuery } from "@/lib/queries";
+import { deckNamesQuery, moveConsequencesQuery } from "@/lib/queries";
 import { buildDeckFilterOptions } from "@/lib/browse";
 import { stripMarkdownForPreview } from "@/lib/markdown-preview";
 
@@ -46,11 +46,9 @@ export function MoveFlashcardDialog({
   const [pickedDeckId, setPickedDeckId] = useState<string | null>(null);
 
   const decksQuery = useQuery({ ...deckNamesQuery(), enabled: open });
-  const consequencesQuery = useQuery({
-    queryKey: ["flashcards", "move-consequences", flashcard?.id],
-    queryFn: () => armin.flashcards.moveConsequences(flashcard!.id),
-    enabled: open && Boolean(flashcard),
-  });
+  const consequencesQuery = useQuery(
+    moveConsequencesQuery(open && flashcard ? flashcard.id : null),
+  );
 
   const otherDecks = (decksQuery.data ?? []).filter((deck) => deck.id !== flashcard?.deckId);
   // Reuse Browse's numbering so duplicate deck names stay distinguishable.

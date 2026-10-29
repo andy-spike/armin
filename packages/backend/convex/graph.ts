@@ -5,13 +5,8 @@ import { mutation } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import { ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
-import { MAX_PREREQS_PER_DECK } from "./model/limits";
-import {
-  bumpRevision,
-  parseFlashcard,
-  refreshDependentSubgraph,
-  SettingsCache,
-} from "./model/study";
+import { linkPrerequisites, unlinkPrerequisite } from "./model/prereqs";
+import { bumpRevision, libraryRevision, parseFlashcard } from "./model/study";
 
 export const getDeck = query({
   args: { deckId: v.string() },
@@ -40,12 +35,8 @@ export const getDeck = query({
       .query("prereqs")
       .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
       .collect();
-    const counters = await ctx.db
-      .query("libraryCounters")
-      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-      .unique();
     return {
-      version: counters?.revision ?? 0,
+      version: await libraryRevision(ctx, library._id),
       nodes: flashcards.map((flashcard) => {
         const { type, content } = parseFlashcard(flashcard);
         const display = flashcardDisplay(type, content);
@@ -69,40 +60,14 @@ export const getDeck = query({
   },
 });
 
-/** Does `from` reach `target` following prerequisite → dependent edges? */
 async function checkVersion(
   ctx: Parameters<typeof writableLibrary>[0],
   libraryId: Id<"libraries">,
   expectedVersion: number,
 ) {
-  const counters = await ctx.db
-    .query("libraryCounters")
-    .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
-    .unique();
-  if ((counters?.revision ?? 0) !== expectedVersion) {
+  if ((await libraryRevision(ctx, libraryId)) !== expectedVersion) {
     fail("CONFLICT", "This graph changed elsewhere. Reload it and retry your change.");
   }
-}
-
-async function reaches(
-  ctx: Parameters<typeof readableLibrary>[0],
-  from: Id<"flashcards">,
-  target: Id<"flashcards">,
-) {
-  const seen = new Set<string>();
-  const stack = [from];
-  while (stack.length) {
-    const node = stack.pop()!;
-    if (node === target) return true;
-    if (seen.has(node)) continue;
-    seen.add(node);
-    const edges = await ctx.db
-      .query("prereqs")
-      .withIndex("by_prereq", (q) => q.eq("prereqId", node))
-      .collect();
-    stack.push(...edges.map((edge) => edge.dependentId));
-  }
-  return false;
 }
 
 /**
@@ -118,37 +83,14 @@ export const addPrereq = mutation({
   handler: async (ctx, { prereqId, dependentId, expectedVersion }) => {
     const library = await writableLibrary(ctx);
     await checkVersion(ctx, library._id, expectedVersion);
-    if (prereqId === dependentId) {
-      fail("INVALID", "A flashcard cannot be its own prerequisite.");
-    }
     const prereq = await ownedOrFail(ctx, library, prereqId, "Flashcard");
     const dependent = await ownedOrFail(ctx, library, dependentId, "Flashcard");
     if (prereq.deckId !== dependent.deckId) {
       fail("INVALID", "Prerequisites can only connect flashcards in the same deck.");
     }
-    const existing = await ctx.db
-      .query("prereqs")
-      .withIndex("by_pair", (q) => q.eq("prereqId", prereqId).eq("dependentId", dependentId))
-      .unique();
-    if (existing) return { ok: true as const, version: expectedVersion };
-    const deckEdges = await ctx.db
-      .query("prereqs")
-      .withIndex("by_deck", (q) => q.eq("deckId", prereq.deckId))
-      .take(MAX_PREREQS_PER_DECK);
-    if (deckEdges.length >= MAX_PREREQS_PER_DECK) {
-      fail("QUOTA", `The beta allows ${MAX_PREREQS_PER_DECK} prerequisite links per deck.`);
-    }
-    if (await reaches(ctx, dependentId, prereqId)) {
-      fail("INVALID", "That edge would create a cycle in the prerequisite graph.");
-    }
-    await ctx.db.insert("prereqs", {
-      libraryId: library._id,
-      deckId: prereq.deckId,
-      prereqId,
-      dependentId,
-    });
-    const settings = new SettingsCache(ctx, library._id);
-    await refreshDependentSubgraph(ctx, [dependentId], settings, Date.now());
+    const deck = await ownedOrFail(ctx, library, prereq.deckId, "Deck");
+    const added = await linkPrerequisites(ctx, deck, [{ prereqId, dependentId }], Date.now());
+    if (added.length === 0) return { ok: true as const, version: expectedVersion };
     await bumpRevision(ctx, library._id);
     return { ok: true as const, version: expectedVersion + 1 };
   },
@@ -170,9 +112,7 @@ export const removePrereq = mutation({
     if (!edge || edge.libraryId !== library._id)
       return { ok: true as const, version: expectedVersion };
     await ownedOrFail(ctx, library, edge.deckId, "Deck");
-    await ctx.db.delete(edge._id);
-    const settings = new SettingsCache(ctx, library._id);
-    await refreshDependentSubgraph(ctx, [dependentId], settings, Date.now());
+    await unlinkPrerequisite(ctx, edge, Date.now());
     await bumpRevision(ctx, library._id);
     return { ok: true as const, version: expectedVersion + 1 };
   },
@@ -190,11 +130,7 @@ export const saveLayout = mutation({
   // caller's version unchanged so its next link edit still detects that.
   handler: async (ctx, { deckId, placements, expectedVersion }) => {
     const library = await writableLibrary(ctx);
-    const counters = await ctx.db
-      .query("libraryCounters")
-      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-      .unique();
-    const current = (counters?.revision ?? 0) === expectedVersion;
+    const current = (await libraryRevision(ctx, library._id)) === expectedVersion;
     const deck = await ownedOrFail(ctx, library, deckId, "Deck");
     if (placements.length > 2000) fail("INVALID", "Too many placements.");
     for (const placement of placements) {

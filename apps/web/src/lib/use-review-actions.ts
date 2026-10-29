@@ -1,12 +1,17 @@
 import { useMutation } from "@tanstack/react-query";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
-import type { HistoryEntry, SessionUndoResult } from "@/components/review-session";
+import type { BuryUnit } from "@armin/backend/types";
+import type { HistoryEntry, SessionUndoResult } from "@armin/core/review-session";
 import { useToast } from "@/components/ui/toast";
 import { armin, errorMessage } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import { useConnection } from "@/lib/session";
-import { toUiFlashcard, type UiFlashcard, type UiReviewUnit } from "@/types/view-models";
-import type { Grade } from "@/types/window";
+import {
+  type Grade,
+  toUiFlashcard,
+  type UiFlashcard,
+  type UiReviewUnit,
+} from "@/types/view-models";
 
 /** Server-backed actions shared by the deck and all-decks review screens. */
 export function useReviewActions() {
@@ -63,7 +68,8 @@ export function useReviewActions() {
       entry.kind === "bury"
         ? armin.review.unbury({
             flashcardId: entry.flashcardId,
-            units: entry.units,
+            // Ids the server issued for this bury, echoed back unchanged.
+            units: entry.units as BuryUnit[],
             requestId,
           })
         : armin.review.undo({

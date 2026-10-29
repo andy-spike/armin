@@ -11,13 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CircleDot, Layers, Library, Search, Tag } from "lucide-react";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
-import {
-  FlashcardDeleteDialog,
-  FlashcardTile,
-  type FlashcardDeleteRequest,
-} from "@/components/flashcard-tile";
-import { MoveFlashcardDialog } from "@/components/move-flashcard-dialog";
-import { CardInfoDialog } from "@/components/card-info-dialog";
+import { FlashcardTile } from "@/components/flashcard-tile";
 import { SortControl } from "@/components/sort-control";
 import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect, SearchableSelect } from "@/components/ui/combobox";
@@ -33,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useFlashcardTileActions } from "@/components/use-flashcard-tile-actions";
 import { useToast } from "@/components/ui/toast";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
 import type { BrowseQueryFilters } from "@/lib/armin-query";
@@ -45,7 +40,6 @@ import {
   type BrowseSortKey,
 } from "@/lib/browse";
 import { STATE_OPTIONS } from "@/lib/flashcard-filters";
-import type { FlashcardDeleteConsequences } from "@/types/window";
 
 const ALL_STATES = "all";
 const SEARCH_DEBOUNCE_MS = 250;
@@ -62,13 +56,6 @@ function BrowsePage() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<UiBrowseFlashcard | null>(null);
-  const [moveTarget, setMoveTarget] = useState<UiBrowseFlashcard | null>(null);
-  const [infoCardId, setInfoCardId] = useState<string | null>(null);
-  const [deleteRequest, setDeleteRequest] = useState<FlashcardDeleteRequest | null>(null);
-  const [deleteConsequences, setDeleteConsequences] = useState<FlashcardDeleteConsequences | null>(
-    null,
-  );
-  const [deleteConsequencesError, setDeleteConsequencesError] = useState(false);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setSearch(searchInput.trim()), SEARCH_DEBOUNCE_MS);
@@ -117,23 +104,7 @@ function BrowsePage() {
     setEditing(null);
   };
 
-  const requestDelete = (request: FlashcardDeleteRequest) => {
-    setDeleteRequest(request);
-    setDeleteConsequences(null);
-    setDeleteConsequencesError(false);
-    if (request.loadDeleteConsequences) {
-      void request
-        .loadDeleteConsequences(request.card.id)
-        .then((summary) => setDeleteConsequences(summary))
-        .catch(() => setDeleteConsequencesError(true));
-    }
-  };
-
-  const closeDeleteDialog = () => {
-    setDeleteRequest(null);
-    setDeleteConsequences(null);
-    setDeleteConsequencesError(false);
-  };
+  const tileActions = useFlashcardTileActions();
 
   const updateCard = useMutation({
     mutationFn: (values: CardFormValues & { id: string; version: number }) =>
@@ -143,26 +114,6 @@ function BrowsePage() {
       closeDialog();
     },
     onError: (error) => notifySaveError(toast, "Couldn’t update flashcard", error),
-  });
-
-  const deleteCard = useMutation({
-    mutationFn: (card: UiBrowseFlashcard) => armin.flashcards.delete(card.id).then(() => card),
-    onSuccess: () => {
-      toast({ tone: "error", title: "Flashcard deleted" });
-    },
-    onError: () => toast({ tone: "error", title: "Couldn’t delete flashcard" }),
-  });
-
-  const archiveCard = useMutation({
-    mutationFn: ({ card, archived }: { card: UiBrowseFlashcard; archived: boolean }) =>
-      armin.flashcards.archive(card.id, archived).then(() => card),
-    onSuccess: (_card, { archived }) => {
-      toast({
-        tone: "success",
-        title: archived ? "Flashcard archived" : "Flashcard unarchived",
-      });
-    },
-    onError: () => toast({ tone: "error", title: "Could not update flashcard" }),
   });
 
   const saveCard = (values: CardFormValues) => {
@@ -339,19 +290,7 @@ function BrowsePage() {
                         params: { deckId: card.deckId },
                       })
                     }
-                    onMove={() => setMoveTarget(card)}
-                    onInfo={() => setInfoCardId(card.id)}
-                    onArchiveToggle={() =>
-                      void archiveCard.mutateAsync({
-                        card,
-                        archived: !card.archived,
-                      })
-                    }
-                    loadDeleteConsequences={(id) => armin.flashcards.deleteConsequences(id)}
-                    onDeleteRequest={requestDelete}
-                    onDelete={async () => {
-                      await deleteCard.mutateAsync(card);
-                    }}
+                    {...tileActions.tileProps(card)}
                   />
                 )}
               />
@@ -384,32 +323,7 @@ function BrowsePage() {
         initialTags={editing?.tags ?? []}
         onSubmit={saveCard}
       />
-      <MoveFlashcardDialog
-        flashcard={moveTarget}
-        open={Boolean(moveTarget)}
-        onClose={() => setMoveTarget(null)}
-      />
-      <CardInfoDialog
-        flashcardId={infoCardId}
-        open={infoCardId !== null}
-        onClose={() => setInfoCardId(null)}
-      />
-      <FlashcardDeleteDialog
-        request={deleteRequest}
-        consequences={deleteConsequences}
-        consequencesError={deleteConsequencesError}
-        onClose={closeDeleteDialog}
-        onArchiveInstead={() => {
-          const request = deleteRequest;
-          closeDeleteDialog();
-          void request?.archiveInstead();
-        }}
-        onConfirm={() => {
-          const request = deleteRequest;
-          closeDeleteDialog();
-          request?.confirmDelete();
-        }}
-      />
+      {tileActions.dialogs}
     </div>
   );
 }

@@ -113,14 +113,30 @@ export const cramCountQuery = (deckId: string, filters: CramFilters) =>
 export const cramQueueQuery = (deckId: string, filters: CramFilters) =>
   queryOptions(live(api.cram.queue, cramArgs(deckId, filters)));
 
-/** Interval labels for a unit's rating buttons. */
-export const reviewPreviewQuery = (reviewUnitId: string, now = studyClockNow()) =>
-  queryOptions(
-    live(api.review.preview, {
-      reviewUnitId: reviewUnitId as FunctionArgs<typeof api.review.preview>["reviewUnitId"],
-      now,
-    }),
-  );
+/** A flashcard's schedule and review history, for the card info dialog. `null` skips. */
+export const cardInfoQuery = (flashcardId: string | null) =>
+  queryOptions({
+    ...(flashcardId
+      ? live(api.review.cardInfo, { flashcardId })
+      : convexQuery(api.review.cardInfo, "skip")),
+    select: (info) => info ?? null,
+  });
+
+/** How many links a move would remove, for the move dialog. `null` skips. */
+export const moveConsequencesQuery = (flashcardId: string | null) =>
+  queryOptions({
+    ...(flashcardId
+      ? live(api.flashcards.moveConsequences, {
+          flashcardId: flashcardId as FunctionArgs<
+            typeof api.flashcards.moveConsequences
+          >["flashcardId"],
+        })
+      : convexQuery(api.flashcards.moveConsequences, "skip")),
+    select: (result) => {
+      if (!result) throw new Error("Flashcard not found.");
+      return result;
+    },
+  });
 
 export const graphQuery = (deckId: string) =>
   queryOptions({
@@ -133,17 +149,6 @@ export const settingsQuery = () =>
     ...live(api.settings.get, {}),
     select: (settings) => {
       if (!settings) throw new Error("Settings are not available.");
-      return settings;
-    },
-  });
-
-export const deckSettingsQuery = (deckId: string) =>
-  queryOptions({
-    ...live(api.settings.getDeck, {
-      deckId: deckId as FunctionArgs<typeof api.settings.getDeck>["deckId"],
-    }),
-    select: (settings) => {
-      if (!settings) throw new Error("Deck settings are not available.");
       return settings;
     },
   });

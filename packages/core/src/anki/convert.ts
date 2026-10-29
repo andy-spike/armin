@@ -15,6 +15,7 @@ import type {
   AnkiCard,
   AnkiCollection,
   AnkiNote,
+  AnkiDeck,
   AnkiNotetype,
   ImportDeck,
   ImportFlashcard,
@@ -348,29 +349,15 @@ export function convertAnkiCollection(
   const decks = new Map(collection.decks.map((deck) => [deck.id, deck]));
   const wantedDecks = options.deckIds ? new Set(options.deckIds) : null;
 
-  const cardsByNote = new Map<string, AnkiCard[]>();
-  for (const card of collection.cards) {
-    if (wantedDecks && !wantedDecks.has(card.deckId)) continue;
-    const list = cardsByNote.get(card.noteId);
-    if (list) list.push(card);
-    else cardsByNote.set(card.noteId, [card]);
-  }
-
-  const reviewsByCard = new Map<string, typeof collection.revlog>();
-  if (options.progress === "keep") {
-    for (const review of collection.revlog) {
-      const list = reviewsByCard.get(review.cardId);
-      if (list) list.push(review);
-      else reviewsByCard.set(review.cardId, [review]);
-    }
-  }
-
-  const notesByType = new Map<string, AnkiNote[]>();
-  for (const note of collection.notes) {
-    const list = notesByType.get(note.notetypeId);
-    if (list) list.push(note);
-    else notesByType.set(note.notetypeId, [note]);
-  }
+  const selectedCards = wantedDecks
+    ? collection.cards.filter((card) => wantedDecks.has(card.deckId))
+    : collection.cards;
+  const cardsByNote = groupBy(selectedCards, (card) => card.noteId);
+  const reviewsByCard =
+    options.progress === "keep"
+      ? groupBy(collection.revlog, (review) => review.cardId)
+      : new Map<string, typeof collection.revlog>();
+  const notesByType = groupBy(collection.notes, (note) => note.notetypeId);
   const kinds = new Map<string, NotetypeKind>();
   const kindOf = (notetype: AnkiNotetype) => {
     let kind = kinds.get(notetype.id);
@@ -430,53 +417,19 @@ export function convertAnkiCollection(
     };
     const kind = kindOf(notetype);
 
-    const candidates: {
-      content: Content;
-      cards: AnkiCard[];
-      key: string;
-      templateOrd: number | null;
-    }[] = [];
+    let candidates: Candidate[] = [];
     if (kind.kind === "custom") {
-      const fields = new Map(notetype.fields.map((field, i) => [field.name, note.fields[i] ?? ""]));
-      for (const card of cards) {
-        const template =
-          notetype.templates.find((t) => t.ord === card.ord) ?? notetype.templates[card.ord];
-        if (!template) continue;
-        const deckName = decks.get(card.deckId)?.name ?? "Default";
-        const rendered = renderCard(notetype, template, {
-          fields,
-          tags: note.tags.join(" "),
-          deck: deckName,
-          subdeck: deckName.split("::").pop() ?? deckName,
-          clozeNum: card.ord + 1,
-          fieldIsUsable: (html) => Boolean(ctx.md(html).trim()),
-        });
-        if (!rendered) continue;
-        if ("audioOnly" in rendered) {
-          warnings.add("audio_only_card_skipped");
-          continue;
-        }
-        if ("unusableFront" in rendered) {
-          warnings.add("required_content_card_skipped");
-          continue;
-        }
-        const front = ctx.md(rendered.front);
-        const back = ctx.md(rendered.back);
-        if (!front || !back) continue;
-        candidates.push({
-          content: { type: "basic", content: { front, back } },
-          cards: [card],
-          key: `${note.id}:${card.ord}`,
-          templateOrd: card.ord,
-        });
-      }
+      candidates = renderCustomNotetypeCards(note, notetype, cards, decks, ctx);
       if (candidates.length > 0) warnings.add("custom_notetype_rendered");
     } else {
       const prepared = prepareStandard(note, kind, ctx);
       if (prepared.ok) {
-        for (const item of prepared.flashcards) {
-          candidates.push({ content: item.content, cards, key: note.id, templateOrd: null });
-        }
+        candidates = prepared.flashcards.map((item) => ({
+          content: item.content,
+          cards,
+          key: note.id,
+          templateOrd: null,
+        }));
       }
     }
 
@@ -499,15 +452,7 @@ export function convertAnkiCollection(
         warnings.has(code),
       );
       countWarnings(["empty_note_skipped", ...reasons]);
-      const reason: ImportOmittedReason = warnings.has("missing_media")
-        ? "missing_image"
-        : warnings.has("unsupported_image_removed")
-          ? "unsupported_image"
-          : warnings.has("audio_only_card_skipped")
-            ? "audio_only"
-            : warnings.has("required_content_card_skipped") || kind.kind === "custom"
-              ? "unusable_template"
-              : "empty_content";
+      const reason = omissionReason(warnings, kind.kind === "custom");
       omit(note, cards[0]!.deckId, notetype.name, reason, cards.length);
       continue;
     }
@@ -518,8 +463,76 @@ export function convertAnkiCollection(
   return buildPlan(collection, decks, drafts, warningCounts, omitted);
 }
 
+function groupBy<Item>(items: readonly Item[], keyOf: (item: Item) => string) {
+  const groups = new Map<string, Item[]>();
+  for (const item of items) {
+    const key = keyOf(item);
+    const group = groups.get(key);
+    if (group) group.push(item);
+    else groups.set(key, [item]);
+  }
+  return groups;
+}
+
+/** One Armin flashcard a note will become, with the Anki cards it replaces. */
+type Candidate = { content: Content; cards: AnkiCard[]; key: string; templateOrd: number | null };
+
+/** A note type Armin doesn't recognize: render each card's template into a Basic card. */
+function renderCustomNotetypeCards(
+  note: AnkiNote,
+  notetype: AnkiNotetype,
+  cards: AnkiCard[],
+  decks: Map<string, AnkiDeck>,
+  ctx: NoteContext,
+) {
+  const fields = new Map(notetype.fields.map((field, i) => [field.name, note.fields[i] ?? ""]));
+  const candidates: Candidate[] = [];
+  for (const card of cards) {
+    const template =
+      notetype.templates.find((t) => t.ord === card.ord) ?? notetype.templates[card.ord];
+    if (!template) continue;
+    const deckName = decks.get(card.deckId)?.name ?? "Default";
+    const rendered = renderCard(notetype, template, {
+      fields,
+      tags: note.tags.join(" "),
+      deck: deckName,
+      subdeck: deckName.split("::").pop() ?? deckName,
+      clozeNum: card.ord + 1,
+      fieldIsUsable: (html) => Boolean(ctx.md(html).trim()),
+    });
+    if (!rendered) continue;
+    if ("audioOnly" in rendered) {
+      ctx.warnings.add("audio_only_card_skipped");
+      continue;
+    }
+    if ("unusableFront" in rendered) {
+      ctx.warnings.add("required_content_card_skipped");
+      continue;
+    }
+    const front = ctx.md(rendered.front);
+    const back = ctx.md(rendered.back);
+    if (!front || !back) continue;
+    candidates.push({
+      content: { type: "basic", content: { front, back } },
+      cards: [card],
+      key: `${note.id}:${card.ord}`,
+      templateOrd: card.ord,
+    });
+  }
+  return candidates;
+}
+
+/** Why a note produced no flashcard, from the most specific warning it raised. */
+function omissionReason(warnings: Set<ImportWarningCode>, isCustom: boolean): ImportOmittedReason {
+  if (warnings.has("missing_media")) return "missing_image";
+  if (warnings.has("unsupported_image_removed")) return "unsupported_image";
+  if (warnings.has("audio_only_card_skipped")) return "audio_only";
+  if (warnings.has("required_content_card_skipped") || isCustom) return "unusable_template";
+  return "empty_content";
+}
+
 function finishFlashcard(
-  candidate: { content: Content; cards: AnkiCard[]; key: string; templateOrd: number | null },
+  candidate: Candidate,
   tags: string[],
   collection: AnkiCollection,
   options: ImportOptions,

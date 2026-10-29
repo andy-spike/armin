@@ -11,16 +11,24 @@
     "./scheduling-presets": "./src/scheduling-presets.ts",
     "./stats": "./src/stats.ts",
     "./study": "./src/study.ts",
+    "./prereq-graph": "./src/prereq-graph.ts",
+    "./review-session": "./src/review-session.ts",
     "./media": "./src/media.ts",
     "./media-ref": "./src/media-ref.ts",
     "./math": "./src/math.ts",
     "./math-render": "./src/math-render.ts",
     "./anki": "./src/anki/index.ts",
+    "./anki/reader": "./src/anki/reader/index.ts",
     "./anki-kit": "./src/anki/kit.ts"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
+    "fzstd": "^0.1.1",
     "katex": "^0.19.1",
     "ts-fsrs": "^5.4.1",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/sql.js": "^1.4.11"
   }
 }

@@ -105,34 +105,43 @@ export async function reviewsDoneToday(
   ).length;
 }
 
-/** Eligible (unlocked, unarchived, unburied) units due by `now`, optionally per deck. */
+/** Unlocked, unarchived, unburied, and due by `now`: the unit can be studied. */
+function isStudyable(unit: Doc<"reviewUnits">, libraryId: Id<"libraries">, now: number) {
+  return (
+    unit.libraryId === libraryId &&
+    !unit.locked &&
+    !unit.archived &&
+    unit.due <= now &&
+    !isPendingSchedule(unit) &&
+    !isBuried(unit, now)
+  );
+}
+
+/** Studyable units in one deck, or in every active deck when `deckId` is null. */
 export async function dueEligibleUnits(
   ctx: QueryCtx,
   library: Doc<"libraries">,
   deckId: Id<"decks"> | null,
   now: number,
 ) {
-  const decks = deckId
-    ? new Set((await ctx.db.get(deckId))?.libraryId === library._id ? [deckId] : [])
-    : await activeDeckIds(ctx, library._id);
-  const units: Doc<"reviewUnits">[] = [];
-  for (const id of deckId ? (decks.has(deckId) ? [deckId] : []) : decks) {
-    units.push(
-      ...(await ctx.db
-        .query("reviewUnits")
-        .withIndex("by_deck_eligible_due", (q) =>
-          q.eq("deckId", id).eq("locked", false).eq("archived", false).lte("due", now),
-        )
-        .collect()),
-    );
+  let deckIds: Set<Id<"decks">>;
+  if (deckId) {
+    const deck = await ctx.db.get(deckId);
+    deckIds = new Set(deck?.libraryId === library._id ? [deckId] : []);
+  } else {
+    deckIds = await activeDeckIds(ctx, library._id);
   }
-  return units.filter(
-    (unit) =>
-      decks.has(unit.deckId) &&
-      unit.libraryId === library._id &&
-      !isPendingSchedule(unit) &&
-      !isBuried(unit, now),
-  );
+  const units: Doc<"reviewUnits">[] = [];
+  for (const id of deckIds) {
+    const due = await ctx.db
+      .query("reviewUnits")
+      .withIndex("by_deck_eligible_due", (q) =>
+        q.eq("deckId", id).eq("locked", false).eq("archived", false).lte("due", now),
+      )
+      .collect();
+    units.push(...due);
+  }
+  return units.filter((unit) => deckIds.has(unit.deckId) && isStudyable(unit, library._id, now));
 }
 
 /** Reads a caller has already made, so listing many decks repeats none of them. */
@@ -166,55 +175,42 @@ export async function selectSession(
   reads: SessionReads = {},
 ): Promise<SessionSelection> {
   const units = reads.deckUnits
-    ? reads.deckUnits.filter(
-        (unit) =>
-          !unit.locked &&
-          !unit.archived &&
-          unit.due <= now &&
-          unit.libraryId === library._id &&
-          !isPendingSchedule(unit) &&
-          !isBuried(unit, now),
-      )
+    ? reads.deckUnits.filter((unit) => isStudyable(unit, library._id, now))
     : await dueEligibleUnits(ctx, library, deckId, now);
   const dueReviews = units.filter((unit) => unit.state !== State.New).sort((a, b) => a.due - b.due);
   const newUnits = units.filter((unit) => unit.state === State.New && unit.lastReview == null);
 
   const settings = reads.settings ?? new SettingsCache(ctx, library._id);
   const global = await settings.globalSettings();
-  const siblingGrouping = new Map<Id<"decks">, boolean>();
+  const keepSiblingsByDeck = new Map<Id<"decks">, boolean>();
   for (const id of new Set(newUnits.map((unit) => unit.deckId))) {
-    siblingGrouping.set(id, (await settings.forDeck(id)).keepSiblingReviewUnitsTogether);
+    keepSiblingsByDeck.set(id, (await settings.forDeck(id)).keepSiblingReviewUnitsTogether);
   }
-  const keepSiblings = (unit: Doc<"reviewUnits">) => siblingGrouping.get(unit.deckId) ?? false;
+  const keepSiblings = (unit: Doc<"reviewUnits">) => keepSiblingsByDeck.get(unit.deckId) ?? false;
   const today = reads.today ?? (await introducedToday(ctx, library, now));
-  const doneToday =
-    global.reviewsPerDay == null
-      ? 0
-      : (reads.reviewsDoneToday ??
-        (await reviewsDoneToday(ctx, library, today.since, global.reviewsPerDay)));
-  const reviewBudget =
-    global.reviewsPerDay == null ? Infinity : Math.max(0, global.reviewsPerDay - doneToday);
+
+  // Budgets are Infinity when unlimited; slice() and arithmetic handle that.
+  const reviewLimit = global.reviewsPerDay;
+  let reviewBudget = Infinity;
+  if (reviewLimit != null) {
+    const done =
+      reads.reviewsDoneToday ?? (await reviewsDoneToday(ctx, library, today.since, reviewLimit));
+    reviewBudget = Math.max(0, reviewLimit - done);
+  }
   const reviews = dueReviews.slice(0, reviewBudget);
-  // New units get what is left of the total budget, further limited by the
-  // new-unit allowance. A spent review budget leaves nothing for new units.
-  const totalRemaining =
-    reviewBudget === Infinity ? Infinity : Math.max(0, reviewBudget - reviews.length);
+  // New units share what is left of the daily total, so a spent review budget
+  // leaves nothing for them.
+  const totalLeft = reviewBudget - reviews.length;
   const newAllowance = Math.max(0, global.newReviewUnitsPerDay - today.units.size);
 
-  const continuing = newUnits.filter(
-    (unit) => keepSiblings(unit) && today.flashcards.has(unit.flashcardId),
-  );
-  // Continuing siblings bypass the new-unit allowance, but not the daily total.
-  const allowedContinuing =
-    totalRemaining === Infinity ? continuing : continuing.slice(0, totalRemaining);
-  const remaining = Math.max(
-    0,
-    Math.min(
-      newAllowance,
-      totalRemaining === Infinity ? Infinity : totalRemaining - allowedContinuing.length,
-    ),
-  );
-  const continuingIds = new Set(allowedContinuing.map((unit) => unit._id));
+  // Siblings of a flashcard started today skip the new-unit allowance, but
+  // still count against the daily total.
+  const continuing = newUnits
+    .filter((unit) => keepSiblings(unit) && today.flashcards.has(unit.flashcardId))
+    .slice(0, totalLeft);
+  const frontierBudget = totalLeft - continuing.length;
+  const newSlots = Math.min(newAllowance, frontierBudget);
+  const continuingIds = new Set(continuing.map((unit) => unit._id));
   const candidates = newUnits.filter((unit) => !continuingIds.has(unit._id));
 
   // Rank candidates by a hash seeded with the account and study day, so the
@@ -230,11 +226,9 @@ export async function selectSession(
   const batches = ordered.map((unit) => ({ flashcardId: keyOf(unit), unit }));
   // Grouping may overshoot a unit budget by a flashcard's siblings; the daily
   // total is a hard cap, so trim the last group at the budget boundary.
-  const frontierBudget =
-    totalRemaining === Infinity ? Infinity : Math.max(0, totalRemaining - allowedContinuing.length);
   const frontier = [
-    ...allowedContinuing,
-    ...selectFrontier(batches, remaining, true, (items) => items)
+    ...continuing,
+    ...selectFrontier(batches, newSlots, true, (items) => items)
       .map(({ unit }) => unit)
       .slice(0, frontierBudget),
   ];

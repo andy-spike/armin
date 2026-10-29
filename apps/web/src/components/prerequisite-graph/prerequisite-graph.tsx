@@ -28,7 +28,7 @@ import "@xyflow/react/dist/style.css";
 import "./graph.css";
 import { Link2, Pencil, Plus, Unlink, Trash2 } from "lucide-react";
 import type { UiDeckGraph } from "@/types/view-models";
-import { createGraphCycleIndex, linkProblem } from "@/lib/graph-cycle";
+import { createGraphCycleIndex, linkProblem } from "@armin/core/prereq-graph";
 import {
   EDGE_MARKER_END,
   EDGE_STROKE,

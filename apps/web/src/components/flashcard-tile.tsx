@@ -27,7 +27,7 @@ import {
 import { StateBadge, Badge } from "@/components/ui/badge";
 import { FlashcardTypeBadge } from "@/components/flashcard-type-badge";
 import { Dialog } from "@/components/ui/dialog";
-import type { UiFlashcard } from "@/types/view-models";
+import type { FlashcardDeleteConsequences, UiFlashcard } from "@/types/view-models";
 import {
   FLASHCARD_TILE_EXIT_MS,
   clearFlashcardTileFlipStyles,
@@ -37,24 +37,8 @@ import {
 import { stripMarkdownForPreview } from "@/lib/markdown-preview";
 import { hasMath } from "@armin/core/math";
 import { MarkdownContent } from "@/components/ui/markdown-content";
+import { DeleteConsequencesList } from "@/components/delete-consequences-list";
 import { cn } from "@/lib/utils";
-import type { FlashcardDeleteConsequences } from "@/types/window";
-
-function plural(count: number, singular: string, pluralForm = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : pluralForm}`;
-}
-
-function formatReviewHistory(consequences: FlashcardDeleteConsequences | null) {
-  if (!consequences) return "Loading review history…";
-  if (consequences.reviewLogCount === 0) {
-    return `No review history will be destroyed across ${plural(consequences.reviewUnitCount, "review unit")}.`;
-  }
-
-  const first = consequences.firstReviewAt?.toLocaleDateString();
-  const last = consequences.lastReviewAt?.toLocaleDateString();
-  const span = first && last ? ` from ${first} to ${last}` : "";
-  return `${plural(consequences.reviewLogCount, "review log")} across ${plural(consequences.reviewUnitCount, "review unit")} will be destroyed${span}.`;
-}
 
 export type FlashcardDeleteRequest = {
   card: UiFlashcard;
@@ -101,20 +85,10 @@ export function FlashcardDeleteDialog({
           Archive is the reversible way to set this aside. Delete removes the flashcard, its review
           units, and its review history permanently.
         </p>
-        <ul className="space-y-1 rounded-md border border-border bg-surface-sunken p-3">
-          <li>
-            {consequencesError || !request?.loadDeleteConsequences
-              ? "Dependent count could not be loaded."
-              : consequences
-                ? `${plural(consequences.dependentCount, "dependent")} will be unlocked or recomputed.`
-                : "Loading dependent count…"}
-          </li>
-          <li>
-            {consequencesError || !request?.loadDeleteConsequences
-              ? "Review history could not be loaded."
-              : formatReviewHistory(consequences)}
-          </li>
-        </ul>
+        <DeleteConsequencesList
+          consequences={consequences}
+          unavailable={consequencesError || !request?.loadDeleteConsequences}
+        />
       </div>
       <div className="mt-5 flex flex-wrap justify-end gap-2 pt-1">
         <Button variant="ghost" onClick={onClose}>
