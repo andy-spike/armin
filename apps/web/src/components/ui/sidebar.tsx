@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { flushSync } from "react-dom";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -42,6 +43,8 @@ type SidebarContextProps = {
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
   toggleSidebar: () => void;
+  /** Toggles without the width transition, for the keyboard shortcut. */
+  toggleSidebarInstantly: () => void;
   width: number;
   setWidth: (width: number) => void;
   setResizing: (resizing: boolean) => void;
@@ -113,6 +116,19 @@ function SidebarProvider({
     return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
   }, [isMobile, setOpen, setOpenMobile]);
 
+  // Keyboard toggles skip the transitions, reusing the resize switch: commit
+  // the new state with transitions off, force the browser to compute it, then
+  // turn transitions back on with nothing left to animate.
+  const toggleSidebarInstantly = React.useCallback(() => {
+    if (isMobile) return toggleSidebar();
+    flushSync(() => {
+      setResizing(true);
+      toggleSidebar();
+    });
+    void document.body.offsetWidth;
+    setResizing(false);
+  }, [isMobile, toggleSidebar]);
+
   // The toggle shortcut is the `sidebar.toggle` Command in the app's keybinding
   // registry, not shadcn's window listener, so it stays rebindable and doesn't
   // steal Mod+B (bold) from the card editor.
@@ -130,11 +146,23 @@ function SidebarProvider({
       openMobile,
       setOpenMobile,
       toggleSidebar,
+      toggleSidebarInstantly,
       width,
       setWidth,
       setResizing,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, width, setWidth],
+    [
+      state,
+      open,
+      setOpen,
+      isMobile,
+      openMobile,
+      setOpenMobile,
+      toggleSidebar,
+      toggleSidebarInstantly,
+      width,
+      setWidth,
+    ],
   );
 
   return (
@@ -242,7 +270,7 @@ function Sidebar({
         data-slot="sidebar-container"
         data-side={side}
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-[240ms] ease-(--ease-out-quart) group-data-resizing/sidebar-wrapper:transition-none data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex",
+          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-[240ms] ease-(--ease-out-quart) group-data-resizing/sidebar-wrapper:transition-none group-data-resizing/sidebar-wrapper:[&_*]:transition-none data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex",
           // Adjust the padding for floating and inset variants.
           variant === "floating" || variant === "inset"
             ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"

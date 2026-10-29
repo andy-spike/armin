@@ -48,7 +48,7 @@ export function ClozeChipPopover({
       onAnimationEnd={() => {
         if (leaving) onExited?.();
       }}
-      className={`absolute z-20 flex ${leaving ? "pointer-events-none animate-pop-out" : "animate-pop"} items-center gap-2 border border-border bg-surface px-2 py-1.5 text-xs shadow-overlay`}
+      className={`absolute z-20 flex ${leaving ? "pointer-events-none animate-fade-out-fast" : "animate-fade-in-fast"} items-center gap-2 border border-border bg-surface px-2 py-1.5 text-xs shadow-overlay`}
       onMouseDown={(event) => {
         // Keep the editor's selection on the chip unless a field is clicked.
         if (!(event.target instanceof HTMLInputElement)) event.preventDefault();

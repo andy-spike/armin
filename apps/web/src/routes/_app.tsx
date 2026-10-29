@@ -352,7 +352,7 @@ function ShellKeybindings({ activateNav }: { activateNav: (path: string) => void
   const navigate = useNavigate();
   const router = useRouter();
   const { keymap, pendingChord } = useKeybindings();
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebarInstantly } = useSidebar();
   const go = (to: NavTarget) => {
     activateNav(to);
     void navigate({ to });
@@ -376,7 +376,7 @@ function ShellKeybindings({ activateNav }: { activateNav: (path: string) => void
     "nav.browse": () => go(NAV_COMMANDS["nav.browse"]),
     "nav.review": () => go(NAV_COMMANDS["nav.review"]),
     "nav.settings": () => go(NAV_COMMANDS["nav.settings"]),
-    "sidebar.toggle": toggleSidebar,
+    "sidebar.toggle": toggleSidebarInstantly,
   });
 
   return null;

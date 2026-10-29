@@ -221,7 +221,7 @@ export function ReviewCardPrompt({
       )}
 
       {flipped && (
-        <div className="animate-flip-in flex w-full flex-col items-center">
+        <div className="flex w-full flex-col items-center">
           <div className="my-7 h-px w-16 bg-border-strong" />
           {isTypeAnswer && (
             <div
@@ -856,7 +856,7 @@ export function ReviewSession({
                         onClick={() => rate(r.grade)}
                         disabled={card.reviewed || undoing || Boolean(staleCard) || !online}
                         className={cn(
-                          "animate-flip-in flex h-full min-w-0 flex-col items-center justify-center gap-0 rounded-md px-1 text-sm leading-tight font-medium text-on-accent transition-[background-color,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-default disabled:opacity-60 sm:px-3",
+                          "flex h-full min-w-0 flex-col items-center justify-center gap-0 rounded-md px-1 text-sm leading-tight font-medium text-on-accent transition-[background-color,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-default disabled:opacity-60 sm:px-3",
                           r.bg,
                           isTypeAnswer &&
                             ((isCorrect && r.grade === 3) || (!isCorrect && r.grade === 1))

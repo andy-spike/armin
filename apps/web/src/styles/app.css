@@ -247,6 +247,12 @@
   .animate-pop-out {
     animation: a-pop-out 0.2s var(--ease-out-quart) both;
   }
+  .animate-fade-in-fast {
+    animation: a-fade-in 0.1s var(--ease-out) both;
+  }
+  .animate-fade-out-fast {
+    animation: a-fade-out 0.1s var(--ease-out) both;
+  }
   .card-grid {
     position: relative;
     align-items: stretch;
@@ -802,12 +808,79 @@ html[data-scroll="document"] body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Fewer, gentler animations: keep fades and color changes, drop movement.
+     The moving keyframes become fades, so components keep their timing and
+     the animationend handlers that unmount them. */
+  @keyframes a-rise {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes a-pop {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes a-flip-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes a-bar-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes a-pop-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes a-rise-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes a-bar-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  /* tw-animate popups keep their fade but lose zoom and slide; transitions on
+     position and size jump to their end state. */
   *,
   *::before,
   *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
+    --tw-enter-scale: 1 !important;
+    --tw-enter-translate-x: 0 !important;
+    --tw-enter-translate-y: 0 !important;
+    --tw-exit-scale: 1 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-exit-translate-y: 0 !important;
+    transition-property:
+      color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
+      opacity, box-shadow !important;
   }
   .skeleton {
     animation: none;
