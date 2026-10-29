@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { deckNamesQuery, prefetchReviewPage, reviewQueueQuery } from "@/lib/queries";
-import { plural } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Layers } from "lucide-react";
@@ -88,12 +87,7 @@ function ReviewsPage() {
           </SelectContent>
         </Select>
       }
-      header={<h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">Review</h1>}
-      subtitle={(remaining) =>
-        remaining > 0
-          ? `${plural(remaining, "review unit")} due today across your decks.`
-          : "Everything due across your decks, in one queue."
-      }
+      header={<h1 className="text-xl font-semibold tracking-tight text-balance">Review</h1>}
       doneAction={
         <Link to="/">
           <Button variant="outline">Back to decks</Button>

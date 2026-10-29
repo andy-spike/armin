@@ -587,7 +587,7 @@ export function ReviewSession({
     // and centers in the space between, and the answer controls stay pinned to
     // the bottom edge, so every action keeps its place from card to card. Only
     // a card too long for the space scrolls, inside itself.
-    <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-4 pt-5 sm:px-6 sm:pt-8">
+    <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-4 pt-3 sm:px-6 sm:pt-5">
       <div className="flex shrink-0 items-start justify-between gap-4">
         <div className="min-w-0 flex-1 [&_h1]:m-0">
           {header}
@@ -652,7 +652,7 @@ export function ReviewSession({
 
       {card && (
         <>
-          <div className="mt-5 flex h-8 shrink-0 items-center gap-3">
+          <div className="mt-2 flex h-8 shrink-0 items-center gap-3">
             <Progress
               value={reviewedCount}
               max={cards.length}
@@ -713,10 +713,10 @@ export function ReviewSession({
             </div>
           )}
 
-          <div className="flex min-h-0 flex-1 flex-col justify-center py-4 sm:py-6">
+          <div className="flex min-h-0 flex-1 flex-col py-3 sm:py-4">
             <article
               aria-label="Flashcard"
-              className="flex max-h-[32rem] min-h-0 flex-1 flex-col rounded-xl border border-border-strong bg-paper"
+              className="flex min-h-0 flex-1 flex-col rounded-xl border border-border-strong bg-paper"
             >
               <div className="flex shrink-0 items-center gap-3 py-2 pr-2 pl-4 font-mono text-xs uppercase tracking-wide text-muted sm:pl-5">
                 <div className="flex min-w-0 flex-1">
@@ -798,7 +798,7 @@ export function ReviewSession({
               <div
                 key={card.turnId}
                 ref={cardBodyRef}
-                className="armin-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-b-xl [--armin-scrollbar-gutter:var(--color-paper)] [mask-image:linear-gradient(to_bottom,transparent,black_1rem,black_calc(100%-2.5rem),transparent)]"
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-b-xl [mask-image:linear-gradient(to_bottom,transparent,black_1rem,black_calc(100%-2.5rem),transparent)]"
               >
                 {/* The edges fade so a long card reads as scrollable. Bottom padding
                     mirrors the action strip, so short content sits at the card's
@@ -816,7 +816,7 @@ export function ReviewSession({
             </article>
           </div>
 
-          <div className="shrink-0 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-8">
+          <div className="shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-5">
             {card.reviewed && (
               <p className="mb-3 text-center text-sm text-muted">
                 Already reviewed. Use Undo to change your last answer.
@@ -824,19 +824,19 @@ export function ReviewSession({
             )}
             {/* One height for both states, sized to the two-line rating buttons,
                 so revealing the answer doesn't move anything. */}
-            <div className="flex h-15 items-stretch gap-2">
+            <div className="flex h-12 items-stretch gap-2">
               <Tooltip
                 content={<ShortcutLabel label="Previous card" binding={keymap["review.prev"]} />}
               >
                 <Button
                   variant="outline"
                   size="lg"
-                  className="h-full shrink-0 px-3"
+                  className="h-full w-12 shrink-0 px-0"
                   disabled={index === 0 || undoing}
                   onClick={goPrev}
                   aria-label="Previous review unit"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
               </Tooltip>
 
@@ -856,7 +856,7 @@ export function ReviewSession({
                         onClick={() => rate(r.grade)}
                         disabled={card.reviewed || undoing || Boolean(staleCard) || !online}
                         className={cn(
-                          "animate-flip-in flex h-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-md px-1 text-sm font-medium text-on-accent transition-[background-color,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-default disabled:opacity-60 sm:px-3",
+                          "animate-flip-in flex h-full min-w-0 flex-col items-center justify-center gap-0 rounded-md px-1 text-sm leading-tight font-medium text-on-accent transition-[background-color,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-default disabled:opacity-60 sm:px-3",
                           r.bg,
                           isTypeAnswer &&
                             ((isCorrect && r.grade === 3) || (!isCorrect && r.grade === 1))
@@ -870,7 +870,7 @@ export function ReviewSession({
                           <Kbd className={onAccentKbd}>{keyLabel(RATING_COMMANDS[r.grade])}</Kbd>
                         </span>
                         {showIntervals && (
-                          <span className="font-mono text-xs text-on-accent">
+                          <span className="font-mono text-[0.6875rem] text-on-accent/90">
                             {intervalLabels.get(r.grade) ?? "…"}
                           </span>
                         )}
@@ -886,12 +886,12 @@ export function ReviewSession({
                 <Button
                   variant="outline"
                   size="lg"
-                  className="h-full shrink-0 px-3"
+                  className="h-full w-12 shrink-0 px-0"
                   disabled={index >= cards.length - 1 || undoing}
                   onClick={goNext}
                   aria-label="Next review unit"
                 >
-                  <ChevronRight className="h-5 w-5" />
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </Tooltip>
             </div>
