@@ -125,7 +125,10 @@ function DecksPage() {
       </header>
 
       {decks.length > 0 && (
-        <StudyActivity heatmap={heatmapQuery.data} loading={heatmapQuery.isLoading} />
+        <StudyActivity
+          heatmap={heatmapQuery.data?.pending ? undefined : heatmapQuery.data}
+          loading={heatmapQuery.isLoading || heatmapQuery.data?.pending === true}
+        />
       )}
 
       {decksQuery.isLoading && <DeckGridSkeleton />}

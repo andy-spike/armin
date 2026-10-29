@@ -56,7 +56,7 @@ function StatsPage() {
         </div>
       </header>
 
-      {overviewQuery.isLoading && <StatsSkeleton />}
+      {(overviewQuery.isLoading || overview?.pending) && <StatsSkeleton />}
 
       {overviewQuery.isError && (
         <div className="flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
@@ -85,7 +85,7 @@ function StatsPage() {
         </div>
       )}
 
-      {overview && <StatsContent stats={overview} deckLabel={deckLabel} />}
+      {overview && !overview.pending && <StatsContent stats={overview} deckLabel={deckLabel} />}
     </div>
   );
 }

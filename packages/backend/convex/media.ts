@@ -7,7 +7,7 @@ import {
 } from "@armin/core/media";
 import { mediaRefFromFileName } from "@armin/core/media-ref";
 import { internal } from "./_generated/api";
-import { internalQuery } from "./_generated/server";
+import { internalQuery, query } from "./_generated/server";
 import { internalMutation } from "./functions";
 import type { ActionCtx } from "./_generated/server";
 import { getViewer } from "./model/access";
@@ -212,6 +212,7 @@ export const collectUnreferenced = internalMutation({
         continue;
       }
       await ctx.storage.delete(media.storageId);
+      if (media.thumbnailId) await ctx.storage.delete(media.thumbnailId);
       await ctx.db.delete(media._id);
       const counters = await ctx.db
         .query("libraryCounters")
@@ -219,7 +220,7 @@ export const collectUnreferenced = internalMutation({
         .unique();
       if (counters) {
         await ctx.db.patch(counters._id, {
-          mediaBytes: Math.max(0, counters.mediaBytes - media.size),
+          mediaBytes: Math.max(0, counters.mediaBytes - media.size - (media.thumbnailSize ?? 0)),
           revision: counters.revision + 1,
         });
       }
@@ -229,8 +230,8 @@ export const collectUnreferenced = internalMutation({
 
 /** Resolve a media file for the current session; null unless it's theirs. */
 export const lookupForViewer = internalQuery({
-  args: { fileName: v.string() },
-  handler: async (ctx, { fileName }) => {
+  args: { fileName: v.string(), preview: v.optional(v.boolean()) },
+  handler: async (ctx, { fileName, preview }) => {
     const viewer = await getViewer(ctx);
     if (!viewer?.library || viewer.library.status !== "active") return null;
     const media = await ctx.db
@@ -240,7 +241,13 @@ export const lookupForViewer = internalQuery({
       )
       .unique();
     if (!media) return null;
-    return { storageId: media.storageId, mime: media.mime, size: media.size };
+    return preview && media.thumbnailId
+      ? {
+          storageId: media.thumbnailId,
+          mime: "image/webp",
+          size: media.thumbnailSize ?? media.size,
+        }
+      : { storageId: media.storageId, mime: media.mime, size: media.size };
   },
 });
 
@@ -268,6 +275,11 @@ export const sweepOrphanBlobs = internalMutation({
         .withIndex("by_storage", (q) => q.eq("storageId", blob._id))
         .first();
       if (media) continue;
+      const thumbnail = await ctx.db
+        .query("media")
+        .withIndex("by_thumbnail", (q) => q.eq("thumbnailId", blob._id))
+        .first();
+      if (thumbnail) continue;
       const exported = await ctx.db
         .query("exports")
         .withIndex("by_storage", (q) => q.eq("storageId", blob._id))
@@ -275,5 +287,96 @@ export const sweepOrphanBlobs = internalMutation({
       if (exported) continue;
       await ctx.storage.delete(blob._id);
     }
+  },
+});
+
+export const variantSource = internalQuery({
+  args: { mediaId: v.id("media") },
+  returns: v.union(
+    v.null(),
+    v.object({ storageId: v.id("_storage"), width: v.optional(v.number()) }),
+  ),
+  handler: async (ctx, { mediaId }) => {
+    const media = await ctx.db.get(mediaId);
+    const library = media ? await ctx.db.get(media.libraryId) : null;
+    return library?.status === "active" && media
+      ? { storageId: media.storageId, width: media.width }
+      : null;
+  },
+});
+
+export const attachVariant = internalMutation({
+  args: {
+    mediaId: v.id("media"),
+    width: v.number(),
+    height: v.number(),
+    thumbnailId: v.optional(v.id("_storage")),
+    thumbnailSize: v.number(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const media = await ctx.db.get(args.mediaId);
+    const library = media ? await ctx.db.get(media.libraryId) : null;
+    if (!media || library?.status !== "active" || media.width != null) return false;
+    const counters = await ctx.db
+      .query("libraryCounters")
+      .withIndex("by_library", (q) => q.eq("libraryId", media.libraryId))
+      .unique();
+    const fits =
+      counters != null && counters.mediaBytes + args.thumbnailSize <= MAX_LIBRARY_MEDIA_BYTES;
+    await ctx.db.patch(media._id, {
+      width: args.width,
+      height: args.height,
+      ...(fits ? { thumbnailId: args.thumbnailId, thumbnailSize: args.thumbnailSize } : {}),
+    });
+    if (fits && args.thumbnailSize && counters)
+      await ctx.db.patch(counters._id, { mediaBytes: counters.mediaBytes + args.thumbnailSize });
+    return fits;
+  },
+});
+
+/** Bounded, session-scoped layout metadata; never exposes storage URLs. */
+export const dimensions = query({
+  args: { fileName: v.string() },
+  returns: v.union(
+    v.null(),
+    v.object({
+      width: v.optional(v.number()),
+      height: v.optional(v.number()),
+      preview: v.boolean(),
+    }),
+  ),
+  handler: async (ctx, { fileName }) => {
+    const viewer = await getViewer(ctx);
+    if (viewer?.library?.status !== "active") return null;
+    const media = await ctx.db
+      .query("media")
+      .withIndex("by_library_file", (q) =>
+        q.eq("libraryId", viewer.library!._id).eq("fileName", fileName),
+      )
+      .unique();
+    return media
+      ? { width: media.width, height: media.height, preview: media.thumbnailId != null }
+      : null;
+  },
+});
+
+/** Operator backfill for existing images; work stays in bounded action jobs. */
+export const backfillVariants = internalMutation({
+  args: { cursor: v.union(v.null(), v.string()) },
+  returns: v.null(),
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db
+      .query("media")
+      .withIndex("by_library")
+      .paginate({ cursor, numItems: 20 });
+    for (const media of page.page)
+      if (media.width == null)
+        await ctx.scheduler.runAfter(0, internal.mediaVariants.generate, { mediaId: media._id });
+    if (!page.isDone)
+      await ctx.scheduler.runAfter(0, internal.media.backfillVariants, {
+        cursor: page.continueCursor,
+      });
+    return null;
   },
 });

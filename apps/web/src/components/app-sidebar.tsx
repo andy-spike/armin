@@ -62,7 +62,7 @@ import { ArminMark, ArminWordmark } from "@/components/brand";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
 import { TruncatedLabel } from "@/components/ui/truncated-label";
-import { decksQuery as decksQueryOptions, reviewStatusQuery } from "@/lib/queries";
+import { reviewStatusQuery } from "@/lib/queries";
 import { useStudyClock } from "@/lib/study-clock";
 import { signOutToSignIn } from "@/lib/auth-client";
 import { useViewer } from "@/lib/session";
@@ -432,9 +432,12 @@ function DeckList({
   linkProps: (path: string) => LinkProps;
 }) {
   // Same cache entry as the Decks page, so both stay in step.
-  const decksQuery = useQuery({ ...decksQueryOptions(useStudyClock()), enabled: ready });
+  const decksQuery = useQuery({ ...convexQuery(api.decks.navigation, {}), enabled: ready });
+  const due = useQuery({ ...reviewStatusQuery(useStudyClock()), enabled: ready });
   const [sort, setSort] = useDeckListSort();
-  const shownDecks = useShownDecks(decksQuery.data);
+  const shownDecks = useShownDecks(
+    decksQuery.data?.map((deck) => ({ ...deck, due: due.data?.perDeck[deck.id] ?? 0 })),
+  );
   const decks = sortDecks(shownDecks ?? [], sort);
   const navigate = useNavigate();
   // Deleting the open deck leaves its page behind, so return to Decks.

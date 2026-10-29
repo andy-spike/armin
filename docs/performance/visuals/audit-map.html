@@ -1,0 +1,318 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: var(--font-sans);
+        color: var(--foreground);
+      }
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+      h2,
+      h3,
+      strong {
+        font-weight: 500;
+      }
+      .intro {
+        padding-right: 90px;
+        margin-bottom: 20px;
+      }
+      .muted {
+        color: var(--muted-foreground);
+      }
+      .intro p {
+        margin-top: 8px;
+      }
+      .stage {
+        display: grid;
+        grid-template-columns: 32px 1fr;
+        gap: 12px;
+        margin: 22px 0;
+      }
+      .num {
+        color: var(--primary);
+        border-top: 2px solid var(--primary);
+        padding-top: 8px;
+      }
+      .stage h3 {
+        margin-bottom: 10px;
+      }
+      .flow {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
+        gap: 8px;
+        align-items: center;
+      }
+      .node {
+        padding: 16px;
+        border-radius: var(--radius);
+        background: var(--secondary);
+        color: var(--secondary-foreground);
+      }
+      .node.better {
+        background: var(--accent);
+        color: var(--accent-foreground);
+      }
+      .node small {
+        display: block;
+        margin-bottom: 6px;
+        color: inherit;
+        opacity: 0.75;
+      }
+      .arrow {
+        text-align: center;
+        color: var(--muted-foreground);
+      }
+      .subflow {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .subflow > div {
+        border-left: 2px solid var(--border);
+        padding-left: 12px;
+      }
+      .subflow p {
+        margin-top: 4px;
+      }
+      .evidence {
+        padding: 16px;
+        border-radius: var(--radius);
+        background: var(--secondary);
+        color: var(--secondary-foreground);
+        margin-top: 22px;
+      }
+      .evidence strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+      code {
+        font-family: var(--font-mono);
+        overflow-wrap: anywhere;
+      }
+      details {
+        margin-top: 10px;
+      }
+      summary {
+        cursor: pointer;
+        color: var(--muted-foreground);
+        padding: 5px 0;
+      }
+      details p {
+        margin-top: 8px;
+      }
+      .footer {
+        border-top: 1px solid var(--border);
+        padding-top: 16px;
+        margin-top: 22px;
+      }
+      .check {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      .check span {
+        padding: 5px 9px;
+        background: var(--secondary);
+        color: var(--secondary-foreground);
+        border-radius: var(--radius);
+      }
+      @media (max-width: 480px) {
+        .flow {
+          grid-template-columns: 1fr;
+        }
+        .arrow {
+          transform: rotate(90deg);
+          padding: 2px;
+        }
+        .subflow {
+          grid-template-columns: 1fr;
+        }
+        .stage {
+          gap: 8px;
+          grid-template-columns: 24px 1fr;
+        }
+        .intro {
+          padding-right: 30px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="audit-map">
+      <div class="intro">
+        <h2>Read less. Repeat less. Send less.</h2>
+        <p class="muted">
+          Concrete changes to investigate first. Current behavior → proposed optimization.
+        </p>
+      </div>
+      <section class="stage">
+        <div class="num">1</div>
+        <div>
+          <h3>Keep history growth out of everyday queries</h3>
+          <div class="flow">
+            <div class="node">
+              <small>CURRENT · CRAM + STATS</small><strong>Cram:</strong> collect all Again logs in
+              the library’s date window.<br /><br /><strong>Stats:</strong> read up to 20,000 review
+              logs + 20,000 Cram logs, plus cards and units.
+            </div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="node better">
+              <small>PROPOSED</small><strong>Cram:</strong> store the latest Again time per review
+              unit.<br /><br /><strong>Stats:</strong> store daily counts and retention totals; read
+              compact scheduling data for forecasts.
+            </div>
+          </div>
+          <details>
+            <summary>Queries, validation, and correctness constraints</summary>
+            <p>
+              <code>cram.count</code> and <code>cram.queue</code> both call
+              <code>selectCramUnits</code>. Its forgotten filter reads library-wide logs before
+              matching the selected deck. <code>stats.overview</code> and
+              <code>stats.heatmap</code> also read library-wide history before applying deck
+              membership. Their separate read caps do not guarantee a safe combined transaction
+              budget.
+            </p>
+            <p>
+              <strong>Measure:</strong> rows/bytes read and query latency while increasing history
+              with a fixed card count. Repeat with a small deck inside a busy library.
+            </p>
+            <p class="muted">
+              Preserve undo, imports, moved-card history, deletion, and timezone behavior. Do not
+              simply truncate Cram logs: that could exclude valid matches.
+            </p>
+          </details>
+        </div>
+      </section>
+      <section class="stage">
+        <div class="num">2</div>
+        <div>
+          <h3>Stop redoing full selection just to show counts</h3>
+          <div class="flow">
+            <div class="node">
+              <small>CURRENT · SIDEBAR</small><code>decks.list</code> runs session selection for
+              each deck.<br /><br /><code>review.status</code> independently selects the global
+              session for the due badge.
+            </div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="node better">
+              <small>PROPOSED</small>Give navigation a small query for names, slugs, pins, and
+              counters.<br /><br />Investigate one compact eligibility result for due counts,
+              without loading card text.
+            </div>
+          </div>
+          <details>
+            <summary>Why one rating can trigger more work</summary>
+            <p>
+              Live queries rerun when data they read changes. The sidebar stays mounted across
+              pages, so broad reads can add work even while another screen is open. Identical query
+              keys can share a subscription; the opportunity is reducing distinct selectors and
+              their read sets.
+            </p>
+            <p>
+              <strong>Measure:</strong> backend reads with 1 versus 200 decks at the same total unit
+              count; then measure rating-to-next-card latency.
+            </p>
+            <p class="muted">
+              Keep daily review limits and new-card selection exact. Per-deck counts cannot simply
+              be summed to get the global count.
+            </p>
+          </details>
+        </div>
+      </section>
+      <section class="stage">
+        <div class="num">3</div>
+        <div>
+          <h3>Hydrate only the cards needed next</h3>
+          <div class="flow">
+            <div class="node">
+              <small>CURRENT · REVIEW + CRAM</small><code>review.queue</code> and
+              <code>cram.queue</code><br />↓<br />Return all selected items with authored content
+              and front/back text.
+            </div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="node better">
+              <small>PROPOSED</small>Select ordered IDs, versions, and counts.<br />↓<br />Fetch
+              content for the current card and a small next-card buffer; share content across
+              siblings.
+            </div>
+          </div>
+          <details>
+            <summary>Where the savings could come from</summary>
+            <p>
+              Large backlogs and cloze siblings can repeat authored content across many queue items.
+              Smaller content windows could reduce reads, response bytes, and first-prompt delay.
+            </p>
+            <p>
+              <strong>Measure:</strong> response bytes and time to first prompt with 10,000 due
+              units, long text, and cloze siblings.
+            </p>
+            <p class="muted">
+              Preserve stable admission, sibling grouping, bury/undo, and answers to already
+              admitted cards. For Cram, preserve randomization when moving the selection limit to
+              the server.
+            </p>
+          </details>
+        </div>
+      </section>
+      <section class="stage">
+        <div class="num">4</div>
+        <div>
+          <h3>Reduce avoidable refreshes and first-use costs</h3>
+          <div class="subflow">
+            <div>
+              <strong>Mobile clock</strong>
+              <p>
+                Replace <code>useNow()</code>’s 30-second interval with
+                <code>review.status.refreshAt</code> scheduling and foreground catch-up.
+              </p>
+              <p class="muted">
+                About 120 query-argument changes/hour per affected query today; arithmetic, not
+                measured executions.
+              </p>
+            </div>
+            <div>
+              <strong>Editor + images</strong>
+              <p>
+                Profile first editor open on a slow device/network. For large images, investigate
+                authenticated thumbnails and stored width/height.
+              </p>
+              <p class="muted">
+                Editor chunk: 255 kB gzip, already loaded on demand. Keep the active prompt image
+                eager; defer offscreen images.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <div class="evidence">
+        <strong>Evidence boundary</strong>Code-backed opportunities + a successful production build.
+        Production latency, contention, bandwidth, and browser experience remain unmeasured.
+        Priority is not a measured speedup estimate.
+      </div>
+      <div class="footer">
+        <strong>Already in place</strong>
+        <div class="check">
+          <span>Paginated Browse</span><span>Virtualized grid</span
+          ><span>Graph + import workers</span><span>Lazy editor + math</span
+          ><span>Web due-event clock</span>
+        </div>
+        <p class="muted" style="margin-top: 14px">
+          First measurement: hold cards/decks constant, grow review history, and record Cram + Stats
+          reads and latency. Then fix one query and repeat under the same conditions.
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

@@ -178,6 +178,8 @@ export default defineSchema({
     ownerId: v.string(),
     status: v.union(v.literal("active"), v.literal("deleting"), v.literal("resetting")),
     timeZone: v.string(),
+    statsEpoch: v.optional(v.number()),
+    statsReady: v.optional(v.boolean()),
     createdAt: v.number(),
     deletionRequestedAt: v.optional(v.number()),
     reviewerResetAt: v.optional(v.number()),
@@ -307,7 +309,10 @@ export default defineSchema({
     before: fsrsSnapshot,
     /** Review-unit version written by this review; undo requires it unchanged. */
     unitVersionAfter: v.number(),
+    statsGeneration: v.optional(v.string()),
   })
+    .index("by_unit_rating_review", ["reviewUnitId", "rating", "review"])
+    .index("by_unit_state_review", ["reviewUnitId", "state", "review"])
     .index("by_unit_review", ["reviewUnitId", "review"])
     .index("by_library_review", ["libraryId", "review"])
     .index("by_library_state_review", ["libraryId", "state", "review"])
@@ -321,6 +326,7 @@ export default defineSchema({
    * `reviewLogs`; deleting a card, deck, or library clears them with history.
    */
   cramLogs: defineTable({
+    statsGeneration: v.optional(v.string()),
     libraryId: v.id("libraries"),
     deckId: v.id("decks"),
     flashcardId: v.id("flashcards"),
@@ -330,6 +336,62 @@ export default defineSchema({
   })
     .index("by_library_review", ["libraryId", "review"])
     .index("by_unit_review", ["reviewUnitId", "review"]),
+
+  /** Text-free scheduling projection; maintained atomically with each unit. */
+  unitSummaries: defineTable({
+    libraryId: v.id("libraries"),
+    deckId: v.id("decks"),
+    flashcardId: v.id("flashcards"),
+    reviewUnitId: v.id("reviewUnits"),
+    subKey: v.string(),
+    state: v.number(),
+    due: v.number(),
+    lastReview: v.union(v.number(), v.null()),
+    reps: v.number(),
+    locked: v.boolean(),
+    archived: v.boolean(),
+    version: v.number(),
+    buriedUntil: v.optional(v.number()),
+    createdAt: v.number(),
+    latestAgain: v.optional(v.number()),
+    introducedAt: v.optional(v.number()),
+  })
+    .index("by_unit", ["reviewUnitId"])
+    .index("by_flashcard", ["flashcardId"])
+    .index("by_library", ["libraryId"])
+    .index("by_deck", ["deckId"])
+    .index("by_library_due", ["libraryId", "locked", "archived", "due"])
+    .index("by_deck_due", ["deckId", "locked", "archived", "due"])
+    .index("by_library_introduced", ["libraryId", "introducedAt"]),
+
+  /** Rolling activity per card, used to transfer/subtract history on move/delete. */
+  cardActivity: defineTable({
+    libraryId: v.id("libraries"),
+    flashcardId: v.id("flashcards"),
+    deckId: v.id("decks"),
+    generation: v.string(),
+    day: v.number(),
+    count: v.number(),
+    reviews: v.number(),
+    retained: v.number(),
+  })
+    .index("by_card_day", ["flashcardId", "generation", "day"])
+    .index("by_library", ["libraryId"])
+    .index("by_day", ["day"]),
+
+  /** One tiny row per study day, both library-wide and per deck. */
+  dailyActivity: defineTable({
+    libraryId: v.id("libraries"),
+    scope: v.string(),
+    generation: v.string(),
+    day: v.number(),
+    count: v.number(),
+    reviews: v.number(),
+    retained: v.number(),
+  })
+    .index("by_scope_day", ["libraryId", "scope", "generation", "day"])
+    .index("by_library", ["libraryId"])
+    .index("by_day", ["day"]),
 
   /**
    * Derived Browse row for each flashcard: its sort keys, search text, and the
@@ -416,13 +478,18 @@ export default defineSchema({
     libraryId: v.id("libraries"),
     fileName: v.string(),
     storageId: v.id("_storage"),
+    thumbnailId: v.optional(v.id("_storage")),
+    thumbnailSize: v.optional(v.number()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
     mime: v.string(),
     size: v.number(),
     createdAt: v.number(),
   })
     .index("by_library_file", ["libraryId", "fileName"])
     .index("by_library", ["libraryId"])
-    .index("by_storage", ["storageId"]),
+    .index("by_storage", ["storageId"])
+    .index("by_thumbnail", ["thumbnailId"]),
 
   flashcardMedia: defineTable({
     libraryId: v.id("libraries"),

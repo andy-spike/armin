@@ -170,6 +170,9 @@ const LIBRARY_TABLES: [TableNames, string][] = [
   // Before units and flashcards, so deleting those finds no summary to rebuild.
   ["flashcardSummaries", "by_library_created"],
   ["deckCounters", "by_library"],
+  ["cardActivity", "by_library"],
+  ["dailyActivity", "by_library"],
+  ["unitSummaries", "by_library"],
   ["reviewLogs", "by_library_review"],
   ["cramLogs", "by_library_review"],
   ["reviewUnits", "by_library"],
@@ -237,6 +240,7 @@ export async function cleanupLibraryData(
   for (const row of media) {
     if (reset) await ctx.storage.delete(row.storageId);
     else await ctx.storage.delete(row.storageId).catch(() => undefined);
+    if (row.thumbnailId) await ctx.storage.delete(row.thumbnailId).catch(() => undefined);
     await ctx.db.delete(row._id);
   }
   budget -= media.length;

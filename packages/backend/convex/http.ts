@@ -42,7 +42,10 @@ http.route({
     if (!MEDIA_FILE_RE.test(fileName)) return denied(404);
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return denied(401);
-    const media = await ctx.runQuery(internal.media.lookupForViewer, { fileName });
+    const media = await ctx.runQuery(internal.media.lookupForViewer, {
+      fileName,
+      preview: new URL(request.url).searchParams.get("preview") === "1",
+    });
     if (!media) return denied(404);
     const blob = await ctx.storage.get(media.storageId);
     if (!blob) return denied(404);

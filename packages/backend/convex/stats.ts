@@ -10,21 +10,13 @@ import {
   studyDaySeries,
   studyDayStarts,
   studyDayWindowStarts,
-  summarizeRetention,
   summarizeReviewUnitStates,
 } from "@armin/core/stats";
-import { startOfNextStudyDayMs } from "@armin/core/study";
+import { statsGeneration } from "./model/performance";
 import { query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { activeDeckIds, readableLibrary } from "./model/access";
-import { MAX_FLASHCARDS, MAX_REVIEW_UNITS } from "./model/limits";
-
-/**
- * Review history is unbounded, so statistics read at most this many of the
- * most recent logs in the requested window. That keeps the query inside one
- * Convex transaction while recent activity and retention stay complete.
- */
-const MAX_STATS_REVIEW_LOGS = 20_000;
+import { MAX_REVIEW_UNITS } from "./model/limits";
 
 /** All decks (`null`) or the requested deck, if it belongs to the library. */
 async function resolveDeckScope(
@@ -40,68 +32,28 @@ async function resolveDeckScope(
   return { ok: true as const, deckId };
 }
 
-/**
- * Most recent scheduled reviews in the window, newest first. Logs follow the
- * card's current deck (moved cards keep their history without rewriting it), so
- * deleted or moved cards stop counting immediately.
- */
-async function readReviewLogs(
-  ctx: QueryCtx,
-  library: Doc<"libraries">,
-  since: number,
-  flashcardIds: Set<Id<"flashcards">>,
-) {
-  const rows = await ctx.db
-    .query("reviewLogs")
-    .withIndex("by_library_review", (q) => q.eq("libraryId", library._id).gte("review", since))
-    .order("desc")
-    .take(MAX_STATS_REVIEW_LOGS);
-  return {
-    logs: rows.filter((log) => flashcardIds.has(log.flashcardId)),
-    truncated: rows.length >= MAX_STATS_REVIEW_LOGS,
-  };
-}
-
-async function readScopedFlashcardIds(
+async function readActivity(
   ctx: QueryCtx,
   library: Doc<"libraries">,
   deckId: Id<"decks"> | null,
-  decks: Set<Id<"decks">>,
+  since: number,
 ) {
-  if (deckId) {
-    const cards = await ctx.db
-      .query("flashcards")
-      .withIndex("by_deck", (q) => q.eq("deckId", deckId))
-      .take(MAX_FLASHCARDS);
-    return new Set(cards.map((card) => card._id));
-  }
-  const cards = await ctx.db
-    .query("flashcards")
-    .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-    .take(MAX_FLASHCARDS);
-  return new Set(cards.filter((card) => decks.has(card.deckId)).map((card) => card._id));
+  return ctx.db
+    .query("dailyActivity")
+    .withIndex("by_scope_day", (q) =>
+      q
+        .eq("libraryId", library._id)
+        .eq("scope", deckId ?? "")
+        .eq("generation", statsGeneration(library))
+        .gte("day", since),
+    )
+    .take(370);
 }
 
-/**
- * Cram (practice) answers in the window. They count as study activity for the
- * heatmap and streaks, but never for retention, which reads only scheduled
- * reviews.
- */
-async function readCramTimestamps(
-  ctx: QueryCtx,
-  library: Doc<"libraries">,
-  since: number,
-  flashcardIds: Set<Id<"flashcards">>,
-) {
-  const rows = await ctx.db
-    .query("cramLogs")
-    .withIndex("by_library_review", (q) => q.eq("libraryId", library._id).gte("review", since))
-    .order("desc")
-    .take(MAX_STATS_REVIEW_LOGS);
-  return {
-    timestamps: rows.filter((log) => flashcardIds.has(log.flashcardId)).map((log) => log.review),
-    truncated: rows.length >= MAX_STATS_REVIEW_LOGS,
-  };
+function activityDays(rows: Doc<"dailyActivity">[], starts: number[], timeZone: string) {
+  const days = bucketStudyDayCounts([], starts, timeZone);
+  const byDay = new Map(rows.map((row) => [row.day, row.count]));
+  return days.map((day, index) => ({ ...day, count: byDay.get(starts[index]) ?? 0 }));
 }
 
 function clampHeatmapWeeks(weeks: number | undefined) {
@@ -117,30 +69,6 @@ function heatmapDayCount(weeks: number) {
   return (weeks - 1) * 7 + 1;
 }
 
-async function readForecastUnits(
-  ctx: QueryCtx,
-  library: Doc<"libraries">,
-  deckId: Id<"decks"> | null,
-  decks: Set<Id<"decks">>,
-  end: number,
-) {
-  if (deckId) {
-    return ctx.db
-      .query("reviewUnits")
-      .withIndex("by_deck_eligible_due", (q) =>
-        q.eq("deckId", deckId).eq("locked", false).eq("archived", false).lt("due", end),
-      )
-      .take(MAX_REVIEW_UNITS);
-  }
-  const units = await ctx.db
-    .query("reviewUnits")
-    .withIndex("by_library_eligible_due", (q) =>
-      q.eq("libraryId", library._id).eq("locked", false).eq("archived", false).lt("due", end),
-    )
-    .take(MAX_REVIEW_UNITS);
-  return units.filter((unit) => decks.has(unit.deckId));
-}
-
 /** Every current review unit in scope, for state and lock/archive totals. */
 async function readScopedUnits(
   ctx: QueryCtx,
@@ -150,12 +78,12 @@ async function readScopedUnits(
 ) {
   if (deckId) {
     return ctx.db
-      .query("reviewUnits")
+      .query("unitSummaries")
       .withIndex("by_deck", (q) => q.eq("deckId", deckId))
       .take(MAX_REVIEW_UNITS);
   }
   const units = await ctx.db
-    .query("reviewUnits")
+    .query("unitSummaries")
     .withIndex("by_library", (q) => q.eq("libraryId", library._id))
     .take(MAX_REVIEW_UNITS);
   return units.filter((unit) => decks.has(unit.deckId));
@@ -168,51 +96,42 @@ async function readScopedUnits(
  */
 export const overview = query({
   args: { deckId: v.optional(v.string()), now: v.number() },
-  handler: async (ctx, { deckId: deckIdArg }) => {
+  handler: async (ctx, { deckId: deckIdArg, now }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
     const scope = await resolveDeckScope(ctx, library, deckIdArg);
     if (!scope.ok) return null;
 
-    const now = Date.now();
     const timeZone = library.timeZone;
     const heatmapStarts = studyDayWindowStarts(now, timeZone, heatmapDayCount(STATS_HEATMAP_WEEKS));
     const dailyStarts = studyDayStarts(now, timeZone, STATS_RECENT_DAYS);
     const decks = scope.deckId ? new Set([scope.deckId]) : await activeDeckIds(ctx, library._id);
-    const flashcardIds = await readScopedFlashcardIds(ctx, library, scope.deckId, decks);
-    const { logs, truncated: logsTruncated } = await readReviewLogs(
-      ctx,
-      library,
-      heatmapStarts[0],
-      flashcardIds,
-    );
-    const cram = await readCramTimestamps(ctx, library, heatmapStarts[0], flashcardIds);
-    const timestamps = logs.map((log) => log.review).concat(cram.timestamps);
-    const truncated = logsTruncated || cram.truncated;
-
-    const heatmapDays = bucketStudyDayCounts(timestamps, heatmapStarts, timeZone);
-    const dailyDays = bucketStudyDayCounts(timestamps, dailyStarts, timeZone);
+    const rows = await readActivity(ctx, library, scope.deckId, heatmapStarts[0]);
+    const heatmapDays = activityDays(rows, heatmapStarts, timeZone);
+    const dailyDays = activityDays(rows, dailyStarts, timeZone);
     const forecasts = studyDayForwardStarts(now, timeZone, STATS_FORECAST_DAYS);
-    const forecastEnd = startOfNextStudyDayMs(forecasts[forecasts.length - 1], timeZone);
-    const forecastUnits = await readForecastUnits(ctx, library, scope.deckId, decks, forecastEnd);
     const units = await readScopedUnits(ctx, library, scope.deckId, decks);
-    const dailySince = dailyStarts[0];
-
+    const recent = rows.filter((row) => row.day >= dailyStarts[0]);
+    const reviews = recent.reduce((sum, row) => sum + row.reviews, 0);
+    const retained = recent.reduce((sum, row) => sum + row.retained, 0);
     return {
       timeZone,
       heatmap: studyDaySeries(heatmapDays),
       daily: studyDaySeries(dailyDays),
       forecast: studyDaySeries(
         bucketForecast(
-          forecastUnits.filter((unit) => unit.state !== 0).map((unit) => unit.due),
+          units
+            .filter((unit) => unit.state !== 0 && !unit.locked && !unit.archived)
+            .map((unit) => unit.due),
           forecasts,
           timeZone,
         ),
       ),
-      retention: summarizeRetention(logs.filter((log) => log.review >= dailySince)),
+      retention: { reviews, retained, ratio: reviews === 0 ? null : retained / reviews },
       states: summarizeReviewUnitStates(units),
       streak: reviewStreaks(heatmapDays),
-      truncated,
+      truncated: false,
+      pending: library.statsReady !== true,
     };
   },
 });
@@ -223,32 +142,21 @@ export const overview = query({
  */
 export const heatmap = query({
   args: { deckId: v.optional(v.string()), weeks: v.optional(v.number()), now: v.number() },
-  handler: async (ctx, { deckId: deckIdArg, weeks }) => {
+  handler: async (ctx, { deckId: deckIdArg, weeks, now }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
     const scope = await resolveDeckScope(ctx, library, deckIdArg);
     if (!scope.ok) return null;
 
-    const now = Date.now();
     const timeZone = library.timeZone;
     const starts = studyDayWindowStarts(now, timeZone, heatmapDayCount(clampHeatmapWeeks(weeks)));
-    const decks = scope.deckId ? new Set([scope.deckId]) : await activeDeckIds(ctx, library._id);
-    const flashcardIds = await readScopedFlashcardIds(ctx, library, scope.deckId, decks);
-    const { logs, truncated: logsTruncated } = await readReviewLogs(
-      ctx,
-      library,
-      starts[0],
-      flashcardIds,
-    );
-    const cram = await readCramTimestamps(ctx, library, starts[0], flashcardIds);
-    const timestamps = logs.map((log) => log.review).concat(cram.timestamps);
-    const truncated = logsTruncated || cram.truncated;
-    const days = bucketStudyDayCounts(timestamps, starts, timeZone);
-
+    const rows = await readActivity(ctx, library, scope.deckId, starts[0]);
+    const days = activityDays(rows, starts, timeZone);
     return {
       ...studyDaySeries(days),
       streak: reviewStreaks(days),
-      truncated,
+      truncated: false,
+      pending: library.statsReady !== true,
     };
   },
 });

@@ -95,7 +95,7 @@ export const statsHeatmapQuery = (weeks = STATS_COMPACT_HEATMAP_WEEKS, now = stu
 
 /** The review queue for one deck, or for every deck. */
 export const reviewQueueQuery = (deckId?: string, now = studyClockNow()) =>
-  queryOptions(heavy(api.review.queue, defined({ deckId, now })));
+  queryOptions(heavy(api.review.queue, defined({ deckId, now, metadataOnly: true })));
 
 /** The filters a cram setup sends to the count and queue queries. */
 export type CramFilters = {
@@ -122,8 +122,10 @@ export const cramCountQuery = (deckId: string, filters: CramFilters) =>
   });
 
 /** Every unit matching a cram setup; the session shuffles and limits locally. */
-export const cramQueueQuery = (deckId: string, filters: CramFilters) =>
-  queryOptions(heavy(api.cram.queue, cramArgs(deckId, filters)));
+export const cramQueueQuery = (deckId: string, filters: CramFilters, max?: number, seed = 1) =>
+  queryOptions(
+    heavy(api.cram.queue, defined({ ...cramArgs(deckId, filters), max, seed, metadataOnly: true })),
+  );
 
 /** A flashcard's schedule and review history, for the card info dialog. `null` skips. */
 export const cardInfoQuery = (flashcardId: string | null) =>

@@ -31,12 +31,14 @@ export const Route = createFileRoute("/media/$")({
           },
         });
       },
-      GET: ({ params }) => {
+      GET: ({ params, request }) => {
         const fileName = params._splat ?? "";
         if (!MEDIA_FILE_RE.test(fileName)) {
           return new Response("Not found", { status: 404 });
         }
-        return proxyAuthenticated(`/media/${fileName}`, "private, max-age=600");
+        const preview =
+          new URL(request.url).searchParams.get("preview") === "1" ? "?preview=1" : "";
+        return proxyAuthenticated(`/media/${fileName}${preview}`, "private, max-age=600");
       },
     },
   },
