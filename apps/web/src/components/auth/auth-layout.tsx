@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArminMark, ArminWordmark } from "@/components/brand";
+import { SelfHostedBadge } from "@/components/self-hosted-badge";
 
 /** Centered single-column frame shared by the sign-in family of pages. */
 export function AuthLayout({
@@ -23,6 +24,7 @@ export function AuthLayout({
         <ArminMark className="size-6" />
         <ArminWordmark />
       </Link>
+      <SelfHostedBadge className="mt-3" />
       <main className="mt-8 w-full max-w-sm border border-border bg-surface px-6 py-8 shadow-sm sm:px-8">
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
         {subtitle && <p className="mt-1.5 text-sm text-muted">{subtitle}</p>}

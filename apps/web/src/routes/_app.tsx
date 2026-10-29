@@ -21,6 +21,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ArminMark, ArminWordmark } from "@/components/brand";
 import { StudyClockSync } from "@/components/study-clock-sync";
 import { LandingPage } from "@/components/landing/landing-page";
+import { selfHosted } from "@/lib/self-host";
 import {
   SidebarInset,
   SidebarProvider,
@@ -58,7 +59,8 @@ export const Route = createFileRoute("/_app")({
   beforeLoad: ({ context, location }) => {
     // Signed-out visitors to the home URL get the public landing page in place
     // of the decks list; every other signed-in page still asks them to sign in.
-    if (!context.isAuthenticated && location.pathname === "/") {
+    // A self-hosted personal instance has no public landing page.
+    if (!context.isAuthenticated && location.pathname === "/" && !selfHosted) {
       return { landing: true, sidebarOpen: true, sidebarWidth: clampSidebarWidth(Number.NaN) };
     }
     if (!context.isAuthenticated) {

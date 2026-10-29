@@ -1,0 +1,22 @@
+# Build context for selfhost/Dockerfile (the repository root).
+.git
+**/node_modules
+**/dist
+**/.env
+**/.env.local
+**/.env.*.local
+**/.convex
+.armin
+.claude
+.agents
+.codex
+apps/web/public/anki-kit
+design
+docs
+plans
+plugins
+selfhost/data
+selfhost/backups
+# The mobile app isn't built; pnpm only needs its manifest to read the lockfile.
+apps/mobile/*
+!apps/mobile/package.json

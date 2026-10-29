@@ -11,6 +11,7 @@ import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { markLibraryDeleting } from "./model/deletion";
 import { emailLayout } from "./model/email";
 import { isReviewer } from "./model/reviewer";
+import { isSelfHosted } from "./model/selfHost";
 
 function rejectReviewerAccountChange(userId: string) {
   if (isReviewer(userId)) {
@@ -84,9 +85,9 @@ function googleConfigured() {
  * A production deployment without optional auth providers still serves
  * existing verified accounts, but sign-up and password reset cannot work.
  * Warn when the module loads so the gap shows up in deployment logs. Local
- * development intentionally runs without them.
+ * development and self-hosted instances intentionally run without them.
  */
-if (!/localhost|127\.0\.0\.1/.test(siteUrl())) {
+if (!isSelfHosted() && !/localhost|127\.0\.0\.1/.test(siteUrl())) {
   if (!emailConfigured()) {
     console.warn(
       "[auth] RESEND_API_KEY is not set: sign-up and password reset are disabled, and verification resends report email as unavailable.",
@@ -157,6 +158,16 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
         // never claims a message was sent. Existing verified users can still
         // sign in with a password.
         if (emailConfigured()) return;
+        if (isSelfHosted()) {
+          if (ctx.path === "/request-password-reset" || ctx.path === "/send-verification-email") {
+            throw new APIError("SERVICE_UNAVAILABLE", {
+              message:
+                "This self-hosted instance doesn't send email. Reset the password on the server with selfhost/reset-password.sh.",
+              code: "EMAIL_UNAVAILABLE",
+            });
+          }
+          return;
+        }
         if (
           ctx.path === "/sign-up/email" ||
           ctx.path === "/request-password-reset" ||
@@ -171,7 +182,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     },
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: true,
+      // A self-hosted instance has no email service; its owner is verified
+      // when the account is created (see databaseHooks.user).
+      requireEmailVerification: !isSelfHosted(),
       minPasswordLength: 10,
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
@@ -187,7 +200,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
       },
     },
     emailVerification: {
-      sendOnSignUp: true,
+      sendOnSignUp: !isSelfHosted(),
       // Without a provider the send is silently dropped, so skip it and let
       // the client explain why an unverified account can't sign in.
       sendOnSignIn: emailConfigured(),
@@ -228,6 +241,22 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
       },
     },
     databaseHooks: {
+      user: {
+        create: {
+          before: async (user, context) => {
+            if (!isSelfHosted()) return;
+            // A personal instance has exactly one account: the first sign-up.
+            const users = await context?.context.internalAdapter.countTotalUsers();
+            if (users === undefined || users > 0) {
+              throw new APIError("FORBIDDEN", {
+                code: "SIGN_UP_CLOSED",
+                message: "This is a personal Armin instance. It already has its owner account.",
+              });
+            }
+            return { data: { ...user, emailVerified: true } };
+          },
+        },
+      },
       account: {
         create: {
           before: async (account, context) => {

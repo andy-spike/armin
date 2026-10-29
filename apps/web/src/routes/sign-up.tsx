@@ -31,7 +31,9 @@ function SignUpPage() {
   const search = Route.useSearch();
   const features = useAuthFeatures();
   const redirectTo = search.redirect ?? "/";
-  const emailUnavailable = features.data?.email === false;
+  const selfHosted = features.data?.selfHosted === true;
+  const signUpClosed = features.data?.signUpOpen === false;
+  const emailUnavailable = features.data?.email === false && !selfHosted;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,11 +52,17 @@ function SignUpPage() {
       password,
       callbackURL: redirectTo,
     });
-    setBusy(false);
     if (error) {
+      setBusy(false);
       setError(authErrorMessage(error));
       return;
     }
+    // A self-hosted owner account is verified at creation and signed in.
+    if (selfHosted) {
+      window.location.assign(redirectTo);
+      return;
+    }
+    setBusy(false);
     setSentTo(email);
   };
 
@@ -100,10 +108,32 @@ function SignUpPage() {
     );
   }
 
+  if (signUpClosed) {
+    return (
+      <AuthLayout
+        title="Sign-up is closed"
+        subtitle="This personal Armin instance already has its owner account."
+        footer={
+          <Link to="/sign-in" className="font-medium text-accent hover:text-accent-deep">
+            Back to sign in
+          </Link>
+        }
+      >
+        <FormNotice>
+          To use Armin yourself, self-host your own instance or sign up at armincards.app.
+        </FormNotice>
+      </AuthLayout>
+    );
+  }
+
   return (
     <AuthLayout
-      title="Create your account"
-      subtitle="Your library is private to your account."
+      title={selfHosted ? "Create the owner account" : "Create your account"}
+      subtitle={
+        selfHosted
+          ? "This personal instance has one account. Sign-up closes once it exists."
+          : "Your library is private to your account."
+      }
       footer={
         <>
           Already have an account?{" "}

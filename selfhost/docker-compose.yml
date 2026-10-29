@@ -1,0 +1,105 @@
+# A self-hosted personal Armin instance: the Convex backend, the web app, and
+# Caddy for HTTPS. Run the scripts in this folder rather than editing values
+# here; settings live in selfhost/.env. See docs/self-hosting.md.
+name: armin
+
+x-tools: &tools
+  build:
+    context: ..
+    dockerfile: selfhost/Dockerfile
+    target: tools
+  image: armin-tools:local
+  environment:
+    CONVEX_SELF_HOSTED_URL: http://backend:3210
+    CONVEX_SELF_HOSTED_ADMIN_KEY: ${CONVEX_ADMIN_KEY:-}
+  volumes:
+    - ./backups:/backups
+  depends_on:
+    backend:
+      condition: service_healthy
+
+services:
+  backend:
+    # Pinned: Armin is tested against this Convex backend build.
+    image: ghcr.io/convex/convex-backend:1447815c8c697c55a35ab0fff64aa7580ca01cc8
+    restart: unless-stopped
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    volumes:
+      - ./data/convex:/convex/data
+    environment:
+      INSTANCE_NAME: armin
+      INSTANCE_SECRET: ${INSTANCE_SECRET:?Run selfhost/setup.sh first}
+      CONVEX_CLOUD_ORIGIN: ${CONVEX_CLOUD_ORIGIN:?Run selfhost/setup.sh first}
+      CONVEX_SITE_ORIGIN: ${CONVEX_SITE_ORIGIN:?Run selfhost/setup.sh first}
+      DISABLE_BEACON: "true"
+      DOCUMENT_RETENTION_DELAY: "172800"
+      RUST_LOG: info
+    healthcheck:
+      test: curl -f http://localhost:3210/version
+      interval: 5s
+      start_period: 10s
+
+  web:
+    build:
+      context: ..
+      dockerfile: selfhost/Dockerfile
+      target: web
+      args:
+        SITE_URL: ${SITE_URL:?Run selfhost/setup.sh first}
+        CONVEX_CLOUD_ORIGIN: ${CONVEX_CLOUD_ORIGIN}
+        CONVEX_SITE_ORIGIN: ${CONVEX_SITE_ORIGIN}
+    image: armin-web:local
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2.11.3-alpine
+    restart: unless-stopped
+    # Same port inside and out, so containers reach Caddy at the public URLs.
+    ports:
+      - "${HTTP_PORT:-80}:${HTTP_PORT:-80}"
+      - "${HTTPS_PORT:-443}:${HTTPS_PORT:-443}"
+      - "${HTTPS_PORT:-443}:${HTTPS_PORT:-443}/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?Run selfhost/setup.sh first}
+      HTTP_PORT: ${HTTP_PORT:-80}
+      HTTPS_PORT: ${HTTPS_PORT:-443}
+      ARMIN_DOMAIN: ${ARMIN_DOMAIN}
+      ARMIN_API_DOMAIN: ${ARMIN_API_DOMAIN}
+      ARMIN_ACTIONS_DOMAIN: ${ARMIN_ACTIONS_DOMAIN}
+      CADDY_GLOBAL_OPTIONS: ${CADDY_GLOBAL_OPTIONS:-}
+    networks:
+      default:
+        # Containers reach the public addresses through Caddy directly, so the
+        # web server's calls to Convex don't depend on the router looping
+        # traffic back to this machine.
+        aliases:
+          - ${ARMIN_DOMAIN}
+          - ${ARMIN_API_DOMAIN}
+          - ${ARMIN_ACTIONS_DOMAIN}
+    depends_on:
+      - web
+
+  # Operator commands (setup, update, backups); `docker compose run` only.
+  tools:
+    <<: *tools
+    profiles: [tools]
+
+  # Optional Convex dashboard on this machine only: http://127.0.0.1:6791
+  dashboard:
+    image: ghcr.io/convex/convex-dashboard:1447815c8c697c55a35ab0fff64aa7580ca01cc8
+    profiles: [dashboard]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6791:6791"
+    environment:
+      NEXT_PUBLIC_DEPLOYMENT_URL: ${CONVEX_CLOUD_ORIGIN}
+    depends_on:
+      backend:
+        condition: service_healthy

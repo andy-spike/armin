@@ -5,6 +5,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { selfHosted } from "@/lib/self-host";
 
 /** The Convex HTTP site serves the MCP endpoint, not the app origin. */
 export const MCP_ENDPOINT = `${String(import.meta.env.VITE_CONVEX_SITE_URL ?? "").replace(/\/$/, "")}/mcp`;
@@ -364,7 +365,8 @@ function LocalOnlyNotice() {
 /* --------------------------------------------------------------- panels */
 
 function ChatPanel({ guide }: { guide: ChatGuide }) {
-  const directory = guide.directory?.listed ? guide.directory : undefined;
+  // The directory plugin connects to armincards.app, never a self-hosted instance.
+  const directory = guide.directory?.listed && !selfHosted ? guide.directory : undefined;
   return (
     <div className="space-y-5">
       <LocalOnlyNotice />

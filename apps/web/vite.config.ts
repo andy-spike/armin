@@ -9,6 +9,8 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "ARMIN_");
+  // `build:node` targets a plain Node server (node-server.mjs) for self-hosting.
+  const node = mode === "node";
   return {
     server: {
       port: Number(process.env.ARMIN_WEB_PORT ?? env.ARMIN_WEB_PORT ?? 3000),
@@ -22,7 +24,7 @@ export default defineConfig(({ mode }) => {
     plugins: lazyPlugins(async () => [
       tailwindcss(),
       // Builds and runs the server on Cloudflare Workers (see wrangler.jsonc).
-      await cloudflare({ viteEnvironment: { name: "ssr" } }),
+      ...(node ? [] : [await cloudflare({ viteEnvironment: { name: "ssr" } })]),
       tanstackStart(),
       react(),
       // Swaps React and React DOM for the smaller synchronous Redact runtime.
