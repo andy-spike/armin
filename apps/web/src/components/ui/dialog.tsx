@@ -264,10 +264,10 @@ export function Dialog({
 }
 
 /**
- * Crossfades a dialog between views instead of snapping. Just before React
+ * Dissolves a dialog between views instead of snapping. Just before React
  * swaps the DOM, the outgoing view is copied into a frozen, inert ghost; after
- * the swap the ghost fades out over the incoming view while the panel morphs
- * to its new height.
+ * the swap the incoming view fades in over it while the panel morphs to its
+ * new height.
  * Renders nothing; `getSnapshotBeforeUpdate` is React's hook for reading the
  * DOM before an update lands.
  */
@@ -315,48 +315,51 @@ class ViewSwap extends React.Component<{
     if (!snapshot || !panel) return;
     const { ghost, from } = snapshot;
     const to = panel.getBoundingClientRect().height;
-    const incoming = Array.from(panel.children);
-    panel.append(ghost);
+    const incoming = Array.from(panel.children) as HTMLElement[];
+    // The old view sits underneath; the new one dissolves in on top with the
+    // panel's own background, covering it as it arrives. The dialog is never
+    // empty mid-swap, which is what read as a flash.
+    ghost.style.zIndex = "0";
+    panel.prepend(ghost);
     this.ghost = ghost;
+    const surface = getComputedStyle(panel).backgroundColor;
+    const restore = incoming.map((child) => {
+      const { position, zIndex, backgroundColor } = child.style;
+      if (getComputedStyle(child).position === "static") child.style.position = "relative";
+      child.style.zIndex = "1";
+      child.style.backgroundColor = surface;
+      return () => Object.assign(child.style, { position, zIndex, backgroundColor });
+    });
     const overflow = panel.style.overflow;
     panel.style.overflow = "hidden";
     const finish = () => {
       ghost.remove();
       if (this.ghost === ghost) this.ghost = null;
+      for (const undo of restore) undo();
       panel.style.overflow = overflow;
     };
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      // Fewer, gentler: a plain crossfade, no resize or blur.
-      ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150, fill: "forwards" });
-      for (const child of incoming) {
-        child.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, fill: "backwards" });
-      }
-      window.setTimeout(finish, 160);
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const fade = { duration: reduce ? 150 : 200, easing: "cubic-bezier(0.23, 1, 0.32, 1)" };
+    for (const child of incoming) {
+      child.animate([{ opacity: 0 }, { opacity: 1 }], { ...fade, fill: "backwards" });
+    }
+    if (reduce) {
+      // Fewer, gentler: the dissolve alone, no resize.
+      window.setTimeout(finish, fade.duration + 10);
       return;
     }
-
-    // An on-screen size change takes the strong ease-in-out; the fades are
-    // exits and entries, so they take ease-out, with the exit quicker.
+    // An on-screen size change takes the strong ease-in-out. Whatever of the
+    // old view the new one doesn't cover fades out under the moving edge.
+    ghost.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: VIEW_SWAP_MS,
+      easing: "linear",
+      fill: "forwards",
+    });
     const morph = panel.animate([{ height: `${from}px` }, { height: `${to}px` }], {
       duration: VIEW_SWAP_MS,
       easing: "cubic-bezier(0.77, 0, 0.175, 1)",
     });
-    // Opacity only: animating `filter` inside the overlay makes Chrome rebuild
-    // compositor layers, which flashed the app behind the backdrop.
-    ghost.animate([{ opacity: 1 }, { opacity: 0 }], {
-      duration: 150,
-      easing: "cubic-bezier(0.23, 1, 0.32, 1)",
-      fill: "forwards",
-    });
-    for (const child of incoming) {
-      child.animate([{ opacity: 0 }, { opacity: 1 }], {
-        duration: 200,
-        delay: 50,
-        easing: "cubic-bezier(0.23, 1, 0.32, 1)",
-        fill: "backwards",
-      });
-    }
     morph.finished.then(finish, finish);
   }
 
