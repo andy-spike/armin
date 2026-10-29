@@ -84,7 +84,8 @@ function BrowsePage() {
     [browseQuery.flashcards],
   );
 
-  const { filteredTotal, filteredArchived, libraryTotal, libraryArchived } = browseQuery;
+  const { filteredTotal, filteredCapped, filteredArchived, libraryTotal, libraryArchived } =
+    browseQuery;
   const filteredActive = Math.max(0, filteredTotal - filteredArchived);
   const libraryActive = Math.max(0, libraryTotal - libraryArchived);
   const countSummary =
@@ -268,7 +269,7 @@ function BrowsePage() {
 
           <p className="mb-3 text-xs text-muted">
             {hasMore
-              ? `Showing ${displayed.length} of ${filteredTotal} matching cards · ${countSummary}`
+              ? `Showing ${displayed.length} of ${filteredTotal}${filteredCapped ? "+" : ""} matching cards · ${countSummary}`
               : countSummary}
           </p>
 

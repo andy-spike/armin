@@ -11,12 +11,16 @@ import {
   studyDayStarts,
   studyDayWindowStarts,
   summarizeReviewUnitStates,
+  type ReviewUnitStateCounts,
 } from "@armin/core/stats";
 import { statsGeneration } from "./model/performance";
 import { query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { activeDeckIds, readableLibrary } from "./model/access";
-import { MAX_REVIEW_UNITS } from "./model/limits";
+import { MAX_REVIEW_UNITS_PER_DECK } from "./model/limits";
+import { sumSizes } from "./model/deckSizes";
+import { State } from "@armin/core/scheduler";
+import { startOfNextStudyDayMs } from "@armin/core/study";
 
 /** All decks (`null`) or the requested deck, if it belongs to the library. */
 async function resolveDeckScope(
@@ -69,24 +73,82 @@ function heatmapDayCount(weeks: number) {
   return (weeks - 1) * 7 + 1;
 }
 
-/** Every current review unit in scope, for state and lock/archive totals. */
-async function readScopedUnits(
+/** Units read per review state for the forecast; past this the forecast is truncated. */
+const FORECAST_ROWS_PER_STATE = 8000;
+
+/**
+ * Due times of studyable reviews through the end of the forecast window,
+ * from the review-state indexes, so new units never count toward the read.
+ */
+async function forecastDues(
   ctx: QueryCtx,
   library: Doc<"libraries">,
   deckId: Id<"decks"> | null,
   decks: Set<Id<"decks">>,
+  end: number,
 ) {
-  if (deckId) {
-    return ctx.db
+  const dues: number[] = [];
+  let truncated = false;
+  for (const state of [State.Learning, State.Review, State.Relearning]) {
+    const rows = deckId
+      ? await ctx.db
+          .query("unitSummaries")
+          .withIndex("by_deck_state_due", (q) =>
+            q
+              .eq("deckId", deckId)
+              .eq("locked", false)
+              .eq("archived", false)
+              .eq("state", state)
+              .lt("due", end),
+          )
+          .take(FORECAST_ROWS_PER_STATE)
+      : await ctx.db
+          .query("unitSummaries")
+          .withIndex("by_library_state_due", (q) =>
+            q
+              .eq("libraryId", library._id)
+              .eq("locked", false)
+              .eq("archived", false)
+              .eq("state", state)
+              .lt("due", end),
+          )
+          .take(FORECAST_ROWS_PER_STATE);
+    if (rows.length === FORECAST_ROWS_PER_STATE) truncated = true;
+    for (const row of rows) if (decks.has(row.deckId)) dues.push(row.due);
+  }
+  return { dues, truncated };
+}
+
+/** Unit-state totals from the deck counters; decks without counters yet are read. */
+async function stateTotals(ctx: QueryCtx, library: Doc<"libraries">, decks: Set<Id<"decks">>) {
+  const rows = await ctx.db
+    .query("deckUnitCounts")
+    .withIndex("by_library", (q) => q.eq("libraryId", library._id))
+    .collect();
+  const counted = rows.filter((row) => decks.has(row.deckId));
+  const sizes = sumSizes(counted);
+  const totals: ReviewUnitStateCounts = {
+    newCount: sizes.newCount,
+    learningCount: sizes.learningCount,
+    reviewCount: sizes.reviewCount,
+    relearningCount: sizes.relearningCount,
+    lockedCount: sizes.lockedCount,
+    archivedCount: sizes.archivedCount,
+    total: sizes.total,
+  };
+  const have = new Set(counted.map((row) => row.deckId));
+  for (const deckId of decks) {
+    if (have.has(deckId)) continue;
+    // Decks from before the counters were small; their counters appear on the next write.
+    const units = await ctx.db
       .query("unitSummaries")
       .withIndex("by_deck", (q) => q.eq("deckId", deckId))
-      .take(MAX_REVIEW_UNITS);
+      .take(MAX_REVIEW_UNITS_PER_DECK);
+    const deck = summarizeReviewUnitStates(units);
+    for (const key of Object.keys(totals) as (keyof ReviewUnitStateCounts)[])
+      totals[key] += deck[key];
   }
-  const units = await ctx.db
-    .query("unitSummaries")
-    .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-    .take(MAX_REVIEW_UNITS);
-  return units.filter((unit) => decks.has(unit.deckId));
+  return totals;
 }
 
 /**
@@ -110,7 +172,13 @@ export const overview = query({
     const heatmapDays = activityDays(rows, heatmapStarts, timeZone);
     const dailyDays = activityDays(rows, dailyStarts, timeZone);
     const forecasts = studyDayForwardStarts(now, timeZone, STATS_FORECAST_DAYS);
-    const units = await readScopedUnits(ctx, library, scope.deckId, decks);
+    const forecast = await forecastDues(
+      ctx,
+      library,
+      scope.deckId,
+      decks,
+      startOfNextStudyDayMs(forecasts[forecasts.length - 1], timeZone),
+    );
     const recent = rows.filter((row) => row.day >= dailyStarts[0]);
     const reviews = recent.reduce((sum, row) => sum + row.reviews, 0);
     const retained = recent.reduce((sum, row) => sum + row.retained, 0);
@@ -118,19 +186,11 @@ export const overview = query({
       timeZone,
       heatmap: studyDaySeries(heatmapDays),
       daily: studyDaySeries(dailyDays),
-      forecast: studyDaySeries(
-        bucketForecast(
-          units
-            .filter((unit) => unit.state !== 0 && !unit.locked && !unit.archived)
-            .map((unit) => unit.due),
-          forecasts,
-          timeZone,
-        ),
-      ),
+      forecast: studyDaySeries(bucketForecast(forecast.dues, forecasts, timeZone)),
       retention: { reviews, retained, ratio: reviews === 0 ? null : retained / reviews },
-      states: summarizeReviewUnitStates(units),
+      states: await stateTotals(ctx, library, decks),
       streak: reviewStreaks(heatmapDays),
-      truncated: false,
+      truncated: forecast.truncated,
       pending: library.statsReady !== true,
     };
   },

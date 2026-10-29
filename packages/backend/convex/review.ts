@@ -12,16 +12,15 @@ import { formatInterval, startOfNextStudyDayMs } from "@armin/core/study";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
-import { activeDeckIds, owned, readableLibrary, writableLibrary } from "./model/access";
+import { owned, readableLibrary, writableLibrary } from "./model/access";
 import {
   checkEligible,
   isBuried,
   selectSession,
   toQueueItems,
   queueDescriptors,
-  dueEligibleUnits,
-  introducedToday,
-  reviewsDoneToday,
+  dueCounts,
+  scopeDecks,
 } from "./model/queue";
 import {
   bumpRevision,
@@ -81,33 +80,12 @@ export const status = query({
   handler: async (ctx, { now }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const units = await dueEligibleUnits(ctx, library, null, now);
-    const settings = new SettingsCache(ctx, library._id);
-    const today = await introducedToday(ctx, library, now);
-    const limit = (await settings.globalSettings()).reviewsPerDay;
-    const shared = {
-      settings,
-      today,
-      reviewsDoneToday:
-        limit == null ? 0 : await reviewsDoneToday(ctx, library, today.since, limit),
-    };
-    const { reviews, frontier } = await selectSession(ctx, library, null, now, {
-      ...shared,
-      deckUnits: units,
-    });
-    const perDeck: Record<string, number> = {};
-    for (const id of await activeDeckIds(ctx, library._id)) {
-      const selected = await selectSession(ctx, library, id, now, {
-        ...shared,
-        deckUnits: units.filter((unit) => unit.deckId === id),
-      });
-      perDeck[id] = selected.reviews.length + selected.frontier.length;
-    }
+    const { perDeck, due } = await dueCounts(ctx, library, now);
     const nextDue = await nextDueAfter(ctx, library, null, now);
     const nextDay = startOfNextStudyDayMs(now, library.timeZone);
     return {
       perDeck,
-      due: reviews.length + frontier.length,
+      due,
       refreshAt: nextDue == null ? nextDay : Math.min(nextDue, nextDay),
     };
   },
@@ -120,10 +98,7 @@ async function nextDueAfter(
   deckId: Id<"decks"> | null,
   now: number,
 ) {
-  const scopedDeck = deckId ? await ctx.db.get(deckId) : null;
-  const decks = deckId
-    ? new Set(scopedDeck?.libraryId === library._id && !scopedDeck.staging ? [deckId] : [])
-    : await activeDeckIds(ctx, library._id);
+  const decks = await scopeDecks(ctx, library, deckId);
   if (library.statsReady) {
     const rows = deckId
       ? ctx.db
@@ -136,8 +111,11 @@ async function nextDueAfter(
           .withIndex("by_library_due", (q) =>
             q.eq("libraryId", library._id).eq("locked", false).eq("archived", false).gt("due", now),
           );
+    // Bounded: past this many skipped rows, the next study day refresh suffices.
+    let scanned = 0;
     for await (const unit of rows) {
       if (decks.has(unit.deckId) && !isBuried(unit, now)) return unit.due;
+      if (++scanned >= 2000) break;
     }
     return null;
   }

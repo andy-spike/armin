@@ -1,16 +1,13 @@
 import { v } from "convex/values";
-import {
-  MAX_LIBRARY_MEDIA_BYTES,
-  MAX_MEDIA_FILE_BYTES,
-  MIME_BY_EXT,
-  sniffImageExt,
-} from "@armin/core/media";
+import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT, sniffImageExt } from "@armin/core/media";
 import { mediaRefFromFileName } from "@armin/core/media-ref";
+import { planLimits } from "@armin/core/plans";
 import { internal } from "./_generated/api";
 import { internalQuery, query } from "./_generated/server";
 import { internalMutation } from "./functions";
 import type { ActionCtx } from "./_generated/server";
 import { getViewer } from "./model/access";
+import { libraryLimits } from "./model/usage";
 
 export const uploaderLibrary = internalQuery({
   args: {},
@@ -152,7 +149,8 @@ export const recordUpload = internalMutation({
       .withIndex("by_library", (q) => q.eq("libraryId", args.libraryId))
       .unique();
     const used = counters?.mediaBytes ?? 0;
-    if (used + args.size > MAX_LIBRARY_MEDIA_BYTES) return { status: "quota" as const };
+    const { mediaBytes: maxBytes } = await libraryLimits(ctx, args.libraryId);
+    if (used + args.size > maxBytes) return { status: "quota" as const };
     const { reviewerResetAt: _resetAt, ...media } = args;
     await ctx.db.insert("media", { ...media, createdAt: Date.now() });
     if (counters) {
@@ -323,7 +321,8 @@ export const attachVariant = internalMutation({
       .withIndex("by_library", (q) => q.eq("libraryId", media.libraryId))
       .unique();
     const fits =
-      counters != null && counters.mediaBytes + args.thumbnailSize <= MAX_LIBRARY_MEDIA_BYTES;
+      counters != null &&
+      counters.mediaBytes + args.thumbnailSize <= planLimits(library.plan).mediaBytes;
     await ctx.db.patch(media._id, {
       width: args.width,
       height: args.height,

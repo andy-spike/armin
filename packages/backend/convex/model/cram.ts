@@ -1,5 +1,5 @@
 import { queueUnit, type QueueUnit } from "./queue";
-import { MAX_REVIEW_UNITS } from "./limits";
+import { MAX_REVIEW_UNITS_PER_DECK } from "./limits";
 import { State } from "@armin/core/scheduler";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
@@ -54,7 +54,7 @@ export async function selectCramUnits(
     ? await ctx.db
         .query("unitSummaries")
         .withIndex("by_deck", (q) => q.eq("deckId", args.deckId))
-        .take(MAX_REVIEW_UNITS)
+        .take(MAX_REVIEW_UNITS_PER_DECK)
     : null;
   let units: QueueUnit[] = (
     projected
@@ -62,7 +62,7 @@ export async function selectCramUnits(
       : await ctx.db
           .query("reviewUnits")
           .withIndex("by_deck", (q) => q.eq("deckId", args.deckId))
-          .take(MAX_REVIEW_UNITS)
+          .take(MAX_REVIEW_UNITS_PER_DECK)
   ).filter(
     (unit) =>
       unit.libraryId === library._id &&

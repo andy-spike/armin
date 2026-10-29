@@ -14,6 +14,7 @@
     "./prereq-graph": "./src/prereq-graph.ts",
     "./review-session": "./src/review-session.ts",
     "./media": "./src/media.ts",
+    "./plans": "./src/plans.ts",
     "./media-ref": "./src/media-ref.ts",
     "./math": "./src/math.ts",
     "./math-render": "./src/math-render.ts",

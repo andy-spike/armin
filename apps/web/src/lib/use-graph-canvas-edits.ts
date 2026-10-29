@@ -143,7 +143,7 @@ export function useGraphCanvasEdits({
       toast({ tone: "success", title: "Flashcard added to graph" });
       closeDialog();
     },
-    onError: () => toast({ tone: "error", title: "Couldn’t add flashcard" }),
+    onError: (error) => notifySaveError(toast, "Couldn’t add flashcard", error),
   });
 
   const updateCard = useMutation({

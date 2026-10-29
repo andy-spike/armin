@@ -1,4 +1,3 @@
-import { rowsInDecks } from "./model/access";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalQuery, query } from "./_generated/server";
@@ -113,13 +112,14 @@ export const revision = internalQuery({
 });
 
 /**
- * Everything except review history, read in one query so it is a single
- * consistent snapshot. Bounded by the beta library quotas.
+ * Library-level rows for an export. Deck contents are paged separately
+ * (`deckPage`); the builder checks the revision before and after collection,
+ * so the pages form one consistent snapshot.
  */
 export const snapshotCore = internalQuery({
   args: { libraryId: v.id("libraries") },
   handler: async (ctx, { libraryId }) => {
-    const byLibrary = <T extends "decks" | "media">(table: T) =>
+    const byLibrary = <T extends "decks" | "media" | "deckSettings">(table: T) =>
       ctx.db
         .query(table)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,13 +134,28 @@ export const snapshotCore = internalQuery({
     return {
       revision: counters?.revision ?? 0,
       decks,
-      flashcards: await rowsInDecks(ctx, "flashcards", ids),
-      reviewUnits: await rowsInDecks(ctx, "reviewUnits", ids),
-      prereqs: await rowsInDecks(ctx, "prereqs", ids),
-      deckSettings: await rowsInDecks(ctx, "deckSettings", ids),
+      deckSettings: (await byLibrary("deckSettings")).filter((row) => ids.has(row.deckId)),
       media: await byLibrary("media"),
       settings: await getSettingsRow(ctx, libraryId),
     };
+  },
+});
+
+/** One page of a deck's flashcards, review units, or prerequisite edges. */
+export const deckPage = internalQuery({
+  args: {
+    deckId: v.id("decks"),
+    table: v.union(v.literal("flashcards"), v.literal("reviewUnits"), v.literal("prereqs")),
+    cursor: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, { deckId, table, cursor }) => {
+    return (
+      ctx.db
+        .query(table)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .withIndex("by_deck" as never, (q: any) => q.eq("deckId", deckId))
+        .paginate({ cursor, numItems: 1000 })
+    );
   },
 });
 

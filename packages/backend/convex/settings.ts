@@ -3,7 +3,8 @@ import { checkParameters } from "ts-fsrs";
 import { SCHEDULING_PRESET_VALUES } from "@armin/core/scheduling-presets";
 import { resolveEffectiveSettings } from "@armin/core/study";
 import { query } from "./_generated/server";
-import { mutation } from "./functions";
+import { internalMutation, mutation } from "./functions";
+import { internal } from "./_generated/api";
 import { ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
 import {
@@ -129,12 +130,12 @@ export const update = mutation({
       await ctx.db.insert("settings", { ...rest, ...patch, updatedAt: now });
     }
     if (patch.prereqStabilityFloor !== undefined) {
-      await refreshAllLocks(
-        ctx,
-        { libraryId: library._id },
-        new SettingsCache(ctx, library._id),
-        now,
-      );
+      // A library can hold more cards than one transaction reads; walk it a
+      // deck at a time. Locks catch up within moments of the settings change.
+      await ctx.scheduler.runAfter(0, internal.settings.refreshLibraryLocks, {
+        libraryId: library._id,
+        cursor: null,
+      });
     }
     await bumpRevision(ctx, library._id);
     return publicSettings(await getSettingsRow(ctx, library._id));
@@ -215,5 +216,33 @@ export const updateDeck = mutation({
     }
     await bumpRevision(ctx, library._id);
     return deckSettingsView(ctx, library._id, deck._id);
+  },
+});
+
+/** Recompute prerequisite locks one deck per transaction, across a library. */
+export const refreshLibraryLocks = internalMutation({
+  args: { libraryId: v.id("libraries"), cursor: v.union(v.string(), v.null()) },
+  returns: v.null(),
+  handler: async (ctx, { libraryId, cursor }) => {
+    const library = await ctx.db.get(libraryId);
+    if (!library || library.status !== "active") return null;
+    const page = await ctx.db
+      .query("decks")
+      .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
+      .paginate({ cursor, numItems: 1 });
+    for (const deck of page.page) {
+      await refreshAllLocks(
+        ctx,
+        { deckId: deck._id },
+        new SettingsCache(ctx, libraryId),
+        Date.now(),
+      );
+    }
+    if (!page.isDone)
+      await ctx.scheduler.runAfter(0, internal.settings.refreshLibraryLocks, {
+        libraryId,
+        cursor: page.continueCursor,
+      });
+    return null;
   },
 });

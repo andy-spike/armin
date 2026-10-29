@@ -60,8 +60,8 @@ function fsrs(row: Doc<"reviewUnits">) {
 }
 
 /**
- * Build a versioned ZIP of one library. The non-history snapshot is a single
- * consistent query; review history is paged. The library revision is checked
+ * Build a versioned ZIP of one library. Library rows, each deck's contents,
+ * and review history are read in pages. The library revision is checked
  * before and after collection and the export retries if the library changed
  * meanwhile, so the archive is internally consistent.
  */
@@ -75,9 +75,31 @@ export const build = internalAction({
       let snapshot: Snapshot | null = null;
       let logs: Doc<"reviewLogs">[] = [];
       for (let attempt = 0; attempt < MAX_ATTEMPTS && !snapshot; attempt++) {
-        const core = (await ctx.runQuery(internal.exports.snapshotCore, {
+        const meta = await ctx.runQuery(internal.exports.snapshotCore, {
           libraryId: job.libraryId,
-        })) as Snapshot;
+        });
+        const core: Snapshot = {
+          ...(meta as Omit<Snapshot, "flashcards" | "reviewUnits" | "prereqs">),
+          flashcards: [],
+          reviewUnits: [],
+          prereqs: [],
+        };
+        for (const deck of meta.decks) {
+          for (const table of ["flashcards", "reviewUnits", "prereqs"] as const) {
+            let deckCursor: string | null = null;
+            for (;;) {
+              const page: { page: unknown[]; isDone: boolean; continueCursor: string } =
+                await ctx.runQuery(internal.exports.deckPage, {
+                  deckId: deck._id,
+                  table,
+                  cursor: deckCursor,
+                });
+              (core[table] as unknown[]).push(...page.page);
+              if (page.isDone) break;
+              deckCursor = page.continueCursor;
+            }
+          }
+        }
         const pages: Doc<"reviewLogs">[] = [];
         let cursor: string | null = null;
         for (;;) {

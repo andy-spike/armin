@@ -112,7 +112,7 @@ checks `libraryId`; imported cards have no prerequisites and are never locked.
 
 | Function                         | Does                                                                                                                                             |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `imports.start`                  | Rejects plans over the beta limits (`QUOTA`, with counts in the message), then creates one deck per Anki deck. One running import per library.   |
+| `imports.start`                  | Rejects imports over the plan limits (`QUOTA`, with counts in the message), then creates one deck per Anki deck. One running import per library. |
 | `imports.addCards`               | Up to 100 cards and 1,500 review units per call, all-or-nothing. A unit's `schedule` replaces its new-card state; unknown `subKey`s are ignored. |
 | `imports.addReviewLogs`          | Up to 1,000 past reviews per call, for cards this import created. History only: it never changes a unit's schedule.                              |
 | `imports.finish`                 | Needs every declared card and review to have arrived, then closes the import.                                                                    |
@@ -151,13 +151,36 @@ Rules:
   while one is running returns `CONFLICT`; clients can read `imports.current` and
   offer to cancel it.
 
-## Beta limits
+## Plans and limits
 
-`convex/model/limits.ts` and `@armin/core/media` bound each library so every
-query and mutation fits Convex's per-function limits (32,000 documents scanned,
-4,096 index ranges, 16 MiB read) and every export fits one HTTP response
-(100 MiB): 200 decks, 2,000 flashcards, 10,000 review units, 2,000 prerequisite
-links per deck, 10 MiB per image, and 80 MiB of images per library. Review
+Each library has a `plan` (absent means free). `@armin/core/plans` holds the
+plan limits that `model/usage.ts` (`checkCapacity`, `libraryLimits`) enforces:
+
+| Limit                           | Free   | Pro     |
+| ------------------------------- | ------ | ------- |
+| Flashcards                      | 1,000  | 100,000 |
+| Review units                    | 5,000  | 250,000 |
+| Decks                           | 50     | 1,000   |
+| Images                          | 50 MiB | 80 MiB  |
+| Assistant-created cards / month | 300    | 10,000  |
+| Assistant writes / hour         | 60     | 600     |
+
+The monthly assistant allowance is per library and counts `save_cards`; staged
+Anki imports are bounded only by the library limits. There is no payment
+integration yet; set `plan` on the library row to change it.
+
+`convex/model/limits.ts` holds the technical bounds every plan sits under, so
+each query and mutation fits Convex's per-function limits (32,000 documents
+scanned, 4,096 index ranges, 16 MiB read). Whole-library work never reads every
+row: queues and Stats read bounded index ranges (by review state and the fixed
+new-card order, `frontierKey`) plus per-deck counters (`deckUnitCounts`,
+`model/deckSizes.ts`), and exports page each deck. Deck-wide work (the graph,
+lock refresh, cram) reads a whole deck, so every deck holds at most 10,000
+flashcards and 15,000 review units on any plan; the deck-size triggers enforce
+this for every create, import, and move. A change to the library-wide
+prerequisite floor refreshes locks one deck per scheduled transaction. Other
+bounds: 2,000 prerequisite links per deck, 10 MiB per image, and one export ZIP
+of at most 95 MiB. Review
 history is unbounded and is read in pages or deleted in batches. Deletion
 consequences use review-unit lifetime counts and indexed boundary logs. Moving
 a card keeps its history without rewriting it; exports resolve each log to its
@@ -333,6 +356,16 @@ clients:
 pnpm --filter @armin/backend exec convex run performance:backfill '{"cursor":null}'
 pnpm --filter @armin/backend exec convex run media:backfillVariants '{"cursor":null}'
 ```
+
+The plan-limits change adds `frontierKey` to unit summaries. After deploying
+it, run the idempotent backfill so existing units take their place in the
+new-card order (units without a key are introduced first until then):
+
+```bash
+pnpm --filter @armin/backend exec convex run performance:backfillFrontierKeys '{"cursor":null}'
+```
+
+Deck counters (`deckUnitCounts`) build themselves on each deck's next write.
 
 The commands above use the checkout's local deployment by default. Production
 requires the normal explicit production deployment workflow. Inspect scheduled

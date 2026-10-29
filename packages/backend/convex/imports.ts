@@ -12,7 +12,8 @@ import { deleteDeckCascade } from "./model/deletion";
 import { fail } from "./model/errors";
 import { insertFlashcard, validateFlashcardInput } from "./model/flashcards";
 import { cleanDeckName, insertDeck } from "./model/decks";
-import { MAX_DECKS, MAX_FLASHCARDS, MAX_REVIEW_UNITS } from "./model/limits";
+import { planLimits } from "@armin/core/plans";
+import { MAX_REVIEW_UNITS_PER_FLASHCARD } from "./model/limits";
 import { bumpRevision, findRequest, recordRequest, type TagCache } from "./model/study";
 import { checkCapacity, libraryUsage } from "./model/usage";
 
@@ -337,11 +338,17 @@ export const addReviewLogs = mutation({
       // Active unit projections disappear atomically when a card is deleted.
       // Read IDs/ownership once, rather than re-reading card text per log.
       const requested = new Set(args.logs.map((log) => log.flashcardId));
-      const rows = await ctx.db
-        .query("unitSummaries")
-        .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-        .take(MAX_REVIEW_UNITS);
+      const rows = [];
+      for (const flashcardId of requested) {
+        rows.push(
+          ...(await ctx.db
+            .query("unitSummaries")
+            .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcardId))
+            .take(MAX_REVIEW_UNITS_PER_FLASHCARD)),
+        );
+      }
       for (const row of rows) {
+        if (row.libraryId !== library._id) continue;
         if (!requested.has(row.flashcardId) || !deckIds.has(row.deckId)) continue;
         const units = cards.get(row.flashcardId) ?? new Map<string, QueueUnit>();
         units.set(row.subKey, queueUnit(row));
@@ -509,12 +516,13 @@ export const usage = query({
   handler: async (ctx) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
+    const limits = planLimits(library.plan);
     return {
       ...(await libraryUsage(ctx, library._id)),
       limits: {
-        decks: MAX_DECKS,
-        flashcards: MAX_FLASHCARDS,
-        reviewUnits: MAX_REVIEW_UNITS,
+        decks: limits.decks,
+        flashcards: limits.flashcards,
+        reviewUnits: limits.reviewUnits,
         reviewLogs: MAX_IMPORT_REVIEW_LOGS,
       },
     };

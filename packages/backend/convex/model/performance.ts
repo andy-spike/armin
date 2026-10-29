@@ -1,6 +1,7 @@
 import { startOfStudyDayMs } from "@armin/core/study";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { MAX_REVIEW_UNITS_PER_FLASHCARD } from "./limits";
 
 // Longer than every displayed window, including week alignment and DST margins.
 export const ACTIVITY_DAYS = 400;
@@ -17,7 +18,12 @@ export function activityBatch() {
     decks: new Map<Id<"decks">, Doc<"decks"> | null>(),
     boundaries: new Map<
       Id<"reviewUnits">,
-      { libraryId: Id<"libraries">; again?: number; introduced?: number }
+      {
+        libraryId: Id<"libraries">;
+        flashcardId: Id<"flashcards">;
+        again?: number;
+        introduced?: number;
+      }
     >(),
     deltas: new Map<
       string,
@@ -39,17 +45,18 @@ export async function flushActivity(ctx: MutationCtx, batch: ReturnType<typeof a
       );
   }
   // Large history imports must not spend an index range per boundary lookup
-  // on top of their existing per-card and daily-activity reads.
+  // on top of their existing per-card and daily-activity reads: read each
+  // card's units once, which covers every sibling's boundary.
   const summaries = new Map<Id<"reviewUnits">, Doc<"unitSummaries">>();
   const bulk = batch.boundaries.size > 128;
   if (bulk) {
-    for (const libraryId of new Set(
-      [...batch.boundaries.values()].map((value) => value.libraryId),
+    for (const flashcardId of new Set(
+      [...batch.boundaries.values()].map((value) => value.flashcardId),
     )) {
       const rows = await ctx.db
         .query("unitSummaries")
-        .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
-        .take(10_000);
+        .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcardId))
+        .take(MAX_REVIEW_UNITS_PER_FLASHCARD);
       for (const row of rows) summaries.set(row.reviewUnitId, row);
     }
   }
@@ -230,6 +237,20 @@ export async function removeDeckActivity(ctx: MutationCtx, deck: Doc<"decks">) {
   }
 }
 
+/**
+ * A unit's fixed place in the new-card order: a hash of its flashcard, so
+ * siblings stay together and the order is random across cards but never
+ * reshuffles. Queue selection reads new units in this order from an index.
+ */
+export function frontierKey(flashcardId: Id<"flashcards">) {
+  let h = 2166136261;
+  for (let i = 0; i < flashcardId.length; i++) {
+    h ^= flashcardId.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
 export async function syncUnitSummary(
   ctx: MutationCtx,
   unit: Doc<"reviewUnits"> | null,
@@ -273,6 +294,7 @@ export async function syncUnitSummary(
     version,
     buriedUntil,
     createdAt,
+    frontierKey: frontierKey(flashcardId),
   };
   if (row) await ctx.db.patch(row._id, fields);
   else {

@@ -37,6 +37,7 @@ import type * as model_agentImportTools from "../model/agentImportTools.js";
 import type * as model_agentTools from "../model/agentTools.js";
 import type * as model_agentWrites from "../model/agentWrites.js";
 import type * as model_cram from "../model/cram.js";
+import type * as model_deckSizes from "../model/deckSizes.js";
 import type * as model_decks from "../model/decks.js";
 import type * as model_deletion from "../model/deletion.js";
 import type * as model_email from "../model/email.js";
@@ -93,6 +94,7 @@ declare const fullApi: ApiFromModules<{
   "model/agentTools": typeof model_agentTools;
   "model/agentWrites": typeof model_agentWrites;
   "model/cram": typeof model_cram;
+  "model/deckSizes": typeof model_deckSizes;
   "model/decks": typeof model_decks;
   "model/deletion": typeof model_deletion;
   "model/email": typeof model_email;
