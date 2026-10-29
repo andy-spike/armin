@@ -41,6 +41,7 @@ import {
   prefetchDecksPage,
   statsHeatmapQuery,
 } from "@/lib/queries";
+import { useDeckPinnedAt } from "@/lib/pending-pins";
 import { STATS_COMPACT_HEATMAP_WEEKS } from "@armin/core/stats";
 import type { StatsHeatmap } from "@armin/backend/types";
 
@@ -168,7 +169,7 @@ function DecksPage() {
               <DeckTile
                 deck={deck}
                 onPrefetch={() => prefetchDeckPage(queryClient, deck.id)}
-                onTogglePin={() => deckActions.togglePin(deck)}
+                onTogglePin={(pinned) => deckActions.togglePin(deck, pinned)}
                 onRename={() => deckActions.rename(deck)}
                 onDelete={() => deckActions.remove(deck)}
               />
@@ -306,10 +307,11 @@ function DeckTile({
 }: {
   deck: UiDeck;
   onPrefetch: () => void;
-  onTogglePin: () => void;
+  onTogglePin: (pinned: boolean) => void;
   onRename: () => void;
   onDelete: () => void;
 }) {
+  const pinned = useDeckPinnedAt(deck) != null;
   const pct = deck.total > 0 ? Math.round((deck.learned / deck.total) * 100) : 0;
 
   return (
@@ -360,8 +362,8 @@ function DeckTile({
                 </Tooltip>
                 <DropdownMenuContent align="end" className="min-w-40">
                   <DeckActionItems
-                    pinned={deck.pinnedAt != null}
-                    onTogglePin={onTogglePin}
+                    pinned={pinned}
+                    onTogglePin={() => onTogglePin(pinned)}
                     onRename={onRename}
                     onDelete={onDelete}
                     Item={DropdownMenuItem}
@@ -404,8 +406,8 @@ function DeckTile({
 
       <ContextMenuContent className="min-w-40">
         <DeckActionItems
-          pinned={deck.pinnedAt != null}
-          onTogglePin={onTogglePin}
+          pinned={pinned}
+          onTogglePin={() => onTogglePin(pinned)}
           onRename={onRename}
           onDelete={onDelete}
           Item={ContextMenuItem}

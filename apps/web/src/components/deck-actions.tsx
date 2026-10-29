@@ -8,6 +8,7 @@ import type { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dr
 import { useToast } from "@/components/ui/toast";
 import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
+import { forgetPin, pinSaved, requestPin } from "@/lib/pending-pins";
 import type { UiDeck } from "@/types/view-models";
 
 /** Pin, rename, and delete, shared by a deck's dropdown and right-click menus. */
@@ -85,7 +86,10 @@ export function useDeckActions({ onDeleted }: { onDeleted?: (deck: UiDeck) => vo
   const setPinned = useMutation({
     mutationFn: (input: { deck: UiDeck; pinned: boolean }) =>
       armin.decks.setPinned(input.deck.id, input.pinned),
-    onError: (_error, { pinned }) => {
+    onMutate: ({ deck, pinned }) => requestPin(deck.id, pinned),
+    onSuccess: (_result, { deck, pinned }) => pinSaved(deck.id, pinned),
+    onError: (_error, { deck, pinned }) => {
+      forgetPin(deck.id);
       toast({ tone: "error", title: pinned ? "Couldn’t pin deck" : "Couldn’t unpin deck" });
     },
   });
@@ -170,7 +174,7 @@ export function useDeckActions({ onDeleted }: { onDeleted?: (deck: UiDeck) => vo
   );
 
   return {
-    togglePin: (deck: UiDeck) => setPinned.mutate({ deck, pinned: deck.pinnedAt == null }),
+    togglePin: (deck: UiDeck, pinned: boolean) => setPinned.mutate({ deck, pinned: !pinned }),
     rename: (deck: UiDeck) => {
       setRenamingDeck(deck);
       setRenameName(deck.name);

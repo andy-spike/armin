@@ -56,6 +56,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
+import { usePinnedAt } from "@/lib/pending-pins";
 import type { UiDeck } from "@/types/view-models";
 import { ArminMark, ArminWordmark } from "@/components/brand";
 import { Kbd } from "@/components/ui/kbd";
@@ -442,9 +443,10 @@ function DeckList({
     },
   });
 
+  const pinnedAt = usePinnedAt(decksQuery.data);
   const pinned = (decksQuery.data ?? [])
-    .filter((deck) => deck.pinnedAt != null)
-    .sort((a, b) => (a.pinnedAt ?? 0) - (b.pinnedAt ?? 0));
+    .filter((deck) => pinnedAt(deck) != null)
+    .sort((a, b) => (pinnedAt(a) ?? 0) - (pinnedAt(b) ?? 0));
 
   if (decksQuery.isSuccess && decks.length === 0) return null;
 
@@ -478,8 +480,8 @@ function DeckList({
         </ContextMenuTrigger>
         <ContextMenuContent className="min-w-40">
           <DeckActionItems
-            pinned={deck.pinnedAt != null}
-            onTogglePin={() => deckActions.togglePin(deck)}
+            pinned={pinnedAt(deck) != null}
+            onTogglePin={() => deckActions.togglePin(deck, pinnedAt(deck) != null)}
             onRename={() => deckActions.rename(deck)}
             onDelete={() => deckActions.remove(deck)}
             Item={ContextMenuItem}
