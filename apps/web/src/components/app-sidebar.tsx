@@ -484,7 +484,14 @@ function DeckList({
                 const path = `/deck/${deck.id}`;
                 return (
                   <ContextMenu key={deck.id}>
-                    <ContextMenuTrigger render={<SidebarMenuItem />}>
+                    <ContextMenuTrigger
+                      // Off-screen rows skip layout and paint but stay in the
+                      // DOM for find-in-page, focus, and screen readers. The
+                      // clip margin keeps the focus ring visible.
+                      render={
+                        <SidebarMenuItem className="[contain-intrinsic-size:auto_2rem] [content-visibility:auto] [overflow-clip-margin:4px]" />
+                      }
+                    >
                       <SidebarMenuButton
                         isActive={isActive(path)}
                         // The due badge floats over the row's right edge, so long
