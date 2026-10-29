@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useModalIsolation } from "@/keybindings/keybindings-provider";
 
 const EXIT_MS = 200;
-const VIEW_SWAP_MS = 220;
+const VIEW_SWAP_MS = 250;
 
 /**
  * The element focus returns to when the dialog closes. A dialog opened from a
@@ -96,47 +96,6 @@ export function Dialog({
   }
 
   const content = exiting ? snapshot : { title, description, children, footer };
-
-  // The panel's height as last laid out, kept current as content resizes, so a
-  // view switch can animate from exactly what was on screen.
-  const lastHeight = React.useRef<number | null>(null);
-  const lastView = React.useRef(view);
-  React.useLayoutEffect(() => {
-    const panel = panelRef.current;
-    if (!panel) {
-      lastHeight.current = null;
-      return;
-    }
-    const height = panel.getBoundingClientRect().height;
-    const from = lastHeight.current;
-    const changed = view !== lastView.current;
-    lastView.current = view;
-    lastHeight.current = height;
-    if (!changed || from === null || exiting) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const timing = { duration: VIEW_SWAP_MS, easing: "cubic-bezier(0.25, 1, 0.5, 1)" };
-    if (Math.abs(from - height) > 1) {
-      panel.animate([{ height: `${from}px` }, { height: `${height}px` }], timing);
-    }
-    for (const child of Array.from(panel.children)) {
-      child.animate(
-        [
-          { opacity: 0, transform: "translateY(4px)" },
-          { opacity: 1, transform: "none" },
-        ],
-        { ...timing, delay: 40, fill: "backwards" },
-      );
-    }
-  });
-  React.useEffect(() => {
-    const panel = panelRef.current;
-    if (!panel || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => {
-      lastHeight.current = panel.getBoundingClientRect().height;
-    });
-    observer.observe(panel);
-    return () => observer.disconnect();
-  }, [present]);
 
   React.useEffect(() => {
     onCloseRef.current = onClose;
@@ -256,6 +215,7 @@ export function Dialog({
           className,
         )}
       >
+        <ViewSwap view={view} panelRef={panelRef} />
         {content.title && (
           <div
             className={cn(
@@ -301,4 +261,108 @@ export function Dialog({
     </div>,
     document.body,
   );
+}
+
+/**
+ * Crossfades a dialog between views instead of snapping. Just before React
+ * swaps the DOM, the outgoing view is copied into a frozen, inert ghost; after
+ * the swap the ghost fades out over the incoming view while the panel morphs
+ * to its new height. A 2px blur on both blends them into one transformation.
+ * Renders nothing; `getSnapshotBeforeUpdate` is React's hook for reading the
+ * DOM before an update lands.
+ */
+class ViewSwap extends React.Component<{
+  view: string | undefined;
+  panelRef: React.RefObject<HTMLDivElement | null>;
+}> {
+  ghost: HTMLElement | null = null;
+
+  getSnapshotBeforeUpdate(prev: { view: string | undefined }) {
+    const panel = this.props.panelRef.current;
+    if (prev.view === this.props.view || !panel) return null;
+    this.ghost?.remove();
+    for (const animation of panel.getAnimations({ subtree: true })) animation.cancel();
+    const from = panel.getBoundingClientRect().height;
+    const ghost = document.createElement("div");
+    ghost.className = panel.className;
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.inert = true;
+    ghost.append(...Array.from(panel.children, (child) => child.cloneNode(true)));
+    for (const node of ghost.querySelectorAll("[id]")) node.removeAttribute("id");
+    Object.assign(ghost.style, {
+      position: "absolute",
+      inset: "0 0 auto 0",
+      height: `${from}px`,
+      margin: "0",
+      border: "0",
+      boxShadow: "none",
+      background: "transparent",
+      pointerEvents: "none",
+      animation: "none",
+    });
+    return { ghost, from };
+  }
+
+  componentDidUpdate(
+    _prev: unknown,
+    _state: unknown,
+    snapshot: { ghost: HTMLElement; from: number } | null,
+  ) {
+    const panel = this.props.panelRef.current;
+    if (!snapshot || !panel) return;
+    const { ghost, from } = snapshot;
+    const to = panel.getBoundingClientRect().height;
+    const incoming = Array.from(panel.children);
+    panel.append(ghost);
+    this.ghost = ghost;
+    const overflow = panel.style.overflow;
+    panel.style.overflow = "hidden";
+    const finish = () => {
+      ghost.remove();
+      if (this.ghost === ghost) this.ghost = null;
+      panel.style.overflow = overflow;
+    };
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      // Fewer, gentler: a plain crossfade, no resize or blur.
+      ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150, fill: "forwards" });
+      for (const child of incoming) {
+        child.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, fill: "backwards" });
+      }
+      window.setTimeout(finish, 160);
+      return;
+    }
+
+    // An on-screen size change takes the strong ease-in-out; the fades are
+    // exits and entries, so they take ease-out, with the exit quicker.
+    const morph = panel.animate([{ height: `${from}px` }, { height: `${to}px` }], {
+      duration: VIEW_SWAP_MS,
+      easing: "cubic-bezier(0.77, 0, 0.175, 1)",
+    });
+    ghost.animate(
+      [
+        { opacity: 1, filter: "blur(0px)" },
+        { opacity: 0, filter: "blur(2px)" },
+      ],
+      { duration: 150, easing: "cubic-bezier(0.23, 1, 0.32, 1)", fill: "forwards" },
+    );
+    for (const child of incoming) {
+      child.animate(
+        [
+          { opacity: 0, filter: "blur(2px)" },
+          { opacity: 1, filter: "blur(0px)" },
+        ],
+        { duration: 200, delay: 50, easing: "cubic-bezier(0.23, 1, 0.32, 1)", fill: "backwards" },
+      );
+    }
+    morph.finished.then(finish, finish);
+  }
+
+  componentWillUnmount() {
+    this.ghost?.remove();
+  }
+
+  render() {
+    return null;
+  }
 }
