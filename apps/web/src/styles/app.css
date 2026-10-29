@@ -362,6 +362,43 @@
 /* ------------------------------------------------------------------ *
  * Milkdown Crepe card authoring
  * ------------------------------------------------------------------ */
+/* A cloze deletion in the card editor: the hidden text sits in an accent
+ * pill led by its card number; a hint follows in muted italics. Both pieces
+ * are pseudo-elements, so only the answer itself is editable text. Unlayered,
+ * like Crepe's own theme, which would otherwise reset the chip's box. */
+.card-markdown-editor .cloze-chip {
+  margin-inline: 1px;
+  padding: 1px 6px 1px 3px;
+  border-radius: 3px;
+  background: var(--color-accent-tint);
+  color: var(--color-accent-deep);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--color-accent) 30%, transparent);
+  font-weight: 500;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.card-markdown-editor .cloze-chip::before {
+  content: attr(data-cluster);
+  display: inline-block;
+  min-width: 1.25em;
+  margin-right: 5px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font: 600 0.625rem/1.6 var(--font-mono);
+  text-align: center;
+  vertical-align: 0.1em;
+}
+.card-markdown-editor .cloze-chip[data-hint]::after {
+  content: "· " attr(data-hint);
+  margin-left: 5px;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-style: italic;
+  font-weight: 400;
+}
+
 @layer components {
   /* Read-only rendered Markdown (react-markdown, review cards). Typography
    * (size, weight, leading) is inherited from the wrapper's utility classes. */

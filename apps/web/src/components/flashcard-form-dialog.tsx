@@ -122,7 +122,9 @@ function contentFromFields(
       return front && back ? { front, back } : null;
     }
     case "cloze": {
-      const text = fields.clozeText;
+      // Trimmed like the other rich-text fields: the editor ends its Markdown
+      // with a newline.
+      const text = fields.clozeText.trim();
       if (parseClozes(text).length === 0 || hasEmptyClozeDeletion(text)) {
         return null;
       }
@@ -405,6 +407,7 @@ export function FlashcardFormDialog({
               key={`cloze-${editorKey}`}
               value={fields.clozeText}
               onChange={(value) => setField("clozeText", value)}
+              onUploadChange={onUploadChange}
             />
           )}
           {type === "cloze" && (
