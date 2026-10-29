@@ -15,30 +15,21 @@ import {
   writableLibrary,
 } from "./model/access";
 import schema from "./schema";
-import { fail } from "./model/errors";
-import { MAX_FLASHCARDS } from "./model/limits";
+import { checkCapacity } from "./model/usage";
 import {
   deleteFlashcardCascade,
+  editFlashcard,
   hydrateFlashcard,
   hydrateFromUnits,
   insertFlashcard,
   hydrateTile,
-  prepareTags,
-  syncFlashcardMedia,
+  moveFlashcard,
+  setFlashcardArchived,
   validateFlashcardInput,
   type HydratedFlashcard,
+  type ValidatedFlashcard,
 } from "./model/flashcards";
-import {
-  bumpRevision,
-  findRequest,
-  parseFlashcard,
-  reconcileReviewUnits,
-  recordRequest,
-  refreshAfterPrereqChange,
-  refreshDependentSubgraph,
-  rememberTags,
-  SettingsCache,
-} from "./model/study";
+import { bumpRevision, findRequest, parseFlashcard, recordRequest } from "./model/study";
 
 export const listByDeck = query({
   args: { deckId: v.string(), now: v.optional(v.number()) },
@@ -444,15 +435,7 @@ export const create = mutation({
     const previous = await findRequest(ctx, library._id, args.requestId);
     if (previous) return previous.result as { id: Id<"flashcards"> };
     const deck = await ownedOrFail(ctx, library, args.deckId, "Deck");
-    const count = (
-      await ctx.db
-        .query("flashcards")
-        .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-        .take(MAX_FLASHCARDS + 1)
-    ).length;
-    if (count >= MAX_FLASHCARDS) {
-      fail("QUOTA", `The beta allows ${MAX_FLASHCARDS} flashcards per account.`);
-    }
+    await checkCapacity(ctx, library._id, { flashcards: 1 });
     const input = validateFlashcardInput(args.type, args.content);
     const now = Date.now();
     const id = await insertFlashcard(ctx, {
@@ -496,32 +479,12 @@ export const update = mutation({
         message: "This flashcard was changed elsewhere after you opened it.",
       };
     }
-    const now = Date.now();
-    const contentChanged = args.content !== undefined || args.type !== undefined;
-    const patch: Partial<Doc<"flashcards">> = {};
-    if (contentChanged) {
+    let input: ValidatedFlashcard | undefined;
+    if (args.content !== undefined || args.type !== undefined) {
       const current = parseFlashcard(flashcard);
-      const input = validateFlashcardInput(
-        args.type ?? current.type,
-        args.content ?? current.content,
-      );
-      patch.type = input.type;
-      patch.content = input.serialized;
-      const next = { ...flashcard, ...patch };
-      await reconcileReviewUnits(ctx, next, input.type, input.content, now);
-      await syncFlashcardMedia(ctx, flashcard, input.mediaFiles);
+      input = validateFlashcardInput(args.type ?? current.type, args.content ?? current.content);
     }
-    if (args.tags) {
-      patch.tags = await prepareTags(ctx, library._id, args.tags);
-      await rememberTags(ctx, library._id, patch.tags);
-    }
-    const version = flashcard.version + 1;
-    await ctx.db.patch(flashcard._id, { ...patch, version, updatedAt: now });
-    if (contentChanged) {
-      // Removing or adding review units can change whether dependents are secured.
-      const settings = new SettingsCache(ctx, library._id);
-      await refreshAfterPrereqChange(ctx, flashcard._id, settings, now);
-    }
+    const version = await editFlashcard(ctx, flashcard, { input, tags: args.tags }, Date.now());
     await bumpRevision(ctx, library._id);
     return { status: "ok", version };
   },
@@ -547,18 +510,7 @@ export const setArchived = mutation({
     const library = await writableLibrary(ctx);
     const flashcard = await ownedOrFail(ctx, library, flashcardId, "Flashcard");
     if (flashcard.archived === archived) return { version: flashcard.version };
-    const now = Date.now();
-    const version = flashcard.version + 1;
-    await ctx.db.patch(flashcard._id, { archived, version, updatedAt: now });
-    const units = await ctx.db
-      .query("reviewUnits")
-      .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcard._id))
-      .collect();
-    for (const unit of units) {
-      await ctx.db.patch(unit._id, { archived, version: unit.version + 1, updatedAt: now });
-    }
-    const settings = new SettingsCache(ctx, library._id);
-    await refreshAfterPrereqChange(ctx, flashcard._id, settings, now);
+    const version = await setFlashcardArchived(ctx, flashcard, archived, Date.now());
     await bumpRevision(ctx, library._id);
     return { version };
   },
@@ -620,11 +572,7 @@ export const moveConsequences = query({
   },
 });
 
-/**
- * Move a flashcard to another deck. Prerequisite edges cannot cross decks,
- * so all its edges are removed, its units follow it, its canvas position is
- * cleared, and lock state is recomputed for it and its former dependents.
- */
+/** Move a flashcard to another deck, removing its prerequisite links (see `moveFlashcard`). */
 export const move = mutation({
   args: { flashcardId: v.id("flashcards"), targetDeckId: v.id("decks") },
   handler: async (ctx, { flashcardId, targetDeckId }) => {
@@ -632,42 +580,7 @@ export const move = mutation({
     const flashcard = await ownedOrFail(ctx, library, flashcardId, "Flashcard");
     const target = await ownedOrFail(ctx, library, targetDeckId, "Deck");
     if (flashcard.deckId === target._id) return { version: flashcard.version };
-    const now = Date.now();
-    const outgoing = await ctx.db
-      .query("prereqs")
-      .withIndex("by_prereq", (q) => q.eq("prereqId", flashcard._id))
-      .collect();
-    const incoming = await ctx.db
-      .query("prereqs")
-      .withIndex("by_dependent", (q) => q.eq("dependentId", flashcard._id))
-      .collect();
-    for (const edge of [...outgoing, ...incoming]) await ctx.db.delete(edge._id);
-    const version = flashcard.version + 1;
-    await ctx.db.patch(flashcard._id, {
-      deckId: target._id,
-      posX: null,
-      posY: null,
-      version,
-      updatedAt: now,
-    });
-    const units = await ctx.db
-      .query("reviewUnits")
-      .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcard._id))
-      .collect();
-    for (const unit of units) {
-      await ctx.db.patch(unit._id, {
-        deckId: target._id,
-        version: unit.version + 1,
-        updatedAt: now,
-      });
-    }
-    const settings = new SettingsCache(ctx, library._id);
-    await refreshDependentSubgraph(
-      ctx,
-      [flashcard._id, ...outgoing.map((edge) => edge.dependentId)],
-      settings,
-      now,
-    );
+    const version = await moveFlashcard(ctx, flashcard, target._id, Date.now());
     await bumpRevision(ctx, library._id);
     return { version };
   },

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import type { BuryResult, BuryUnit } from "@armin/backend/types";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import type { BuryResult } from "@armin/backend/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -36,14 +36,26 @@ import { ImageOcclusionReview } from "@/components/image-occlusion-review";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
 import { useScope } from "@/keybindings/keybindings-provider";
-import type { FlashcardDeleteConsequences, Grade, PreviewOption } from "@/types/window";
-import type { UiFlashcard, UiReviewUnit } from "@/types/view-models";
+import type {
+  FlashcardDeleteConsequences,
+  Grade,
+  PreviewOption,
+  UiFlashcard,
+  UiReviewUnit,
+} from "@/types/view-models";
 import { matchesTypeAnswer, renderClozeText } from "@armin/core/flashcard-rules";
 import type {
   ClozeContent,
   ImageOcclusionContent,
   TypeAnswerContent,
 } from "@armin/core/flashcard-types";
+import type {
+  HistoryEntry,
+  SessionRateResult,
+  SessionUndoResult,
+} from "@armin/core/review-session";
+import { useReviewSession } from "@/lib/use-review-session";
+import { DeleteConsequencesList } from "@/components/delete-consequences-list";
 import { cn } from "@/lib/utils";
 
 /*
@@ -79,114 +91,6 @@ const RATINGS: {
     bg: "bg-easy hover:bg-easy-deep [[data-theme=dark]_&]:hover:bg-[#639fd0]",
   },
 ];
-
-function plural(count: number, singular: string, pluralForm = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : pluralForm}`;
-}
-
-function formatReviewHistory(consequences: FlashcardDeleteConsequences | null) {
-  if (!consequences) return "Loading review history…";
-  if (consequences.reviewLogCount === 0) {
-    return `No review history will be destroyed across ${plural(consequences.reviewUnitCount, "review unit")}.`;
-  }
-
-  const first = consequences.firstReviewAt?.toLocaleDateString();
-  const last = consequences.lastReviewAt?.toLocaleDateString();
-  const span = first && last ? ` from ${first} to ${last}` : "";
-  return `${plural(consequences.reviewLogCount, "review log")} across ${plural(consequences.reviewUnitCount, "review unit")} will be destroyed${span}.`;
-}
-
-type SessionReviewUnit = UiReviewUnit & {
-  /** Stable identity for this occurrence, even when its unit version changes. */
-  turnId: string;
-  reviewed: boolean;
-};
-
-function sessionReviewUnit(unit: UiReviewUnit) {
-  return { ...unit, turnId: `${unit.id}:${unit.version}`, reviewed: false };
-}
-
-function nextUnreviewedIndex(cards: SessionReviewUnit[], reviewedIndex: number) {
-  for (let i = reviewedIndex + 1; i < cards.length; i++) {
-    if (!cards[i].reviewed) return i;
-  }
-  // Skipped cards are revisited at the end of the session, so completion can
-  // never hide a due card behind "All caught up".
-  for (let i = 0; i < reviewedIndex; i++) {
-    if (!cards[i].reviewed) return i;
-  }
-  return cards.length;
-}
-
-/**
- * Merge a fresh queue into the running session. Cards not yet on screen take
- * the latest data, new due cards are appended, and the card being answered
- * keeps the prompt the user is looking at: if it changed elsewhere it is
- * flagged stale instead of being swapped under them. Pending cards missing
- * from the queue are reported so the caller can check whether they still exist
- * (the queue also drops cards temporarily when the new-unit budget is spent).
- */
-function reconcileSessionCards(
-  current: SessionReviewUnit[],
-  incoming: UiReviewUnit[],
-  activeTurnId: string | undefined,
-  allowNewCards: boolean,
-) {
-  const incomingById = new Map(incoming.map((c) => [c.id, c]));
-  const pendingIds = new Set(current.filter((c) => !c.reviewed).map((c) => c.id));
-  const reviewedVersions = new Map<string, number>();
-  for (const c of current) {
-    if (c.reviewed) {
-      reviewedVersions.set(c.id, Math.max(reviewedVersions.get(c.id) ?? 0, c.version));
-    }
-  }
-  let staleActive: UiReviewUnit | null = null;
-  const updated = current.map((c) => {
-    if (c.reviewed) return c;
-    const next = incomingById.get(c.id);
-    if (!next || next.version < c.version) return c;
-    if (c.turnId === activeTurnId && next.version !== c.version) {
-      staleActive = next;
-      return c;
-    }
-    return { ...c, ...next };
-  });
-  // A completed occurrence stays in history. A newly due occurrence belongs
-  // ahead of the cursor, but an old queue response must not resurrect it.
-  const appended = allowNewCards
-    ? incoming
-        .filter((c) => !pendingIds.has(c.id) && c.version >= (reviewedVersions.get(c.id) ?? 0))
-        .map(sessionReviewUnit)
-    : [];
-  const missing = current.filter((c) => !c.reviewed && !incomingById.has(c.id));
-  return { cards: [...updated, ...appended], staleActive, missing };
-}
-
-export type HistoryEntry =
-  | {
-      kind: "review";
-      turnId: string;
-      reviewUnitId: string;
-      reviewLogId: string;
-      version: number;
-    }
-  | {
-      kind: "bury";
-      turnId: string;
-      flashcardId: string;
-      units: BuryUnit[];
-    };
-
-/** Undo result for either a rating or a bury. */
-export type SessionUndoResult =
-  | { status: "ok"; reviewUnitId: string; version: number }
-  | { status: "ok"; flashcardId: string }
-  | { status: "stale"; message: string };
-
-/** An answer shown as done on screen while the server saves it. */
-type Submission = { turnId: string; card: SessionReviewUnit; rating: Grade; requestId: string };
-
-const RETRY_DELAYS_MS = [500, 1_000, 2_000, 5_000];
 
 /** A unit's rating intervals change only when its schedule (version) does. */
 const previewKey = (reviewUnitId: string, version: number) =>
@@ -293,10 +197,6 @@ export function ReviewCardPrompt({
  * The part of a rating outcome a session needs. Normal review and cram return
  * different log tables, so the session only names the log id and new version.
  */
-export type SessionRateResult =
-  | { status: "ok"; reviewLogId: string; version: number }
-  | { status: "stale" | "ineligible"; message: string };
-
 export type ReviewSessionProps = {
   /** Cards due for this session. Tag cards with `deck` to show the source. */
   queue: UiReviewUnit[];
@@ -384,22 +284,22 @@ export function ReviewSession({
   onDeleteFlashcard,
   loadDeleteConsequences,
 }: ReviewSessionProps) {
-  const [index, setIndex] = useState(0);
+  const session = useReviewSession({
+    queue,
+    ready: !isLoading && !isError,
+    allowNewCards,
+    repeatAgainOffset,
+    resetKey,
+    online,
+    loadPreview,
+    onRate,
+    onUndo,
+    onBury,
+  });
+  const { cards, card, index, history, stale: staleCard, notice, saving, saveFailing } = session;
+  const { undoing, burying } = session;
   const [flipped, setFlipped] = useState(false);
   const [typed, setTyped] = useState("");
-  const [sessionCards, setSessionCards] = useState<SessionReviewUnit[]>([]);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  // Answers waiting for the server, saved one at a time in answer order.
-  const submissionsRef = useRef<Submission[]>([]);
-  const [saving, setSaving] = useState(0);
-  const [saveFailing, setSaveFailing] = useState(false);
-  const drainWaitersRef = useRef<(() => void)[]>([]);
-  const historyRef = useRef<HistoryEntry[]>([]);
-  const [staleCard, setStaleCard] = useState<{ next: UiReviewUnit | null; message: string } | null>(
-    null,
-  );
-  const [notice, setNotice] = useState<string | null>(null);
-  const [undoing, setUndoing] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editCard, setEditCard] = useState<UiFlashcard | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -408,31 +308,11 @@ export function ReviewSession({
   );
   const [deleteConsequencesError, setDeleteConsequencesError] = useState(false);
   const [flashcardActionPending, setCardActionPending] = useState(false);
-  const [burying, setBurying] = useState(false);
   const [infoCardId, setInfoCardId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const cards = isLoading || isError ? [] : sessionCards;
-  const card = cards[index];
   const remaining = cards.filter((c) => !c.reviewed).length;
   const subtitleContent = typeof subtitle === "function" ? subtitle(remaining) : subtitle;
-
-  const sessionRef = useRef<{
-    cards: SessionReviewUnit[];
-    activeTurnId: string | undefined;
-  }>({ cards: sessionCards, activeTurnId: card?.turnId });
-  // Missing queue entries may have been deleted elsewhere; preview returns
-  // null once the unit is gone. Keep the fetcher in a ref so the merge effect
-  // does not re-run on every render.
-  const loadPreviewRef = useRef(loadPreview);
-  const missingCheckedRef = useRef(new Set<string>());
-  const onRateRef = useRef(onRate);
-  // Layout effects run before any effect or event handler can read these.
-  useLayoutEffect(() => {
-    sessionRef.current = { cards: sessionCards, activeTurnId: card?.turnId };
-    loadPreviewRef.current = loadPreview;
-    onRateRef.current = onRate;
-  });
   const done = !isLoading && !isError && index >= cards.length && cards.length > 0;
   const empty = !isLoading && !isError && cards.length === 0;
 
@@ -456,215 +336,28 @@ export function ReviewSession({
     setFlipped(true);
   };
 
-  const removeCardsFromSession = useCallback((matches: (card: SessionReviewUnit) => boolean) => {
-    setSessionCards((prev) => {
-      const next = prev.filter((card) => !matches(card));
-      setIndex((i) => {
-        const adjusted = Math.min(
-          i - prev.slice(0, i).filter((card) => matches(card)).length,
-          next.length,
-        );
-        if (adjusted < next.length) return adjusted;
-        // Removing the last card does not complete the session while an
-        // earlier skipped card is still waiting.
-        const firstPending = next.findIndex((c) => !c.reviewed);
-        return firstPending >= 0 ? firstPending : next.length;
-      });
-      return next;
-    });
-  }, []);
-
-  const removeFromSession = useCallback(
-    (reviewUnitId: string) => {
-      removeCardsFromSession((card) => card.id === reviewUnitId);
-      // A deleted unit cannot be restored by Undo, so drop its answers.
-      setHistory((h) =>
-        h.filter((entry) => entry.kind !== "review" || entry.reviewUnitId !== reviewUnitId),
-      );
-    },
-    [removeCardsFromSession],
-  );
-
-  /** Hide every session occurrence of one flashcard, as a bury does. */
-  const removeFlashcardFromSession = useCallback(
-    (flashcardId: string) => {
-      removeCardsFromSession((card) => card.flashcardId === flashcardId);
-    },
-    [removeCardsFromSession],
-  );
-
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-  /** Resolve once every answer given so far has a server outcome. */
-  const whenSaved = () =>
-    submissionsRef.current.length === 0
-      ? Promise.resolve()
-      : new Promise<void>((resolve) => drainWaitersRef.current.push(resolve));
-
-  /**
-   * Save queued answers one at a time, in the order they were given. A request
-   * whose outcome is unknown (the call failed in transit) is retried with the
-   * same request id, so the server applies each answer at most once.
-   */
-  const savingLoopRef = useRef(false);
-  const saveAnswers = async () => {
-    if (savingLoopRef.current) return;
-    savingLoopRef.current = true;
-    try {
-      let attempt = 0;
-      while (submissionsRef.current.length > 0) {
-        const submission = submissionsRef.current[0]!;
-        let result: SessionRateResult;
-        try {
-          result = await onRateRef.current(
-            submission.card,
-            submission.rating,
-            submission.requestId,
-          );
-        } catch {
-          setSaveFailing(true);
-          await sleep(RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)]!);
-          attempt += 1;
-          continue;
-        }
-        attempt = 0;
-        setSaveFailing(false);
-        submissionsRef.current.shift();
-        if (result.status === "ok") {
-          const entry = {
-            kind: "review" as const,
-            turnId: submission.turnId,
-            reviewUnitId: submission.card.id,
-            reviewLogId: result.reviewLogId,
-            version: result.version,
-          };
-          historyRef.current = [...historyRef.current, entry];
-          setHistory(historyRef.current);
-          setSessionCards((prev) =>
-            prev.map((c) =>
-              c.turnId === submission.turnId ? { ...c, version: result.version } : c,
-            ),
-          );
-        } else {
-          // Rejected (changed or deleted elsewhere, or not eligible yet). The
-          // queue refresh brings the card back if it is still due.
-          setNotice(`${result.message} Your answer to that card wasn't saved.`);
-          removeFromSession(submission.card.id);
-        }
-        setSaving(submissionsRef.current.length);
-      }
-    } finally {
-      savingLoopRef.current = false;
-      const waiters = drainWaitersRef.current;
-      drainWaitersRef.current = [];
-      for (const resolve of waiters) resolve();
-    }
-  };
-
-  /**
-   * Answer the card on screen. The next card shows at once while the answer
-   * saves in the background; answers save in order, and a rejected one is
-   * reported and its card removed from the session.
-   */
-  const rate = (grade: Grade) => {
-    if (!card || card.reviewed || undoing || staleCard || !online) return;
-    if (submissionsRef.current.some((s) => s.turnId === card.turnId)) return;
-    const requestId = crypto.randomUUID();
-    submissionsRef.current.push({
-      turnId: card.turnId,
-      card,
-      rating: grade,
-      requestId,
-    });
-    setSaving(submissionsRef.current.length);
-    setNotice(null);
-    const updated = cards.map((c) => (c.turnId === card.turnId ? { ...c, reviewed: true } : c));
-    let nextCards = updated;
-    if (grade === 1 && repeatAgainOffset !== undefined) {
-      // Practice sessions give a forgotten card another turn a few cards
-      // later instead of ending it here. The copy is a new occurrence with the
-      // same unit, so its answer is logged separately.
-      const at = Math.min(index + 1 + repeatAgainOffset, updated.length);
-      const repeat: SessionReviewUnit = {
-        ...card,
-        turnId: `${card.turnId}:again:${requestId}`,
-        reviewed: false,
-      };
-      nextCards = [...updated.slice(0, at), repeat, ...updated.slice(at)];
-    }
-    setSessionCards(nextCards);
+  const resetTurn = () => {
     setFlipped(false);
     setTyped("");
-    setIndex(nextUnreviewedIndex(nextCards, index));
-    void saveAnswers();
+  };
+
+  const rate = (grade: Grade) => {
+    if (session.rate(grade)) resetTurn();
   };
 
   const acceptStaleCard = () => {
-    if (!card || !staleCard) return;
-    if (staleCard.next) {
-      const next = staleCard.next;
-      setSessionCards((prev) =>
-        prev.map((c) => (c.turnId === card.turnId ? { ...c, ...next } : c)),
-      );
-    } else {
-      removeFromSession(card.id);
-    }
-    setStaleCard(null);
-    setFlipped(false);
-    setTyped("");
+    session.acceptStale();
+    resetTurn();
   };
 
-  const goPrev = () => {
-    if (undoing) return;
-    if (index > 0) setIndex((i) => i - 1);
-  };
-
-  const goNext = () => {
-    if (undoing) return;
-    if (index < cards.length - 1) setIndex((i) => i + 1);
-  };
+  const goPrev = () => session.step(-1);
+  const goNext = () => session.step(1);
 
   const undoLast = async () => {
-    if (!onUndo || undoing || !online) return;
-    if (historyRef.current.length === 0 && submissionsRef.current.length === 0) return;
-    setUndoing(true);
-    setNotice(null);
-    try {
-      // Undo the latest answer, which may still be saving.
-      await whenSaved();
-      const last = historyRef.current.at(-1);
-      if (!last) return;
-      const requestId =
-        last.kind === "review" ? `undo:${last.reviewLogId}` : `undo:bury:${last.turnId}`;
-      const result = await onUndo(last, requestId);
-      historyRef.current = historyRef.current.slice(0, -1);
-      setHistory(historyRef.current);
-      if (result.status === "ok" && "reviewUnitId" in result && last.kind === "review") {
-        // Undo returns to the exact occurrence that was answered, removing
-        // any waiting repeat of that unit so it cannot appear twice.
-        const restored = sessionRef.current.cards
-          .filter((c) => c.id !== last.reviewUnitId || c.reviewed)
-          .map((c) =>
-            c.turnId === last.turnId ? { ...c, version: result.version, reviewed: false } : c,
-          );
-        setSessionCards(restored);
-        const idx = restored.findIndex((c) => c.turnId === last.turnId);
-        if (idx >= 0) setIndex(idx);
-        setStaleCard(null);
-        setFlipped(false);
-        setTyped("");
-      } else if (result.status === "ok") {
-        // The unburied cards return through the live queue; the merge effect
-        // appends them as soon as the server confirms the bury is gone.
-        setNotice("Card unburied.");
-      } else {
-        setNotice(result.message);
-      }
-    } catch {
-      setNotice("Couldn't undo. Check your connection and try again.");
-    } finally {
-      setUndoing(false);
-    }
+    if (await session.undoLast()) resetTurn();
   };
+
+  const buryCard = () => session.bury();
 
   // Edit opens from the actions menu, so the menu opening starts loading the
   // flashcard and the click usually finds it ready.
@@ -699,42 +392,9 @@ export function ReviewSession({
     try {
       await onArchiveFlashcard(card.flashcardId);
       setDeleteConfirmOpen(false);
-      removeFromSession(card.id);
+      session.remove(card.id);
     } finally {
       setCardActionPending(false);
-    }
-  };
-
-  const buryCard = async () => {
-    if (!card || !onBury || burying || !online) return;
-    setBurying(true);
-    setNotice(null);
-    try {
-      // Let answers already given (including siblings of this flashcard) land
-      // before the whole card's versions change.
-      await whenSaved();
-      const result = await onBury(card.flashcardId, crypto.randomUUID());
-      if (result.status === "ok") {
-        const entry: HistoryEntry = {
-          kind: "bury",
-          turnId: card.turnId,
-          flashcardId: card.flashcardId,
-          units: result.units,
-        };
-        historyRef.current = [...historyRef.current, entry];
-        setHistory(historyRef.current);
-        removeFlashcardFromSession(card.flashcardId);
-        setFlipped(false);
-        setTyped("");
-        setNotice("Card buried until tomorrow.");
-      } else {
-        setNotice(result.message);
-        removeFlashcardFromSession(card.flashcardId);
-      }
-    } catch {
-      setNotice("Couldn't bury this card. Check your connection and try again.");
-    } finally {
-      setBurying(false);
     }
   };
 
@@ -760,7 +420,7 @@ export function ReviewSession({
     try {
       await onDeleteFlashcard(card.flashcardId);
       setDeleteConfirmOpen(false);
-      removeFromSession(card.id);
+      session.remove(card.id);
     } finally {
       setCardActionPending(false);
     }
@@ -768,101 +428,28 @@ export function ReviewSession({
 
   // Load the next cards' rating intervals ahead, so the buttons show them as
   // soon as a card appears.
+  // Read through a ref so this runs when the turn changes, not on every render.
+  const upcomingRef = useRef({ cards, loadPreview });
+  useLayoutEffect(() => {
+    upcomingRef.current = { cards, loadPreview };
+  });
   useEffect(() => {
     if (!card || !showIntervals) return;
-    const upcoming = sessionRef.current.cards
-      .filter((c, i) => i > index && !c.reviewed)
-      .slice(0, 2);
+    const { cards, loadPreview } = upcomingRef.current;
+    const upcoming = cards.filter((c, i) => i > index && !c.reviewed).slice(0, 2);
     for (const next of upcoming) {
       void queryClient.prefetchQuery({
         queryKey: previewKey(next.id, next.version),
-        queryFn: () => loadPreviewRef.current(next.id),
+        queryFn: () => loadPreview(next.id),
       });
     }
   }, [card, index, queryClient, showIntervals]);
-
-  // Closing the tab while answers are still saving would lose them.
-  useEffect(() => {
-    if (saving === 0) return;
-    const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [saving]);
-
-  // A new session key starts over. State resets during render; the refs reset
-  // once that render commits, and the session ref follows the emptied cards.
-  const [sessionKey, setSessionKey] = useState(resetKey);
-  if (resetKey !== sessionKey) {
-    setSessionKey(resetKey);
-    setIndex(0);
-    setFlipped(false);
-    setTyped("");
-    setSessionCards([]);
-    setHistory([]);
-    setStaleCard(null);
-    setNotice(null);
-  }
-  useLayoutEffect(() => {
-    missingCheckedRef.current.clear();
-    historyRef.current = [];
-  }, [resetKey]);
-
-  useEffect(() => {
-    // While answers are saving, a refreshed queue can still list a card that
-    // was just answered; merge once the server has every answer.
-    if (isLoading || isError || saving > 0 || undoing) return;
-    const current = sessionRef.current;
-    // The first response seeds the session even when practice sessions freeze
-    // membership for the rest of the run.
-    const merged = reconcileSessionCards(
-      current.cards,
-      queue,
-      current.activeTurnId,
-      allowNewCards || current.cards.length === 0,
-    );
-    setSessionCards(merged.cards);
-    if (merged.staleActive) {
-      setStaleCard({
-        next: merged.staleActive,
-        message: "This card was changed in another tab or device.",
-      });
-    }
-    // A card that reappears may go missing again later (e.g. it is deleted
-    // after being answered elsewhere), so forget earlier checks on presence.
-    const incomingIds = new Set(queue.map((c) => c.id));
-    for (const id of missingCheckedRef.current) {
-      if (incomingIds.has(id)) missingCheckedRef.current.delete(id);
-    }
-    const unchecked = merged.missing.filter((c) => !missingCheckedRef.current.has(c.id));
-    if (unchecked.length > 0) {
-      void Promise.all(
-        unchecked.map(async (missingCard) => {
-          try {
-            const preview = await loadPreviewRef.current(missingCard.id);
-            missingCheckedRef.current.add(missingCard.id);
-            return { id: missingCard.id, deleted: preview === null };
-          } catch {
-            // A transient failure is not evidence of deletion; retry on the
-            // next queue poll.
-            return { id: missingCard.id, deleted: false };
-          }
-        }),
-      ).then((checked) => {
-        const deleted = checked.filter((c) => c.deleted).map((c) => c.id);
-        if (deleted.length === 0) return;
-        for (const id of deleted) removeFromSession(id);
-        setNotice("This card was deleted in another tab. It was removed from the session.");
-      });
-    }
-  }, [isLoading, isError, queue, saving, undoing, allowNewCards, removeFromSession]);
 
   // Each new turn starts face-down with an empty answer.
   const [shownTurnId, setShownTurnId] = useState(card?.turnId);
   if (card?.turnId !== shownTurnId) {
     setShownTurnId(card?.turnId);
-    setFlipped(false);
-    setTyped("");
-    setStaleCard(null);
+    resetTurn();
   }
 
   const reviewActive = !isLoading && !isError && Boolean(card);
@@ -1221,20 +808,10 @@ export function ReviewSession({
             Archive is the reversible way to set this aside. Delete removes the flashcard, its
             review units, and its review history permanently.
           </p>
-          <ul className="space-y-1 rounded-md border border-border bg-surface-sunken p-3">
-            <li>
-              {deleteConsequencesError || !loadDeleteConsequences
-                ? "Dependent count could not be loaded."
-                : deleteConsequences
-                  ? `${plural(deleteConsequences.dependentCount, "dependent")} will be unlocked or recomputed.`
-                  : "Loading dependent count…"}
-            </li>
-            <li>
-              {deleteConsequencesError || !loadDeleteConsequences
-                ? "Review history could not be loaded."
-                : formatReviewHistory(deleteConsequences)}
-            </li>
-          </ul>
+          <DeleteConsequencesList
+            consequences={deleteConsequences}
+            unavailable={deleteConsequencesError || !loadDeleteConsequences}
+          />
         </div>
         <div className="mt-5 flex flex-wrap justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={() => setDeleteConfirmOpen(false)}>

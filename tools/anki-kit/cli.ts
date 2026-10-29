@@ -25,9 +25,9 @@ import {
 import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT, sniffImageExt } from "../../packages/core/src/media";
 import {
   openAnkiPackage,
+  parseAnkiText,
   type OpenedAnkiPackage,
-} from "../../apps/web/src/lib/anki/package-reader";
-import { parseAnkiText } from "../../apps/web/src/lib/anki/text-import";
+} from "../../packages/core/src/anki/reader";
 import kitVersion from "../../packages/core/src/anki/kit-version.json";
 
 type ByteSource = {

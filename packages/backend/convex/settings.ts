@@ -41,6 +41,10 @@ function checkWeights(value: string | null | undefined) {
   }
 }
 
+const inRange = (value: number, min: number, max: number) => value >= min && value <= max;
+const isWholeInRange = (value: number, min: number, max: number) =>
+  Number.isInteger(value) && inRange(value, min, max);
+
 function checkRanges(patch: {
   requestRetention?: number | null;
   maximumInterval?: number | null;
@@ -48,24 +52,21 @@ function checkRanges(patch: {
   newReviewUnitsPerDay?: number | null;
   reviewsPerDay?: number | null;
 }) {
-  const r = patch.requestRetention;
-  if (r != null && !(r >= 0.7 && r <= 0.99)) {
+  const { requestRetention, maximumInterval, prereqStabilityFloor } = patch;
+  const { newReviewUnitsPerDay, reviewsPerDay } = patch;
+  if (requestRetention != null && !inRange(requestRetention, 0.7, 0.99)) {
     fail("INVALID", "Desired retention must be between 0.70 and 0.99.");
   }
-  const m = patch.maximumInterval;
-  if (m != null && !(Number.isInteger(m) && m >= 1 && m <= 36500)) {
+  if (maximumInterval != null && !isWholeInRange(maximumInterval, 1, 36500)) {
     fail("INVALID", "Maximum interval must be 1–36500 days.");
   }
-  const f = patch.prereqStabilityFloor;
-  if (f != null && !(f >= 0 && f <= 365)) {
+  if (prereqStabilityFloor != null && !inRange(prereqStabilityFloor, 0, 365)) {
     fail("INVALID", "Prerequisite stability floor must be 0–365 days.");
   }
-  const n = patch.newReviewUnitsPerDay;
-  if (n != null && !(Number.isInteger(n) && n >= 0 && n <= 1000)) {
+  if (newReviewUnitsPerDay != null && !isWholeInRange(newReviewUnitsPerDay, 0, 1000)) {
     fail("INVALID", "New review units per day must be 0–1000.");
   }
-  const d = patch.reviewsPerDay;
-  if (d != null && !(Number.isInteger(d) && d >= 0 && d <= 1000)) {
+  if (reviewsPerDay != null && !isWholeInRange(reviewsPerDay, 0, 1000)) {
     fail("INVALID", "Reviews per day must be 0–1000, or empty for no limit.");
   }
 }

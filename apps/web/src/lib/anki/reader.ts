@@ -1,5 +1,5 @@
 import type { AnkiCollection } from "@armin/core/anki";
-import { AnkiImportError, MAX_ANKI_FILE_BYTES } from "./errors";
+import { AnkiImportError, MAX_ANKI_FILE_BYTES } from "@armin/core/anki/reader";
 import type { AnkiWorkerRequest, AnkiWorkerResponse } from "./reader-types";
 
 /**

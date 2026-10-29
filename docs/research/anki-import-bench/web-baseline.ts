@@ -1,7 +1,7 @@
 /**
  * Standalone Node baseline for the browser Anki reader.
  *
- * This imports the real `apps/web/src/lib/anki` reader and runs it with the
+ * This imports the real `@armin/core/anki/reader` reader and runs it with the
  * same Node process that executes this script. It is a control for output
  * parity and a rough memory comparison, not a Convex measurement.
  *
@@ -18,9 +18,12 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { convertAnkiCollection, type AnkiCollection } from "../../../packages/core/src/anki/index";
 import initSqlJs from "sql.js";
-import { openAnkiPackage } from "../../../apps/web/src/lib/anki/package-reader";
-import { parseAnkiText } from "../../../apps/web/src/lib/anki/text-import";
-import { blobSource, type ByteSource } from "../../../apps/web/src/lib/anki/zip";
+import {
+  blobSource,
+  openAnkiPackage,
+  parseAnkiText,
+  type ByteSource,
+} from "../../../packages/core/src/anki/reader";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../../..");

@@ -61,7 +61,7 @@ conversion.
 ## Run the kit
 
 ```bash
-unzip armin-anki-kit-1.0.1.zip
+unzip armin-anki-kit-1.0.3.zip
 node armin-anki-kit.mjs path/to/deck.apkg --out ./armin-import
 ```
 

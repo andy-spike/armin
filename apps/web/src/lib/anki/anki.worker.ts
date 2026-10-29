@@ -1,10 +1,14 @@
 import initSqlJs from "sql.js";
 import sqlWasmUrl from "sql.js/dist/sql-wasm-browser.wasm?url";
-import { AnkiImportError, MAX_ANKI_FILE_BYTES } from "./errors";
-import { openAnkiPackage, type OpenedAnkiPackage } from "./package-reader";
+import {
+  AnkiImportError,
+  blobSource,
+  MAX_ANKI_FILE_BYTES,
+  openAnkiPackage,
+  parseAnkiText,
+  type OpenedAnkiPackage,
+} from "@armin/core/anki/reader";
 import type { AnkiWorkerRequest, AnkiWorkerResponse } from "./reader-types";
-import { parseAnkiText } from "./text-import";
-import { blobSource } from "./zip";
 
 /**
  * Hosts one open Anki file. SQLite's WASM binary is fetched only when a ZIP

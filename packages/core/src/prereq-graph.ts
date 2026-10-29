@@ -1,3 +1,8 @@
+/*
+ * Prerequisite graph rules shared by the web canvas and the backend: every
+ * place that adds a link rejects the same self-links and cycles.
+ */
+
 export type GraphEdge = {
   prereqId: string;
   dependentId: string;
@@ -13,28 +18,20 @@ export function graphEdgeKey(prereqId: string, dependentId: string) {
 }
 
 export function createGraphCycleIndex(edges: GraphEdge[]): GraphCycleIndex {
-  const edgeKeys = new Set<string>();
-  const adjacency = new Map<string, string[]>();
+  const index: GraphCycleIndex = { edgeKeys: new Set(), adjacency: new Map() };
+  for (const edge of edges) addGraphEdge(index, edge);
+  return index;
+}
 
-  for (const edge of edges) {
-    edgeKeys.add(graphEdgeKey(edge.prereqId, edge.dependentId));
-    const list = adjacency.get(edge.prereqId);
-    if (list) list.push(edge.dependentId);
-    else adjacency.set(edge.prereqId, [edge.dependentId]);
-  }
-
-  return { edgeKeys, adjacency };
+/** Record an accepted edge so later checks against the same index see it. */
+export function addGraphEdge(index: GraphCycleIndex, edge: GraphEdge) {
+  index.edgeKeys.add(graphEdgeKey(edge.prereqId, edge.dependentId));
+  const list = index.adjacency.get(edge.prereqId);
+  if (list) list.push(edge.dependentId);
+  else index.adjacency.set(edge.prereqId, [edge.dependentId]);
 }
 
 /** Would adding prereq → dependent introduce a cycle? */
-export function wouldCreateCycle(
-  edges: GraphEdge[],
-  prereqId: string,
-  dependentId: string,
-): boolean {
-  return wouldCreateCycleIndexed(createGraphCycleIndex(edges), prereqId, dependentId);
-}
-
 export function wouldCreateCycleIndexed(
   index: GraphCycleIndex,
   prereqId: string,

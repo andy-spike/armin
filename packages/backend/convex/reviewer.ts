@@ -3,6 +3,7 @@ import { defaultSchedulingSettings } from "@armin/core/study";
 import { internalMutation } from "./functions";
 import { components, internal } from "./_generated/api";
 import { cleanupLibraryData } from "./deletion";
+import { insertDeck } from "./model/decks";
 import { reviewerResetHours } from "./model/reviewer";
 import { bumpRevision, reconcileReviewUnits } from "./model/study";
 
@@ -63,13 +64,11 @@ export const finishReset = internalMutation({
       keybindings: null,
       updatedAt: now,
     });
-    const deckId = await ctx.db.insert("decks", {
+    const deckId = await insertDeck(ctx, {
       libraryId,
       name: "Armin sample library",
       description: `Shared public test data. Changes are erased every ${reviewerResetHours()} hours. Do not add private material.`,
-      version: 1,
-      createdAt: now,
-      updatedAt: now,
+      now,
     });
     const samples = [
       {

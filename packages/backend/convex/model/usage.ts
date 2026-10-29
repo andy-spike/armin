@@ -3,6 +3,13 @@ import type { Id } from "../_generated/dataModel";
 import { fail } from "./errors";
 import { MAX_DECKS, MAX_FLASHCARDS, MAX_REVIEW_UNITS } from "./limits";
 
+/*
+ * The one place library capacity is measured and checked. Every write that
+ * adds decks or flashcards calls `checkCapacity` with what it is about to add.
+ * Review units are also enforced as they are written, by
+ * `adjustReviewUnitCount`, so a caller that only edits cards needs no check.
+ */
+
 /** Review items in a library, using the counter with a one-time fallback for old rows. */
 export async function reviewUnitTotal(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">) {
   const counter = await ctx.db
@@ -18,8 +25,11 @@ export async function reviewUnitTotal(ctx: Pick<QueryCtx, "db">, libraryId: Id<"
   ).length;
 }
 
-/** Count compact derived summaries instead of loading every card body.
- * Bounded current usage. The `take(n + 1)` shape detects an over-limit library without scanning. */
+/**
+ * Bounded current usage. Flashcards are counted from their compact derived
+ * summaries instead of loading every card body, and the `take(n + 1)` shape
+ * detects an over-limit library without scanning further.
+ */
 export async function libraryUsage(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">) {
   const [decks, flashcards, reviewUnits] = await Promise.all([
     ctx.db
@@ -35,28 +45,23 @@ export async function libraryUsage(ctx: Pick<QueryCtx, "db">, libraryId: Id<"lib
   return { decks: decks.length, flashcards: flashcards.length, reviewUnits };
 }
 
+function overLimit(noun: string, max: number, have: number, adding: number) {
+  const added = adding === 1 ? "" : ` This adds ${adding}.`;
+  fail("QUOTA", `The beta allows ${max} ${noun} per library, and this one has ${have}.${added}`);
+}
+
 /** Reject an addition that would cross the beta limits, with the user-facing counts. */
 export async function checkCapacity(
   ctx: Pick<QueryCtx, "db">,
   libraryId: Id<"libraries">,
-  add: { decks?: number; flashcards: number; reviewUnits: number },
+  add: { decks?: number; flashcards?: number; reviewUnits?: number },
 ) {
   const usage = await libraryUsage(ctx, libraryId);
-  const decks = add.decks ?? 0;
-  if (usage.decks + decks > MAX_DECKS)
-    fail(
-      "QUOTA",
-      `This import adds ${decks} decks, but the beta allows ${MAX_DECKS} and this library has ${usage.decks}.`,
-    );
-  if (usage.flashcards + add.flashcards > MAX_FLASHCARDS)
-    fail(
-      "QUOTA",
-      `This import adds ${add.flashcards} cards, but the beta allows ${MAX_FLASHCARDS} and this library has ${usage.flashcards}.`,
-    );
-  if (usage.reviewUnits + add.reviewUnits > MAX_REVIEW_UNITS)
-    fail(
-      "QUOTA",
-      `This import adds ${add.reviewUnits} review items, but the beta allows ${MAX_REVIEW_UNITS} and this library has ${usage.reviewUnits}.`,
-    );
+  const { decks = 0, flashcards = 0, reviewUnits = 0 } = add;
+  if (usage.decks + decks > MAX_DECKS) overLimit("decks", MAX_DECKS, usage.decks, decks);
+  if (usage.flashcards + flashcards > MAX_FLASHCARDS)
+    overLimit("flashcards", MAX_FLASHCARDS, usage.flashcards, flashcards);
+  if (usage.reviewUnits + reviewUnits > MAX_REVIEW_UNITS)
+    overLimit("review items", MAX_REVIEW_UNITS, usage.reviewUnits, reviewUnits);
   return usage;
 }

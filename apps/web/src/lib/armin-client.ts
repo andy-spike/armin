@@ -14,12 +14,15 @@ import type {
   UpdateResult,
 } from "@armin/backend/types";
 import type { FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
-import type { Grade } from "@/types/window";
+import type { Grade } from "@/types/view-models";
 
 /**
- * The web client's study API. It keeps the shape the desktop renderer used
- * (`window.armin`) so the existing UI can be reused, but every call goes to
- * the authenticated Convex backend, which owns validation and study rules.
+ * Imperative calls to the Convex backend: writes, plus a few reads a page
+ * needs once rather than live (a form's starting values, a card loaded for
+ * editing). Pages read everything else through the live subscriptions in
+ * `queries.ts`. This layer turns the UI's string ids into Convex ids, gives
+ * each create, rating, and undo a request id so retries apply once, and turns
+ * an edit conflict into a `StaleError` the UI can offer to reload.
  */
 
 let client: ConvexReactClient | null = null;
@@ -135,13 +138,6 @@ export const armin = {
         lastReviewAt: toDate(result.lastReviewAt),
       };
     },
-    moveConsequences: async (id: string) => {
-      const result = await q().query(api.flashcards.moveConsequences, {
-        flashcardId: id as Id<"flashcards">,
-      });
-      if (!result) throw new Error("Flashcard not found.");
-      return result;
-    },
     create: (input: {
       deckId: string;
       type: FlashcardType;
@@ -214,8 +210,6 @@ export const armin = {
         expectedVersion: input.version,
         requestId: input.requestId,
       }),
-    cardInfo: async (flashcardId: string) =>
-      (await q().query(api.review.cardInfo, { flashcardId })) ?? null,
     bury: (input: { flashcardId: string; requestId: string }): Promise<BuryResult> =>
       q().mutation(api.review.bury, {
         flashcardId: input.flashcardId as Id<"flashcards">,

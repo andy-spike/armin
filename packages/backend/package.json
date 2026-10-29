@@ -28,14 +28,11 @@
     "convex": "1.47.0",
     "convex-helpers": "^0.1.106",
     "fflate": "^0.8.3",
-    "fzstd": "0.1.1",
-    "sql.js": "1.15.1",
     "ts-fsrs": "^5.4.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "@types/sql.js": "1.4.11",
     "typescript": "^5.9.3"
   }
 }

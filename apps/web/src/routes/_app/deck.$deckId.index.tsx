@@ -24,13 +24,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { CramDialog } from "@/components/cram-dialog";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { DeckSettingsDialog } from "@/components/deck-settings-dialog";
-import {
-  FlashcardDeleteDialog,
-  FlashcardTile,
-  type FlashcardDeleteRequest,
-} from "@/components/flashcard-tile";
-import { MoveFlashcardDialog } from "@/components/move-flashcard-dialog";
-import { CardInfoDialog } from "@/components/card-info-dialog";
+import { FlashcardTile } from "@/components/flashcard-tile";
 import { VirtualFlashcardGrid } from "@/components/virtual-flashcard-grid";
 import { SortControl } from "@/components/sort-control";
 import { SearchableMultiSelect } from "@/components/ui/combobox";
@@ -43,6 +37,7 @@ import {
   FlashcardGridSkeleton,
 } from "@/components/page-skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useFlashcardTileActions } from "@/components/use-flashcard-tile-actions";
 import { useToast } from "@/components/ui/toast";
 import type { BrowseQueryFilters } from "@/lib/armin-query";
 import { useStudyClock } from "@/lib/study-clock";
@@ -50,7 +45,6 @@ import { useBrowse } from "@/lib/use-browse";
 import { getCachedDeckDetail, getCachedDeckDetailUpdatedAt } from "@/lib/deck-detail-cache";
 import { toUiFlashcard, type UiDeck, type UiFlashcard } from "@/types/view-models";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
-import type { FlashcardDeleteConsequences } from "@/types/window";
 
 function DeckPage() {
   const { deckId } = Route.useParams();
@@ -61,13 +55,6 @@ function DeckPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [cramOpen, setCramOpen] = useState(false);
   const [editing, setEditing] = useState<UiFlashcard | null>(null);
-  const [moveTarget, setMoveTarget] = useState<UiFlashcard | null>(null);
-  const [infoCardId, setInfoCardId] = useState<string | null>(null);
-  const [deleteRequest, setDeleteRequest] = useState<FlashcardDeleteRequest | null>(null);
-  const [deleteConsequences, setDeleteConsequences] = useState<FlashcardDeleteConsequences | null>(
-    null,
-  );
-  const [deleteConsequencesError, setDeleteConsequencesError] = useState(false);
   const [sort, setSort] = useState<FlashcardSortKey>(DECK_PAGE_SORT);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
 
@@ -126,23 +113,7 @@ function DeckPage() {
     setEditing(null);
   };
 
-  const requestDelete = (request: FlashcardDeleteRequest) => {
-    setDeleteRequest(request);
-    setDeleteConsequences(null);
-    setDeleteConsequencesError(false);
-    if (request.loadDeleteConsequences) {
-      void request
-        .loadDeleteConsequences(request.card.id)
-        .then((summary) => setDeleteConsequences(summary))
-        .catch(() => setDeleteConsequencesError(true));
-    }
-  };
-
-  const closeDeleteDialog = () => {
-    setDeleteRequest(null);
-    setDeleteConsequences(null);
-    setDeleteConsequencesError(false);
-  };
+  const tileActions = useFlashcardTileActions();
 
   const createCard = useMutation({
     mutationFn: (values: CardFormValues) => armin.flashcards.create({ deckId, ...values }),
@@ -160,26 +131,6 @@ function DeckPage() {
       closeDialog();
     },
     onError: (error) => notifySaveError(toast, "Couldn’t update flashcard", error),
-  });
-
-  const deleteCard = useMutation({
-    mutationFn: (id: string) => armin.flashcards.delete(id),
-    onSuccess: () => {
-      toast({ tone: "error", title: "Flashcard deleted" });
-    },
-    onError: () => toast({ tone: "error", title: "Couldn’t delete flashcard" }),
-  });
-
-  const archiveCard = useMutation({
-    mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
-      armin.flashcards.archive(id, archived),
-    onSuccess: (_note, { archived }) => {
-      toast({
-        tone: "success",
-        title: archived ? "Flashcard archived" : "Flashcard unarchived",
-      });
-    },
-    onError: () => toast({ tone: "error", title: "Could not update flashcard" }),
   });
 
   const saveCard = async (values: CardFormValues) => {
@@ -342,19 +293,7 @@ function DeckPage() {
                     key={card.id}
                     card={card}
                     onOpen={() => openEdit(card)}
-                    onMove={() => setMoveTarget(card)}
-                    onInfo={() => setInfoCardId(card.id)}
-                    onArchiveToggle={() =>
-                      void archiveCard.mutateAsync({
-                        id: card.id,
-                        archived: !card.archived,
-                      })
-                    }
-                    loadDeleteConsequences={(id) => armin.flashcards.deleteConsequences(id)}
-                    onDeleteRequest={requestDelete}
-                    onDelete={async () => {
-                      await deleteCard.mutateAsync(card.id);
-                    }}
+                    {...tileActions.tileProps(card)}
                   />
                 )}
               />
@@ -396,32 +335,7 @@ function DeckPage() {
           onClose={() => setCramOpen(false)}
         />
       )}
-      <MoveFlashcardDialog
-        flashcard={moveTarget}
-        open={Boolean(moveTarget)}
-        onClose={() => setMoveTarget(null)}
-      />
-      <CardInfoDialog
-        flashcardId={infoCardId}
-        open={infoCardId !== null}
-        onClose={() => setInfoCardId(null)}
-      />
-      <FlashcardDeleteDialog
-        request={deleteRequest}
-        consequences={deleteConsequences}
-        consequencesError={deleteConsequencesError}
-        onClose={closeDeleteDialog}
-        onArchiveInstead={() => {
-          const request = deleteRequest;
-          closeDeleteDialog();
-          void request?.archiveInstead();
-        }}
-        onConfirm={() => {
-          const request = deleteRequest;
-          closeDeleteDialog();
-          request?.confirmDelete();
-        }}
-      />
+      {tileActions.dialogs}
     </div>
   );
 }

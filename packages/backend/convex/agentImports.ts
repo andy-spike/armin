@@ -11,6 +11,8 @@ import { agentImportToolSchemas } from "./model/agentImportTools";
 import { deleteDeckCascade } from "./model/deletion";
 import { fail } from "./model/errors";
 import { insertFlashcard, validateFlashcardInput } from "./model/flashcards";
+import { runAgentWrite } from "./model/agentWrites";
+import { insertDeck } from "./model/decks";
 import { MAX_DECKS, MAX_FLASHCARDS, MAX_REVIEW_UNITS } from "./model/limits";
 import { bumpRevision } from "./model/study";
 import { checkCapacity, libraryUsage } from "./model/usage";
@@ -134,62 +136,6 @@ async function summary(ctx: Pick<QueryCtx, "db">, row: Doc<"agentImports">, incl
 async function previewChecksum(ctx: Pick<QueryCtx, "db">, row: Doc<"agentImports">) {
   const value = await summary(ctx, row);
   return { summary: value, checksum: await hashSecret(JSON.stringify(value)) };
-}
-
-async function writeRateLimit(ctx: MutationCtx, connection: Doc<"agentConnections">) {
-  const rateKey = `write:${connection._id}`;
-  const bucket = await ctx.db
-    .query("agentRateLimits")
-    .withIndex("by_key", (q) => q.eq("key", rateKey))
-    .unique();
-  if (bucket && bucket.expiresAt > Date.now()) {
-    if (bucket.count >= 120)
-      fail("QUOTA", "This connection reached its hourly limit of 120 writes. Try later.");
-    await ctx.db.patch(bucket._id, { count: bucket.count + 1 });
-  } else if (bucket)
-    await ctx.db.patch(bucket._id, { count: 1, expiresAt: Date.now() + 3_600_000 });
-  else
-    await ctx.db.insert("agentRateLimits", {
-      key: rateKey,
-      libraryId: connection.libraryId,
-      count: 1,
-      expiresAt: Date.now() + 3_600_000,
-    });
-}
-
-async function previousRequest(
-  ctx: MutationCtx,
-  connection: Doc<"agentConnections">,
-  requestId: string,
-  fingerprint: string,
-) {
-  const previous = await ctx.db
-    .query("agentRequests")
-    .withIndex("by_connection_request", (q) =>
-      q.eq("connectionId", connection._id).eq("requestId", requestId),
-    )
-    .unique();
-  if (!previous) return null;
-  if (previous.fingerprint !== fingerprint)
-    fail("INVALID", "This request ID was already used for different input. Use a new ID.");
-  return previous.result as Record<string, unknown>;
-}
-
-async function remember(
-  ctx: MutationCtx,
-  connection: Doc<"agentConnections">,
-  requestId: string,
-  fingerprint: string,
-  result: unknown,
-) {
-  await ctx.db.insert("agentRequests", {
-    libraryId: connection.libraryId,
-    connectionId: connection._id,
-    requestId,
-    fingerprint,
-    result,
-    createdAt: Date.now(),
-  });
 }
 
 export const read = internalQuery({
@@ -336,7 +282,6 @@ async function start(
       fail("INVALID", "Every unresolved note must name a deck in this import.");
     unresolvedKeys.add(item.key);
   }
-  if (parsed.decks.length > MAX_DECKS) fail("QUOTA", `The beta allows ${MAX_DECKS} decks.`);
   await checkCapacity(ctx, connection.libraryId, {
     decks: parsed.decks.length,
     flashcards: parsed.totals.flashcards,
@@ -549,14 +494,11 @@ async function finalize(
     if (!deck) fail("INVALID", "An imported card names a deck that is not in this import.");
     created.push({
       key,
-      deckId: await ctx.db.insert("decks", {
+      deckId: await insertDeck(ctx, {
         libraryId: connection.libraryId,
         name: deck.name,
-        description: null,
-        version: 1,
         staging: true,
-        createdAt: now,
-        updatedAt: now,
+        now,
       }),
     });
   }
@@ -616,43 +558,40 @@ export const write = internalMutation({
     ];
     if (!writes.includes(key) && key !== "anki_import_upload_token")
       fail("INVALID", "This is not an Anki import write tool.");
-    const requestId = parsed.requestId as string | undefined;
-    if (requestId) {
-      const previous = await previousRequest(ctx, connection, requestId, args.fingerprint);
-      if (previous)
-        return "uploadTokenIssued" in previous
-          ? { ...previous, uploadTokenIssued: false, uploadTokenExpiresAt: null }
-          : previous;
-    }
-    await writeRateLimit(ctx, connection);
-    let result: Record<string, unknown>;
-    if (key === "anki_import_start") {
-      result = await start(ctx, connection, args.input, args.uploadTokenHash);
-    } else if (key === "anki_import_add_batch") {
-      result = await addBatch(ctx, connection, args.input);
-    } else if (key === "anki_import_finalize") {
-      result = await finalize(ctx, connection, args.input);
-    } else if (key === "anki_import_cancel") {
-      result = await cancel(ctx, connection, args.input);
-    } else {
-      const importId = parsed.importId as string;
-      const row = await ownedImport(ctx, connection, importId);
-      if (row.status !== "staging" || expired(row))
-        fail("CONFLICT", "This Anki import is no longer accepting uploads.");
-      if (!args.uploadTokenHash) fail("INVALID", "Could not issue an upload token.");
-      const now = Date.now();
-      result = {
-        importId: row._id,
-        uploadTokenIssued: true,
-        uploadTokenExpiresAt: now + STAGING_TTL_MS,
-      };
-      await ctx.db.patch(row._id, {
-        uploadTokenHash: args.uploadTokenHash,
-        uploadTokenExpiresAt: now + STAGING_TTL_MS,
-        updatedAt: now,
-      });
-    }
-    if (requestId) await remember(ctx, connection, requestId, args.fingerprint, result);
+    const result = await runAgentWrite<Record<string, unknown>>(
+      ctx,
+      connection,
+      { requestId: parsed.requestId as string | undefined, fingerprint: args.fingerprint },
+      {
+        // An upload token is only ever returned once.
+        replay: (previous) =>
+          "uploadTokenIssued" in previous
+            ? { ...previous, uploadTokenIssued: false, uploadTokenExpiresAt: null }
+            : previous,
+        write: async () => {
+          if (key === "anki_import_start")
+            return start(ctx, connection, args.input, args.uploadTokenHash);
+          if (key === "anki_import_add_batch") return addBatch(ctx, connection, args.input);
+          if (key === "anki_import_finalize") return finalize(ctx, connection, args.input);
+          if (key === "anki_import_cancel") return cancel(ctx, connection, args.input);
+          const row = await ownedImport(ctx, connection, parsed.importId as string);
+          if (row.status !== "staging" || expired(row))
+            fail("CONFLICT", "This Anki import is no longer accepting uploads.");
+          if (!args.uploadTokenHash) fail("INVALID", "Could not issue an upload token.");
+          const now = Date.now();
+          await ctx.db.patch(row._id, {
+            uploadTokenHash: args.uploadTokenHash,
+            uploadTokenExpiresAt: now + STAGING_TTL_MS,
+            updatedAt: now,
+          });
+          return {
+            importId: row._id,
+            uploadTokenIssued: true,
+            uploadTokenExpiresAt: now + STAGING_TTL_MS,
+          };
+        },
+      },
+    );
     await ctx.db.patch(connection._id, { lastUsedAt: Date.now() });
     return result;
   },
@@ -783,137 +722,24 @@ export const recordMedia = internalMutation({
 });
 
 /** Move staged cards into hidden product decks in bounded transactions. */
+/**
+ * Writes one batch of staged cards into the hidden staging decks, then
+ * schedules itself again; once every card is written, publishes the decks.
+ * Any failure marks the import failed and schedules its cleanup.
+ */
 export const materializeNext = internalMutation({
   args: { importId: v.id("agentImports") },
   handler: async (ctx, { importId }) => {
     const row = await ctx.db.get(importId);
     if (!row || row.status !== "materializing") return;
     try {
-      const library = await ctx.db.get(row.libraryId);
-      const connection = await ctx.db.get(row.connectionId);
-      if (
-        !library ||
-        library.status !== "active" ||
-        !connection ||
-        connection.revokedAt ||
-        connection.libraryId !== row.libraryId ||
-        !(await activeImportConnection(ctx, connection, library))
-      )
-        throw new Error("The import authorization is no longer active.");
+      await assertStillAuthorized(ctx, row);
       const cards = await ctx.db
         .query("agentImportCards")
         .withIndex("by_import_seq", (q) => q.eq("importId", importId))
         .take(MATERIALIZE_CARDS);
-      if (cards.length === 0) {
-        if (row.materialized !== row.counts.flashcards)
-          throw new Error(
-            `Only ${row.materialized} of ${row.counts.flashcards} staged cards were materialized.`,
-          );
-        const now = Date.now();
-        const decks = [];
-        for (const { key, deckId } of row.materializedDecks) {
-          const deck = await ctx.db.get(deckId);
-          if (!deck || deck.libraryId !== row.libraryId) continue;
-          await ctx.db.patch(deckId, { staging: false, updatedAt: now });
-          const owned = await ctx.db
-            .query("agentCreatedDecks")
-            .withIndex("by_connection_deck", (q) =>
-              q.eq("connectionId", row.connectionId).eq("deckId", deckId),
-            )
-            .unique();
-          if (!owned)
-            await ctx.db.insert("agentCreatedDecks", {
-              libraryId: row.libraryId,
-              connectionId: row.connectionId,
-              deckId,
-            });
-          decks.push({ key, name: deck.name, deckId });
-        }
-        if (decks.length === 0) throw new Error("No staging decks survived materialization.");
-        await ctx.db.patch(row._id, {
-          status: "finalized",
-          result: {
-            decks,
-            flashcards: row.counts.flashcards,
-            reviewUnits: row.counts.reviewUnits,
-            skipped: row.counts.skipped,
-            polished: row.polished,
-            repaired: row.repaired,
-          },
-          updatedAt: now,
-          expiresAt: now + RETENTION_MS,
-        });
-        await ctx.db.insert("agentActivity", {
-          libraryId: row.libraryId,
-          connectionId: row.connectionId,
-          clientName: (await ctx.db.get(row.connectionId))?.name ?? "AI assistant",
-          summary: `Imported ${row.counts.flashcards} cards from Anki into ${decks.length} ${decks.length === 1 ? "deck" : "decks"}`,
-          deckId: decks[0]!.deckId,
-          createdAt: now,
-        });
-        // Cards now hold the media links. Release import-only tracking so unused
-        // uploads become eligible for the normal unreferenced-image cleanup.
-        await ctx.scheduler.runAfter(0, internal.agentImports.cleanupImport, { importId });
-        await bumpRevision(ctx, row.libraryId);
-        return;
-      }
-
-      const deckMap = new Map(row.materializedDecks.map((deck) => [deck.key, deck.deckId]));
-      let batchUnits = 0;
-      let estimatedBytes = 0;
-      const prepared = [];
-      for (const card of cards) {
-        const deckId = deckMap.get(card.deckKey);
-        if (!deckId) throw new Error("A staged card names a deck that is not materializing.");
-        const input = validateFlashcardInput(card.type, JSON.parse(card.content) as unknown);
-        const units = generateReviewUnits(input.type, input.content).length;
-        // Review items and derived summaries can repeat content. Leave room for
-        // indexes and trigger writes within Convex's per-mutation write budget.
-        const bytes = new TextEncoder().encode(input.serialized).byteLength * (units + 3);
-        if (
-          prepared.length > 0 &&
-          (estimatedBytes + bytes > 4 * 1024 * 1024 || batchUnits + units > MAX_BATCH_UNITS)
-        )
-          break;
-        estimatedBytes += bytes;
-        batchUnits += units;
-        prepared.push({ card, deckId, input });
-      }
-      const usage = await libraryUsage(ctx, row.libraryId);
-      if (usage.flashcards + prepared.length > MAX_FLASHCARDS)
-        throw new Error("The library reached its flashcard limit while this import materialized.");
-      if (usage.reviewUnits + batchUnits > MAX_REVIEW_UNITS)
-        throw new Error(
-          "The library reached its review-item limit while this import materialized.",
-        );
-      for (const { input } of prepared) {
-        for (const fileName of input.mediaFiles) {
-          const tracked = await ctx.db
-            .query("agentImportMedia")
-            .withIndex("by_import_file", (q) => q.eq("importId", importId).eq("fileName", fileName))
-            .unique();
-          if (!tracked) throw new Error(`Image ${fileName} is no longer available.`);
-        }
-      }
-      const now = Date.now();
-      for (const { card, deckId, input } of prepared) {
-        await insertFlashcard(ctx, {
-          libraryId: row.libraryId,
-          deckId,
-          input,
-          tags: card.tags,
-          now,
-          agentConnectionId: row.connectionId,
-        });
-        await ctx.db.delete(card._id);
-      }
-      await ctx.db.patch(row._id, {
-        materialized: row.materialized + prepared.length,
-        updatedAt: now,
-        expiresAt: now + STAGING_TTL_MS,
-      });
-      await bumpRevision(ctx, row.libraryId);
-      await ctx.scheduler.runAfter(0, internal.agentImports.materializeNext, { importId });
+      if (cards.length === 0) await publishStagingDecks(ctx, row);
+      else await writeCardBatch(ctx, row, cards);
     } catch (error) {
       const message =
         error instanceof Error ? error.message.slice(0, 500) : "The import could not be finalized.";
@@ -928,7 +754,139 @@ export const materializeNext = internalMutation({
   },
 });
 
-/** Remove staging decks one at a time, like the browser importer's cleanup. */
+/** The library and the assistant's connection must still allow this import. */
+async function assertStillAuthorized(ctx: MutationCtx, row: Doc<"agentImports">) {
+  const library = await ctx.db.get(row.libraryId);
+  const connection = await ctx.db.get(row.connectionId);
+  if (
+    !library ||
+    library.status !== "active" ||
+    !connection ||
+    connection.revokedAt ||
+    connection.libraryId !== row.libraryId ||
+    !(await activeImportConnection(ctx, connection, library))
+  )
+    throw new Error("The import authorization is no longer active.");
+}
+
+/** Every card is written: make the decks visible and record the result. */
+async function publishStagingDecks(ctx: MutationCtx, row: Doc<"agentImports">) {
+  const importId = row._id;
+  if (row.materialized !== row.counts.flashcards)
+    throw new Error(
+      `Only ${row.materialized} of ${row.counts.flashcards} staged cards were materialized.`,
+    );
+  const now = Date.now();
+  const decks = [];
+  for (const { key, deckId } of row.materializedDecks) {
+    const deck = await ctx.db.get(deckId);
+    if (!deck || deck.libraryId !== row.libraryId) continue;
+    await ctx.db.patch(deckId, { staging: false, updatedAt: now });
+    const owned = await ctx.db
+      .query("agentCreatedDecks")
+      .withIndex("by_connection_deck", (q) =>
+        q.eq("connectionId", row.connectionId).eq("deckId", deckId),
+      )
+      .unique();
+    if (!owned)
+      await ctx.db.insert("agentCreatedDecks", {
+        libraryId: row.libraryId,
+        connectionId: row.connectionId,
+        deckId,
+      });
+    decks.push({ key, name: deck.name, deckId });
+  }
+  if (decks.length === 0) throw new Error("No staging decks survived materialization.");
+  await ctx.db.patch(row._id, {
+    status: "finalized",
+    result: {
+      decks,
+      flashcards: row.counts.flashcards,
+      reviewUnits: row.counts.reviewUnits,
+      skipped: row.counts.skipped,
+      polished: row.polished,
+      repaired: row.repaired,
+    },
+    updatedAt: now,
+    expiresAt: now + RETENTION_MS,
+  });
+  await ctx.db.insert("agentActivity", {
+    libraryId: row.libraryId,
+    connectionId: row.connectionId,
+    clientName: (await ctx.db.get(row.connectionId))?.name ?? "AI assistant",
+    summary: `Imported ${row.counts.flashcards} cards from Anki into ${decks.length} ${decks.length === 1 ? "deck" : "decks"}`,
+    deckId: decks[0]!.deckId,
+    createdAt: now,
+  });
+  // Cards now hold the media links. Release import-only tracking so unused
+  // uploads become eligible for the normal unreferenced-image cleanup.
+  await ctx.scheduler.runAfter(0, internal.agentImports.cleanupImport, { importId });
+  await bumpRevision(ctx, row.libraryId);
+}
+
+/** Write the next staged cards, sized to stay inside one mutation's write budget. */
+async function writeCardBatch(
+  ctx: MutationCtx,
+  row: Doc<"agentImports">,
+  cards: Doc<"agentImportCards">[],
+) {
+  const importId = row._id;
+  const deckMap = new Map(row.materializedDecks.map((deck) => [deck.key, deck.deckId]));
+  let batchUnits = 0;
+  let estimatedBytes = 0;
+  const prepared = [];
+  for (const card of cards) {
+    const deckId = deckMap.get(card.deckKey);
+    if (!deckId) throw new Error("A staged card names a deck that is not materializing.");
+    const input = validateFlashcardInput(card.type, JSON.parse(card.content) as unknown);
+    const units = generateReviewUnits(input.type, input.content).length;
+    // Review items and derived summaries can repeat content. Leave room for
+    // indexes and trigger writes within Convex's per-mutation write budget.
+    const bytes = new TextEncoder().encode(input.serialized).byteLength * (units + 3);
+    if (
+      prepared.length > 0 &&
+      (estimatedBytes + bytes > 4 * 1024 * 1024 || batchUnits + units > MAX_BATCH_UNITS)
+    )
+      break;
+    estimatedBytes += bytes;
+    batchUnits += units;
+    prepared.push({ card, deckId, input });
+  }
+  const usage = await libraryUsage(ctx, row.libraryId);
+  if (usage.flashcards + prepared.length > MAX_FLASHCARDS)
+    throw new Error("The library reached its flashcard limit while this import materialized.");
+  if (usage.reviewUnits + batchUnits > MAX_REVIEW_UNITS)
+    throw new Error("The library reached its review-item limit while this import materialized.");
+  for (const { input } of prepared) {
+    for (const fileName of input.mediaFiles) {
+      const tracked = await ctx.db
+        .query("agentImportMedia")
+        .withIndex("by_import_file", (q) => q.eq("importId", importId).eq("fileName", fileName))
+        .unique();
+      if (!tracked) throw new Error(`Image ${fileName} is no longer available.`);
+    }
+  }
+  const now = Date.now();
+  for (const { card, deckId, input } of prepared) {
+    await insertFlashcard(ctx, {
+      libraryId: row.libraryId,
+      deckId,
+      input,
+      tags: card.tags,
+      now,
+      agentConnectionId: row.connectionId,
+    });
+    await ctx.db.delete(card._id);
+  }
+  await ctx.db.patch(row._id, {
+    materialized: row.materialized + prepared.length,
+    updatedAt: now,
+    expiresAt: now + STAGING_TTL_MS,
+  });
+  await bumpRevision(ctx, row.libraryId);
+  await ctx.scheduler.runAfter(0, internal.agentImports.materializeNext, { importId });
+}
+
 export const removeDecks = internalMutation({
   args: { importId: v.id("agentImports") },
   handler: async (ctx, { importId }) => {

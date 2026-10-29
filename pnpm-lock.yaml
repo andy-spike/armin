@@ -448,12 +448,6 @@ importers:
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
-      fzstd:
-        specifier: 0.1.1
-        version: 0.1.1
-      sql.js:
-        specifier: 1.15.1
-        version: 1.15.1
       ts-fsrs:
         specifier: ^5.4.1
         version: 5.4.1
@@ -464,15 +458,18 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.12.4
-      '@types/sql.js':
-        specifier: 1.4.11
-        version: 1.4.11
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
 
   packages/core:
     dependencies:
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+      fzstd:
+        specifier: ^0.1.1
+        version: 0.1.1
       katex:
         specifier: ^0.19.1
         version: 0.19.1
@@ -482,6 +479,10 @@ importers:
       zod:
         specifier: ^4.4.3
         version: 4.6.7
+    devDependencies:
+      '@types/sql.js':
+        specifier: ^1.4.11
+        version: 1.4.11
 
 packages:
 
