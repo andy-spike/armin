@@ -27,7 +27,7 @@ on knowledge already secured, and a visual canvas makes the dependency tree
 editable.
 
 It exists because most flashcard apps treat every card as an independent island,
-ignoring that real learning is layered. It's an open-source, MIT-licensed personal
+ignoring that real learning is layered. It's an open-source, AGPL-3.0-licensed personal
 project with account-owned libraries stored in Convex. Success looks
 like: a learner sits down, the right cards are due, review is fast and almost
 entirely keyboard-driven, and over time they can see and trust the structure of

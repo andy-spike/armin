@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Armin web app: TanStack Start client and auth/media/export proxy for the Convex backend.",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "predev": "node ../../scripts/build-anki-kit.mjs",

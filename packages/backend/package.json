@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Armin Convex backend: account-scoped study data, Better Auth integration, server-owned study operations, private media, and export.",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "exports": {
     "./api": "./convex/_generated/api.js",
     "./data-model": "./convex/_generated/dataModel.d.ts",
