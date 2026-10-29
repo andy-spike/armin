@@ -58,6 +58,7 @@ async function deckStats(
     slug: deck.slug ?? deck._id,
     description: deck.description,
     version: deck.version,
+    pinnedAt: deck.pinnedAt ?? null,
     createdAt: deck.createdAt,
     updatedAt: deck.updatedAt,
     total: counts.active,
@@ -172,6 +173,22 @@ export const update = mutation({
     const version = await updateDeckDetails(ctx, deck, args, Date.now());
     await bumpRevision(ctx, library._id);
     return { status: "ok" as const, version };
+  },
+});
+
+/**
+ * Pins or unpins a deck in the sidebar. A display preference, not an edit: it
+ * leaves the deck's version and the library revision alone, so an open rename
+ * or graph edit never conflicts with it.
+ */
+export const setPinned = mutation({
+  args: { deckId: v.id("decks"), pinned: v.boolean() },
+  handler: async (ctx, { deckId, pinned }) => {
+    const library = await writableLibrary(ctx);
+    const deck = await ownedOrFail(ctx, library, deckId, "Deck");
+    if (pinned === (deck.pinnedAt != null)) return { ok: true as const };
+    await ctx.db.patch(deck._id, { pinnedAt: pinned ? Date.now() : undefined });
+    return { ok: true as const };
   },
 });
 

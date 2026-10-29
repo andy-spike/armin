@@ -56,6 +56,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
+import type { UiDeck } from "@/types/view-models";
 import { ArminMark, ArminWordmark } from "@/components/brand";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -441,94 +442,112 @@ function DeckList({
     },
   });
 
+  const pinned = (decksQuery.data ?? [])
+    .filter((deck) => deck.pinnedAt != null)
+    .sort((a, b) => (a.pinnedAt ?? 0) - (b.pinnedAt ?? 0));
+
   if (decksQuery.isSuccess && decks.length === 0) return null;
 
-  return (
-    <SidebarGroup
-      // Fades as one block; visibility drops once the fade ends so the hidden
-      // rows leave the tab order.
-      className="min-h-0 flex-1 transition-[opacity,visibility] duration-150 ease-(--ease-out-quart) delay-75 group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0"
-    >
-      <SidebarGroupLabel className="text-muted group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:opacity-100">
-        Your decks
-      </SidebarGroupLabel>
-      <DropdownMenu>
-        <Tooltip content="Sort decks" side="right" className="px-2.5 py-1.5">
-          <DropdownMenuTrigger
-            render={<SidebarGroupAction aria-label="Sort decks" className="text-muted" />}
+  const deckRow = (deck: UiDeck) => {
+    const path = `/deck/${deck.slug}`;
+    return (
+      <ContextMenu key={deck.id}>
+        <ContextMenuTrigger
+          // Off-screen rows skip layout and paint but stay in the
+          // DOM for find-in-page, focus, and screen readers. The
+          // clip margin keeps the focus ring visible.
+          render={
+            <SidebarMenuItem className="[contain-intrinsic-size:auto_2rem] [content-visibility:auto] [overflow-clip-margin:4px]" />
+          }
+        >
+          <SidebarMenuButton
+            isActive={isActive(path)}
+            // The due badge floats over the row's right edge, so long
+            // names truncate before reaching it.
+            className={cn(navButton, deck.due > 0 && "pr-8")}
+            render={<Link to="/deck/$deckId" params={{ deckId: deck.slug }} {...linkProps(path)} />}
           >
-            <ArrowUpDown strokeWidth={1.5} />
-          </DropdownMenuTrigger>
-        </Tooltip>
-        <DropdownMenuContent side="right" align="start" className="min-w-44">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Sort decks</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={sort}
-              onValueChange={(value) => setSort(value as DeckSortKey)}
+            <TruncatedLabel label={deck.name} side="right" />
+          </SidebarMenuButton>
+          {deck.due > 0 && (
+            <SidebarMenuBadge className={countBadge}>
+              {deck.due}
+              <span className="sr-only"> due</span>
+            </SidebarMenuBadge>
+          )}
+        </ContextMenuTrigger>
+        <ContextMenuContent className="min-w-40">
+          <DeckActionItems
+            pinned={deck.pinnedAt != null}
+            onTogglePin={() => deckActions.togglePin(deck)}
+            onRename={() => deckActions.rename(deck)}
+            onDelete={() => deckActions.remove(deck)}
+            Item={ContextMenuItem}
+            Separator={ContextMenuSeparator}
+          />
+        </ContextMenuContent>
+      </ContextMenu>
+    );
+  };
+
+  return (
+    <>
+      {pinned.length > 0 && (
+        <SidebarGroup
+          // Pinned decks stay in Your decks too; this is a shortcut list, in
+          // the order they were pinned.
+          className="shrink-0 transition-[opacity,visibility] duration-150 ease-(--ease-out-quart) delay-75 group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0"
+        >
+          <SidebarGroupLabel className="text-muted group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:opacity-100">
+            Pinned
+          </SidebarGroupLabel>
+          <SidebarGroupContent className="-mx-1 max-h-48 w-[calc(100%+0.5rem)] overflow-y-auto px-1">
+            <SidebarMenu className="gap-0.5">{pinned.map(deckRow)}</SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      )}
+      <SidebarGroup
+        // Fades as one block; visibility drops once the fade ends so the hidden
+        // rows leave the tab order.
+        className="min-h-0 flex-1 transition-[opacity,visibility] duration-150 ease-(--ease-out-quart) delay-75 group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0"
+      >
+        <SidebarGroupLabel className="text-muted group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:opacity-100">
+          Your decks
+        </SidebarGroupLabel>
+        <DropdownMenu>
+          <Tooltip content="Sort decks" side="right" className="px-2.5 py-1.5">
+            <DropdownMenuTrigger
+              render={<SidebarGroupAction aria-label="Sort decks" className="text-muted" />}
             >
-              {DECK_SORT_OPTIONS.map((option) => (
-                <DropdownMenuRadioItem key={option.value} value={option.value}>
-                  {option.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <SidebarGroupContent className="-mx-1 min-h-0 w-[calc(100%+0.5rem)] flex-1 overflow-y-auto px-1">
-        <SidebarMenu className="gap-0.5">
-          {!decksQuery.isSuccess
-            ? Array.from({ length: 3 }, (_, i) => <SidebarMenuSkeleton key={i} />)
-            : decks.map((deck) => {
-                const path = `/deck/${deck.slug}`;
-                return (
-                  <ContextMenu key={deck.id}>
-                    <ContextMenuTrigger
-                      // Off-screen rows skip layout and paint but stay in the
-                      // DOM for find-in-page, focus, and screen readers. The
-                      // clip margin keeps the focus ring visible.
-                      render={
-                        <SidebarMenuItem className="[contain-intrinsic-size:auto_2rem] [content-visibility:auto] [overflow-clip-margin:4px]" />
-                      }
-                    >
-                      <SidebarMenuButton
-                        isActive={isActive(path)}
-                        // The due badge floats over the row's right edge, so long
-                        // names truncate before reaching it.
-                        className={cn(navButton, deck.due > 0 && "pr-8")}
-                        render={
-                          <Link
-                            to="/deck/$deckId"
-                            params={{ deckId: deck.slug }}
-                            {...linkProps(path)}
-                          />
-                        }
-                      >
-                        <TruncatedLabel label={deck.name} side="right" />
-                      </SidebarMenuButton>
-                      {deck.due > 0 && (
-                        <SidebarMenuBadge className={countBadge}>
-                          {deck.due}
-                          <span className="sr-only"> due</span>
-                        </SidebarMenuBadge>
-                      )}
-                    </ContextMenuTrigger>
-                    <ContextMenuContent className="min-w-40">
-                      <DeckActionItems
-                        onRename={() => deckActions.rename(deck)}
-                        onDelete={() => deckActions.remove(deck)}
-                        Item={ContextMenuItem}
-                        Separator={ContextMenuSeparator}
-                      />
-                    </ContextMenuContent>
-                  </ContextMenu>
-                );
-              })}
-        </SidebarMenu>
-      </SidebarGroupContent>
-      {deckActions.dialogs}
-    </SidebarGroup>
+              <ArrowUpDown strokeWidth={1.5} />
+            </DropdownMenuTrigger>
+          </Tooltip>
+          <DropdownMenuContent side="right" align="start" className="min-w-44">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Sort decks</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={sort}
+                onValueChange={(value) => setSort(value as DeckSortKey)}
+              >
+                {DECK_SORT_OPTIONS.map((option) => (
+                  <DropdownMenuRadioItem key={option.value} value={option.value}>
+                    {option.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <SidebarGroupContent className="-mx-1 min-h-0 w-[calc(100%+0.5rem)] flex-1 overflow-y-auto px-1">
+          <SidebarMenu className="gap-0.5">
+            {!decksQuery.isSuccess
+              ? Array.from({ length: 3 }, (_, i) => <SidebarMenuSkeleton key={i} />)
+              : decks.map(deckRow)}
+          </SidebarMenu>
+        </SidebarGroupContent>
+        {deckActions.dialogs}
+      </SidebarGroup>
+    </>
   );
 }
 

@@ -168,6 +168,7 @@ function DecksPage() {
               <DeckTile
                 deck={deck}
                 onPrefetch={() => prefetchDeckPage(queryClient, deck.id)}
+                onTogglePin={() => deckActions.togglePin(deck)}
                 onRename={() => deckActions.rename(deck)}
                 onDelete={() => deckActions.remove(deck)}
               />
@@ -299,11 +300,13 @@ function ActivitySummary({ heatmap }: { heatmap: StatsHeatmap }) {
 function DeckTile({
   deck,
   onPrefetch,
+  onTogglePin,
   onRename,
   onDelete,
 }: {
   deck: UiDeck;
   onPrefetch: () => void;
+  onTogglePin: () => void;
   onRename: () => void;
   onDelete: () => void;
 }) {
@@ -357,6 +360,8 @@ function DeckTile({
                 </Tooltip>
                 <DropdownMenuContent align="end" className="min-w-40">
                   <DeckActionItems
+                    pinned={deck.pinnedAt != null}
+                    onTogglePin={onTogglePin}
                     onRename={onRename}
                     onDelete={onDelete}
                     Item={DropdownMenuItem}
@@ -399,6 +404,8 @@ function DeckTile({
 
       <ContextMenuContent className="min-w-40">
         <DeckActionItems
+          pinned={deck.pinnedAt != null}
+          onTogglePin={onTogglePin}
           onRename={onRename}
           onDelete={onDelete}
           Item={ContextMenuItem}

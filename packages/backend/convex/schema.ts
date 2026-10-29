@@ -230,6 +230,8 @@ export default defineSchema({
     version: v.number(),
     /** True while an MCP import is materializing cards; excluded from every normal read. */
     staging: v.optional(v.boolean()),
+    /** When the owner pinned the deck to the sidebar; absent when unpinned. */
+    pinnedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

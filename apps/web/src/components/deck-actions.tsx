@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -10,13 +10,17 @@ import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import type { UiDeck } from "@/types/view-models";
 
-/** Rename and delete, shared by a deck's dropdown and right-click menus. */
+/** Pin, rename, and delete, shared by a deck's dropdown and right-click menus. */
 export function DeckActionItems({
+  pinned,
+  onTogglePin,
   onRename,
   onDelete,
   Item,
   Separator,
 }: {
+  pinned: boolean;
+  onTogglePin: () => void;
   onRename: () => void;
   onDelete: () => void;
   Item: typeof DropdownMenuItem;
@@ -24,6 +28,10 @@ export function DeckActionItems({
 }) {
   return (
     <>
+      <Item onClick={onTogglePin}>
+        {pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+        {pinned ? "Unpin from sidebar" : "Pin to sidebar"}
+      </Item>
       <Item onClick={onRename}>
         <Pencil className="h-4 w-4" />
         Rename deck
@@ -71,6 +79,14 @@ export function useDeckActions({ onDeleted }: { onDeleted?: (deck: UiDeck) => vo
     },
     onError: () => {
       toast({ tone: "error", title: "Couldn’t delete deck" });
+    },
+  });
+
+  const setPinned = useMutation({
+    mutationFn: (input: { deck: UiDeck; pinned: boolean }) =>
+      armin.decks.setPinned(input.deck.id, input.pinned),
+    onError: (_error, { pinned }) => {
+      toast({ tone: "error", title: pinned ? "Couldn’t pin deck" : "Couldn’t unpin deck" });
     },
   });
 
@@ -154,6 +170,7 @@ export function useDeckActions({ onDeleted }: { onDeleted?: (deck: UiDeck) => vo
   );
 
   return {
+    togglePin: (deck: UiDeck) => setPinned.mutate({ deck, pinned: deck.pinnedAt == null }),
     rename: (deck: UiDeck) => {
       setRenamingDeck(deck);
       setRenameName(deck.name);

@@ -124,6 +124,8 @@ export const armin = {
       return result;
     },
     delete: (id: string) => q().mutation(api.decks.remove, { deckId: id as Id<"decks"> }),
+    setPinned: (id: string, pinned: boolean) =>
+      q().mutation(api.decks.setPinned, { deckId: id as Id<"decks">, pinned }),
   },
   flashcards: {
     get: async (id: string) => (await q().query(api.flashcards.get, { flashcardId: id })) ?? null,
