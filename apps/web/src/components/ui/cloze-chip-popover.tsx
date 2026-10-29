@@ -23,8 +23,13 @@ export function ClozeChipPopover({
   onHint,
   onRemove,
   onDone,
+  leaving = false,
+  onExited,
 }: {
   chip: ClozeChip;
+  /** Plays the exit animation, then calls `onExited`. */
+  leaving?: boolean;
+  onExited?: () => void;
   onCluster: (cluster: number) => void;
   onHint: (hint: string | null) => void;
   onRemove: () => void;
@@ -38,7 +43,12 @@ export function ClozeChipPopover({
       role="group"
       aria-label="Cloze settings"
       style={{ top: chip.top, left: chip.left }}
-      className="absolute z-20 flex animate-pop items-center gap-2 border border-border bg-surface px-2 py-1.5 text-xs shadow-overlay"
+      aria-hidden={leaving || undefined}
+      inert={leaving || undefined}
+      onAnimationEnd={() => {
+        if (leaving) onExited?.();
+      }}
+      className={`absolute z-20 flex ${leaving ? "pointer-events-none animate-pop-out" : "animate-pop"} items-center gap-2 border border-border bg-surface px-2 py-1.5 text-xs shadow-overlay`}
       onMouseDown={(event) => {
         // Keep the editor's selection on the chip unless a field is clicked.
         if (!(event.target instanceof HTMLInputElement)) event.preventDefault();

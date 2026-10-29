@@ -146,6 +146,10 @@ export function MarkdownEditor({
   const [source, setSource] = useState(() => needsSource(value, cloze));
   const [chip, setChip] = useState<(ClozeChip & { from: number }) | null>(null);
   const [focusWithin, setFocusWithin] = useState(false);
+  // The last chip shown, kept through the popover's exit animation.
+  const [shownChip, setShownChip] = useState<(ClozeChip & { from: number }) | null>(null);
+  const chipOpen = Boolean(cloze && chip && focusWithin && !source);
+  if (chipOpen && chip !== shownChip) setShownChip(chip);
   // Switching between rich text and source keeps the box at least as tall as
   // it was, so the page doesn't jump when the two modes wrap text differently.
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -490,32 +494,34 @@ export function MarkdownEditor({
           event.target.value = "";
         }}
       />
-      {cloze && chip && focusWithin && !source && (
+      {shownChip && (
         <ClozeChipPopover
-          key={chip.from}
-          chip={chip}
+          key={shownChip.from}
+          chip={shownChip}
+          leaving={!chipOpen}
+          onExited={() => setShownChip(null)}
           onCluster={(cluster) =>
             withChip((view) => {
-              const range = clozeRangeAt(view.state, chip.from);
+              const range = clozeRangeAt(view.state, shownChip.from);
               if (range) updateCloze(view, range, { cluster });
             })
           }
           onHint={(hint) =>
             withChip((view) => {
-              const range = clozeRangeAt(view.state, chip.from);
+              const range = clozeRangeAt(view.state, shownChip.from);
               if (range) updateCloze(view, range, { hint });
             })
           }
           onRemove={() =>
             withChip((view) => {
-              const range = clozeRangeAt(view.state, chip.from);
+              const range = clozeRangeAt(view.state, shownChip.from);
               if (range) removeCloze(view, range);
               view.focus();
             })
           }
           onDone={() =>
             withChip((view) => {
-              const range = clozeRangeAt(view.state, chip.from);
+              const range = clozeRangeAt(view.state, shownChip.from);
               if (range)
                 view.dispatch(
                   view.state.tr.setSelection(TextSelection.create(view.state.doc, range.to)),
