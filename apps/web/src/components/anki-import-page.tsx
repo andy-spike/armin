@@ -50,8 +50,10 @@ export function AnkiImportPage() {
     setSource(file);
   };
 
+  // One centered column for every single-panel step; the two-column deck
+  // picker (no `data-narrow`) uses the full content width.
   return (
-    <div>
+    <div className="has-data-narrow:mx-auto has-data-narrow:max-w-2xl">
       <Link
         to="/"
         className="mb-3 inline-flex items-center gap-1.5 text-[0.8125rem] text-muted hover:text-ink"
@@ -71,7 +73,7 @@ export function AnkiImportPage() {
       ) : (
         <>
           <PageHeader description="Bring your Anki decks into Armin." />
-          <div className="max-w-xl">
+          <div data-narrow>
             <AnkiFilePicker onOpened={open} />
           </div>
         </>
@@ -310,7 +312,7 @@ function ImportFlow({
     return (
       <>
         <PageHeader description="Something went wrong." />
-        <div className="max-w-xl space-y-6">
+        <div data-narrow className="space-y-6">
           <div
             role="alert"
             className="flex gap-3 border border-border bg-surface-sunken p-4 text-sm"
@@ -641,7 +643,8 @@ function ImportingStep({
   return (
     <section
       aria-labelledby="anki-importing"
-      className="max-w-2xl border border-border bg-surface shadow-overlay"
+      data-narrow
+      className="border border-border bg-surface shadow-overlay"
     >
       <p role="status" aria-live="polite" className="sr-only">
         {progress.stage === "finishing" ? "Finishing up" : active?.label}
@@ -736,7 +739,8 @@ function DoneStep({
   return (
     <section
       aria-labelledby="anki-done"
-      className="max-w-2xl border border-border bg-surface shadow-overlay"
+      data-narrow
+      className="border border-border bg-surface shadow-overlay"
     >
       <div role="status" className="flex items-start gap-4 px-6 pt-6">
         <span
