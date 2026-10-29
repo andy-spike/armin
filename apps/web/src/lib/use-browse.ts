@@ -68,6 +68,8 @@ export function useBrowse(filters: BrowseQueryFilters) {
   return {
     flashcards,
     filteredTotal: counts.data?.filteredTotal ?? 0,
+    /** The filtered total is a lower bound in a very large library. */
+    filteredCapped: counts.data?.filteredCapped ?? false,
     filteredArchived: counts.data?.filteredArchived ?? 0,
     libraryTotal: counts.data?.libraryTotal ?? 0,
     libraryArchived: counts.data?.libraryArchived ?? 0,

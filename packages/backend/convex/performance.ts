@@ -5,6 +5,7 @@ import {
   activityCutoff,
   recordActivity,
   syncUnitSummary,
+  frontierKey,
   statsGeneration,
 } from "./model/performance";
 
@@ -37,6 +38,23 @@ export const backfill = internalMutation({
 });
 
 /** New log writes are marked in their own transaction; backfill skips those. */
+/** Give existing unit summaries their fixed new-card order. Idempotent. */
+export const backfillFrontierKeys = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.null(),
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query("unitSummaries").paginate({ cursor, numItems: 500 });
+    for (const row of page.page)
+      if (row.frontierKey === undefined)
+        await ctx.db.patch(row._id, { frontierKey: frontierKey(row.flashcardId) });
+    if (!page.isDone)
+      await ctx.scheduler.runAfter(0, internal.performance.backfillFrontierKeys, {
+        cursor: page.continueCursor,
+      });
+    return null;
+  },
+});
+
 export const rebuild = internalMutation({
   args: {
     libraryId: v.id("libraries"),

@@ -83,6 +83,7 @@ export function overridesFrom(row: Doc<"deckSettings"> | null): DeckSettingsOver
 export class SettingsCache {
   private global: SchedulingSettings | null = null;
   private byDeck = new Map<string, SchedulingSettings>();
+  private preloaded = false;
 
   constructor(
     private ctx: QueryCtx,
@@ -98,8 +99,22 @@ export class SettingsCache {
     return this.global;
   }
 
+  /** Resolve every deck's settings with one read, for callers that visit many decks. */
+  async preloadDecks() {
+    const global = await this.globalSettings();
+    const rows = await this.ctx.db
+      .query("deckSettings")
+      .withIndex("by_library", (q) => q.eq("libraryId", this.libraryId))
+      .collect();
+    for (const row of rows)
+      this.byDeck.set(row.deckId, resolveEffectiveSettings(global, overridesFrom(row)));
+    this.preloaded = true;
+  }
+
   async forDeck(deckId: Id<"decks">) {
     const cached = this.byDeck.get(deckId);
+    if (cached) return cached;
+    if (this.preloaded) return this.globalSettings();
     if (cached) return cached;
     const global = await this.globalSettings();
     const row = await this.ctx.db
@@ -442,46 +457,31 @@ export async function refreshAfterPrereqChange(
 }
 
 /**
- * Recompute every flashcard with prerequisites in a deck (or library). Loads
- * the scope's cards, units, and edges once and decides locks in memory, so a
- * settings change stays within Convex's per-function read limits.
+ * Recompute every flashcard with prerequisites in a deck. Loads the deck's
+ * cards, units, and edges once and decides locks in memory; deck size bounds
+ * (`MAX_FLASHCARDS_PER_DECK`) keep this within one transaction's reads.
+ * Prerequisites never cross decks, so a library is refreshed deck by deck.
  */
 export async function refreshAllLocks(
   ctx: MutationCtx,
-  scope: { libraryId: Id<"libraries"> } | { deckId: Id<"decks"> },
+  scope: { deckId: Id<"decks"> },
   settings: SettingsCache,
   now: number,
 ) {
-  const [edges, flashcards, units] =
-    "deckId" in scope
-      ? await Promise.all([
-          ctx.db
-            .query("prereqs")
-            .withIndex("by_deck", (q) => q.eq("deckId", scope.deckId))
-            .collect(),
-          ctx.db
-            .query("flashcards")
-            .withIndex("by_deck", (q) => q.eq("deckId", scope.deckId))
-            .collect(),
-          ctx.db
-            .query("reviewUnits")
-            .withIndex("by_deck", (q) => q.eq("deckId", scope.deckId))
-            .collect(),
-        ])
-      : await Promise.all([
-          ctx.db
-            .query("prereqs")
-            .withIndex("by_library", (q) => q.eq("libraryId", scope.libraryId))
-            .collect(),
-          ctx.db
-            .query("flashcards")
-            .withIndex("by_library", (q) => q.eq("libraryId", scope.libraryId))
-            .collect(),
-          ctx.db
-            .query("reviewUnits")
-            .withIndex("by_library", (q) => q.eq("libraryId", scope.libraryId))
-            .collect(),
-        ]);
+  const [edges, flashcards, units] = await Promise.all([
+    ctx.db
+      .query("prereqs")
+      .withIndex("by_deck", (q) => q.eq("deckId", scope.deckId))
+      .collect(),
+    ctx.db
+      .query("flashcards")
+      .withIndex("by_deck", (q) => q.eq("deckId", scope.deckId))
+      .collect(),
+    ctx.db
+      .query("reviewUnits")
+      .withIndex("by_deck", (q) => q.eq("deckId", scope.deckId))
+      .collect(),
+  ]);
   const cards = new Map(flashcards.map((card) => [card._id, card]));
   const unitsOf = new Map<Id<"flashcards">, Doc<"reviewUnits">[]>();
   for (const unit of units) {

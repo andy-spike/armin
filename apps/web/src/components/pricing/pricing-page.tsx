@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { PLAN_LIMITS, PLAN_PRICES } from "@armin/core/plans";
+import { MAX_FLASHCARDS_PER_DECK, PLAN_LIMITS, PLAN_PRICES } from "@armin/core/plans";
 import { ArminMark, ArminWordmark } from "@/components/brand";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -29,6 +29,7 @@ const plans = [
     features: [
       "Unlimited cards and decks (fair use)",
       `${number.format(PLAN_LIMITS.pro.agentCardsPerMonth)} AI assistant cards per month`,
+      "Room for the largest Anki collections",
       "Everything in Free",
       "More room for images",
     ],
@@ -47,7 +48,7 @@ const questions = [
   },
   {
     q: "What does fair use mean?",
-    a: "Pro has no card limit for ordinary study. Extremely large libraries may hit technical limits, which we raise as Armin grows.",
+    a: `Pro fits libraries of up to ${number.format(PLAN_LIMITS.pro.flashcards)} cards, more than the biggest medical school decks. Any single deck holds up to ${number.format(MAX_FLASHCARDS_PER_DECK)} cards on every plan, so very large Anki decks import as several decks.`,
   },
 ];
 

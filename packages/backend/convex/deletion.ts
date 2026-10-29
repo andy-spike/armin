@@ -181,6 +181,8 @@ const LIBRARY_TABLES: [TableNames, string][] = [
   ["flashcards", "by_library"],
   ["deckSettings", "by_library"],
   ["decks", "by_library"],
+  // After decks, so unit and card deletions above never recount a deck.
+  ["deckUnitCounts", "by_library"],
   ["tags", "by_library_key"],
   ["requests", "by_library_request"],
   ["settings", "by_library"],

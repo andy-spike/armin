@@ -357,6 +357,8 @@ export default defineSchema({
     createdAt: v.number(),
     latestAgain: v.optional(v.number()),
     introducedAt: v.optional(v.number()),
+    /** Fixed new-card order (`frontierKey` in model/performance.ts). */
+    frontierKey: v.optional(v.number()),
   })
     .index("by_unit", ["reviewUnitId"])
     .index("by_flashcard", ["flashcardId"])
@@ -364,6 +366,11 @@ export default defineSchema({
     .index("by_deck", ["deckId"])
     .index("by_library_due", ["libraryId", "locked", "archived", "due"])
     .index("by_deck_due", ["deckId", "locked", "archived", "due"])
+    .index("by_library_state_due", ["libraryId", "locked", "archived", "state", "due"])
+    .index("by_deck_state_due", ["deckId", "locked", "archived", "state", "due"])
+    .index("by_library_frontier", ["libraryId", "locked", "archived", "state", "frontierKey"])
+    .index("by_deck_frontier", ["deckId", "locked", "archived", "state", "frontierKey"])
+    .index("by_library_buried", ["libraryId", "buriedUntil"])
     .index("by_library_introduced", ["libraryId", "introducedAt"]),
 
   /** Rolling activity per card, used to transfer/subtract history on move/delete. */
@@ -438,7 +445,11 @@ export default defineSchema({
     .index("by_deck_name", ["deckId", "deckKey", "frontKey"])
     .index("by_deck_back", ["deckId", "backKey"])
     .index("by_deck_locked", ["deckId", "locked", "frontKey"])
-    .index("by_deck_state", ["deckId", "state", "frontKey"]),
+    .index("by_deck_state", ["deckId", "state", "frontKey"])
+    .searchIndex("search_text", {
+      searchField: "searchText",
+      filterFields: ["libraryId", "deckId"],
+    }),
 
   /** Per-deck totals, the sum of the deck's flashcard summaries. */
   deckCounters: defineTable({
@@ -453,6 +464,28 @@ export default defineSchema({
     learned: v.number(),
     newUnits: v.number(),
     learningUnits: v.number(),
+  })
+    .index("by_deck", ["deckId"])
+    .index("by_library", ["libraryId"]),
+
+  /**
+   * Deck sizes (`model/deckSizes.ts`), kept by triggers. They bound deck size
+   * and give Frontier counts without reading every unit.
+   */
+  deckUnitCounts: defineTable({
+    libraryId: v.id("libraries"),
+    deckId: v.id("decks"),
+    flashcards: v.number(),
+    /** Review units, and their states as `summarizeReviewUnitStates` counts them. */
+    total: v.number(),
+    newCount: v.number(),
+    learningCount: v.number(),
+    reviewCount: v.number(),
+    relearningCount: v.number(),
+    lockedCount: v.number(),
+    archivedCount: v.number(),
+    /** New, unlocked, unarchived, never-reviewed units. */
+    frontierCandidates: v.number(),
   })
     .index("by_deck", ["deckId"])
     .index("by_library", ["libraryId"]),

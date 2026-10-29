@@ -1,12 +1,17 @@
 /**
- * Free-beta library bounds. They keep every study transaction (queues, graph
- * propagation, lock refresh) and the export snapshot inside Convex limits.
+ * Technical library bounds, the ceiling for every plan (`@armin/core/plans`).
+ * Whole-library work reads counters, indexes, or pages, never every row; the
+ * deck bounds keep deck-wide graph and lock work inside one transaction.
  */
-export const MAX_DECKS = 200;
-export const MAX_FLASHCARDS = 2000;
+export const MAX_DECKS = 1000;
+export const MAX_FLASHCARDS = 100_000;
+export const MAX_REVIEW_UNITS = 250_000;
 export const MAX_REVIEW_UNITS_PER_FLASHCARD = 60;
-/** Library-wide cap so queue, browse, and export reads fit one transaction. */
-export const MAX_REVIEW_UNITS = 10_000;
+/** A deck's flashcards, units, and edges must fit one transaction's 32,000 reads. */
+export { MAX_FLASHCARDS_PER_DECK } from "@armin/core/plans";
+export const MAX_REVIEW_UNITS_PER_DECK = 15_000;
+/** Due reviews read for one queue selection; the queue shows at most this many. */
+export const MAX_SESSION_REVIEWS = 2000;
 /** Prerequisite edges per deck, so deck-wide graph work fits one transaction. */
 export const MAX_PREREQS_PER_DECK = 2000;
 /** Exports are served by an HTTP action, whose responses are capped at 100 MiB. */

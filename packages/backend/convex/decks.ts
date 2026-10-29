@@ -8,14 +8,8 @@ import { fail } from "./model/errors";
 import { insertDeck, updateDeckDetails } from "./model/decks";
 import { checkCapacity } from "./model/usage";
 import { deleteDeckCascade } from "./model/deletion";
-import {
-  introducedToday,
-  reviewsDoneToday,
-  selectSession,
-  dueEligibleUnits,
-  type SessionReads,
-} from "./model/queue";
-import { bumpRevision, findRequest, recordRequest, SettingsCache } from "./model/study";
+import { dueCounts, selectSession } from "./model/queue";
+import { bumpRevision, findRequest, recordRequest } from "./model/study";
 
 /** The deck's totals the slow way, for a deck whose counters aren't built yet. */
 async function countFromUnits(ctx: QueryCtx, deck: Doc<"decks">) {
@@ -45,7 +39,7 @@ async function deckStats(
   library: Doc<"libraries">,
   deck: Doc<"decks">,
   now: number,
-  shared: SessionReads = {},
+  shared?: { counters: Map<string, Doc<"deckCounters">>; due: Record<string, number> },
 ) {
   // Archived cards stay out of the deck's card and progress totals, but the
   // header names their count separately so the footer and tile grid agree.
@@ -53,14 +47,17 @@ async function deckStats(
   // review unit it generates (both directions, every cloze deletion) is in
   // FSRS Review state, so `learned` never exceeds `total`.
   const counts =
-    (await ctx.db
-      .query("deckCounters")
-      .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
-      .unique()) ?? (await countFromUnits(ctx, deck));
-  const session = await selectSession(ctx, library, deck._id, now, {
-    ...shared,
-    deckUnits: shared.deckUnits?.filter((unit) => unit.deckId === deck._id),
-  });
+    (shared
+      ? shared.counters.get(deck._id)
+      : await ctx.db
+          .query("deckCounters")
+          .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
+          .unique()) ?? (await countFromUnits(ctx, deck));
+  let due = shared?.due[deck._id];
+  if (due === undefined) {
+    const session = await selectSession(ctx, library, deck._id, now);
+    due = session.reviews.length + session.frontier.length;
+  }
   return {
     id: deck._id,
     name: deck.name,
@@ -72,7 +69,7 @@ async function deckStats(
     updatedAt: deck.updatedAt,
     total: counts.active,
     archived: counts.archived,
-    due: session.reviews.length + session.frontier.length,
+    due,
     newCount: counts.newUnits,
     learning: counts.learningUnits,
     learned: counts.learned,
@@ -89,19 +86,14 @@ export const list = query({
       .withIndex("by_library", (q) => q.eq("libraryId", library._id))
       .collect();
     const now = args.now ?? Date.now();
-    // Today's introductions, reviews, and the settings are account-wide; read
-    // them once and share them across every deck's session selection.
-    const settings = new SettingsCache(ctx, library._id);
-    const today = await introducedToday(ctx, library, now);
-    const reviewsPerDay = (await settings.globalSettings()).reviewsPerDay;
-    const shared: SessionReads = {
-      deckUnits: await dueEligibleUnits(ctx, library, null, now),
-      today,
-      settings,
-      reviewsDoneToday:
-        reviewsPerDay == null
-          ? 0
-          : await reviewsDoneToday(ctx, library, today.since, reviewsPerDay),
+    // Counters and due counts for every deck in a fixed number of reads.
+    const counters = await ctx.db
+      .query("deckCounters")
+      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
+      .collect();
+    const shared = {
+      counters: new Map<string, Doc<"deckCounters">>(counters.map((row) => [row.deckId, row])),
+      due: (await dueCounts(ctx, library, now)).perDeck,
     };
     const out = [];
     for (const deck of decks) {

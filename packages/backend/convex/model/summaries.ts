@@ -10,6 +10,7 @@ import {
   syncLogBoundary,
 } from "./performance";
 import { Triggers } from "convex-helpers/server/triggers";
+import { countFlashcardChange, countUnitChange } from "./deckSizes";
 import { flashcardDisplay, type TypeAnswerContent } from "@armin/core/flashcard-types";
 import { State } from "@armin/core/scheduler";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
@@ -66,6 +67,7 @@ function changed<T extends object>(a: T | null, b: T | null, fields: readonly (k
 export const triggers = new Triggers<DataModel, SummaryCtx>();
 
 triggers.register("flashcards", async (ctx, change) => {
+  await countFlashcardChange({ ...ctx, db: ctx.innerDb }, change.oldDoc, change.newDoc);
   if (change.oldDoc && (!change.newDoc || change.oldDoc.deckId !== change.newDoc.deckId)) {
     await transferActivity({ ...ctx, db: ctx.innerDb }, change.oldDoc, change.newDoc);
   }
@@ -73,6 +75,7 @@ triggers.register("flashcards", async (ctx, change) => {
 });
 
 triggers.register("reviewUnits", async (ctx, change) => {
+  await countUnitChange({ ...ctx, db: ctx.innerDb }, change.oldDoc, change.newDoc);
   await syncUnitSummary({ ...ctx, db: ctx.innerDb }, change.newDoc, change.id);
   if (!changed(change.oldDoc, change.newDoc, UNIT_FIELDS)) return;
   for (const unit of [change.oldDoc, change.newDoc]) {
@@ -88,6 +91,11 @@ triggers.register("decks", async (ctx, change) => {
       .withIndex("by_deck", (q) => q.eq("deckId", change.id))
       .unique();
     if (counters) await ctx.innerDb.delete(counters._id);
+    const unitCounts = await ctx.innerDb
+      .query("deckUnitCounts")
+      .withIndex("by_deck", (q) => q.eq("deckId", change.id))
+      .unique();
+    if (unitCounts) await ctx.innerDb.delete(unitCounts._id);
     return;
   }
   if (change.operation !== "update" || change.oldDoc.name === change.newDoc.name) return;
@@ -117,6 +125,7 @@ triggers.register("reviewLogs", async (ctx, change) => {
     else {
       const boundary = ctx.activityBatch.boundaries.get(log.reviewUnitId) ?? {
         libraryId: log.libraryId,
+        flashcardId: log.flashcardId,
       };
       if (log.rating === 1) boundary.again = Math.max(boundary.again ?? -Infinity, log.review);
       if (log.state === 0)

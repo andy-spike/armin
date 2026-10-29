@@ -303,15 +303,49 @@ export async function loadBrowsePage(
   const deckIds = scope ? [scope] : [...(await activeDeckIds(ctx, library._id))];
   if (!deckIds.length) return { page: [] as HydratedFlashcard[], isDone: true, continueCursor: "" };
   const match = summaryMatcher(args);
+  if (args.search?.trim()) {
+    // Text search uses the search index, in relevance order, so it stays fast
+    // at any library size. Pages can come back short after the other filters.
+    const result = await searchSummaries(ctx, library._id, scope, args.search).paginate({
+      ...args.paginationOpts,
+      numItems: Math.min(Math.max(args.paginationOpts.numItems, 1), 100),
+    });
+    const active = new Set(deckIds);
+    return {
+      ...result,
+      page: await hydrateSummaries(
+        ctx,
+        result.page.filter((summary) => active.has(summary.deckId) && match!(summary)),
+      ),
+    };
+  }
   let rows = sortedSummaries(ctx, deckIds, args.sort);
   if (match) rows = rows.filterWith(async (summary) => match(summary));
   const result = await rows.paginate({
     ...args.paginationOpts,
     numItems: Math.min(Math.max(args.paginationOpts.numItems, 1), 100),
+    // A rare filter match in a large library returns a short page and a cursor.
+    maximumRowsRead: 4000,
   });
+  return { ...result, page: await hydrateSummaries(ctx, result.page) };
+}
+
+function searchSummaries(
+  ctx: QueryCtx,
+  libraryId: Id<"libraries">,
+  deckId: Id<"decks"> | null,
+  search: string,
+) {
+  return ctx.db.query("flashcardSummaries").withSearchIndex("search_text", (q) => {
+    const matched = q.search("searchText", search.toLocaleLowerCase()).eq("libraryId", libraryId);
+    return deckId ? matched.eq("deckId", deckId) : matched;
+  });
+}
+
+async function hydrateSummaries(ctx: QueryCtx, summaries: Summary[]) {
   const deckNames = new Map<Id<"decks">, string>();
   const page: HydratedFlashcard[] = [];
-  for (const summary of result.page) {
+  for (const summary of summaries) {
     const flashcard = await ctx.db.get(summary.flashcardId);
     if (!flashcard) continue;
     if (!deckNames.has(flashcard.deckId)) {
@@ -319,7 +353,7 @@ export async function loadBrowsePage(
     }
     page.push(hydrateTile(flashcard, summary, deckNames.get(flashcard.deckId)));
   }
-  return { ...result, page };
+  return page;
 }
 
 /**
@@ -334,6 +368,10 @@ export const browsePage = query({
     return loadBrowsePage(ctx, library, args);
   },
 });
+
+const MAX_COUNTED_SUMMARIES = 5000;
+/** Search results counted; Convex search returns at most 1,024 per query. */
+const MAX_SEARCH_COUNT = 1000;
 
 /** Totals for Browse's "N of M cards": counters, or a summary scan when filtered. */
 export const browseCounts = query({
@@ -353,25 +391,43 @@ export const browseCounts = query({
     const libraryCounts = sum(counters);
     const match = summaryMatcher(args);
     let filtered = scope ? sum(counters.filter((row) => row.deckId === scope)) : libraryCounts;
-    if (match) {
+    // A filtered count scans summaries; past this many it reports a lower bound.
+    let capped = false;
+    if (match && args.search?.trim()) {
+      const active = await activeDeckIds(ctx, library._id);
+      const results = await searchSummaries(ctx, library._id, scope, args.search).take(
+        MAX_SEARCH_COUNT,
+      );
+      capped = results.length === MAX_SEARCH_COUNT;
+      const matching = results.filter((summary) => active.has(summary.deckId) && match(summary));
+      filtered = {
+        total: matching.length,
+        archived: matching.filter((summary) => summary.archived).length,
+      };
+    } else if (match) {
       const deckIds = scope ? [scope] : [...(await activeDeckIds(ctx, library._id))];
-      const summaries = (
-        await Promise.all(
-          deckIds.map((deckId) =>
-            ctx.db
-              .query("flashcardSummaries")
-              .withIndex("by_deck_created", (q) => q.eq("deckId", deckId))
-              .collect(),
-          ),
-        )
-      ).flat();
-      const matching = summaries.filter(match);
+      let budget = MAX_COUNTED_SUMMARIES;
+      const matching: Doc<"flashcardSummaries">[] = [];
+      for (const deckId of deckIds) {
+        if (budget <= 0) {
+          capped = true;
+          break;
+        }
+        const rows = await ctx.db
+          .query("flashcardSummaries")
+          .withIndex("by_deck_created", (q) => q.eq("deckId", deckId))
+          .take(budget + 1);
+        if (rows.length > budget) capped = true;
+        matching.push(...rows.slice(0, budget).filter(match));
+        budget -= rows.length;
+      }
       filtered = {
         total: matching.length,
         archived: matching.filter((summary) => summary.archived).length,
       };
     }
     return {
+      filteredCapped: capped,
       filteredTotal: filtered.total,
       filteredArchived: filtered.archived,
       libraryTotal: libraryCounts.total,
@@ -385,15 +441,13 @@ export const listTags = query({
   handler: async (ctx) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    // Derive options from the cards that currently carry each tag rather than
-    // the library's remembered tag names, so a removed tag leaves the filter.
-    const decks = await activeDeckIds(ctx, library._id);
-    const flashcards = await rowsInDecks(ctx, "flashcards", decks);
-    const names = new Map<string, string>();
-    for (const flashcard of flashcards) {
-      for (const tag of flashcard.tags) names.set(tag.toLocaleLowerCase(), tag);
-    }
-    return [...names.values()].sort((a, b) => a.localeCompare(b));
+    // The library's remembered tag names: one row per tag, so the read does not
+    // grow with the card count. A tag no card carries any more can remain.
+    const tags = await ctx.db
+      .query("tags")
+      .withIndex("by_library_key", (q) => q.eq("libraryId", library._id))
+      .collect();
+    return tags.map((tag) => tag.name).sort((a, b) => a.localeCompare(b));
   },
 });
 

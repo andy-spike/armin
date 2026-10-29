@@ -1,8 +1,8 @@
 /**
  * Account plans and their limits. The backend enforces these; the web pricing
- * page shows them. Pro's library caps stay at the current technical bounds
- * (see `packages/backend/convex/model/limits.ts`) until whole-library reads
- * are paginated; the pricing page advertises them as fair-use "unlimited".
+ * page shows them. Pro's library limits are the technical bounds in
+ * `packages/backend/convex/model/limits.ts`, advertised as fair-use
+ * "unlimited". Every deck holds at most 10,000 cards on any plan.
  */
 export type PlanId = "free" | "pro";
 
@@ -16,18 +16,20 @@ export const PLAN_LIMITS = {
     agentWritesPerHour: 60,
   },
   pro: {
-    decks: 200,
-    flashcards: 2000,
-    reviewUnits: 10_000,
+    decks: 1000,
+    flashcards: 100_000,
+    reviewUnits: 250_000,
     mediaBytes: 80 * 1024 * 1024,
-    agentCardsPerMonth: 5000,
-    agentWritesPerHour: 300,
+    agentCardsPerMonth: 10_000,
+    agentWritesPerHour: 600,
   },
 } satisfies Record<PlanId, Record<string, number>>;
 
 export const PLAN_PRICES = {
   pro: { monthlyUsd: 6, yearlyUsd: 48 },
 };
+
+export const MAX_FLASHCARDS_PER_DECK = 10_000;
 
 export function planLimits(plan: PlanId | undefined) {
   return PLAN_LIMITS[plan ?? "free"];
