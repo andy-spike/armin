@@ -320,16 +320,16 @@ export function MarkdownEditorToolbar({
           </button>
         </ToolTip>
         {!source && (
-          <ToolTip label="Edit source">
+          <ToolTip label="Edit the Markdown source">
             <button
               type="button"
-              aria-label="Edit source"
               disabled={disabled || uploading}
-              className={toolClass}
+              className="inline-flex h-6 cursor-pointer items-center gap-1 px-1.5 text-xs font-medium text-muted transition-colors duration-150 hover:bg-surface-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50"
               onMouseDown={keepSelection}
               onClick={onEditSource}
             >
               <FileCode className="h-3.5 w-3.5" aria-hidden />
+              Edit source
             </button>
           </ToolTip>
         )}

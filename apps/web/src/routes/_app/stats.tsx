@@ -251,8 +251,17 @@ function DayBarChart({
           fill: "var(--color-accent)",
           fillOpacity: opacity,
           radius: { end: 1 },
+          // The hovered day changes color instead of showing the default focus ring.
+          states: [
+            {
+              when: { focus: "primary" },
+              style: { fill: "var(--color-ink)", fillOpacity: 1 },
+              transition: { type: "tween", duration: 120, easing: "ease-out" },
+            },
+          ],
         }),
       ],
+      focusRing: false,
       scales: {
         x: {
           scale: () => scaleBand<string>().domain(keys).padding(0.18),

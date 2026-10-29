@@ -1,3 +1,4 @@
+import type * as React from "react";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 import { Tooltip } from "@/components/ui/tooltip";
@@ -37,10 +38,13 @@ export function useIsTruncated<T extends HTMLElement>() {
  */
 export function TruncatedLabel({
   label,
+  tooltip = label,
   side = "top",
   className,
 }: {
   label: string;
+  /** What the tooltip shows when the label is clipped; defaults to the label. */
+  tooltip?: React.ReactNode;
   side?: "top" | "bottom" | "left" | "right";
   className?: string;
 }) {
@@ -54,7 +58,7 @@ export function TruncatedLabel({
 
   if (!truncated) return span;
   return (
-    <Tooltip content={label} side={side}>
+    <Tooltip content={tooltip} side={side}>
       {span}
     </Tooltip>
   );

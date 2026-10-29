@@ -370,6 +370,13 @@ function DeckHeader({
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
+        {/* Review is the one filled action while cards are due. */}
+        <Button variant={dueCount > 0 ? "outline" : "primary"} onClick={onAddCard}>
+          <Plus className="h-4 w-4" /> Add card
+        </Button>
+        <Button variant="outline" onClick={onSettings}>
+          <Settings className="h-4 w-4" /> Settings
+        </Button>
         <Link
           to="/deck/$deckId/graph"
           params={{ deckId: deck.id }}
@@ -377,15 +384,6 @@ function DeckHeader({
         >
           <Share2 className="h-4 w-4" /> Graph
         </Link>
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Deck settings"
-          title="Deck settings"
-          onClick={onSettings}
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
         <Button variant="outline" onClick={onCram}>
           <Brain className="h-4 w-4" /> Cram
         </Button>
@@ -394,9 +392,6 @@ function DeckHeader({
             <Play className="h-4 w-4" /> Review
           </Link>
         )}
-        <Button onClick={onAddCard}>
-          <Plus className="h-4 w-4" /> Add card
-        </Button>
       </div>
     </header>
   );

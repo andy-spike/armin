@@ -202,7 +202,7 @@ export function Dialog({
           "relative z-10 w-full max-w-md max-h-[calc(100dvh-2rem)] rounded-lg border border-border bg-surface shadow-overlay outline-none",
           content.footer
             ? "flex flex-col overflow-hidden"
-            : "overflow-y-auto overscroll-contain p-6",
+            : "armin-scrollbar overflow-y-auto overscroll-contain p-6",
           exiting ? "animate-pop-out" : "animate-pop",
           className,
         )}
@@ -237,7 +237,7 @@ export function Dialog({
           <>
             <div
               className={cn(
-                "min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6",
+                "armin-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6",
                 !content.title && "pt-6",
               )}
             >

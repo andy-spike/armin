@@ -1,3 +1,4 @@
+import { convertAnkiCollection } from "@armin/core/anki";
 import initSqlJs from "sql.js";
 import sqlWasmUrl from "sql.js/dist/sql-wasm-browser.wasm?url";
 import {
@@ -61,6 +62,21 @@ self.onmessage = async (event: MessageEvent<AnkiWorkerRequest>) => {
           error instanceof AnkiImportError
             ? error.message
             : "Armin couldn't read this file. It may be damaged or not an Anki export.",
+      });
+    }
+    return;
+  }
+
+  if (request.type === "convert") {
+    if (!opened) return;
+    try {
+      const plan = convertAnkiCollection(opened.collection, request.options);
+      send({ type: "converted", requestId: request.requestId, plan });
+    } catch (error) {
+      send({
+        type: "media-error",
+        requestId: request.requestId,
+        message: error instanceof Error ? error.message : "Couldn't convert this file.",
       });
     }
     return;

@@ -20,6 +20,7 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAiSetupRouteImport } from './routes/_app/ai-setup'
 import { Route as AppBrowseRouteImport } from './routes/_app/browse'
 import { Route as AppConnectAgentRouteImport } from './routes/_app/connect-agent'
+import { Route as AppImportRouteImport } from './routes/_app/import'
 import { Route as AppReviewRouteImport } from './routes/_app/review'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppStatsRouteImport } from './routes/_app/stats'
@@ -84,6 +85,11 @@ const AppBrowseRoute = AppBrowseRouteImport.update({
 const AppConnectAgentRoute = AppConnectAgentRouteImport.update({
   id: '/connect-agent',
   path: '/connect-agent',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppImportRoute = AppImportRouteImport.update({
+  id: '/import',
+  path: '/import',
   getParentRoute: () => AppRoute,
 } as any)
 const AppReviewRoute = AppReviewRouteImport.update({
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/ai-setup': typeof AppAiSetupRoute
   '/browse': typeof AppBrowseRoute
   '/connect-agent': typeof AppConnectAgentRoute
+  '/import': typeof AppImportRoute
   '/review': typeof AppReviewRoute
   '/settings': typeof AppSettingsRoute
   '/stats': typeof AppStatsRoute
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/ai-setup': typeof AppAiSetupRoute
   '/browse': typeof AppBrowseRoute
   '/connect-agent': typeof AppConnectAgentRoute
+  '/import': typeof AppImportRoute
   '/review': typeof AppReviewRoute
   '/settings': typeof AppSettingsRoute
   '/stats': typeof AppStatsRoute
@@ -200,6 +208,7 @@ export interface FileRoutesById {
   '/_app/ai-setup': typeof AppAiSetupRoute
   '/_app/browse': typeof AppBrowseRoute
   '/_app/connect-agent': typeof AppConnectAgentRoute
+  '/_app/import': typeof AppImportRoute
   '/_app/review': typeof AppReviewRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/stats': typeof AppStatsRoute
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/ai-setup'
     | '/browse'
     | '/connect-agent'
+    | '/import'
     | '/review'
     | '/settings'
     | '/stats'
@@ -248,6 +258,7 @@ export interface FileRouteTypes {
     | '/ai-setup'
     | '/browse'
     | '/connect-agent'
+    | '/import'
     | '/review'
     | '/settings'
     | '/stats'
@@ -272,6 +283,7 @@ export interface FileRouteTypes {
     | '/_app/ai-setup'
     | '/_app/browse'
     | '/_app/connect-agent'
+    | '/_app/import'
     | '/_app/review'
     | '/_app/settings'
     | '/_app/stats'
@@ -379,6 +391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConnectAgentRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/import': {
+      id: '/_app/import'
+      path: '/import'
+      fullPath: '/import'
+      preLoaderRoute: typeof AppImportRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/review': {
       id: '/_app/review'
       path: '/review'
@@ -463,6 +482,7 @@ interface AppRouteChildren {
   AppAiSetupRoute: typeof AppAiSetupRoute
   AppBrowseRoute: typeof AppBrowseRoute
   AppConnectAgentRoute: typeof AppConnectAgentRoute
+  AppImportRoute: typeof AppImportRoute
   AppReviewRoute: typeof AppReviewRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppStatsRoute: typeof AppStatsRoute
@@ -477,6 +497,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAiSetupRoute: AppAiSetupRoute,
   AppBrowseRoute: AppBrowseRoute,
   AppConnectAgentRoute: AppConnectAgentRoute,
+  AppImportRoute: AppImportRoute,
   AppReviewRoute: AppReviewRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppStatsRoute: AppStatsRoute,

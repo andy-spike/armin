@@ -12,9 +12,10 @@ export const AutoGrowTextarea = React.forwardRef<
   HTMLTextAreaElement,
   React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
     minHeight: number;
-    maxHeight: number;
+    /** Omit to keep growing with the content and never scroll. */
+    maxHeight?: number;
   }
->(({ value, minHeight, maxHeight, className, style, ...props }, forwardedRef) => {
+>(({ value, minHeight, maxHeight = Infinity, className, style, ...props }, forwardedRef) => {
   const localRef = React.useRef<HTMLTextAreaElement>(null);
 
   const setRef = React.useCallback(
@@ -42,7 +43,7 @@ export const AutoGrowTextarea = React.forwardRef<
       ref={setRef}
       value={value}
       className={cn("resize-none", className)}
-      style={{ minHeight, maxHeight, ...style }}
+      style={{ minHeight, maxHeight: Number.isFinite(maxHeight) ? maxHeight : undefined, ...style }}
       {...props}
     />
   );

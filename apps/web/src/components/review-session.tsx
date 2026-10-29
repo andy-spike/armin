@@ -56,6 +56,7 @@ import type {
 } from "@armin/core/review-session";
 import { useReviewSession } from "@/lib/use-review-session";
 import { DeleteConsequencesList } from "@/components/delete-consequences-list";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /*
@@ -524,14 +525,15 @@ export function ReviewSession({
               )}
             >
               {card.deck && card.deckId && (
-                <Link
-                  to="/deck/$deckId"
-                  params={{ deckId: card.deckId }}
-                  title={card.deck}
-                  className="min-w-0 truncate rounded-sm transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  {card.deck}
-                </Link>
+                <Tooltip content={card.deck} side="bottom">
+                  <Link
+                    to="/deck/$deckId"
+                    params={{ deckId: card.deckId }}
+                    className="min-w-0 truncate rounded-sm transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    {card.deck}
+                  </Link>
+                </Tooltip>
               )}
               <span className="shrink-0">
                 {index + 1} / {cards.length}
@@ -641,15 +643,11 @@ export function ReviewSession({
 
           <div className="relative flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-border-strong bg-paper px-5 py-10 text-center sm:min-h-[300px] sm:px-10 sm:py-12">
             <div className="absolute top-3 right-3 flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Card info"
-                title="Card info (I)"
-                onClick={openInfo}
-              >
-                <Info className="h-4 w-4" />
-              </Button>
+              <Tooltip content="Card info (I)" className="px-2.5 py-1.5">
+                <Button variant="ghost" size="icon-sm" aria-label="Card info" onClick={openInfo}>
+                  <Info className="h-4 w-4" />
+                </Button>
+              </Tooltip>
               <DropdownMenu onOpenChange={prefetchFlashcard}>
                 <DropdownMenuTrigger
                   render={<Button variant="ghost" size="icon-sm" aria-label="Flashcard actions" />}

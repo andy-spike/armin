@@ -124,6 +124,11 @@ export function MarkdownEditor({
   const replacing = useRef(false);
   const loaded = useRef(value);
   const [source, setSource] = useState(() => needsSourceMode(value));
+  // Switching between rich text and source keeps the box at least as tall as
+  // it was, so the page doesn't jump when the two modes wrap text differently.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [switchHeight, setSwitchHeight] = useState<number | null>(null);
+  const holdHeight = () => setSwitchHeight(bodyRef.current?.offsetHeight ?? null);
   const sourceMode = useRef(source);
   const [uploading, setUploading] = useState(0);
   useLayoutEffect(() => {
@@ -356,8 +361,12 @@ export function MarkdownEditor({
         uploading={uploading > 0}
         onCommand={(command) => crepeRef.current?.editor.action(command)}
         onAddImage={() => fileRef.current?.click()}
-        onEditSource={() => setSource(true)}
+        onEditSource={() => {
+          holdHeight();
+          setSource(true);
+        }}
         onRichText={() => {
+          holdHeight();
           setReady(false);
           setFormats(NO_FORMATS);
           setSource(false);
@@ -365,7 +374,9 @@ export function MarkdownEditor({
         richTextBlocked={source && needsSourceMode(value)}
       />
       <div
-        className="min-h-[88px] px-3 py-2 text-sm leading-relaxed text-ink"
+        ref={bodyRef}
+        style={switchHeight ? { minHeight: switchHeight } : undefined}
+        className="flex min-h-[88px] flex-col px-3 py-2 text-sm leading-relaxed text-ink"
         {...(autoFocus ? { "data-autofocus": true } : {})}
       >
         {source ? (
@@ -374,11 +385,10 @@ export function MarkdownEditor({
             value={value}
             onChange={(event) => onChange(event.target.value)}
             autoFocus={autoFocus}
-            minHeight={88}
-            maxHeight={300}
+            minHeight={72}
             placeholder={placeholder}
             aria-label={ariaLabel}
-            className="resize-none border-0 bg-transparent px-0 py-0 font-mono text-xs focus-visible:ring-0"
+            className="flex-1 resize-none border-0 bg-transparent px-0 py-0 font-mono text-xs focus-visible:ring-0"
           />
         ) : (
           <>
