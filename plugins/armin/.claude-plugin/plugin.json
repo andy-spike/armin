@@ -9,7 +9,7 @@
   },
   "homepage": "https://armincards.app",
   "repository": "https://github.com/andy-spike/armin",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "keywords": ["flashcards", "spaced-repetition", "study", "learning", "fsrs", "anki"],
   "icon": "./assets/logo.png",
   "documentationUrl": "https://armincards.app/docs/mcp",

@@ -216,7 +216,7 @@ export function LandingPage() {
             <ArminMark className="size-4.5" />
             <ArminWordmark />
           </span>
-          <span>Open source under the MIT license</span>
+          <span>Open source under the AGPL-3.0 license</span>
           <a
             href={GITHUB_URL}
             className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -395,7 +395,7 @@ function FactsList() {
     },
     {
       term: "Open source",
-      detail: "MIT licensed. Read the code, report issues, and follow along on GitHub.",
+      detail: "AGPL-3.0 licensed. Read the code, report issues, and follow along on GitHub.",
       href: GITHUB_URL,
     },
   ];
