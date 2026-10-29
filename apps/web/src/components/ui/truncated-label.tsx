@@ -5,8 +5,8 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /**
- * Tracks whether the referenced element's content is clipped horizontally
- * (`scrollWidth > clientWidth`). Re-measures via a `ResizeObserver`, so it stays
+ * Tracks whether the referenced element's content is clipped, across (an
+ * ellipsis) or down (a line clamp). Re-measures via a `ResizeObserver`, so it stays
  * correct when the container width changes (e.g. a popup anchored to a trigger).
  */
 export function useIsTruncated<T extends HTMLElement>() {
@@ -15,7 +15,7 @@ export function useIsTruncated<T extends HTMLElement>() {
 
   const measure = useCallback(() => {
     const el = ref.current;
-    if (el) setTruncated(el.scrollWidth > el.clientWidth);
+    if (el) setTruncated(el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight + 1);
   }, []);
 
   useLayoutEffect(() => {
@@ -59,6 +59,44 @@ export function TruncatedLabel({
   if (!truncated) return span;
   return (
     <Tooltip content={tooltip} side={side}>
+      {span}
+    </Tooltip>
+  );
+}
+
+/**
+ * Text clamped to a fixed number of lines. Like `TruncatedLabel`, it shows the
+ * full text in a tooltip only when lines are actually cut off.
+ */
+export function ClampedLabel({
+  label,
+  lines,
+  side = "top",
+  className,
+}: {
+  label: string;
+  lines: 2 | 3;
+  side?: "top" | "bottom" | "left" | "right";
+  className?: string;
+}) {
+  const { ref, truncated } = useIsTruncated<HTMLSpanElement>();
+
+  const span = (
+    <span
+      ref={ref}
+      className={cn(
+        "block min-w-0 break-words",
+        lines === 2 ? "line-clamp-2" : "line-clamp-3",
+        className,
+      )}
+    >
+      {label}
+    </span>
+  );
+
+  if (!truncated) return span;
+  return (
+    <Tooltip content={label} side={side}>
       {span}
     </Tooltip>
   );

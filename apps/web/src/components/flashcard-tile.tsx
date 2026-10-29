@@ -293,7 +293,7 @@ function FlashcardTileBody({
   return (
     <div
       className={cn(
-        "group relative flex min-h-[13.5rem] w-full flex-1 cursor-pointer flex-col p-4 transition-[border-color,background-color,box-shadow] duration-150",
+        "group relative flex h-[13.5rem] w-full cursor-pointer flex-col overflow-hidden p-4 transition-[border-color,background-color,box-shadow] duration-150",
         "border border-border bg-surface",
         "hover:border-border-strong hover:bg-surface-sunken hover:shadow-sm",
         card.locked && "opacity-65",
@@ -330,8 +330,10 @@ function FlashcardTileBody({
           {!deckName && actionMenu}
         </div>
 
-        <div className="mt-3 flex flex-1 flex-col">
-          <div className="flex flex-col gap-1">
+        {/* Every tile is one size: text clamps and extra tags are cut off, so
+            the grid never grows a tall row for one long card. */}
+        <div className="mt-3 flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden [mask-image:linear-gradient(to_bottom,black_calc(100%-1rem),transparent)]">
             <CardPreviewText
               content={card.front}
               className="line-clamp-2 text-sm font-medium text-ink"
@@ -350,11 +352,11 @@ function FlashcardTileBody({
               )}
             >
               {card.tags?.length > 0 && (
-                <ul className="flex min-w-0 flex-wrap gap-1">
+                <ul className="flex min-w-0 gap-1 overflow-hidden">
                   {card.tags.map((tag) => (
                     <li
                       key={tag}
-                      className="rounded-sm bg-surface-sunken px-1.5 py-0.5 text-[0.6875rem] font-medium text-muted"
+                      className="shrink-0 rounded-sm bg-surface-sunken px-1.5 py-0.5 text-[0.6875rem] font-medium whitespace-nowrap text-muted"
                     >
                       {tag}
                     </li>

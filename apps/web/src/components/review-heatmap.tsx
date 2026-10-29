@@ -37,7 +37,7 @@ const EDGE_ROOM = 4;
 const MONTH_ROW = 16;
 
 const SIZES = {
-  compact: { maxCell: 22, minCell: 12, gap: 3 },
+  compact: { maxCell: 13, minCell: 10, gap: 2 },
   full: { maxCell: 18, minCell: 11, gap: 3 },
 } as const;
 
@@ -204,7 +204,7 @@ export function ReviewHeatmap({
             </span>
           ))}
         </div>
-        <div ref={scroller} className="armin-scrollbar min-w-0 flex-1 overflow-x-auto pb-1">
+        <div ref={scroller} className="min-w-0 flex-1 overflow-x-auto pb-1">
           <div
             style={{
               minWidth: weeks * minCell + (weeks - 1) * gap + EDGE_ROOM,
