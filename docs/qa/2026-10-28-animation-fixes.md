@@ -28,9 +28,28 @@ watching them play; timing and feel were not judged by eye.
    `translate` property, fixed to `transition-[opacity,translate]`.
 5. `pnpm check` and `pnpm --filter @armin/web build` pass.
 
+## Follow-up in desktop Chromium (visible tab, real frames)
+
+agent-browser attached over CDP to the user's running Chromium (port 9222) in
+its own tab, which was visible and rendered about 56 frames per second. Values
+were sampled every animation frame.
+
+1. 001: pressing Space started no animations; the answer appeared at once.
+2. 002: the cloze popover's opacity went 0 → 0.60 → 0.88 → 1 and back to 0
+   over about 100ms with `transform: none` throughout, then unmounted.
+3. 004: the `[` shortcut moved the sidebar gap straight between 268px and
+   48px in one frame; a click eased through 12 intermediate widths.
+4. 005 (stand-in with the toast's classes): enter faded 0 → 1 while `translate`
+   eased 8px → 0; exit reversed and fired `transitionend`; dismissing at 0.88
+   opacity reversed from there without jumping back to 1.
+5. 003, with reduced motion emulated for that tab: the Edit flashcard dialog
+   faded out with no transform and unmounted; a sidebar click jumped instead of
+   sliding; the toast stand-in faded with `translate: none`; the Sort decks
+   menu faded with an identity transform; buttons kept their 150ms color
+   transitions. The emulation was turned off and the tab closed afterwards.
+
 ## Not exercised
 
-- Reduced motion (003) in the browser: not emulated in this run.
 - A real toast: every toast in the app follows a data-changing action.
-- Watching any of the motion at full speed or in slow motion.
+- Judging feel by eye or in slow motion; the checks above are frame samples.
 - Mobile; none of these changes touch it.
