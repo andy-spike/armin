@@ -53,6 +53,17 @@ chip and after it in both themes
 ([dark](2026-10-28-cloze-chips/chip-restyle-dark.png),
 [light](2026-10-28-cloze-chips/chip-restyle-light.png)).
 
+## Follow-up: footnote number and plain caret
+
+The L-shaped caret at chip edges was Crepe's virtual cursor, which marks the
+edge of non-extending inline formatting (chips, inline code). It is now off
+for every card editor, so the browser's own caret shows. The card number moved
+after the answer as a superscript, like a footnote marker, with any hint after
+it. Checked the caret inside a chip, at its right edge, and at its left edge,
+plus a hint ("mass¹ · a quantity", not saved)
+([footnote-number-and-caret.png](2026-10-28-cloze-chips/footnote-number-and-caret.png)).
+No virtual cursor element remains in the editor.
+
 ## Notes
 
 - Phone widths and touch input were not checked.

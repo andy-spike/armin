@@ -229,6 +229,9 @@ export function MarkdownEditor({
       },
       featureConfigs: {
         [Crepe.Feature.Placeholder]: { text: placeholder ?? "", mode: "doc" },
+        // The browser's own caret: the virtual cursor draws an L-shaped caret
+        // at the edges of inline code and cloze chips.
+        [Crepe.Feature.Cursor]: { virtual: false },
         [Crepe.Feature.ImageBlock]: { onUpload: (file) => uploadRef.current(file) },
       },
     });

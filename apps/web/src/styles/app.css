@@ -363,33 +363,29 @@
  * Milkdown Crepe card authoring
  * ------------------------------------------------------------------ */
 /* A cloze deletion in the card editor: the hidden text gets a soft accent
- * wash, led by its card number as a small raised numeral, with a hint after
- * it in muted italics. Everything stays inline text at the paragraph's own
- * line height (no padded boxes), so the caret and line spacing behave exactly
- * as in plain text. Unlayered, like Crepe's own theme, which would otherwise
- * reset these styles. */
+ * wash with its card number after it as a superscript, like a footnote
+ * marker, and any hint after that in muted italics. Everything stays inline
+ * text at the paragraph's own line height, so the caret and line spacing
+ * behave as in plain text. Unlayered, like Crepe's own theme, which would
+ * otherwise reset these styles. */
 .card-markdown-editor .cloze-chip {
   padding: 0.1em 0.2em;
   border-radius: 3px;
   background: color-mix(in oklch, var(--color-accent) 16%, transparent);
   color: var(--color-accent-deep);
   font-weight: 500;
-  text-decoration: underline dotted color-mix(in oklch, var(--color-accent) 55%, transparent);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
-.card-markdown-editor .cloze-chip::before {
+.card-markdown-editor .cloze-answer::after {
   content: attr(data-cluster);
-  margin-right: 0.2em;
+  margin-left: 0.12em;
   color: var(--color-accent);
   font-family: var(--font-mono);
   font-size: 0.68em;
   font-weight: 600;
-  vertical-align: 0.45em;
+  vertical-align: 0.5em;
   line-height: 0;
-  text-decoration: none;
 }
 .card-markdown-editor .cloze-chip[data-hint]::after {
   content: " · " attr(data-hint);

@@ -105,16 +105,21 @@ export const clozeSchema = $markSchema("cloze", () => ({
       }),
     },
   ],
-  toDOM: (mark) => [
-    "span",
-    {
-      "data-cloze": "",
-      class: "cloze-chip",
-      "data-cluster": mark.attrs.cluster == null ? "?" : String(mark.attrs.cluster),
-      ...(mark.attrs.hint ? { "data-hint": mark.attrs.hint } : {}),
-    },
-    0,
-  ],
+  // The answer sits in an inner span so its card number can follow it as a
+  // superscript, footnote-style, with the hint after that.
+  toDOM: (mark) => {
+    const cluster = mark.attrs.cluster == null ? "?" : String(mark.attrs.cluster);
+    return [
+      "span",
+      {
+        "data-cloze": "",
+        class: "cloze-chip",
+        "data-cluster": cluster,
+        ...(mark.attrs.hint ? { "data-hint": mark.attrs.hint } : {}),
+      },
+      ["span", { class: "cloze-answer", "data-cluster": cluster }, 0],
+    ];
+  },
   parseMarkdown: {
     match: (node) => node.type === "cloze",
     runner: (state, node, markType) => {
