@@ -116,9 +116,10 @@ function BrowsePage() {
     onError: (error) => notifySaveError(toast, "Couldn’t update flashcard", error),
   });
 
-  const saveCard = (values: CardFormValues) => {
+  // Awaited, so the dialog shows its save as busy until the server answers.
+  const saveCard = async (values: CardFormValues) => {
     if (!editing) return;
-    updateCard.mutate({ id: editing.id, version: editing.version, ...values });
+    await updateCard.mutateAsync({ id: editing.id, version: editing.version, ...values });
   };
 
   const allTags = tagsQuery.data ?? [];
