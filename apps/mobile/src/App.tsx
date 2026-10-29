@@ -265,7 +265,18 @@ function Study({ now, active }: { now: number; active: boolean }) {
   }
 
   const latest = queue?.items.find((item) => item.reviewUnitId === shown?.item.reviewUnitId);
-  const changed = Boolean(shown && (!latest || latest.version !== shown.item.version));
+  // Admission can disappear when another device uses the daily budget. Verify
+  // the displayed unit directly before treating queue exclusion as a change.
+  const displayedContents = useQuery(
+    api.review.items,
+    active && shown && !latest ? { ids: [shown.item.reviewUnitId] } : "skip",
+  );
+  const current = latest ?? displayedContents?.[0];
+  const changed = Boolean(
+    shown &&
+    ((current && current.version !== shown.item.version) ||
+      (!latest && displayedContents !== undefined && !current)),
+  );
 
   if (queue === undefined || ((queue?.items.length ?? 0) > 0 && !shown && !first))
     return <ActivityIndicator />;

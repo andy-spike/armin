@@ -97,3 +97,21 @@ stayed approximately 799 kB raw / 255 kB gzip. Filtered Browse substring search,
 per-card summary rebuilds (at most 60 siblings), and exact library revisions
 were retained: the audit identified those as conditional profiling candidates,
 not demonstrated bottlenecks warranting semantic or architectural changes.
+
+### PR merge follow-up
+
+The PR's initial Verify failure was limited to formatting in the two HTML
+visual summaries. Reformatted both. Addressed the automated review findings:
+upcoming web content-cache entries now refresh on reactive content updates,
+while the displayed unit/version remains a snapshot; mobile verifies a displayed
+unit through `review.items` when it leaves the admission queue, so another
+client consuming the daily budget does not hide an unchanged prompt.
+
+A temporary Node harness executed the actual cache-update loop and mobile
+change-detection expression extracted from the source. It verified upcoming
+image refresh, displayed snapshot preservation, unchanged budget exclusion,
+loading versus deletion, and version-change detection. No test suite was added.
+The existing running-app walkthrough above covers the study flow; these two
+cross-client edge cases were checked through the focused harness rather than a
+new device/browser walkthrough. Local `pnpm check`, web build, and Android/iOS
+bundle export were rerun for the follow-up.

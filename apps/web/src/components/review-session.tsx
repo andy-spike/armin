@@ -393,7 +393,8 @@ export function ReviewSession({
         : new Map<string, UiReviewUnit>();
     for (const item of contents.data ?? []) {
       const key = `${item.reviewUnitId}:${item.version}`;
-      if (!next.has(key)) next.set(key, toUiReviewUnit(item));
+      const displayedKey = descriptor ? `${descriptor.id}:${descriptor.version}` : undefined;
+      if (key !== displayedKey || !next.has(key)) next.set(key, toUiReviewUnit(item));
     }
     setContentCache({ resetKey, source: contents.data, cards: next });
   }
