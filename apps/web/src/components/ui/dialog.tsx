@@ -332,11 +332,43 @@ class ViewSwap extends React.Component<{
     });
     const overflow = panel.style.overflow;
     panel.style.overflow = "hidden";
+    // While the panel resizes, its scrolling body is squeezed and would flash a
+    // scrollbar it doesn't need. Scrolling waits for the final size.
+    const scrollers = incoming.filter((child) =>
+      /auto|scroll/.test(getComputedStyle(child).overflowY),
+    );
+    const scrollerStyle = scrollers.map((child) => ({
+      overflowY: child.style.overflowY,
+      paddingRight: child.style.paddingRight,
+    }));
+    for (const child of scrollers) {
+      // The panel is already at its final size here, so the body's width with
+      // its scrollbar (if it will have one) is known. Hold exactly that space
+      // while scrolling is off, so the content doesn't shift when it returns.
+      const withScrollbar = child.clientWidth;
+      child.style.overflowY = "hidden";
+      const gutter = child.clientWidth - withScrollbar;
+      if (gutter > 0) {
+        child.style.paddingRight = `${parseFloat(getComputedStyle(child).paddingRight) + gutter}px`;
+      }
+    }
     const finish = () => {
       ghost.remove();
       if (this.ghost === ghost) this.ghost = null;
       for (const undo of restore) undo();
       panel.style.overflow = overflow;
+      scrollers.forEach((child, index) => {
+        Object.assign(child.style, scrollerStyle[index]);
+        if (child.scrollHeight <= child.clientHeight) return;
+        // The content really overflows: fade the scrollbar in, don't pop it.
+        child.animate(
+          [
+            { scrollbarColor: "transparent transparent" },
+            { scrollbarColor: "var(--color-border-strong) transparent" },
+          ],
+          { duration: 200, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
+        );
+      });
     };
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
