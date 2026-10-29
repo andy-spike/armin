@@ -8,6 +8,7 @@ import type { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dr
 import { useToast } from "@/components/ui/toast";
 import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
+import { editSaved, forgetEdit, requestDelete, requestRename } from "@/lib/pending-deck-edits";
 import { forgetPin, pinSaved, requestPin } from "@/lib/pending-pins";
 import type { UiDeck } from "@/types/view-models";
 
@@ -60,25 +61,39 @@ export function useDeckActions({ onDeleted }: { onDeleted?: (deck: UiDeck) => vo
   const [deletingDeck, setDeletingDeck] = useState<UiDeck | null>(null);
   const [closingAfterDelete, setClosingAfterDelete] = useState(false);
 
+  // Renames and deletes show at once and close their dialog; the live deck
+  // list takes a couple of seconds to catch up. A failure puts things back.
   const updateDeck = useMutation({
     mutationFn: (input: { id: string; version: number; name: string }) => armin.decks.update(input),
-    onSuccess: (_result, deck) => {
-      toast({ tone: "success", title: "Deck renamed", description: deck.name });
+    onMutate: (deck) => {
+      requestRename(deck.id, deck.name);
       setClosingAfterRename(true);
       setRenameOpen(false);
     },
-    onError: (error) => notifySaveError(toast, "Couldn’t rename deck", error),
+    onSuccess: (_result, deck) => {
+      editSaved("rename", deck.id);
+      toast({ tone: "success", title: "Deck renamed", description: deck.name });
+    },
+    onError: (error, deck) => {
+      forgetEdit("rename", deck.id);
+      notifySaveError(toast, "Couldn’t rename deck", error);
+    },
   });
 
   const deleteDeck = useMutation({
     mutationFn: (deck: UiDeck) => armin.decks.delete(deck.id),
-    onSuccess: (_result, deck) => {
-      toast({ tone: "success", title: "Deck deleted" });
+    onMutate: (deck) => {
+      requestDelete(deck.id);
       setClosingAfterDelete(true);
       setDeleteOpen(false);
       onDeleted?.(deck);
     },
-    onError: () => {
+    onSuccess: (_result, deck) => {
+      editSaved("delete", deck.id);
+      toast({ tone: "success", title: "Deck deleted" });
+    },
+    onError: (_error, deck) => {
+      forgetEdit("delete", deck.id);
       toast({ tone: "error", title: "Couldn’t delete deck" });
     },
   });

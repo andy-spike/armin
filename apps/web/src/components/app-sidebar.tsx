@@ -56,8 +56,8 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
+import { useShownDecks, type ShownDeck } from "@/lib/pending-deck-edits";
 import { usePinnedAt } from "@/lib/pending-pins";
-import type { UiDeck } from "@/types/view-models";
 import { ArminMark, ArminWordmark } from "@/components/brand";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -434,7 +434,8 @@ function DeckList({
   // Same cache entry as the Decks page, so both stay in step.
   const decksQuery = useQuery({ ...decksQueryOptions(useStudyClock()), enabled: ready });
   const [sort, setSort] = useDeckListSort();
-  const decks = sortDecks(decksQuery.data ?? [], sort);
+  const shownDecks = useShownDecks(decksQuery.data);
+  const decks = sortDecks(shownDecks ?? [], sort);
   const navigate = useNavigate();
   // Deleting the open deck leaves its page behind, so return to Decks.
   const deckActions = useDeckActions({
@@ -443,23 +444,30 @@ function DeckList({
     },
   });
 
-  const pinnedAt = usePinnedAt(decksQuery.data);
-  const pinned = (decksQuery.data ?? [])
+  const pinnedAt = usePinnedAt(shownDecks);
+  const pinned = (shownDecks ?? [])
     .filter((deck) => pinnedAt(deck) != null)
     .sort((a, b) => (pinnedAt(a) ?? 0) - (pinnedAt(b) ?? 0));
 
   if (decksQuery.isSuccess && decks.length === 0) return null;
 
-  const deckRow = (deck: UiDeck) => {
+  const deckRow = (deck: ShownDeck) => {
     const path = `/deck/${deck.slug}`;
     return (
       <ContextMenu key={deck.id}>
         <ContextMenuTrigger
           // Off-screen rows skip layout and paint but stay in the
           // DOM for find-in-page, focus, and screen readers. The
-          // clip margin keeps the focus ring visible.
+          // clip margin keeps the focus ring visible. A deck still being
+          // created can't be opened or edited yet.
           render={
-            <SidebarMenuItem className="[contain-intrinsic-size:auto_2rem] [content-visibility:auto] [overflow-clip-margin:4px]" />
+            <SidebarMenuItem
+              inert={deck.pending}
+              className={cn(
+                "[contain-intrinsic-size:auto_2rem] [content-visibility:auto] [overflow-clip-margin:4px]",
+                deck.pending && "opacity-60",
+              )}
+            />
           }
         >
           <SidebarMenuButton

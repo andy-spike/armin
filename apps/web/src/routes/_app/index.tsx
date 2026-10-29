@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { plural } from "@/lib/utils";
+import { cn, plural } from "@/lib/utils";
 import { armin, errorMessage, newRequestId } from "@/lib/armin-client";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -41,6 +41,7 @@ import {
   prefetchDecksPage,
   statsHeatmapQuery,
 } from "@/lib/queries";
+import { forgetEdit, requestCreate, useShownDecks } from "@/lib/pending-deck-edits";
 import { useDeckPinnedAt } from "@/lib/pending-pins";
 import { STATS_COMPACT_HEATMAP_WEEKS } from "@armin/core/stats";
 import type { StatsHeatmap } from "@armin/backend/types";
@@ -61,26 +62,32 @@ function DecksPage() {
   const decksQuery = useQuery(decksQueryOptions(now));
   const deckActions = useDeckActions();
 
-  const decks = decksQuery.data ?? [];
+  const shownDecks = useShownDecks(decksQuery.data);
+  const decks = shownDecks ?? [];
   const heatmapQuery = useQuery({
     ...statsHeatmapQuery(STATS_COMPACT_HEATMAP_WEEKS, now),
     enabled: decks.length > 0,
   });
-  const sortedDecks = useMemo(
-    () => sortDecks(decksQuery.data ?? [], sort),
-    [decksQuery.data, sort],
-  );
+  const sortedDecks = useMemo(() => sortDecks(shownDecks ?? [], sort), [shownDecks, sort]);
 
+  // The new deck shows as a placeholder at once and the dialog closes; the
+  // mutation resolves only once the live list includes the real deck.
   const createDeck = useMutation({
-    mutationFn: (input: { name: string; description?: string | null }) =>
+    mutationFn: (input: { name: string; description: string | null }) =>
       armin.decks.create({ ...input, requestId: createRequestId.current }),
-    onSuccess: (_deck, input) => {
-      toast({ tone: "success", title: "Deck created", description: input.name });
+    onMutate: (input) => {
       setClosingAfterCreate(true);
       setOpen(false);
+      return { placeholder: requestCreate(input.name, input.description) };
+    },
+    onSuccess: (_deck, input) => {
+      toast({ tone: "success", title: "Deck created", description: input.name });
     },
     onError: (error) => {
       toast({ tone: "error", title: "Couldn’t create deck", description: errorMessage(error) });
+    },
+    onSettled: (_result, _error, _input, context) => {
+      if (context) forgetEdit("create", context.placeholder);
     },
   });
 
@@ -165,7 +172,8 @@ function DecksPage() {
       {!decksQuery.isLoading && !decksQuery.isError && decks.length > 0 && (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sortedDecks.map((deck) => (
-            <li key={deck.id}>
+            // A deck still being created can't be opened or edited yet.
+            <li key={deck.id} inert={deck.pending} className={cn(deck.pending && "opacity-60")}>
               <DeckTile
                 deck={deck}
                 onPrefetch={() => prefetchDeckPage(queryClient, deck.id)}
