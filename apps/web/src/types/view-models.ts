@@ -1,3 +1,4 @@
+import type { ReviewQueueDescriptor } from "@armin/backend/types";
 /**
  * Study data types and view models as the web UI sees them. They come from the Convex
  * backend's public function return types, so client and server stay in sync.
@@ -75,6 +76,7 @@ export type UiReviewUnit = {
   /** Review-unit version shown; a rating names it so stale answers are rejected. */
   version: number;
   isNew: boolean;
+  hydrated?: boolean;
 };
 
 export type UiGraphNode = {
@@ -162,7 +164,22 @@ export function toUiBrowseFlashcard(flashcard: BrowseFlashcard): UiBrowseFlashca
   };
 }
 
-export function toUiReviewUnit(item: ReviewQueueItem): UiReviewUnit {
+export function toUiReviewUnit(item: ReviewQueueItem | ReviewQueueDescriptor): UiReviewUnit {
+  if (!("content" in item)) {
+    return {
+      id: item.reviewUnitId,
+      flashcardId: item.flashcardId,
+      deckId: item.deckId,
+      type: "basic",
+      content: { front: "", back: "" },
+      subKey: item.subKey,
+      front: "",
+      back: "",
+      version: item.version,
+      isNew: item.isNew,
+      hydrated: false,
+    };
+  }
   return {
     id: item.reviewUnitId,
     flashcardId: item.flashcardId,
@@ -175,6 +192,7 @@ export function toUiReviewUnit(item: ReviewQueueItem): UiReviewUnit {
     deckId: item.deckId,
     version: item.version,
     isNew: item.isNew,
+    hydrated: item.hydrated,
   };
 }
 

@@ -13,7 +13,16 @@ import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { activeDeckIds, owned, readableLibrary, writableLibrary } from "./model/access";
-import { checkEligible, isBuried, selectSession, toQueueItems } from "./model/queue";
+import {
+  checkEligible,
+  isBuried,
+  selectSession,
+  toQueueItems,
+  queueDescriptors,
+  dueEligibleUnits,
+  introducedToday,
+  reviewsDoneToday,
+} from "./model/queue";
 import {
   bumpRevision,
   displayFor,
@@ -36,8 +45,8 @@ const GRADES: Grade[] = [Rating.Again, Rating.Hard, Rating.Good, Rating.Easy];
  * Convex argument validation.
  */
 export const queue = query({
-  args: { deckId: v.optional(v.string()), now: v.number() },
-  handler: async (ctx, { deckId: deckIdArg }) => {
+  args: { deckId: v.optional(v.string()), now: v.number(), metadataOnly: v.optional(v.boolean()) },
+  handler: async (ctx, { deckId: deckIdArg, now, metadataOnly }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
     let deckId: Id<"decks"> | null = null;
@@ -47,11 +56,12 @@ export const queue = query({
       const deck = await ctx.db.get(deckId);
       if (!deck || deck.libraryId !== library._id || deck.staging) return null;
     }
-    const now = Date.now();
     const { reviews, frontier } = await selectSession(ctx, library, deckId, now);
     const nextDue = await nextDueAfter(ctx, library, deckId, now);
     return {
-      items: await toQueueItems(ctx, [...reviews, ...frontier]),
+      items: metadataOnly
+        ? queueDescriptors([...reviews, ...frontier])
+        : await toQueueItems(ctx, [...reviews, ...frontier]),
       reviewCount: reviews.length,
       newCount: frontier.length,
       nextDueAt: nextDue,
@@ -68,14 +78,35 @@ export const queue = query({
  */
 export const status = query({
   args: { now: v.number() },
-  handler: async (ctx) => {
+  handler: async (ctx, { now }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const now = Date.now();
-    const { reviews, frontier } = await selectSession(ctx, library, null, now);
+    const units = await dueEligibleUnits(ctx, library, null, now);
+    const settings = new SettingsCache(ctx, library._id);
+    const today = await introducedToday(ctx, library, now);
+    const limit = (await settings.globalSettings()).reviewsPerDay;
+    const shared = {
+      settings,
+      today,
+      reviewsDoneToday:
+        limit == null ? 0 : await reviewsDoneToday(ctx, library, today.since, limit),
+    };
+    const { reviews, frontier } = await selectSession(ctx, library, null, now, {
+      ...shared,
+      deckUnits: units,
+    });
+    const perDeck: Record<string, number> = {};
+    for (const id of await activeDeckIds(ctx, library._id)) {
+      const selected = await selectSession(ctx, library, id, now, {
+        ...shared,
+        deckUnits: units.filter((unit) => unit.deckId === id),
+      });
+      perDeck[id] = selected.reviews.length + selected.frontier.length;
+    }
     const nextDue = await nextDueAfter(ctx, library, null, now);
     const nextDay = startOfNextStudyDayMs(now, library.timeZone);
     return {
+      perDeck,
       due: reviews.length + frontier.length,
       refreshAt: nextDue == null ? nextDay : Math.min(nextDue, nextDay),
     };
@@ -93,23 +124,33 @@ async function nextDueAfter(
   const decks = deckId
     ? new Set(scopedDeck?.libraryId === library._id && !scopedDeck.staging ? [deckId] : [])
     : await activeDeckIds(ctx, library._id);
+  if (library.statsReady) {
+    const rows = deckId
+      ? ctx.db
+          .query("unitSummaries")
+          .withIndex("by_deck_due", (q) =>
+            q.eq("deckId", deckId).eq("locked", false).eq("archived", false).gt("due", now),
+          )
+      : ctx.db
+          .query("unitSummaries")
+          .withIndex("by_library_due", (q) =>
+            q.eq("libraryId", library._id).eq("locked", false).eq("archived", false).gt("due", now),
+          );
+    for await (const unit of rows) {
+      if (decks.has(unit.deckId) && !isBuried(unit, now)) return unit.due;
+    }
+    return null;
+  }
   let earliest: number | null = null;
-  // A bury ends at the next study day, which `status` already schedules, but a
-  // buried unit can also hide a later unit that falls due sooner. Look past a
-  // bounded run of buried units so the clock still wakes for that one.
-  const MAX_BURIED_SCAN = 10;
-  for (const id of deckId ? (decks.has(deckId) ? [deckId] : []) : decks) {
-    const future = await ctx.db
+  for (const id of decks) {
+    const units = await ctx.db
       .query("reviewUnits")
       .withIndex("by_deck_eligible_due", (q) =>
         q.eq("deckId", id).eq("locked", false).eq("archived", false).gt("due", now),
       )
-      .take(MAX_BURIED_SCAN + 1);
-    for (const unit of future) {
-      if (isBuried(unit, now)) continue;
-      if (earliest === null || unit.due < earliest) earliest = unit.due;
-      break;
-    }
+      .take(11);
+    const due = units.find((unit) => !isBuried(unit, now))?.due;
+    if (due != null && (earliest == null || due < earliest)) earliest = due;
   }
   return earliest;
 }
@@ -538,5 +579,44 @@ export const unbury = mutation({
     const result: UnburyResult = { status: "ok", flashcardId: flashcard._id };
     await recordRequest(ctx, library._id, args.requestId, "review.unbury", result, now);
     return result;
+  },
+});
+
+/** Card text is subscribed only for a small look-ahead window. */
+export const items = query({
+  args: { ids: v.array(v.id("reviewUnits")) },
+  returns: v.array(
+    v.object({
+      reviewUnitId: v.id("reviewUnits"),
+      flashcardId: v.id("flashcards"),
+      deckId: v.id("decks"),
+      deckName: v.string(),
+      type: v.union(
+        v.literal("basic"),
+        v.literal("basic_reversed"),
+        v.literal("cloze"),
+        v.literal("type_answer"),
+        v.literal("image_occlusion"),
+      ),
+      content: v.any(),
+      subKey: v.string(),
+      front: v.string(),
+      back: v.string(),
+      version: v.number(),
+      flashcardVersion: v.number(),
+      due: v.number(),
+      isNew: v.boolean(),
+      hydrated: v.boolean(),
+    }),
+  ),
+  handler: async (ctx, { ids }) => {
+    const library = await readableLibrary(ctx);
+    if (!library) return [];
+    const units = [];
+    for (const id of ids.slice(0, 8)) {
+      const unit = await owned(ctx, library, id);
+      if (unit) units.push(unit);
+    }
+    return toQueueItems(ctx, units);
   },
 });

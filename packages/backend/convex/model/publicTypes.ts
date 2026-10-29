@@ -10,7 +10,11 @@ export type DeckWithStats = NonNullable<FunctionReturnType<typeof api.decks.list
 export type FlashcardWithMeta = NonNullable<FunctionReturnType<typeof api.flashcards.get>>;
 export type BrowsePage = NonNullable<FunctionReturnType<typeof api.flashcards.browse>>;
 export type ReviewQueue = NonNullable<FunctionReturnType<typeof api.review.queue>>;
-export type ReviewQueueItem = ReviewQueue["items"][number];
+export type ReviewQueueDescriptor = Pick<
+  ReviewQueue["items"][number],
+  "reviewUnitId" | "flashcardId" | "deckId" | "subKey" | "version" | "due" | "isNew" | "hydrated"
+>;
+export type ReviewQueueItem = FunctionReturnType<typeof api.review.items>[number];
 export type CramQueue = NonNullable<FunctionReturnType<typeof api.cram.queue>>;
 export type CramQueueItem = CramQueue["items"][number];
 export type ReviewPreview = NonNullable<FunctionReturnType<typeof api.review.preview>>;

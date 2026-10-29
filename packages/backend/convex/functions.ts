@@ -17,8 +17,8 @@ import { withSummaries } from "./model/summaries";
 const summaries = {
   args: {},
   input: async (ctx: Parameters<typeof withSummaries>[0]) => {
-    const { db, flush } = withSummaries(ctx);
-    return { ctx: { db }, args: {}, onSuccess: flush };
+    const { db, flush, batch } = withSummaries(ctx);
+    return { ctx: { db, activityBatch: batch }, args: {}, onSuccess: flush };
   },
 };
 

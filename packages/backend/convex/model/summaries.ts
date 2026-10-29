@@ -1,3 +1,14 @@
+import { internal } from "../_generated/api";
+import {
+  activityCutoff,
+  activityBatch,
+  flushActivity,
+  recordActivity,
+  transferActivity,
+  removeDeckActivity,
+  syncUnitSummary,
+  syncLogBoundary,
+} from "./performance";
 import { Triggers } from "convex-helpers/server/triggers";
 import { flashcardDisplay, type TypeAnswerContent } from "@armin/core/flashcard-types";
 import { State } from "@armin/core/scheduler";
@@ -13,7 +24,10 @@ import { parseFlashcard } from "./study";
  * mutation gets this through `convex/functions.ts`.
  */
 
-type SummaryCtx = MutationCtx & { touchedFlashcards: Set<Id<"flashcards">> };
+type SummaryCtx = MutationCtx & {
+  touchedFlashcards: Set<Id<"flashcards">>;
+  activityBatch: ReturnType<typeof activityBatch>;
+};
 
 /** Lowercase, accent-free, single-spaced, and short enough for an index key. */
 export function sortKey(text: string) {
@@ -52,10 +66,14 @@ function changed<T extends object>(a: T | null, b: T | null, fields: readonly (k
 export const triggers = new Triggers<DataModel, SummaryCtx>();
 
 triggers.register("flashcards", async (ctx, change) => {
+  if (change.oldDoc && (!change.newDoc || change.oldDoc.deckId !== change.newDoc.deckId)) {
+    await transferActivity({ ...ctx, db: ctx.innerDb }, change.oldDoc, change.newDoc);
+  }
   if (changed(change.oldDoc, change.newDoc, KEY_FIELDS)) ctx.touchedFlashcards.add(change.id);
 });
 
 triggers.register("reviewUnits", async (ctx, change) => {
+  await syncUnitSummary({ ...ctx, db: ctx.innerDb }, change.newDoc, change.id);
   if (!changed(change.oldDoc, change.newDoc, UNIT_FIELDS)) return;
   for (const unit of [change.oldDoc, change.newDoc]) {
     if (unit) ctx.touchedFlashcards.add(unit.flashcardId);
@@ -64,6 +82,7 @@ triggers.register("reviewUnits", async (ctx, change) => {
 
 triggers.register("decks", async (ctx, change) => {
   if (change.operation === "delete") {
+    await removeDeckActivity({ ...ctx, db: ctx.innerDb }, change.oldDoc);
     const counters = await ctx.innerDb
       .query("deckCounters")
       .withIndex("by_deck", (q) => q.eq("deckId", change.id))
@@ -78,6 +97,54 @@ triggers.register("decks", async (ctx, change) => {
     .withIndex("by_deck_created", (q) => q.eq("deckId", change.id))
     .collect();
   for (const summary of summaries) await ctx.innerDb.patch(summary._id, { deckKey });
+});
+
+triggers.register("media", async (ctx, change) => {
+  if (change.operation === "insert")
+    await ctx.scheduler.runAfter(0, internal.mediaVariants.generate, { mediaId: change.id });
+});
+
+triggers.register("reviewLogs", async (ctx, change) => {
+  if (change.operation === "update") return; // Logs are immutable; only backfill markers change.
+  const raw = { ...ctx, db: ctx.innerDb };
+  if (change.oldDoc)
+    await recordActivity(raw, "reviewLogs", change.oldDoc, -1, ctx.activityBatch, true);
+  if (change.newDoc)
+    await recordActivity(raw, "reviewLogs", change.newDoc, 1, ctx.activityBatch, true);
+  const log = change.newDoc ?? change.oldDoc;
+  if (log && (log.rating === 1 || log.state === 0)) {
+    if (!change.newDoc) await syncLogBoundary(raw, log.reviewUnitId);
+    else {
+      const boundary = ctx.activityBatch.boundaries.get(log.reviewUnitId) ?? {
+        libraryId: log.libraryId,
+      };
+      if (log.rating === 1) boundary.again = Math.max(boundary.again ?? -Infinity, log.review);
+      if (log.state === 0)
+        boundary.introduced = Math.max(boundary.introduced ?? -Infinity, log.review);
+      ctx.activityBatch.boundaries.set(log.reviewUnitId, boundary);
+    }
+  }
+});
+triggers.register("cramLogs", async (ctx, change) => {
+  if (change.operation === "update") return;
+  const raw = { ...ctx, db: ctx.innerDb };
+  if (change.oldDoc)
+    await recordActivity(raw, "cramLogs", change.oldDoc, -1, ctx.activityBatch, true);
+  if (change.newDoc)
+    await recordActivity(raw, "cramLogs", change.newDoc, 1, ctx.activityBatch, true);
+});
+triggers.register("libraries", async (ctx, change) => {
+  if (!change.newDoc || (change.oldDoc && change.oldDoc.timeZone === change.newDoc.timeZone))
+    return;
+  const epoch = (change.oldDoc?.statsEpoch ?? 0) + 1;
+  await ctx.innerDb.patch(change.id, { statsEpoch: epoch, statsReady: false });
+  await ctx.scheduler.runAfter(0, internal.performance.rebuild, {
+    libraryId: change.id,
+    epoch,
+    phase: "units",
+    since: activityCutoff(),
+    cursor: null,
+  });
 });
 
 triggers.register("flashcardSummaries", async (ctx, change) => {
@@ -245,10 +312,13 @@ export async function syncSummary(
  */
 export function withSummaries<C extends MutationCtx>(ctx: C) {
   const touchedFlashcards = new Set<Id<"flashcards">>();
-  const wrapped = triggers.wrapDB({ ...ctx, touchedFlashcards });
+  const batch = activityBatch();
+  const wrapped = triggers.wrapDB({ ...ctx, touchedFlashcards, activityBatch: batch });
   return {
     db: wrapped.db,
+    batch,
     flush: async () => {
+      await flushActivity({ ...ctx, db: ctx.db }, batch);
       const deckNames = new Map<Id<"decks">, string>();
       // Rebuilding writes summaries only, so it never touches more flashcards.
       for (const flashcardId of touchedFlashcards) {

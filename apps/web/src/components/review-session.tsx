@@ -1,4 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "@armin/backend/api";
+import type { Id } from "@armin/backend/types";
+import { toUiReviewUnit } from "@/types/view-models";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { BuryResult } from "@armin/backend/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -196,6 +200,7 @@ export function ReviewCardPrompt({
   return (
     <>
       <MarkdownContent
+        imageLoading="eager"
         content={card.front}
         className="max-w-[52ch] text-pretty text-xl font-medium leading-snug text-balance"
       />
@@ -235,6 +240,7 @@ export function ReviewCardPrompt({
             </div>
           )}
           <MarkdownContent
+            imageLoading="eager"
             content={
               clozeContent && clozeExtra ? renderClozeText(clozeContent.text, null) : card.back
             }
@@ -242,6 +248,7 @@ export function ReviewCardPrompt({
           />
           {clozeExtra && (
             <MarkdownContent
+              imageLoading="eager"
               content={clozeExtra}
               className="mt-4 max-w-[52ch] text-pretty text-sm leading-relaxed text-muted"
             />
@@ -355,7 +362,50 @@ export function ReviewSession({
     onUndo,
     onBury,
   });
-  const { cards, card, index, history, stale: staleCard, notice, saving, saveFailing } = session;
+  const {
+    cards,
+    card: descriptor,
+    index,
+    history,
+    stale: staleCard,
+    notice,
+    saving,
+    saveFailing,
+  } = session;
+  const contentWindow = cards.slice(index, index + 8);
+  const contents = useQuery({
+    ...convexQuery(api.review.items, {
+      ids: contentWindow.map((item) => item.id as Id<"reviewUnits">),
+    }),
+    enabled: Boolean(descriptor && descriptor.hydrated === false),
+    gcTime: 30_000,
+  });
+  // A displayed version keeps its content while reactive updates arrive.
+  const [contentCache, setContentCache] = useState(() => ({
+    resetKey,
+    source: undefined as typeof contents.data,
+    cards: new Map<string, UiReviewUnit>(),
+  }));
+  if (contentCache.resetKey !== resetKey || contentCache.source !== contents.data) {
+    const next =
+      contentCache.resetKey === resetKey
+        ? new Map(contentCache.cards)
+        : new Map<string, UiReviewUnit>();
+    for (const item of contents.data ?? []) {
+      const key = `${item.reviewUnitId}:${item.version}`;
+      const displayedKey = descriptor ? `${descriptor.id}:${descriptor.version}` : undefined;
+      if (key !== displayedKey || !next.has(key)) next.set(key, toUiReviewUnit(item));
+    }
+    setContentCache({ resetKey, source: contents.data, cards: next });
+  }
+  const hydratedCards = contentCache.cards;
+  const card = useMemo(() => {
+    if (descriptor?.hydrated !== false) return descriptor;
+    const hydrated = hydratedCards.get(`${descriptor.id}:${descriptor.version}`);
+    return hydrated ? { ...descriptor, ...hydrated } : undefined;
+  }, [descriptor, hydratedCards]);
+  const contentLoading = Boolean(descriptor && !card && !contents.isError && !contents.data);
+
   const { undoing, burying } = session;
   const [flipped, setFlipped] = useState(false);
   const [typed, setTyped] = useState("");
@@ -598,8 +648,29 @@ export function ReviewSession({
         {deckSelector && <div className="min-w-0 max-w-[55%] shrink-0 sm:pt-1">{deckSelector}</div>}
       </div>
 
-      {isLoading && <ReviewCardSkeleton />}
+      {(isLoading || contentLoading) && <ReviewCardSkeleton />}
 
+      {descriptor && !card && contents.isError && (
+        <ReviewStatePanel>
+          <p>Couldn&apos;t load this card.</p>
+          <Button variant="outline" onClick={() => void contents.refetch()}>
+            Try again
+          </Button>
+        </ReviewStatePanel>
+      )}
+      {descriptor &&
+        !card &&
+        !contents.isLoading &&
+        !contents.isError &&
+        contents.data &&
+        !contentLoading && (
+          <ReviewStatePanel>
+            <p>This card changed or is no longer available.</p>
+            <Button variant="outline" onClick={() => session.remove(descriptor.id)}>
+              Load next card
+            </Button>
+          </ReviewStatePanel>
+        )}
       {isError && (
         <ReviewStatePanel>
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-relearning-bg text-relearning">

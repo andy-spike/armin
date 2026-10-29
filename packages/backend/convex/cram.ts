@@ -10,7 +10,7 @@ import {
   selectCramUnits,
   type CramSelection,
 } from "./model/cram";
-import { toQueueItems } from "./model/queue";
+import { queueDescriptors, toQueueItems } from "./model/queue";
 import { findRequest, recordRequest } from "./model/study";
 
 /**
@@ -75,7 +75,12 @@ export const count = query({
 
 /** Every review unit matching a cram setup; the client shuffles and limits it. */
 export const queue = query({
-  args: selectionArgs,
+  args: {
+    ...selectionArgs,
+    max: v.optional(v.number()),
+    metadataOnly: v.optional(v.boolean()),
+    seed: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
     const found = await readableDeck(ctx, args.deckId);
     if (!found) return null;
@@ -85,7 +90,22 @@ export const queue = query({
       selectionFrom(args, found.deckId),
       Date.now(),
     );
-    return { items: await toQueueItems(ctx, units) };
+    let random = (args.seed ?? 1) | 0;
+    const shuffled = [...units];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      random = (Math.imul(random, 1664525) + 1013904223) | 0;
+      const j = Math.floor(((random >>> 0) / 4294967296) * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+    }
+    const max =
+      args.max == null
+        ? shuffled.length
+        : Math.max(1, Math.min(shuffled.length, Math.floor(args.max)));
+    return {
+      items: args.metadataOnly
+        ? queueDescriptors(shuffled.slice(0, max))
+        : await toQueueItems(ctx, shuffled.slice(0, max)),
+    };
   },
 });
 

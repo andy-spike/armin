@@ -13,4 +13,6 @@ crons.interval("prune agent authorization and activity", { hours: 1 }, internal.
 
 crons.interval("reset public reviewer data when due", { minutes: 5 }, internal.reviewer.reset, {});
 
+crons.interval("prune rolling activity", { hours: 24 }, internal.performance.prune, {});
+
 export default crons;

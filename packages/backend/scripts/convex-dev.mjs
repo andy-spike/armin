@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs";
+import path from "node:path";
 import { spawn } from "node:child_process";
 import {
   assertNode,
@@ -12,10 +14,16 @@ try {
   assertNode();
   const state = readState();
   assertTarget(state);
+  const tempDir = path.join(backend, ".convex", "tmp");
+  mkdirSync(tempDir, { recursive: true });
   const child = spawn(
     "pnpm",
     ["exec", "convex", "dev", ...convexPortArgs(state), ...process.argv.slice(2)],
-    { cwd: backend, stdio: "inherit" },
+    {
+      cwd: backend,
+      stdio: "inherit",
+      env: { ...process.env, TMPDIR: tempDir, CONVEX_TMPDIR: tempDir },
+    },
   );
   for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => child.kill(signal));
   child.on("exit", (code, signal) => {

@@ -307,3 +307,52 @@ read the link from the component's `emails` and `content` tables
 (`npx convex data --component resend ...`) and open it in the browser. This is
 the same link the email carries; there is no verification bypass in the app.
 Treat these links as secrets and use dedicated QA accounts.
+
+## Performance projections and migration
+
+`model/performance.ts` maintains text-free `unitSummaries` and rolling daily
+activity in the same transaction as their source writes. Queue selection and
+statistics read these compact rows. Review content is a separate authenticated
+`review.items` subscription, limited to eight units; queue callers opt in to
+`metadataOnly` so older clients can still request complete items. Navigation
+uses counters plus `review.status`'s per-deck admission counts.
+
+Activity retains 400 days, longer than the displayed 52-week window. Per-card
+activity transfers history on a move and subtracts it immediately on deletion;
+per-deck and library totals make reads independent of review-log volume. Undo
+and imported logs use the same triggers. Changing timezone starts a new
+aggregation generation and rebuilds it in bounded jobs. Stats reports `pending`
+until the generation is complete. Rebuild jobs use a fixed date bound for all
+pages; never recompute a paginated range's boundary between pages.
+
+After deploying this change to an existing deployment, run the operator-only
+migrations **on that same intended deployment**, before releasing the updated
+clients:
+
+```bash
+pnpm --filter @armin/backend exec convex run performance:backfill '{"cursor":null}'
+pnpm --filter @armin/backend exec convex run media:backfillVariants '{"cursor":null}'
+```
+
+The commands above use the checkout's local deployment by default. Production
+requires the normal explicit production deployment workflow. Inspect scheduled
+functions for completion and confirm libraries have `statsReady: true` before
+calling the migration complete. Both backfills can be rerun after interruption;
+log generation markers prevent double counting. New libraries and timezone
+changes schedule their own activity rebuild.
+
+Private images optionally get a WebP preview bounded to 1280×1280, plus intrinsic
+dimensions. Zoom and exports always retain originals. Preview processing runs in
+a Node action using the pinned Sharp package, externalized in `convex.json`.
+Animated images keep their original display behavior. Images above the decoder's
+16-million-pixel bound or unsupported/corrupt inputs fall back to the original.
+Previews are retained only when smaller than the original and within the media
+quota; their bytes count toward that quota and their blobs follow the original's
+cleanup lifecycle. Both original and preview routes require the session.
+
+Local launchers place temporary files under `.convex/tmp`, on the same
+filesystem as local storage, so installing external Node packages does not fail
+with a cross-filesystem rename. The pinned Sharp version remains distinct from
+Expo's transitive version so Convex 1.47's workspace-local external dependency
+lookup works with this repo's hoisted pnpm layout. Recheck that lookup when
+upgrading Sharp or changing the package layout.

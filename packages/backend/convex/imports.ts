@@ -1,3 +1,4 @@
+import { queueUnit, type QueueUnit } from "./model/queue";
 import { v } from "convex/values";
 import { generateReviewUnits } from "@armin/core/flashcard-types";
 import { pickFsrsFieldsMs, PENDING_DUE, type FsrsFieldsMs } from "@armin/core/scheduler";
@@ -330,10 +331,29 @@ export const addReviewLogs = mutation({
 
     const now = Date.now();
     const deckIds = new Set<Id<"decks">>(row.decks.map((deck) => deck.deckId));
-    const cards = new Map<Id<"flashcards">, Map<string, Doc<"reviewUnits">>>();
+    const cards = new Map<Id<"flashcards">, Map<string, QueueUnit>>();
+    const bulk = args.logs.length > 128 && library.statsReady;
+    if (bulk) {
+      // Active unit projections disappear atomically when a card is deleted.
+      // Read IDs/ownership once, rather than re-reading card text per log.
+      const requested = new Set(args.logs.map((log) => log.flashcardId));
+      const rows = await ctx.db
+        .query("unitSummaries")
+        .withIndex("by_library", (q) => q.eq("libraryId", library._id))
+        .take(MAX_REVIEW_UNITS);
+      for (const row of rows) {
+        if (!requested.has(row.flashcardId) || !deckIds.has(row.deckId)) continue;
+        const units = cards.get(row.flashcardId) ?? new Map<string, QueueUnit>();
+        units.set(row.subKey, queueUnit(row));
+        cards.set(row.flashcardId, units);
+        ctx.activityBatch.cards.set(row.flashcardId, { _id: row.flashcardId, deckId: row.deckId });
+      }
+      ctx.activityBatch.libraries.set(library._id, library);
+    }
     for (const log of args.logs) {
       let units = cards.get(log.flashcardId);
       if (!units) {
+        if (bulk) fail("NOT_FOUND", "A review names a card that is not part of this import.");
         const flashcard = await ctx.db.get(log.flashcardId);
         if (!flashcard || flashcard.libraryId !== library._id || !deckIds.has(flashcard.deckId))
           fail("NOT_FOUND", "A review names a card that is not part of this import.");

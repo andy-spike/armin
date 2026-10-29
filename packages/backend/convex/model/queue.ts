@@ -3,14 +3,39 @@ import { selectFrontier, startOfStudyDayMs } from "@armin/core/study";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { activeDeckIds } from "./access";
+import { MAX_REVIEW_UNITS } from "./limits";
 import { parseFlashcard, SettingsCache } from "./study";
 
+export type QueueUnit = Pick<
+  Doc<"reviewUnits">,
+  | "_id"
+  | "libraryId"
+  | "deckId"
+  | "flashcardId"
+  | "subKey"
+  | "state"
+  | "due"
+  | "lastReview"
+  | "reps"
+  | "locked"
+  | "archived"
+  | "version"
+  | "buriedUntil"
+  | "createdAt"
+>;
+export const queueUnit = (row: Doc<"unitSummaries">) => ({
+  ...row,
+  _id: row.reviewUnitId,
+});
+
 /** Queue-shaped items for the review and cram renderers. */
-export async function toQueueItems(ctx: QueryCtx, units: Doc<"reviewUnits">[]) {
+export async function toQueueItems(ctx: QueryCtx, units: QueueUnit[]) {
   const flashcards = new Map<Id<"flashcards">, Doc<"flashcards"> | null>();
   const decks = new Map<Id<"decks">, string>();
   const items = [];
-  for (const unit of units) {
+  for (const metadata of units) {
+    const unit = await ctx.db.get(metadata._id);
+    if (!unit) continue;
     if (!flashcards.has(unit.flashcardId)) {
       flashcards.set(unit.flashcardId, await ctx.db.get(unit.flashcardId));
     }
@@ -34,6 +59,7 @@ export async function toQueueItems(ctx: QueryCtx, units: Doc<"reviewUnits">[]) {
       flashcardVersion: flashcard.version,
       due: unit.due,
       isNew: unit.state === 0,
+      hydrated: true,
     });
   }
   return items;
@@ -55,28 +81,35 @@ function rank(text: string) {
  */
 export async function introducedToday(ctx: QueryCtx, library: Doc<"libraries">, now: number) {
   const since = startOfStudyDayMs(now, library.timeZone);
-  const logs = await ctx.db
-    .query("reviewLogs")
-    .withIndex("by_library_state_review", (q) =>
-      q.eq("libraryId", library._id).eq("state", State.New).gte("review", since),
-    )
-    .collect();
   const units = new Set<Id<"reviewUnits">>();
   const flashcards = new Set<Id<"flashcards">>();
-  if (!logs.length) return { units, flashcards, since };
   const decks = await activeDeckIds(ctx, library._id);
-  for (const log of logs) {
-    // A moved card may retain the deleted deck's ID in its history. Check its
-    // current card before reading the potentially large unit payload.
-    if (!decks.has(log.deckId)) {
-      const card = await ctx.db.get(log.flashcardId);
-      if (!card || !decks.has(card.deckId)) continue;
+  if (library.statsReady) {
+    const rows = await ctx.db
+      .query("unitSummaries")
+      .withIndex("by_library_introduced", (q) =>
+        q.eq("libraryId", library._id).gte("introducedAt", since),
+      )
+      .take(MAX_REVIEW_UNITS);
+    for (const row of rows) {
+      if (!decks.has(row.deckId)) continue;
+      units.add(row.reviewUnitId);
+      flashcards.add(row.flashcardId);
     }
-    // Deleted units stop counting immediately, before their history cleanup.
-    const unit = await ctx.db.get(log.reviewUnitId);
-    if (!unit || !decks.has(unit.deckId)) continue;
-    units.add(log.reviewUnitId);
-    flashcards.add(log.flashcardId);
+  } else {
+    const logs = await ctx.db
+      .query("reviewLogs")
+      .withIndex("by_library_state_review", (q) =>
+        q.eq("libraryId", library._id).eq("state", State.New).gte("review", since),
+      )
+      .take(MAX_REVIEW_UNITS);
+    for (const log of logs) {
+      const unit = await ctx.db.get(log.reviewUnitId);
+      if (unit && decks.has(unit.deckId)) {
+        units.add(unit._id);
+        flashcards.add(unit.flashcardId);
+      }
+    }
   }
   return { units, flashcards, since };
 }
@@ -106,7 +139,7 @@ export async function reviewsDoneToday(
 }
 
 /** Unlocked, unarchived, unburied, and due by `now`: the unit can be studied. */
-function isStudyable(unit: Doc<"reviewUnits">, libraryId: Id<"libraries">, now: number) {
+function isStudyable(unit: QueueUnit, libraryId: Id<"libraries">, now: number) {
   return (
     unit.libraryId === libraryId &&
     !unit.locked &&
@@ -131,23 +164,46 @@ export async function dueEligibleUnits(
   } else {
     deckIds = await activeDeckIds(ctx, library._id);
   }
-  const units: Doc<"reviewUnits">[] = [];
-  for (const id of deckIds) {
-    const due = await ctx.db
-      .query("reviewUnits")
-      .withIndex("by_deck_eligible_due", (q) =>
-        q.eq("deckId", id).eq("locked", false).eq("archived", false).lte("due", now),
-      )
-      .collect();
-    units.push(...due);
+  if (library.statsReady) {
+    const rows = deckId
+      ? await ctx.db
+          .query("unitSummaries")
+          .withIndex("by_deck_due", (q) =>
+            q.eq("deckId", deckId).eq("locked", false).eq("archived", false).lte("due", now),
+          )
+          .take(MAX_REVIEW_UNITS)
+      : await ctx.db
+          .query("unitSummaries")
+          .withIndex("by_library_due", (q) =>
+            q
+              .eq("libraryId", library._id)
+              .eq("locked", false)
+              .eq("archived", false)
+              .lte("due", now),
+          )
+          .take(MAX_REVIEW_UNITS);
+    return rows
+      .filter((row) => deckIds.has(row.deckId) && isStudyable(queueUnit(row), library._id, now))
+      .map(queueUnit);
   }
-  return units.filter((unit) => deckIds.has(unit.deckId) && isStudyable(unit, library._id, now));
+  const units: QueueUnit[] = [];
+  for (const id of deckIds) {
+    units.push(
+      ...(await ctx.db
+        .query("reviewUnits")
+        .withIndex("by_deck_eligible_due", (q) =>
+          q.eq("deckId", id).eq("locked", false).eq("archived", false).lte("due", now),
+        )
+        .take(MAX_REVIEW_UNITS)),
+    );
+  }
+  return units.filter((unit) => isStudyable(unit, library._id, now));
 }
 
 /** Reads a caller has already made, so listing many decks repeats none of them. */
 export type SessionReads = {
   /** Every unit of the selected deck, from which the due ones are taken. */
-  deckUnits?: Doc<"reviewUnits">[];
+  deckUnits?: QueueUnit[];
   today?: Awaited<ReturnType<typeof introducedToday>>;
   /** Review logs studied since the start of today, capped at the daily budget. */
   reviewsDoneToday?: number;
@@ -155,8 +211,8 @@ export type SessionReads = {
 };
 
 export type SessionSelection = {
-  reviews: Doc<"reviewUnits">[];
-  frontier: Doc<"reviewUnits">[];
+  reviews: QueueUnit[];
+  frontier: QueueUnit[];
 };
 
 /**
@@ -186,7 +242,7 @@ export async function selectSession(
   for (const id of new Set(newUnits.map((unit) => unit.deckId))) {
     keepSiblingsByDeck.set(id, (await settings.forDeck(id)).keepSiblingReviewUnitsTogether);
   }
-  const keepSiblings = (unit: Doc<"reviewUnits">) => keepSiblingsByDeck.get(unit.deckId) ?? false;
+  const keepSiblings = (unit: QueueUnit) => keepSiblingsByDeck.get(unit.deckId) ?? false;
   const today = reads.today ?? (await introducedToday(ctx, library, now));
 
   // Budgets are Infinity when unlimited; slice() and arithmetic handle that.
@@ -217,7 +273,7 @@ export async function selectSession(
   // chosen Frontier stays the same all day and rating one unit never
   // reshuffles which other units were admitted.
   const seed = `${library._id}:${today.since}:`;
-  const keyOf = (unit: Doc<"reviewUnits">) => (keepSiblings(unit) ? unit.flashcardId : unit._id);
+  const keyOf = (unit: QueueUnit) => (keepSiblings(unit) ? unit.flashcardId : unit._id);
   const ordered = [...candidates].sort(
     (a, b) => rank(seed + keyOf(a)) - rank(seed + keyOf(b)) || a.subKey.localeCompare(b.subKey),
   );
@@ -254,4 +310,18 @@ export async function checkEligible(unit: Doc<"reviewUnits">, now: number): Prom
   // Allow small clock skew between the displayed queue and acceptance.
   if (unit.due > now + 60_000) return "This review unit is not due yet.";
   return null;
+}
+
+/** Stable descriptors keep admission/progress intact without sending card text. */
+export function queueDescriptors(units: QueueUnit[]) {
+  return units.map((unit) => ({
+    reviewUnitId: unit._id,
+    flashcardId: unit.flashcardId,
+    deckId: unit.deckId,
+    subKey: unit.subKey,
+    version: unit.version,
+    due: unit.due,
+    isNew: unit.state === 0,
+    hydrated: false as const,
+  }));
 }

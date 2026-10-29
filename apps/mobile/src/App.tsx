@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import {
   ActivityIndicator,
+  AppState,
   Image,
   Pressable,
   ScrollView,
@@ -147,20 +148,36 @@ function Button({
   );
 }
 
-/** A clock for time-dependent queries, so due reviews appear without writes. */
-function useNow(stepMs = 30_000) {
-  const [now, setNow] = useState(() => Math.floor(Date.now() / stepMs) * stepMs);
+/** Pause subscriptions in the background and catch up when returning. */
+function useStudyClock(enabled: boolean) {
+  const [active, setActive] = useState(AppState.currentState === "active");
+  const [now, setNow] = useState(Date.now);
+  const status = useQuery(api.review.status, enabled && active ? { now } : "skip");
   useEffect(() => {
-    const id = setInterval(() => setNow(Math.floor(Date.now() / stepMs) * stepMs), stepMs);
-    return () => clearInterval(id);
-  }, [stepMs]);
-  return now;
+    const subscription = AppState.addEventListener("change", (state) => {
+      setActive(state === "active");
+      if (state === "active") setNow(Date.now());
+    });
+    return () => subscription.remove();
+  }, []);
+  useEffect(() => {
+    if (!enabled || !active || status?.refreshAt == null) return;
+    const timer = setTimeout(
+      () => setNow(Date.now()),
+      Math.min(2 ** 31 - 1, Math.max(1000, status.refreshAt - Date.now() + 1000)),
+    );
+    return () => clearTimeout(timer);
+  }, [enabled, active, status?.refreshAt]);
+  return { now, active, status };
 }
 
 function Library() {
   const viewer = useQuery(api.account.viewer, {});
-  const now = useNow();
-  const decks = useQuery(api.decks.list, viewer?.library?.status === "active" ? { now } : "skip");
+  const { now, active, status } = useStudyClock(viewer?.library?.status === "active");
+  const decks = useQuery(
+    api.decks.navigation,
+    viewer?.library?.status === "active" && active ? {} : "skip",
+  );
 
   if (viewer === undefined)
     return (
@@ -206,13 +223,14 @@ function Library() {
               <View key={deck.id} style={styles.deck} accessibilityLabel={`Deck ${deck.name}`}>
                 <Text style={styles.deckName}>{deck.name}</Text>
                 <Text style={styles.muted}>
-                  {deck.total} {deck.total === 1 ? "flashcard" : "flashcards"} · {deck.due} due
+                  {deck.total} {deck.total === 1 ? "flashcard" : "flashcards"} ·{" "}
+                  {status?.perDeck[deck.id] ?? 0} due
                 </Text>
               </View>
             ))
           )}
           <Text style={styles.heading}>Review</Text>
-          <Study now={now} />
+          <Study now={now} active={active} />
         </>
       )}
     </ScrollView>
@@ -226,8 +244,12 @@ type Shown = { item: ReviewQueueItem; requestId: string };
  * updates reactively; if it changes elsewhere the rating is refused and the
  * user moves on deliberately.
  */
-function Study({ now }: { now: number }) {
-  const queue = useQuery(api.review.queue, { now });
+function Study({ now, active }: { now: number; active: boolean }) {
+  const queue = useQuery(api.review.queue, active ? { now, metadataOnly: true } : "skip");
+  const contents = useQuery(
+    api.review.items,
+    active && queue ? { ids: queue.items.slice(0, 8).map((item) => item.reviewUnitId) } : "skip",
+  );
   const rate = useMutation(api.review.rate);
   const undo = useMutation(api.review.undo);
   const [shown, setShown] = useState<Shown | null>(null);
@@ -236,15 +258,28 @@ function Study({ now }: { now: number }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [last, setLast] = useState<{ reviewLogId: Id<"reviewLogs">; version: number } | null>(null);
 
-  if (!shown && queue?.items.length) {
-    setShown({ item: queue.items[0], requestId: newRequestId() });
+  const first = contents?.find((item) => item.reviewUnitId === queue?.items[0]?.reviewUnitId);
+  if (!shown && first) {
+    setShown({ item: first, requestId: newRequestId() });
     setRevealed(false);
   }
 
   const latest = queue?.items.find((item) => item.reviewUnitId === shown?.item.reviewUnitId);
-  const changed = Boolean(shown && latest && latest.version !== shown.item.version);
+  // Admission can disappear when another device uses the daily budget. Verify
+  // the displayed unit directly before treating queue exclusion as a change.
+  const displayedContents = useQuery(
+    api.review.items,
+    active && shown && !latest ? { ids: [shown.item.reviewUnitId] } : "skip",
+  );
+  const current = latest ?? displayedContents?.[0];
+  const changed = Boolean(
+    shown &&
+    ((current && current.version !== shown.item.version) ||
+      (!latest && displayedContents !== undefined && !current)),
+  );
 
-  if (queue === undefined) return <ActivityIndicator />;
+  if (queue === undefined || ((queue?.items.length ?? 0) > 0 && !shown && !first))
+    return <ActivityIndicator />;
   if (!shown) {
     return (
       <View>
@@ -293,8 +328,8 @@ function Study({ now }: { now: number }) {
       <Text style={styles.muted}>
         {shown.item.deckName} · {queue?.reviewCount ?? 0} due, {queue?.newCount ?? 0} new
       </Text>
-      <CardSide text={shown.item.front} />
-      {revealed && (
+      {!changed && <CardSide text={shown.item.front} />}
+      {revealed && !changed && (
         <>
           <View style={styles.divider} />
           <CardSide text={shown.item.back} />
@@ -415,7 +450,7 @@ function PrivateImage({ fileName }: { fileName: string }) {
       try {
         const token = await convexToken();
         if (!token) throw new Error("Signed out");
-        const response = await fetch(`${convexSiteUrl}/media/${fileName}`, {
+        const response = await fetch(`${convexSiteUrl}/media/${fileName}?preview=1`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);

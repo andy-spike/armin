@@ -1,3 +1,4 @@
+import { PrivateCardImage } from "./private-card-image";
 import { useMemo, useState, lazy, Suspense, type ComponentProps, type ReactNode } from "react";
 import { Markdown, type MarkdownReactOptions } from "@tanstack/markdown/react";
 import type { MarkdownExtension, UrlTransform } from "@tanstack/markdown";
@@ -122,12 +123,14 @@ type MarkdownContentProps = {
   /** In compact previews, replace images with numbered placeholders. */
   images?: "show" | "placeholder";
   /** Rendered after the Markdown, inside the same styled container. */
+  imageLoading?: "eager" | "lazy";
   children?: ReactNode;
 };
 
 function createComponents(
   images: MarkdownContentProps["images"],
   onPreview: (src: string) => void,
+  imageLoading: "eager" | "lazy",
 ): NonNullable<MarkdownReactOptions["components"]> {
   return {
     "armin-math": MathNode,
@@ -156,10 +159,11 @@ function createComponents(
                   aria-label="Preview image"
                   onClick={() => onPreview(source)}
                 >
-                  <img
+                  <PrivateCardImage
                     src={source}
                     alt={alt ?? ""}
-                    style={width ? { width, maxWidth: "100%" } : undefined}
+                    width={width}
+                    loading={imageLoading}
                   />
                 </button>
               </Tooltip>
@@ -177,10 +181,14 @@ export function MarkdownContent({
   content,
   className,
   images = "show",
+  imageLoading = "lazy",
   children,
 }: MarkdownContentProps) {
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
-  const components = useMemo(() => createComponents(images, setPreviewSrc), [images]);
+  const components = useMemo(
+    () => createComponents(images, setPreviewSrc, imageLoading),
+    [images, imageLoading],
+  );
 
   const math = useMemo(() => mathDocument(content), [content]);
 

@@ -1,0 +1,13 @@
+{
+  "activity": 1000,
+  "added": 1000,
+  "cards": 1000,
+  "deckId": "kx715kq3er50h4amjcxcr7tey98h6ydr",
+  "ms": 1776,
+  "pending": false,
+  "retention": {
+    "ratio": 0,
+    "retained": 0,
+    "reviews": 120
+  }
+}

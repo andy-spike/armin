@@ -8,7 +8,13 @@ import { fail } from "./model/errors";
 import { insertDeck, updateDeckDetails } from "./model/decks";
 import { checkCapacity } from "./model/usage";
 import { deleteDeckCascade } from "./model/deletion";
-import { introducedToday, reviewsDoneToday, selectSession, type SessionReads } from "./model/queue";
+import {
+  introducedToday,
+  reviewsDoneToday,
+  selectSession,
+  dueEligibleUnits,
+  type SessionReads,
+} from "./model/queue";
 import { bumpRevision, findRequest, recordRequest, SettingsCache } from "./model/study";
 
 /** The deck's totals the slow way, for a deck whose counters aren't built yet. */
@@ -51,7 +57,10 @@ async function deckStats(
       .query("deckCounters")
       .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
       .unique()) ?? (await countFromUnits(ctx, deck));
-  const session = await selectSession(ctx, library, deck._id, now, shared);
+  const session = await selectSession(ctx, library, deck._id, now, {
+    ...shared,
+    deckUnits: shared.deckUnits?.filter((unit) => unit.deckId === deck._id),
+  });
   return {
     id: deck._id,
     name: deck.name,
@@ -72,20 +81,21 @@ async function deckStats(
 
 export const list = query({
   args: { now: v.optional(v.number()) },
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
     const decks = await ctx.db
       .query("decks")
       .withIndex("by_library", (q) => q.eq("libraryId", library._id))
       .collect();
-    const now = Date.now();
+    const now = args.now ?? Date.now();
     // Today's introductions, reviews, and the settings are account-wide; read
     // them once and share them across every deck's session selection.
     const settings = new SettingsCache(ctx, library._id);
     const today = await introducedToday(ctx, library, now);
     const reviewsPerDay = (await settings.globalSettings()).reviewsPerDay;
     const shared: SessionReads = {
+      deckUnits: await dueEligibleUnits(ctx, library, null, now),
       today,
       settings,
       reviewsDoneToday:
@@ -205,5 +215,65 @@ export const remove = mutation({
     await deleteDeckCascade(ctx, deck);
     await bumpRevision(ctx, library._id);
     return { ok: true as const };
+  },
+});
+
+/** Navigation reads counters without selecting or hydrating review cards. */
+export const navigation = query({
+  args: {},
+  returns: v.union(
+    v.null(),
+    v.array(
+      v.object({
+        id: v.id("decks"),
+        name: v.string(),
+        slug: v.string(),
+        description: v.union(v.null(), v.string()),
+        version: v.number(),
+        pinnedAt: v.union(v.null(), v.number()),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        total: v.number(),
+        archived: v.number(),
+        learned: v.number(),
+        newCount: v.number(),
+        learning: v.number(),
+        due: v.number(),
+      }),
+    ),
+  ),
+  handler: async (ctx) => {
+    const library = await readableLibrary(ctx);
+    if (!library) return null;
+    const decks = await ctx.db
+      .query("decks")
+      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
+      .take(200);
+    const counters = await ctx.db
+      .query("deckCounters")
+      .withIndex("by_library", (q) => q.eq("libraryId", library._id))
+      .take(200);
+    const byDeck = new Map(counters.map((row) => [row.deckId, row]));
+    return decks
+      .filter((deck) => !deck.staging)
+      .map((deck) => {
+        const counts = byDeck.get(deck._id);
+        return {
+          id: deck._id,
+          name: deck.name,
+          slug: deck.slug ?? deck._id,
+          description: deck.description,
+          version: deck.version,
+          pinnedAt: deck.pinnedAt ?? null,
+          createdAt: deck.createdAt,
+          updatedAt: deck.updatedAt,
+          total: counts?.active ?? 0,
+          archived: counts?.archived ?? 0,
+          learned: counts?.learned ?? 0,
+          newCount: counts?.newUnits ?? 0,
+          learning: counts?.learningUnits ?? 0,
+          due: 0,
+        };
+      });
   },
 });

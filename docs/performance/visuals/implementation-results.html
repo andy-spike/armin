@@ -1,0 +1,368 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: var(--foreground);
+        font-family: var(--font-sans);
+      }
+      h2,
+      h3,
+      p,
+      figure {
+        margin: 0;
+      }
+      h2,
+      h3,
+      strong {
+        font-weight: 500;
+      }
+      .intro {
+        padding-right: 90px;
+        margin-bottom: 22px;
+      }
+      .intro p {
+        margin-top: 8px;
+        color: var(--muted-foreground);
+      }
+      .measure {
+        padding: 17px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .measure-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: baseline;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      .percent {
+        color: var(--foreground);
+        white-space: nowrap;
+      }
+      .bar-row {
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr) 118px;
+        gap: 12px;
+        align-items: center;
+        margin: 8px 0;
+      }
+      .bar-label {
+        color: var(--muted-foreground);
+      }
+      .track {
+        height: 13px;
+        background: var(--secondary);
+      }
+      .bar {
+        height: 13px;
+        background: var(--chart-1);
+      }
+      .before {
+        height: 13px;
+        background: var(--muted-foreground);
+        opacity: 0.5;
+      }
+      .value {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .caption {
+        color: var(--muted-foreground);
+        margin-top: 9px;
+      }
+      .scale {
+        color: var(--muted-foreground);
+        margin-top: 10px;
+      }
+      .section {
+        margin-top: 24px;
+      }
+      .rows {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-top: 12px;
+      }
+      .rows > div {
+        border-left: 2px solid var(--border);
+        padding-left: 12px;
+      }
+      .rows p {
+        margin-top: 5px;
+        color: var(--muted-foreground);
+      }
+      .import-flow {
+        display: grid;
+        grid-template-columns: 1fr 20px 1fr;
+        gap: 10px;
+        align-items: center;
+        margin-top: 12px;
+      }
+      .node {
+        padding: 16px;
+        background: var(--secondary);
+        color: var(--secondary-foreground);
+        border-radius: var(--radius);
+      }
+      .node strong {
+        display: block;
+        margin-bottom: 5px;
+      }
+      .arrow {
+        text-align: center;
+        color: var(--muted-foreground);
+      }
+      .checks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .checks span {
+        padding: 7px 10px;
+        background: var(--secondary);
+        color: var(--secondary-foreground);
+        border-radius: var(--radius);
+      }
+      .limit {
+        margin-top: 18px;
+        padding: 16px;
+        border-radius: var(--radius);
+        background: var(--secondary);
+        color: var(--secondary-foreground);
+      }
+      .limit p + p {
+        margin-top: 9px;
+      }
+      details {
+        margin-top: 12px;
+      }
+      summary {
+        padding: 6px 0;
+        color: var(--muted-foreground);
+        cursor: pointer;
+      }
+      details p {
+        margin: 8px 0;
+        color: var(--muted-foreground);
+      }
+      code {
+        font-family: var(--font-mono);
+        overflow-wrap: anywhere;
+      }
+      .deployment {
+        margin-top: 18px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border);
+        color: var(--muted-foreground);
+      }
+      @media (max-width: 480px) {
+        .intro {
+          padding-right: 25px;
+        }
+        .rows {
+          grid-template-columns: 1fr;
+        }
+        .bar-row {
+          grid-template-columns: 43px minmax(0, 1fr) 108px;
+          gap: 8px;
+        }
+        .measure-head {
+          gap: 6px;
+        }
+        .import-flow {
+          grid-template-columns: 1fr;
+        }
+        .arrow {
+          transform: rotate(90deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="performance-results">
+      <div class="intro">
+        <h2>Performance changes: measured results</h2>
+        <p>Implemented in this checkout · local synthetic data · lower is better</p>
+      </div>
+      <figure
+        aria-label="Before and after data volume and database rows. Each pair is scaled to its own original value."
+      >
+        <div class="measure">
+          <div class="measure-head">
+            <h3>Stats · estimated database read bytes</h3>
+            <span class="percent">94.5% less</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Before</span>
+            <div class="track"><div class="before" style="width: 100%"></div></div>
+            <span class="value">1,477,336 B</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">After</span>
+            <div class="track"><div class="bar" style="width: 5.546%"></div></div>
+            <span class="value">81,933 B</span>
+          </div>
+          <p class="caption">Daily activity aggregates + scheduling rows without card text.</p>
+        </div>
+        <div class="measure">
+          <div class="measure-head">
+            <h3>Cram · database rows read</h3>
+            <span class="percent">95.8% fewer</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Before</span>
+            <div class="track"><div class="before" style="width: 100%"></div></div>
+            <span class="value">522 rows</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">After</span>
+            <div class="track"><div class="bar" style="width: 4.215%"></div></div>
+            <span class="value">22 rows</span>
+          </div>
+          <p class="caption">
+            Latest-Again metadata replaces scanning accumulated forgotten-review history.
+          </p>
+        </div>
+        <div class="measure">
+          <div class="measure-head">
+            <h3>Review · queue payload bytes</h3>
+            <span class="percent">99.0% less*</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Before</span>
+            <div class="track"><div class="before" style="width: 100%"></div></div>
+            <span class="value">647,024 B</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">After</span>
+            <div class="track"><div class="bar" style="width: 1.0145%"></div></div>
+            <span class="value">6,564 B</span>
+          </div>
+          <p class="caption">
+            Compact descriptors + a separate eight-card content window. *Content-window bytes are
+            additional; this is not first-card latency.
+          </p>
+        </div>
+        <div class="measure">
+          <div class="measure-head">
+            <h3>Image · display bytes</h3>
+            <span class="percent">91.8% less</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Before</span>
+            <div class="track"><div class="before" style="width: 100%"></div></div>
+            <span class="value">8,416,349 B</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">After</span>
+            <div class="track"><div class="bar" style="width: 8.1825%"></div></div>
+            <span class="value">688,670 B</span>
+          </div>
+          <p class="caption">
+            2000×1400 PNG → private 1280×896 WebP. Zoom and exports keep the original.
+          </p>
+        </div>
+        <figcaption class="scale">
+          Each Before bar = 100% of that metric. Bar lengths compare only within each pair.
+        </figcaption>
+      </figure>
+      <details>
+        <summary>Measurement setup and timing</summary>
+        <p>
+          Database/queue fixture: 20 cards, about 16,000 content characters per card, 20 due units,
+          500 scheduled Again logs + 500 Cram logs over 300 days. Five alternating baseline/new
+          samples.
+        </p>
+        <p>
+          Median local round trips: Stats 216 → 157 ms; queue 78 → 55 ms; Cram 103 → 55 ms. Queue
+          IDs/order, Cram matches, and Stats totals/retention agreed in every pair.
+        </p>
+        <p>
+          Read-byte values estimate JSON serialization, not Convex billing bytes. Queue size was
+          measured before a final cleanup removed empty placeholder fields. The image was synthetic
+          random pixels; its reduction is not a prediction for every image. Production latency and
+          browser vitals remain unmeasured.
+        </p>
+      </details>
+      <section class="section">
+        <h3>Also implemented</h3>
+        <div class="rows">
+          <div>
+            <strong>Cheaper navigation</strong>
+            <p>
+              Lightweight deck data and shared due counts; no card-content reads just to list decks.
+            </p>
+          </div>
+          <div>
+            <strong>Mobile refreshes on due events</strong>
+            <p>
+              Removed the 30-second interval—about 120 argument changes/hour per affected query.
+              Background study subscriptions pause.
+            </p>
+          </div>
+          <div>
+            <strong>Compatible queue API</strong>
+            <p>
+              Updated clients opt into compact data. Older clients can still request full queue
+              items.
+            </p>
+          </div>
+          <div>
+            <strong>Rebuildable statistics</strong>
+            <p>
+              400-day activity retention, paged backfills, and timezone generations. Checked move,
+              delete, rating, and undo behavior.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <h3>Real import stress check</h3>
+        <div class="import-flow">
+          <div class="node">
+            <strong>1,000 cards + 1,000 reviews</strong>Ten 100-card batches; one 1,000-review
+            batch.
+          </div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="node">
+            <strong>Exactly 1,000 activities</strong>Import completed; Stats ready. Review batch:
+            1,776 ms locally.
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <h3>Validation</h3>
+        <div class="checks">
+          <span>✓ Format / lint / types</span><span>✓ Web build</span
+          ><span>✓ Android + iOS bundles</span><span>✓ Browser walkthrough</span
+          ><span>✓ Android review / rating / undo</span>
+        </div>
+        <div class="limit">
+          <p>
+            <strong>Remaining verification:</strong> the final Android image-preview screen check
+            was blocked by Metro transport problems. Web preview/zoom worked; an unauthenticated
+            preview request returned HTTP 401.
+          </p>
+          <p>
+            <strong>Kept as-is:</strong> the editor already preloads on idle (~255 kB gzip). Browse
+            search indexes, revision sharding, and incremental sibling summaries remain profiling
+            candidates.
+          </p>
+        </div>
+      </section>
+      <p class="deployment">
+        Production unchanged · implementation uncommitted · deployment backfills documented in the
+        backend README
+      </p>
+    </main>
+  </body>
+</html>

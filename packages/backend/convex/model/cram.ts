@@ -1,4 +1,5 @@
-import { Rating } from "ts-fsrs";
+import { queueUnit, type QueueUnit } from "./queue";
+import { MAX_REVIEW_UNITS } from "./limits";
 import { State } from "@armin/core/scheduler";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
@@ -45,15 +46,23 @@ export async function selectCramUnits(
   library: Doc<"libraries">,
   args: CramSelection,
   now: number,
-): Promise<Doc<"reviewUnits">[]> {
+) {
   const deck = await ctx.db.get(args.deckId);
   if (!deck || deck.libraryId !== library._id) return [];
   const states = new Set(args.states);
-  let units = (
-    await ctx.db
-      .query("reviewUnits")
-      .withIndex("by_deck", (q) => q.eq("deckId", args.deckId))
-      .collect()
+  const projected = library.statsReady
+    ? await ctx.db
+        .query("unitSummaries")
+        .withIndex("by_deck", (q) => q.eq("deckId", args.deckId))
+        .take(MAX_REVIEW_UNITS)
+    : null;
+  let units: QueueUnit[] = (
+    projected
+      ? projected.map(queueUnit)
+      : await ctx.db
+          .query("reviewUnits")
+          .withIndex("by_deck", (q) => q.eq("deckId", args.deckId))
+          .take(MAX_REVIEW_UNITS)
   ).filter(
     (unit) =>
       unit.libraryId === library._id &&
@@ -66,7 +75,7 @@ export async function selectCramUnits(
   if (args.tag) {
     const tag = args.tag;
     const flashcards = new Map<Id<"flashcards">, Doc<"flashcards"> | null>();
-    const tagged: Doc<"reviewUnits">[] = [];
+    const tagged: QueueUnit[] = [];
     for (const unit of units) {
       if (!flashcards.has(unit.flashcardId)) {
         flashcards.set(unit.flashcardId, await ctx.db.get(unit.flashcardId));
@@ -79,15 +88,26 @@ export async function selectCramUnits(
 
   if (args.forgottenWithinDays !== undefined) {
     const cutoff = now - args.forgottenWithinDays * DAY_MS;
-    const forgotten = new Set<Id<"reviewUnits">>();
-    const logs = await ctx.db
-      .query("reviewLogs")
-      .withIndex("by_library_rating_review", (q) =>
-        q.eq("libraryId", library._id).eq("rating", Rating.Again).gte("review", cutoff),
-      )
-      .collect();
-    for (const log of logs) forgotten.add(log.reviewUnitId);
-    units = units.filter((unit) => forgotten.has(unit._id));
+    if (projected) {
+      const forgotten = new Set(
+        projected
+          .filter((row) => row.latestAgain != null && row.latestAgain >= cutoff)
+          .map((row) => row.reviewUnitId),
+      );
+      units = units.filter((unit) => forgotten.has(unit._id));
+    } else {
+      const matching: QueueUnit[] = [];
+      for (const unit of units) {
+        const log = await ctx.db
+          .query("reviewLogs")
+          .withIndex("by_unit_rating_review", (q) =>
+            q.eq("reviewUnitId", unit._id).eq("rating", 1).gte("review", cutoff),
+          )
+          .first();
+        if (log) matching.push(unit);
+      }
+      units = matching;
+    }
   }
 
   return units.sort(

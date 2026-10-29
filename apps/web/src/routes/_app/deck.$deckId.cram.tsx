@@ -1,16 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ReviewSession } from "@/components/review-session";
 import { armin } from "@/lib/armin-client";
-import {
-  cramFiltersFromSearch,
-  cramSessionKey,
-  shuffleCramItems,
-  validateCramSearch,
-} from "@/lib/cram";
+import { cramFiltersFromSearch, cramSessionKey, validateCramSearch } from "@/lib/cram";
 import { cramQueueQuery, deckQuery as deckQueryOptions, prefetchCramPage } from "@/lib/queries";
 import { useConnection } from "@/lib/session";
 import { plural } from "@/lib/utils";
@@ -24,15 +19,14 @@ function CramPage() {
   const { online } = useConnection();
   const deckQuery = useQuery(deckQueryOptions(deckId));
   const filters = useMemo(() => cramFiltersFromSearch(search), [search]);
-  const queueQuery = useQuery(cramQueueQuery(deckId, filters));
+  const [seed] = useState(() => Math.floor(Math.random() * 4294967296));
+  const queueQuery = useQuery(cramQueueQuery(deckId, filters, search.max, seed));
 
-  // The server returns every match; the session shuffles once per setup and
-  // applies the requested cap, so practice order is not biased by due time.
-  const queue = useMemo(() => {
-    const items = (queueQuery.data?.items ?? []).map(toUiReviewUnit);
-    const shuffled = shuffleCramItems(items);
-    return search.max ? shuffled.slice(0, search.max) : shuffled;
-  }, [queueQuery.data, search.max]);
+  // Shuffle and apply the session cap before hydrating any card content.
+  const queue = useMemo(
+    () => (queueQuery.data?.items ?? []).map(toUiReviewUnit),
+    [queueQuery.data],
+  );
 
   if (!deckQuery.isLoading && !deckQuery.isError && !deckQuery.data) {
     return (
