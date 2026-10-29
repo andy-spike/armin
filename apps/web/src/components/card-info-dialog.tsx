@@ -3,6 +3,8 @@ import { formatInterval } from "@armin/core/study";
 import { Badge, StateBadge, type ReviewState } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip } from "@/components/ui/tooltip";
+import { TruncatedLabel } from "@/components/ui/truncated-label";
 import { cardInfoQuery } from "@/lib/queries";
 import { stripMarkdownForPreview } from "@/lib/markdown-preview";
 import { cn } from "@/lib/utils";
@@ -30,15 +32,16 @@ function formatPercent(value: number | null) {
   return value == null ? "—" : `${Math.round(value * 100)}%`;
 }
 
-function Stat({ label, value, title }: { label: string; value: string; title?: string }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-[0.6875rem] font-medium uppercase tracking-wide text-muted">{label}</dt>
-      <dd title={title} className="mt-0.5 truncate font-mono text-sm tabular-nums text-ink">
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  const content = (
+    <div className="min-w-0 border-border px-4 py-3 [&:not(:nth-child(3n+1))]:border-l [&:nth-child(n+4)]:border-t">
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className="mt-1 truncate font-serif text-lg font-semibold text-ink tabular-nums">
         {value}
       </dd>
     </div>
   );
+  return hint ? <Tooltip content={hint}>{content}</Tooltip> : content;
 }
 
 /**
@@ -62,13 +65,7 @@ export function CardInfoDialog({
   const back = data ? stripMarkdownForPreview(data.flashcard.back) : "";
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title="Card info"
-      description={data ? data.flashcard.deckName : undefined}
-      className="max-w-2xl"
-    >
+    <Dialog open={open} onClose={onClose} title="Card info" className="max-w-2xl">
       {query.isError ? (
         <p role="alert" className="text-sm text-muted">
           Couldn&apos;t load this card&apos;s details. Check your connection and try again.
@@ -82,17 +79,32 @@ export function CardInfoDialog({
         </div>
       ) : (
         <div className="space-y-6 text-sm">
-          <div className="border border-border bg-surface-sunken p-4">
-            <p className="line-clamp-2 text-pretty font-medium text-ink">{front || "\u00a0"}</p>
-            <p className="mt-1 line-clamp-3 text-pretty text-muted">{back || "\u00a0"}</p>
+          <div className="border border-border">
+            <div className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-3 border-b border-border bg-bg-2 px-4 py-2 text-xs">
+              <span className="text-muted">Deck</span>
+              <TruncatedLabel label={data.flashcard.deckName} className="text-ink" />
+            </div>
+            <dl className="divide-y divide-border">
+              <div className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3 px-4 py-3">
+                <dt className="text-xs text-muted">Front</dt>
+                <dd className="line-clamp-3 text-pretty font-medium text-ink">
+                  {front || "\u00a0"}
+                </dd>
+              </div>
+              <div className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3 px-4 py-3">
+                <dt className="text-xs text-muted">Back</dt>
+                <dd className="line-clamp-3 text-pretty text-muted">{back || "\u00a0"}</dd>
+              </div>
+            </dl>
           </div>
 
-          <section>
-            <h3 className="text-sm font-semibold text-ink">Review units</h3>
-            <ul className="mt-2 space-y-3">
-              {data.units.map((unit) => (
-                <li key={unit.reviewUnitId} className="border border-border bg-surface p-3">
-                  <div className="flex flex-wrap items-center gap-1.5">
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold text-ink">Schedule</h3>
+            {data.units.map((unit) => {
+              const studied = unit.state !== 0;
+              return (
+                <div key={unit.reviewUnitId} className="border border-border">
+                  <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5">
                     <StateBadge state={unit.state as ReviewState} />
                     {unit.locked && <Badge className="bg-surface-sunken text-muted">Locked</Badge>}
                     {unit.archived && (
@@ -103,40 +115,50 @@ export function CardInfoDialog({
                         Buried until {unit.buriedUntil ? formatWhen(unit.buriedUntil) : "tomorrow"}
                       </Badge>
                     )}
+                    {data.units.length > 1 && (
+                      <span className="ml-1 min-w-0 flex-1 truncate text-muted">
+                        {stripMarkdownForPreview(unit.front)}
+                      </span>
+                    )}
                   </div>
-                  {data.units.length > 1 && (
-                    <p className="mt-2 line-clamp-1 text-pretty text-ink/90">
-                      {stripMarkdownForPreview(unit.front)}
+                  {studied ? (
+                    <dl className="grid grid-cols-3 border-t border-border">
+                      <Stat
+                        label="Due"
+                        value={formatDue(unit.due, data.serverNow)}
+                        hint={formatWhen(unit.due)}
+                      />
+                      <Stat
+                        label="Recall chance"
+                        value={formatPercent(unit.retrievability)}
+                        hint="How likely you are to remember it right now"
+                      />
+                      <Stat
+                        label="Stability"
+                        value={`${unit.stability.toFixed(1)} days`}
+                        hint="How long the memory lasts before recall drops to 90%"
+                      />
+                      <Stat label="Difficulty" value={`${unit.difficulty.toFixed(1)} / 10`} />
+                      <Stat label="Reviews" value={String(unit.reps)} />
+                      <Stat label="Lapses" value={String(unit.lapses)} hint="Times you forgot it" />
+                    </dl>
+                  ) : (
+                    // A never-studied unit has no memory model yet.
+                    <p className="border-t border-border px-4 py-3 text-muted">
+                      Not studied yet. Its schedule starts after the first review.
                     </p>
                   )}
-                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
-                    <Stat
-                      label="Due"
-                      value={unit.state === 0 ? "—" : formatDue(unit.due, data.serverNow)}
-                      title={unit.state === 0 ? undefined : formatWhen(unit.due)}
-                    />
-                    {/* A never-studied unit has no memory model yet. */}
-                    <Stat
-                      label="Stability"
-                      value={unit.state === 0 ? "—" : `${unit.stability.toFixed(1)}d`}
-                    />
-                    <Stat
-                      label="Difficulty"
-                      value={unit.state === 0 ? "—" : `${unit.difficulty.toFixed(1)} / 10`}
-                    />
-                    <Stat label="Retrievability" value={formatPercent(unit.retrievability)} />
-                    <Stat label="Reps" value={String(unit.reps)} />
-                    <Stat label="Lapses" value={String(unit.lapses)} />
-                  </dl>
-                </li>
-              ))}
-            </ul>
+                </div>
+              );
+            })}
           </section>
 
           <section>
             <h3 className="text-sm font-semibold text-ink">Review history</h3>
             {data.reviews.length === 0 ? (
-              <p className="mt-2 text-muted">No reviews yet.</p>
+              <p className="mt-2 border border-dashed border-border px-4 py-3 text-muted">
+                No reviews yet.
+              </p>
             ) : (
               <ul className="mt-2 divide-y divide-border border border-border">
                 {data.reviews.map((review) => (
@@ -144,7 +166,7 @@ export function CardInfoDialog({
                     key={review.reviewLogId}
                     className="grid grid-cols-[minmax(0,1fr)_4rem_5.5rem_3.5rem] items-baseline gap-x-3 px-3 py-2"
                   >
-                    <span className="font-mono text-xs text-muted">
+                    <span className="text-xs text-muted tabular-nums">
                       {formatWhen(review.review)}
                     </span>
                     <span
@@ -153,12 +175,11 @@ export function CardInfoDialog({
                       {RATING_LABELS[review.rating] ?? "Rating"}
                     </span>
                     <span className="text-muted">{review.stateName}</span>
-                    <span
-                      title="Interval this review scheduled"
-                      className="text-right font-mono text-xs tabular-nums text-ink"
-                    >
-                      {formatInterval(0, review.intervalMs)}
-                    </span>
+                    <Tooltip content="Interval this review scheduled">
+                      <span className="text-right text-xs tabular-nums text-ink">
+                        {formatInterval(0, review.intervalMs)}
+                      </span>
+                    </Tooltip>
                   </li>
                 ))}
               </ul>

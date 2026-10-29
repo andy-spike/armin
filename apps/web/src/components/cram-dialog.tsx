@@ -168,7 +168,7 @@ export function CramDialog({
               <SelectContent align="start" alignItemWithTrigger={false}>
                 <SelectGroup>
                   {tagItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value} title={item.label}>
+                    <SelectItem key={item.value} value={item.value}>
                       {item.label}
                     </SelectItem>
                   ))}

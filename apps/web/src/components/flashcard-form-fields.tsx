@@ -1,57 +1,22 @@
-import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { CircleHelp, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
-import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
-import { cn } from "@/lib/utils";
-import { clozeClusters, parseClozes } from "@armin/core/flashcard-rules";
+import { parseClozes } from "@armin/core/flashcard-rules";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 
 // Inputs used by the flashcard form dialog.
 
 export function ClozeField({
   value,
   onChange,
+  onUploadChange,
 }: {
   value: string;
   onChange: (next: string) => void;
+  onUploadChange?: (delta: number) => void;
 }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const deletions = parseClozes(value);
-  const emptyDeletion = deletions.find((deletion) => deletion.answer.trim().length === 0);
-
-  const wrapSelection = () => {
-    const el = ref.current;
-    if (!el) return;
-    const start = el.selectionStart ?? 0;
-    const end = el.selectionEnd ?? 0;
-    const hadSelection = end > start;
-    const selected = value.slice(start, end) || "answer";
-    // Assign the next cluster number so every deletion carries a stable,
-    // explicit identity (reordering can't reattach FSRS history to the wrong
-    // card). The user never has to type the number.
-    const nextCluster = (clozeClusters(value).at(-1) ?? 0) + 1;
-    const prefix = `{{${nextCluster}::`;
-    const wrapped = `${prefix}${selected}}}`;
-    const next = value.slice(0, start) + wrapped + value.slice(end);
-    onChange(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      // Reselect the answer: keep the wrapped text highlighted, or select the
-      // "answer" placeholder so it can be typed straight over.
-      const innerStart = start + prefix.length;
-      const innerEnd = innerStart + selected.length;
-      el.setSelectionRange(hadSelection ? innerEnd : innerStart, innerEnd);
-    });
-  };
-
-  const onKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
-    // Ctrl/Cmd+Shift+C wraps the current selection as a cloze (matches Anki).
-    if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "c") {
-      event.preventDefault();
-      wrapSelection();
-    }
-  };
+  const emptyDeletion = parseClozes(value).find((deletion) => deletion.answer.trim().length === 0);
 
   return (
     <Field
@@ -62,18 +27,19 @@ export function ClozeField({
             content={
               <div className="space-y-1.5">
                 <p>
-                  Select text, then press{" "}
+                  Select the words to hide, then choose Cloze or press{" "}
                   <span className="inline-flex gap-0.5 align-middle">
                     <Kbd>Ctrl/⌘</Kbd>
                     <Kbd>Shift</Kbd>
                     <Kbd>C</Kbd>
-                  </span>{" "}
-                  or click Make cloze.
+                  </span>
+                  .
                 </p>
-                <p>Reuse a number to hide several blanks on the same card.</p>
                 <p>
-                  Add a hint with <code>{"{{1::answer::hint}}"}</code>.
+                  Each number is a separate card. Give two clozes the same number to hide them
+                  together.
                 </p>
+                <p>Put the cursor in a cloze to change its number or add a hint.</p>
               </div>
             }
           >
@@ -89,48 +55,20 @@ export function ClozeField({
       }
     >
       <div className="space-y-2">
-        <AutoGrowTextarea
-          ref={ref}
+        <MarkdownEditor
+          cloze
           autoFocus
           aria-label="Cloze text"
-          aria-invalid={emptyDeletion ? true : undefined}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="The {{1::mitochondria}} is the powerhouse of the {{2::cell}}."
-          minHeight={120}
-          maxHeight={300}
+          onChange={onChange}
+          onUploadChange={onUploadChange}
+          placeholder="Write a sentence, then select the words to hide."
         />
         {emptyDeletion && (
           <p role="alert" className="text-xs text-relearning">
-            Every cloze deletion needs an answer. Fill in c{emptyDeletion.cluster} or remove its
-            blank.
+            Every cloze needs an answer. Fill in cloze {emptyDeletion.cluster} or remove it.
           </p>
         )}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={wrapSelection}>
-            Make cloze
-          </Button>
-          {deletions.length > 0 ? (
-            <ul className="flex flex-wrap gap-1">
-              {deletions.map((d, i) => (
-                <li
-                  key={`${d.cluster}-${i}`}
-                  className={cn(
-                    "rounded-sm px-1.5 py-0.5 text-[0.6875rem] font-medium",
-                    d.answer.trim()
-                      ? "bg-surface-sunken text-muted"
-                      : "bg-relearning-bg text-relearning",
-                  )}
-                >
-                  c{d.cluster}: {d.answer || "—"}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <span className="text-xs text-muted">No deletions yet.</span>
-          )}
-        </div>
       </div>
     </Field>
   );

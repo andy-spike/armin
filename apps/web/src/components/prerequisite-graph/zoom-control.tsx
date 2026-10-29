@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useReactFlow, useViewport } from "@xyflow/react";
 import { Maximize, Minus, Plus, RotateCcw } from "lucide-react";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 // Low enough that Fit view can frame a large deck. The minimap keeps the graph
@@ -28,14 +29,16 @@ export function ZoomControl() {
 
   return (
     <div className="flex items-center border border-border bg-surface shadow-overlay">
-      <button
-        type="button"
-        onClick={() => void zoomOut({ duration: 150 })}
-        aria-label="Zoom out"
-        className={buttonClass}
-      >
-        <Minus className="h-3.5 w-3.5" />
-      </button>
+      <Tooltip content="Zoom out" className="px-2.5 py-1.5">
+        <button
+          type="button"
+          onClick={() => void zoomOut({ duration: 150 })}
+          aria-label="Zoom out"
+          className={buttonClass}
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+      </Tooltip>
       <div className="flex items-center border-x border-border px-1">
         <input
           aria-label="Zoom level"
@@ -58,31 +61,36 @@ export function ZoomControl() {
         />
         <span className="pl-0.5 text-xs text-muted">%</span>
       </div>
-      <button
-        type="button"
-        onClick={() => void zoomIn({ duration: 150 })}
-        aria-label="Zoom in"
-        className={buttonClass}
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        onClick={() => void zoomTo(1, { duration: 150 })}
-        aria-label="Reset zoom to 100%"
-        title="Reset zoom"
-        className={cn(buttonClass, "border-l border-border")}
-      >
-        <RotateCcw className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        onClick={() => void fitView({ padding: 0.2, duration: 300 })}
-        aria-label="Fit view"
-        className={cn(buttonClass, "border-l border-border")}
-      >
-        <Maximize className="h-3.5 w-3.5" />
-      </button>
+      <Tooltip content="Zoom in" className="px-2.5 py-1.5">
+        <button
+          type="button"
+          onClick={() => void zoomIn({ duration: 150 })}
+          aria-label="Zoom in"
+          className={buttonClass}
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </Tooltip>
+      <Tooltip content="Reset zoom to 100%" className="px-2.5 py-1.5">
+        <button
+          type="button"
+          onClick={() => void zoomTo(1, { duration: 150 })}
+          aria-label="Reset zoom to 100%"
+          className={cn(buttonClass, "border-l border-border")}
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+        </button>
+      </Tooltip>
+      <Tooltip content="Fit view" className="px-2.5 py-1.5">
+        <button
+          type="button"
+          onClick={() => void fitView({ padding: 0.2, duration: 300 })}
+          aria-label="Fit view"
+          className={cn(buttonClass, "border-l border-border")}
+        >
+          <Maximize className="h-3.5 w-3.5" />
+        </button>
+      </Tooltip>
     </div>
   );
 }

@@ -171,6 +171,20 @@ library revision, so another saved library change can require a graph reload.
 
 ## Development
 
+Deck web URLs use stable, library-scoped slugs. New decks receive one through
+`model/decks.ts`, including assistant-created and imported decks. Duplicate names
+receive numeric suffixes; renaming preserves the URL. ID links still resolve and
+redirect to the slug. After deploying this change to an existing deployment, run:
+
+```bash
+pnpm --filter @armin/backend exec convex run deckSlugs:backfill '{}'
+```
+
+The idempotent backfill processes 50 decks per transaction and schedules the next
+page. Monitor scheduled functions until it completes. Until backfilled, existing
+decks continue using their ID links. Add `--prod` only for the intended production
+deployment as part of the normal deployment workflow.
+
 When deploying the unlock-once policy to an existing deployment, run the bounded,
 idempotent backfill after pushing the new backend and before resuming study:
 

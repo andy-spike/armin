@@ -9,6 +9,7 @@ import {
 import { replaceAll, insert } from "@milkdown/kit/utils";
 import { paragraphSchema } from "@milkdown/kit/preset/commonmark";
 import { TextSelection } from "@milkdown/kit/prose/state";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT } from "@armin/core/media";
 import { hasMath, splitMath } from "@armin/core/math";
 import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
@@ -28,6 +29,17 @@ import {
 } from "@/components/ui/markdown-editor-toolbar";
 import { configureCardImages } from "@/components/ui/markdown-image";
 import { useToast } from "@/components/ui/toast";
+import { ClozeChipPopover, type ClozeChip } from "@/components/ui/cloze-chip-popover";
+import {
+  clozeNeedsSource,
+  clozePlugins,
+  clozeRangeAt,
+  clozeStringifyHandler,
+  removeCloze,
+  toggleCloze,
+  typeIntoCloze,
+  updateCloze,
+} from "@/components/ui/markdown-cloze";
 import { armin } from "@/lib/armin-client";
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
@@ -82,6 +94,11 @@ function needsSourceMode(value: string) {
   });
 }
 
+/** Source mode is also needed for clozes a chip can't show without changing them. */
+function needsSource(value: string, cloze: boolean) {
+  return needsSourceMode(value) || (cloze && clozeNeedsSource(value));
+}
+
 function editorMarkdown(value: string) {
   return resolveMediaRefsInMarkdown(
     splitMath(value)
@@ -100,6 +117,8 @@ type MarkdownEditorProps = {
   autoFocus?: boolean;
   className?: string;
   "aria-label"?: string;
+  /** Cloze card text: `{{N::answer}}` deletions show as editable chips. */
+  cloze?: boolean;
 };
 
 export function MarkdownEditor({
@@ -110,6 +129,7 @@ export function MarkdownEditor({
   autoFocus,
   className,
   "aria-label": ariaLabel,
+  cloze = false,
 }: MarkdownEditorProps) {
   const toast = useToast();
   const alive = useRef(true);
@@ -123,7 +143,18 @@ export function MarkdownEditor({
   const emitted = useRef<string | null>(null);
   const replacing = useRef(false);
   const loaded = useRef(value);
-  const [source, setSource] = useState(() => needsSourceMode(value));
+  const [source, setSource] = useState(() => needsSource(value, cloze));
+  const [chip, setChip] = useState<(ClozeChip & { from: number }) | null>(null);
+  const [focusWithin, setFocusWithin] = useState(false);
+  // The last chip shown, kept through the popover's exit animation.
+  const [shownChip, setShownChip] = useState<(ClozeChip & { from: number }) | null>(null);
+  const chipOpen = Boolean(cloze && chip && focusWithin && !source);
+  if (chipOpen && chip !== shownChip) setShownChip(chip);
+  // Switching between rich text and source keeps the box at least as tall as
+  // it was, so the page doesn't jump when the two modes wrap text differently.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [switchHeight, setSwitchHeight] = useState<number | null>(null);
+  const holdHeight = () => setSwitchHeight(bodyRef.current?.offsetHeight ?? null);
   const sourceMode = useRef(source);
   const [uploading, setUploading] = useState(0);
   useLayoutEffect(() => {
@@ -168,6 +199,23 @@ export function MarkdownEditor({
     uploadRef.current = upload;
   });
 
+  // The chip under the cursor, positioned for its settings popover.
+  const chipAt = (view: EditorView) => {
+    const { from, to } = view.state.selection;
+    const range = clozeRangeAt(view.state, from);
+    const root = rootRef.current;
+    if (!range || to > range.to || !root) return null;
+    const start = view.coordsAtPos(range.from);
+    const frame = root.getBoundingClientRect();
+    return {
+      from: range.from,
+      cluster: range.mark.attrs.cluster as number | null,
+      hint: range.mark.attrs.hint as string | null,
+      top: start.bottom - frame.top + 6,
+      left: Math.max(4, Math.min(start.left - frame.left - 4, frame.width - 330)),
+    };
+  };
+
   useEffect(() => {
     if (source || !hostRef.current) return;
     let disposed = false;
@@ -185,9 +233,13 @@ export function MarkdownEditor({
       },
       featureConfigs: {
         [Crepe.Feature.Placeholder]: { text: placeholder ?? "", mode: "doc" },
+        // The browser's own caret: the virtual cursor draws an L-shaped caret
+        // at the edges of inline code and cloze chips.
+        [Crepe.Feature.Cursor]: { virtual: false },
         [Crepe.Feature.ImageBlock]: { onUpload: (file) => uploadRef.current(file) },
       },
     });
+    if (cloze) crepe.editor.use(clozePlugins);
     crepe.editor.config((ctx) => {
       configureCardImages(ctx, setPreview);
       // Empty paragraphs are layout only; Armin does not render raw HTML.
@@ -207,6 +259,7 @@ export function MarkdownEditor({
         ...options,
         handlers: {
           ...options.handlers,
+          ...(cloze ? { cloze: clozeStringifyHandler as never } : {}),
           text(node, _parent, state, info) {
             const safe = state.safe(node.value, info);
             return node.value.includes(" ") ? safe.replace(/&#x20;/g, " ") : safe;
@@ -228,6 +281,7 @@ export function MarkdownEditor({
           if (!disposed) {
             const next = readFormats(ctx, view.state);
             setFormats((current) => (sameFormats(current, next) ? current : next));
+            if (cloze) setChip(chipAt(view));
           }
           if (!disposed && !loading && !replacing.current && !previous.eq(view.state.doc)) {
             const next = persistMediaRefsInMarkdown(ctx.get(serializerCtx)(view.state.doc));
@@ -236,7 +290,19 @@ export function MarkdownEditor({
             latest.current.onChange(next);
           }
         },
-        handleKeyDown: (_view, event) => event.key === "Enter" && (event.ctrlKey || event.metaKey),
+        handleTextInput: (view, from, to, text) => cloze && typeIntoCloze(view, from, to, text),
+        handleKeyDown: (view, event) => {
+          if (
+            cloze &&
+            (event.ctrlKey || event.metaKey) &&
+            event.shiftKey &&
+            event.key.toLowerCase() === "c"
+          ) {
+            event.preventDefault();
+            return toggleCloze(view);
+          }
+          return event.key === "Enter" && (event.ctrlKey || event.metaKey);
+        },
       }));
     });
     const creating = crepe
@@ -261,7 +327,10 @@ export function MarkdownEditor({
       crepeRef.current = null;
       void creating.then(() => crepe.destroy());
     };
-  }, [source, placeholder, autoFocus, ariaLabel]);
+  }, [source, placeholder, autoFocus, ariaLabel, cloze]);
+
+  const withChip = (apply: (view: EditorView) => void) =>
+    crepeRef.current?.editor.action((ctx) => apply(ctx.get(editorViewCtx)));
 
   useEffect(() => {
     const root = rootRef.current;
@@ -284,7 +353,7 @@ export function MarkdownEditor({
 
   useEffect(() => {
     if (source || !ready || value === emitted.current || value === loaded.current) return;
-    if (needsSourceMode(value)) {
+    if (needsSource(value, cloze)) {
       // oxlint-disable-next-line react/set-state-in-effect -- external content may require lossless source editing
       setSource(true);
       return;
@@ -297,7 +366,7 @@ export function MarkdownEditor({
       loaded.current = value;
       if (autoFocus) crepe.editor.action((ctx) => ctx.get(editorViewCtx).focus());
     }
-  }, [value, source, ready, autoFocus]);
+  }, [value, source, ready, autoFocus, cloze]);
 
   const insertImages = async (files: File[]) => {
     for (const file of files) {
@@ -344,10 +413,14 @@ export function MarkdownEditor({
   return (
     <div
       className={cn(
-        "card-markdown-editor group/editor rounded-md border border-border-strong bg-surface focus-within:border-accent",
+        "card-markdown-editor group/editor relative rounded-md border border-border-strong bg-surface focus-within:border-accent",
         className,
       )}
       ref={rootRef}
+      onFocus={() => setFocusWithin(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setFocusWithin(false);
+      }}
     >
       <MarkdownEditorToolbar
         formats={formats}
@@ -356,16 +429,23 @@ export function MarkdownEditor({
         uploading={uploading > 0}
         onCommand={(command) => crepeRef.current?.editor.action(command)}
         onAddImage={() => fileRef.current?.click()}
-        onEditSource={() => setSource(true)}
+        onEditSource={() => {
+          holdHeight();
+          setSource(true);
+        }}
         onRichText={() => {
+          holdHeight();
           setReady(false);
           setFormats(NO_FORMATS);
           setSource(false);
         }}
-        richTextBlocked={source && needsSourceMode(value)}
+        richTextBlocked={source && needsSource(value, cloze)}
+        onCloze={cloze ? () => withChip((view) => void toggleCloze(view)) : undefined}
       />
       <div
-        className="min-h-[88px] px-3 py-2 text-sm leading-relaxed text-ink"
+        ref={bodyRef}
+        style={switchHeight ? { minHeight: switchHeight } : undefined}
+        className="flex min-h-[88px] flex-col px-3 py-2 text-sm leading-relaxed text-ink"
         {...(autoFocus ? { "data-autofocus": true } : {})}
       >
         {source ? (
@@ -374,11 +454,10 @@ export function MarkdownEditor({
             value={value}
             onChange={(event) => onChange(event.target.value)}
             autoFocus={autoFocus}
-            minHeight={88}
-            maxHeight={300}
+            minHeight={72}
             placeholder={placeholder}
             aria-label={ariaLabel}
-            className="resize-none border-0 bg-transparent px-0 py-0 font-mono text-xs focus-visible:ring-0"
+            className="flex-1 resize-none border-0 bg-transparent px-0 py-0 font-mono text-xs focus-visible:ring-0"
           />
         ) : (
           <>
@@ -415,6 +494,43 @@ export function MarkdownEditor({
           event.target.value = "";
         }}
       />
+      {shownChip && (
+        <ClozeChipPopover
+          key={shownChip.from}
+          chip={shownChip}
+          leaving={!chipOpen}
+          onExited={() => setShownChip(null)}
+          onCluster={(cluster) =>
+            withChip((view) => {
+              const range = clozeRangeAt(view.state, shownChip.from);
+              if (range) updateCloze(view, range, { cluster });
+            })
+          }
+          onHint={(hint) =>
+            withChip((view) => {
+              const range = clozeRangeAt(view.state, shownChip.from);
+              if (range) updateCloze(view, range, { hint });
+            })
+          }
+          onRemove={() =>
+            withChip((view) => {
+              const range = clozeRangeAt(view.state, shownChip.from);
+              if (range) removeCloze(view, range);
+              view.focus();
+            })
+          }
+          onDone={() =>
+            withChip((view) => {
+              const range = clozeRangeAt(view.state, shownChip.from);
+              if (range)
+                view.dispatch(
+                  view.state.tr.setSelection(TextSelection.create(view.state.doc, range.to)),
+                );
+              view.focus();
+            })
+          }
+        />
+      )}
       <ImageZoomDialog src={preview} open={preview !== null} onClose={() => setPreview(null)} />
     </div>
   );

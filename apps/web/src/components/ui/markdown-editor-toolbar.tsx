@@ -22,6 +22,7 @@ import { NodeSelection, TextSelection, type EditorState } from "@milkdown/kit/pr
 import {
   Bold,
   Code,
+  EyeOff,
   FileCode,
   ImagePlus,
   Italic,
@@ -34,6 +35,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { formatBinding } from "@/lib/keybindings/keys";
+import { clozeRangeAt } from "@/components/ui/markdown-cloze";
 import { Tooltip } from "@/components/ui/tooltip";
 
 // Crepe registers its equation command by name only.
@@ -49,6 +51,7 @@ export type ActiveFormats = {
   math: boolean;
   bulletList: boolean;
   orderedList: boolean;
+  cloze: boolean;
 };
 
 export const NO_FORMATS: ActiveFormats = {
@@ -60,6 +63,7 @@ export const NO_FORMATS: ActiveFormats = {
   math: false,
   bulletList: false,
   orderedList: false,
+  cloze: false,
 };
 
 function hasMark(state: EditorState, type: MarkType) {
@@ -78,6 +82,11 @@ function nearestList(state: EditorState, types: NodeType[]) {
   return null;
 }
 
+function inCloze(state: EditorState) {
+  const range = clozeRangeAt(state, state.selection.from);
+  return Boolean(range && state.selection.to <= range.to);
+}
+
 export function readFormats(ctx: Ctx, state: EditorState): ActiveFormats {
   const bullet = bulletListSchema.type(ctx);
   const ordered = orderedListSchema.type(ctx);
@@ -92,6 +101,9 @@ export function readFormats(ctx: Ctx, state: EditorState): ActiveFormats {
     math: selection instanceof NodeSelection && selection.node.type.name === "math_inline",
     bulletList: list?.node.type === bullet,
     orderedList: list?.node.type === ordered,
+    // The same test as the chip popover: a cursor touching either edge of a
+    // chip counts as in it.
+    cloze: inCloze(state),
   };
 }
 
@@ -255,6 +267,7 @@ export function MarkdownEditorToolbar({
   onEditSource,
   onRichText,
   richTextBlocked,
+  onCloze,
 }: {
   onCommand: (command: (ctx: Ctx) => void) => void;
   formats: ActiveFormats;
@@ -266,6 +279,8 @@ export function MarkdownEditorToolbar({
   onRichText: () => void;
   /** Source that the rich editor would change, such as HTML or legacy equations. */
   richTextBlocked: boolean;
+  /** Shows the Cloze tool first, for cloze card text. */
+  onCloze?: () => void;
 }) {
   const run = (action: Action) =>
     onCommand((ctx) => {
@@ -285,26 +300,46 @@ export function MarkdownEditorToolbar({
           {richTextBlocked ? "Kept as source to preserve its formatting" : "Markdown source"}
         </p>
       ) : (
-        GROUPS.map((group, index) => (
-          <div key={index} className="flex items-center gap-0.5">
-            {index > 0 && <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />}
-            {group.map((action) => (
-              <ToolTip key={action.id} label={action.label} shortcut={action.shortcut}>
+        <>
+          {onCloze && (
+            <>
+              <ToolTip label="Hide the selection as a cloze" shortcut="Mod+Shift+c">
                 <button
                   type="button"
-                  aria-label={action.label}
-                  aria-pressed={formats[action.id]}
+                  aria-pressed={formats.cloze}
                   disabled={disabled}
-                  className={toolClass}
+                  className="inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 text-xs font-medium text-accent-deep transition-colors duration-150 hover:bg-accent-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50 group-focus-within/editor:aria-pressed:bg-accent-tint"
                   onMouseDown={keepSelection}
-                  onClick={() => run(action)}
+                  onClick={onCloze}
                 >
-                  <action.icon className="h-3.5 w-3.5" aria-hidden />
+                  <EyeOff className="h-3.5 w-3.5" aria-hidden />
+                  Cloze
                 </button>
               </ToolTip>
-            ))}
-          </div>
-        ))
+              <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
+            </>
+          )}
+          {GROUPS.map((group, index) => (
+            <div key={index} className="flex items-center gap-0.5">
+              {index > 0 && <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />}
+              {group.map((action) => (
+                <ToolTip key={action.id} label={action.label} shortcut={action.shortcut}>
+                  <button
+                    type="button"
+                    aria-label={action.label}
+                    aria-pressed={formats[action.id]}
+                    disabled={disabled}
+                    className={toolClass}
+                    onMouseDown={keepSelection}
+                    onClick={() => run(action)}
+                  >
+                    <action.icon className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </ToolTip>
+              ))}
+            </div>
+          ))}
+        </>
       )}
       <div className="ml-auto flex items-center gap-0.5">
         <ToolTip label="Add image">
@@ -320,16 +355,16 @@ export function MarkdownEditorToolbar({
           </button>
         </ToolTip>
         {!source && (
-          <ToolTip label="Edit source">
+          <ToolTip label="Edit the Markdown source">
             <button
               type="button"
-              aria-label="Edit source"
               disabled={disabled || uploading}
-              className={toolClass}
+              className="inline-flex h-6 cursor-pointer items-center gap-1 px-1.5 text-xs font-medium text-muted transition-colors duration-150 hover:bg-surface-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50"
               onMouseDown={keepSelection}
               onClick={onEditSource}
             >
               <FileCode className="h-3.5 w-3.5" aria-hidden />
+              Edit source
             </button>
           </ToolTip>
         )}

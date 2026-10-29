@@ -37,7 +37,7 @@ function deckProgress(deck: UiDeck) {
   return deck.total > 0 ? deck.learned / deck.total : 0;
 }
 
-export function sortDecks(decks: UiDeck[], sortKey: DeckSortKey): UiDeck[] {
+export function sortDecks<T extends UiDeck>(decks: T[], sortKey: DeckSortKey): T[] {
   const sorted = [...decks];
 
   switch (sortKey) {

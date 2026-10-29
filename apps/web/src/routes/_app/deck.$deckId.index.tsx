@@ -47,7 +47,7 @@ import { toUiFlashcard, type UiDeck, type UiFlashcard } from "@/types/view-model
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
 
 function DeckPage() {
-  const { deckId } = Route.useParams();
+  const { resolvedDeckId: deckId } = Route.useRouteContext();
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -370,33 +370,32 @@ function DeckHeader({
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
+        {/* Review is the one filled action while cards are due. */}
+        <Button variant={dueCount > 0 ? "outline" : "primary"} onClick={onAddCard}>
+          <Plus className="h-4 w-4" /> Add card
+        </Button>
+        <Button variant="outline" onClick={onSettings}>
+          <Settings className="h-4 w-4" /> Settings
+        </Button>
         <Link
           to="/deck/$deckId/graph"
-          params={{ deckId: deck.id }}
+          params={{ deckId: deck.slug }}
           className={buttonVariants({ variant: "outline" })}
         >
           <Share2 className="h-4 w-4" /> Graph
         </Link>
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Deck settings"
-          title="Deck settings"
-          onClick={onSettings}
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
         <Button variant="outline" onClick={onCram}>
           <Brain className="h-4 w-4" /> Cram
         </Button>
         {dueCount > 0 && (
-          <Link to="/deck/$deckId/review" params={{ deckId: deck.id }} className={buttonVariants()}>
+          <Link
+            to="/deck/$deckId/review"
+            params={{ deckId: deck.slug }}
+            className={buttonVariants()}
+          >
             <Play className="h-4 w-4" /> Review
           </Link>
         )}
-        <Button onClick={onAddCard}>
-          <Plus className="h-4 w-4" /> Add card
-        </Button>
       </div>
     </header>
   );
@@ -433,7 +432,7 @@ function FilterField({
 }
 
 export const Route = createFileRoute("/_app/deck/$deckId/")({
-  loader: ({ context, params }) => prefetchDeckPage(context.queryClient, params.deckId),
+  loader: ({ context }) => prefetchDeckPage(context.queryClient, context.resolvedDeckId),
   head: () => ({ meta: [{ title: "Deck · Armin" }] }),
   component: DeckPage,
 });

@@ -13,7 +13,7 @@ type ToastItem = {
 };
 type ToastInput = { title: string; description?: string; tone?: ToastTone };
 
-const EXIT_MS = 280;
+const EXIT_MS = 250;
 
 const ToastContext = React.createContext<{
   toast: (t: ToastInput) => void;
@@ -146,16 +146,16 @@ function ToastNotice({
     };
 
     const panel = panelRef.current;
-    const onEnd = (event: AnimationEvent) => {
-      if (event.target !== panel) return;
+    const onEnd = (event: TransitionEvent) => {
+      if (event.target !== panel || event.propertyName !== "opacity") return;
       finishExit();
     };
 
-    panel?.addEventListener("animationend", onEnd);
+    panel?.addEventListener("transitionend", onEnd);
     const fallback = window.setTimeout(finishExit, EXIT_MS + 50);
 
     return () => {
-      panel?.removeEventListener("animationend", onEnd);
+      panel?.removeEventListener("transitionend", onEnd);
       window.clearTimeout(fallback);
     };
   }, [exiting, onExitComplete]);
@@ -165,8 +165,8 @@ function ToastNotice({
       ref={panelRef}
       role="status"
       className={cn(
-        "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border border-border bg-surface p-3.5 shadow-overlay",
-        exiting ? "pointer-events-none animate-rise-out" : "animate-rise",
+        "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border border-border bg-surface p-3.5 shadow-overlay transition-[opacity,translate] duration-250 ease-(--ease-out) starting:translate-y-2 starting:opacity-0",
+        exiting && "pointer-events-none translate-y-2 opacity-0",
       )}
     >
       {icon}

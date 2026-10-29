@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { plural } from "@/lib/utils";
+import { cn, plural } from "@/lib/utils";
 import { armin, errorMessage, newRequestId } from "@/lib/armin-client";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Layers, Plus, AlertTriangle, Ellipsis, Upload, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
 import { Dialog } from "@/components/ui/dialog";
@@ -28,8 +28,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReviewHeatmap } from "@/components/review-heatmap";
 import { SortControl } from "@/components/sort-control";
-import { AnkiImportDialog } from "@/components/anki-import-dialog";
 import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
+import { Tooltip } from "@/components/ui/tooltip";
+import { ClampedLabel } from "@/components/ui/truncated-label";
 import { useToast } from "@/components/ui/toast";
 import { DECK_SORT_OPTIONS, sortDecks, type DeckSortKey } from "@/lib/sort-decks";
 import type { UiDeck } from "@/types/view-models";
@@ -40,6 +41,8 @@ import {
   prefetchDecksPage,
   statsHeatmapQuery,
 } from "@/lib/queries";
+import { forgetEdit, requestCreate, useShownDecks } from "@/lib/pending-deck-edits";
+import { useDeckPinnedAt } from "@/lib/pending-pins";
 import { STATS_COMPACT_HEATMAP_WEEKS } from "@armin/core/stats";
 import type { StatsHeatmap } from "@armin/backend/types";
 
@@ -48,7 +51,6 @@ function DecksPage() {
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [closingAfterCreate, setClosingAfterCreate] = useState(false);
@@ -60,26 +62,32 @@ function DecksPage() {
   const decksQuery = useQuery(decksQueryOptions(now));
   const deckActions = useDeckActions();
 
-  const decks = decksQuery.data ?? [];
+  const shownDecks = useShownDecks(decksQuery.data);
+  const decks = shownDecks ?? [];
   const heatmapQuery = useQuery({
     ...statsHeatmapQuery(STATS_COMPACT_HEATMAP_WEEKS, now),
     enabled: decks.length > 0,
   });
-  const sortedDecks = useMemo(
-    () => sortDecks(decksQuery.data ?? [], sort),
-    [decksQuery.data, sort],
-  );
+  const sortedDecks = useMemo(() => sortDecks(shownDecks ?? [], sort), [shownDecks, sort]);
 
+  // The new deck shows as a placeholder at once and the dialog closes; the
+  // mutation resolves only once the live list includes the real deck.
   const createDeck = useMutation({
-    mutationFn: (input: { name: string; description?: string | null }) =>
+    mutationFn: (input: { name: string; description: string | null }) =>
       armin.decks.create({ ...input, requestId: createRequestId.current }),
-    onSuccess: (_deck, input) => {
-      toast({ tone: "success", title: "Deck created", description: input.name });
+    onMutate: (input) => {
       setClosingAfterCreate(true);
       setOpen(false);
+      return { placeholder: requestCreate(input.name, input.description) };
+    },
+    onSuccess: (_deck, input) => {
+      toast({ tone: "success", title: "Deck created", description: input.name });
     },
     onError: (error) => {
       toast({ tone: "error", title: "Couldn’t create deck", description: errorMessage(error) });
+    },
+    onSettled: (_result, _error, _input, context) => {
+      if (context) forgetEdit("create", context.placeholder);
     },
   });
 
@@ -111,12 +119,9 @@ function DecksPage() {
               : "Your study decks live here."}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <ImportButton onClick={() => setImportOpen(true)} />
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4" /> New deck
-          </Button>
-        </div>
+        <Button onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4" /> New deck
+        </Button>
       </header>
 
       {decks.length > 0 && (
@@ -150,7 +155,9 @@ function DecksPage() {
               <Button onClick={() => setOpen(true)}>
                 <Plus className="h-4 w-4" /> Create your first deck
               </Button>
-              <ImportButton onClick={() => setImportOpen(true)} />
+              <Link to="/import" className={buttonVariants({ variant: "outline" })}>
+                <Upload className="h-4 w-4" /> Import from Anki
+              </Link>
             </div>
           }
         />
@@ -165,10 +172,12 @@ function DecksPage() {
       {!decksQuery.isLoading && !decksQuery.isError && decks.length > 0 && (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sortedDecks.map((deck) => (
-            <li key={deck.id}>
+            // A deck still being created can't be opened or edited yet.
+            <li key={deck.id} inert={deck.pending} className={cn(deck.pending && "opacity-60")}>
               <DeckTile
                 deck={deck}
                 onPrefetch={() => prefetchDeckPage(queryClient, deck.id)}
+                onTogglePin={(pinned) => deckActions.togglePin(deck, pinned)}
                 onRename={() => deckActions.rename(deck)}
                 onDelete={() => deckActions.remove(deck)}
               />
@@ -176,8 +185,6 @@ function DecksPage() {
           ))}
         </ul>
       )}
-
-      <AnkiImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
 
       <Dialog
         open={open}
@@ -233,8 +240,8 @@ function StudyActivity({
   loading: boolean;
 }) {
   return (
-    <section className="mb-8 border border-border bg-surface">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border px-4 py-3 sm:px-5">
+    <section className="mb-6 border border-border bg-surface">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border px-4 py-2.5">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 className="text-sm font-semibold text-ink">Study activity</h2>
           <span className="text-xs text-muted">Last {STATS_COMPACT_HEATMAP_WEEKS} weeks</span>
@@ -247,7 +254,7 @@ function StudyActivity({
           <ArrowRight className="size-3.5" aria-hidden />
         </Link>
       </div>
-      <div className="p-4 sm:p-5">
+      <div className="px-4 py-3">
         {loading ? (
           <div className="flex flex-col gap-6 md:flex-row" role="status" aria-busy>
             <span className="sr-only">Loading study activity</span>
@@ -256,10 +263,10 @@ function StudyActivity({
                 <Skeleton key={index} className="h-10 w-full rounded-none" />
               ))}
             </div>
-            <Skeleton className="h-[170px] w-full max-w-[600px] rounded-none" />
+            <Skeleton className="h-[130px] w-full max-w-[420px] rounded-none" />
           </div>
         ) : heatmap ? (
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:gap-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
             <ActivitySummary heatmap={heatmap} />
             <ReviewHeatmap days={heatmap.days} size="compact" className="flex-1" />
           </div>
@@ -283,12 +290,12 @@ function ActivitySummary({ heatmap }: { heatmap: StatsHeatmap }) {
     { label: "Total", value: heatmap.total, unit: heatmap.total === 1 ? "review" : "reviews" },
   ];
   return (
-    <dl className="grid shrink-0 grid-cols-3 gap-4 md:w-40 md:grid-cols-1 md:gap-3 md:border-r md:border-border md:pr-6">
+    <dl className="grid shrink-0 grid-cols-3 gap-4 md:w-36 md:grid-cols-1 md:gap-2 md:border-r md:border-border md:pr-6">
       {items.map((item) => (
         <div key={item.label} className="min-w-0">
           <dt className="text-xs text-muted">{item.label}</dt>
           <dd className="mt-0.5 flex items-baseline gap-1.5">
-            <span className="font-serif text-2xl leading-none font-semibold tabular-nums text-ink">
+            <span className="font-serif text-xl leading-none font-semibold tabular-nums text-ink">
               {item.value}
             </span>
             <span className="text-xs text-muted">{item.unit}</span>
@@ -299,62 +306,72 @@ function ActivitySummary({ heatmap }: { heatmap: StatsHeatmap }) {
   );
 }
 
-function ImportButton({ onClick }: { onClick: () => void }) {
-  return (
-    <Button variant="outline" onClick={onClick}>
-      <Upload className="h-4 w-4" /> Import from Anki
-    </Button>
-  );
-}
-
 function DeckTile({
   deck,
   onPrefetch,
+  onTogglePin,
   onRename,
   onDelete,
 }: {
   deck: UiDeck;
   onPrefetch: () => void;
+  onTogglePin: (pinned: boolean) => void;
   onRename: () => void;
   onDelete: () => void;
 }) {
+  const pinned = useDeckPinnedAt(deck) != null;
   const pct = deck.total > 0 ? Math.round((deck.learned / deck.total) * 100) : 0;
 
   return (
     <ContextMenu>
       <ContextMenuTrigger
-        className="group relative flex h-full cursor-pointer flex-col border border-border bg-surface p-5 transition-colors duration-150 hover:border-border-strong hover:bg-surface-sunken"
+        className="group relative flex h-[11.75rem] cursor-pointer flex-col overflow-hidden border border-border bg-surface p-5 transition-colors duration-150 hover:border-border-strong hover:bg-surface-sunken"
         onPointerEnter={onPrefetch}
         onFocus={onPrefetch}
         onPointerDown={onPrefetch}
       >
         <Link
           to="/deck/$deckId"
-          params={{ deckId: deck.id }}
+          params={{ deckId: deck.slug }}
           aria-label={`Open deck: ${deck.name}`}
           className="absolute inset-0 z-10 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         />
         <div className="pointer-events-none relative z-20 flex flex-1 flex-col">
           <div className="flex items-start justify-between gap-2">
+            {/* Two lines at most, so every tile is the same size; the full name
+                is in a tooltip. The link lets the hoverable title still open
+                the deck, while the tile-wide link above stays the one in tab order. */}
             <h2 className="min-w-0 flex-1 font-serif text-lg font-semibold text-ink">
-              {deck.name}
+              <Link
+                to="/deck/$deckId"
+                params={{ deckId: deck.slug }}
+                tabIndex={-1}
+                aria-hidden
+                className="pointer-events-auto block"
+              >
+                <ClampedLabel label={deck.name} lines={2} />
+              </Link>
             </h2>
             <div className="pointer-events-auto relative z-20 shrink-0">
               <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Deck actions"
-                      className="-mt-1.5 -mr-1.5"
-                    />
-                  }
-                >
-                  <Ellipsis className="h-4 w-4" />
-                </DropdownMenuTrigger>
+                <Tooltip content="Deck actions" className="px-2.5 py-1.5">
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Deck actions"
+                        className="-mt-1.5 -mr-1.5"
+                      />
+                    }
+                  >
+                    <Ellipsis className="h-4 w-4" />
+                  </DropdownMenuTrigger>
+                </Tooltip>
                 <DropdownMenuContent align="end" className="min-w-40">
                   <DeckActionItems
+                    pinned={pinned}
+                    onTogglePin={() => onTogglePin(pinned)}
                     onRename={onRename}
                     onDelete={onDelete}
                     Item={DropdownMenuItem}
@@ -366,7 +383,7 @@ function DeckTile({
           </div>
           <div className="mt-1 flex flex-1 flex-col">
             {deck.description && (
-              <p className="line-clamp-2 text-sm text-muted">{deck.description}</p>
+              <p className="line-clamp-1 text-sm text-muted">{deck.description}</p>
             )}
             <div className="mt-4 flex flex-1 flex-col justify-end">
               <div className="flex items-center justify-between text-xs text-muted">
@@ -397,6 +414,8 @@ function DeckTile({
 
       <ContextMenuContent className="min-w-40">
         <DeckActionItems
+          pinned={pinned}
+          onTogglePin={() => onTogglePin(pinned)}
           onRename={onRename}
           onDelete={onDelete}
           Item={ContextMenuItem}

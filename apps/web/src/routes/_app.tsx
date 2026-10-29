@@ -41,13 +41,13 @@ import { api } from "@armin/backend/api";
  */
 const readSidebarOpen = createIsomorphicFn()
   .server(() => getCookie("sidebar_state") !== "false")
-  .client(() => !document.cookie.split("; ").includes("sidebar_state=false"));
+  .client(() => !document.cookie.split(";").includes("sidebar_state=false"));
 
 /** The sidebar's saved width in px, from the cookie its rail writes when dragged. */
 const readSidebarWidth = createIsomorphicFn()
   .server(() => clampSidebarWidth(Number(getCookie("sidebar_width") ?? Number.NaN)))
   .client(() => {
-    const saved = document.cookie.split("; ").find((cookie) => cookie.startsWith("sidebar_width="));
+    const saved = document.cookie.split(";").find((cookie) => cookie.startsWith("sidebar_width="));
     return clampSidebarWidth(Number(saved?.slice("sidebar_width=".length) ?? Number.NaN));
   });
 
@@ -289,7 +289,7 @@ function Shell({ loading, reviewerResetHours }: { loading?: string; reviewerRese
         <div className="route-view flex min-h-0 w-full flex-1 flex-col overflow-hidden">
           <div
             data-fullbleed={fullbleed}
-            className="route-scroll armin-scrollbar armin-scrollbar-gutter-bg notebook-bg min-h-0 flex-1 overflow-y-auto"
+            className="route-scroll notebook-bg min-h-0 flex-1 overflow-y-auto"
           >
             <div
               data-fullbleed={fullbleed}
@@ -352,7 +352,7 @@ function ShellKeybindings({ activateNav }: { activateNav: (path: string) => void
   const navigate = useNavigate();
   const router = useRouter();
   const { keymap, pendingChord } = useKeybindings();
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebarInstantly } = useSidebar();
   const go = (to: NavTarget) => {
     activateNav(to);
     void navigate({ to });
@@ -376,7 +376,7 @@ function ShellKeybindings({ activateNav }: { activateNav: (path: string) => void
     "nav.browse": () => go(NAV_COMMANDS["nav.browse"]),
     "nav.review": () => go(NAV_COMMANDS["nav.review"]),
     "nav.settings": () => go(NAV_COMMANDS["nav.settings"]),
-    "sidebar.toggle": toggleSidebar,
+    "sidebar.toggle": toggleSidebarInstantly,
   });
 
   return null;

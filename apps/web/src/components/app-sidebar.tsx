@@ -18,6 +18,7 @@ import {
   Settings,
   Sun,
   TrendingUp,
+  Upload,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -55,9 +56,12 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
+import { useShownDecks, type ShownDeck } from "@/lib/pending-deck-edits";
+import { usePinnedAt } from "@/lib/pending-pins";
 import { ArminMark, ArminWordmark } from "@/components/brand";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
+import { TruncatedLabel } from "@/components/ui/truncated-label";
 import { decksQuery as decksQueryOptions, reviewStatusQuery } from "@/lib/queries";
 import { useStudyClock } from "@/lib/study-clock";
 import { signOutToSignIn } from "@/lib/auth-client";
@@ -111,7 +115,7 @@ export function AppSidebar({
       if (event.button === 0) onNavigate(path);
     },
     onKeyDown: (event) => {
-      if (event.key === "Enter" || event.key === " ") onNavigate(path);
+      if (event.key === "Enter" || event.key === "") onNavigate(path);
     },
     onClick: () => {
       if (isMobile) setOpenMobile(false);
@@ -122,8 +126,9 @@ export function AppSidebar({
     <Sidebar collapsible="icon">
       <BrandHeader linkProps={linkProps("/")} />
 
-      <SidebarContent className="armin-scrollbar">
-        <SidebarGroup className="pt-3">
+      {/* Review and the main pages stay put; only the deck list scrolls. */}
+      <SidebarContent className="overflow-hidden">
+        <SidebarGroup className="shrink-0 pt-3">
           <SidebarGroupContent>
             <SidebarMenu>
               <ReviewItem
@@ -135,7 +140,7 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
+        <SidebarGroup className="shrink-0">
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               <NavItem
@@ -166,14 +171,16 @@ export function AppSidebar({
         <DeckList ready={ready} isActive={isActive} linkProps={linkProps} />
       </SidebarContent>
 
-      <SidebarFooter className="gap-0.5 border-t border-sidebar-border">
-        <SidebarMenu className="gap-0.5">
+      {/* Tools and the theme switch sit above a ruled-off account row, so the
+          footer reads as two clear layers: things to use, then who you are. */}
+      <SidebarFooter className="gap-0 border-t border-sidebar-border p-0">
+        <SidebarMenu className="gap-0.5 p-2">
           <NavItem
-            to="/settings"
-            label="Settings"
-            icon={<Settings strokeWidth={1.5} />}
-            active={isActive("/settings")}
-            linkProps={linkProps("/settings")}
+            to="/import"
+            label="Import from Anki"
+            icon={<Upload strokeWidth={1.5} />}
+            active={isActive("/import")}
+            linkProps={linkProps("/import")}
           />
           <AiSetupItem
             ready={ready}
@@ -181,7 +188,9 @@ export function AppSidebar({
             linkProps={linkProps("/ai-setup")}
           />
           <ThemeItem />
-          <AccountItem />
+        </SidebarMenu>
+        <SidebarMenu className="border-t border-sidebar-border p-2">
+          <AccountItem onSettings={() => onNavigate("/settings")} />
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
@@ -425,97 +434,130 @@ function DeckList({
   // Same cache entry as the Decks page, so both stay in step.
   const decksQuery = useQuery({ ...decksQueryOptions(useStudyClock()), enabled: ready });
   const [sort, setSort] = useDeckListSort();
-  const decks = sortDecks(decksQuery.data ?? [], sort);
+  const shownDecks = useShownDecks(decksQuery.data);
+  const decks = sortDecks(shownDecks ?? [], sort);
   const navigate = useNavigate();
   // Deleting the open deck leaves its page behind, so return to Decks.
   const deckActions = useDeckActions({
     onDeleted: (deck) => {
-      if (isActive(`/deck/${deck.id}`)) void navigate({ to: "/" });
+      if (isActive(`/deck/${deck.slug}`)) void navigate({ to: "/" });
     },
   });
 
+  const pinnedAt = usePinnedAt(shownDecks);
+  const pinned = (shownDecks ?? [])
+    .filter((deck) => pinnedAt(deck) != null)
+    .sort((a, b) => (pinnedAt(a) ?? 0) - (pinnedAt(b) ?? 0));
+
   if (decksQuery.isSuccess && decks.length === 0) return null;
 
-  return (
-    <SidebarGroup
-      // Fades as one block; visibility drops once the fade ends so the hidden
-      // rows leave the tab order.
-      className="transition-[opacity,visibility] duration-150 ease-(--ease-out-quart) delay-75 group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0"
-    >
-      <SidebarGroupLabel className="text-muted group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:opacity-100">
-        Your decks
-      </SidebarGroupLabel>
-      <DropdownMenu>
-        <Tooltip content="Sort decks" side="right" className="px-2.5 py-1.5">
-          <DropdownMenuTrigger
-            render={<SidebarGroupAction aria-label="Sort decks" className="text-muted" />}
+  const deckRow = (deck: ShownDeck) => {
+    const path = `/deck/${deck.slug}`;
+    return (
+      <ContextMenu key={deck.id}>
+        <ContextMenuTrigger
+          // Off-screen rows skip layout and paint but stay in the
+          // DOM for find-in-page, focus, and screen readers. The
+          // clip margin keeps the focus ring visible. A deck still being
+          // created can't be opened or edited yet.
+          render={
+            <SidebarMenuItem
+              inert={deck.pending}
+              className={cn(
+                "[contain-intrinsic-size:auto_2rem] [content-visibility:auto] [overflow-clip-margin:4px]",
+                deck.pending && "opacity-60",
+              )}
+            />
+          }
+        >
+          <SidebarMenuButton
+            isActive={isActive(path)}
+            // The due badge floats over the row's right edge, so long
+            // names truncate before reaching it.
+            className={cn(navButton, deck.due > 0 && "pr-8")}
+            render={<Link to="/deck/$deckId" params={{ deckId: deck.slug }} {...linkProps(path)} />}
           >
-            <ArrowUpDown strokeWidth={1.5} />
-          </DropdownMenuTrigger>
-        </Tooltip>
-        <DropdownMenuContent side="right" align="start" className="min-w-44">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Sort decks</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={sort}
-              onValueChange={(value) => setSort(value as DeckSortKey)}
+            <TruncatedLabel label={deck.name} side="right" />
+          </SidebarMenuButton>
+          {deck.due > 0 && (
+            <SidebarMenuBadge className={countBadge}>
+              {deck.due}
+              <span className="sr-only"> due</span>
+            </SidebarMenuBadge>
+          )}
+        </ContextMenuTrigger>
+        <ContextMenuContent className="min-w-40">
+          <DeckActionItems
+            pinned={pinnedAt(deck) != null}
+            onTogglePin={() => deckActions.togglePin(deck, pinnedAt(deck) != null)}
+            onRename={() => deckActions.rename(deck)}
+            onDelete={() => deckActions.remove(deck)}
+            Item={ContextMenuItem}
+            Separator={ContextMenuSeparator}
+          />
+        </ContextMenuContent>
+      </ContextMenu>
+    );
+  };
+
+  return (
+    <>
+      {pinned.length > 0 && (
+        <SidebarGroup
+          // Pinned decks stay in Your decks too; this is a shortcut list, in
+          // the order they were pinned.
+          className="shrink-0 transition-[opacity,visibility] duration-150 ease-(--ease-out-quart) delay-75 group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0"
+        >
+          <SidebarGroupLabel className="text-muted group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:opacity-100">
+            Pinned
+          </SidebarGroupLabel>
+          <SidebarGroupContent className="-mx-1 max-h-48 w-[calc(100%+0.5rem)] overflow-y-auto px-1">
+            <SidebarMenu className="gap-0.5">{pinned.map(deckRow)}</SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      )}
+      <SidebarGroup
+        // Fades as one block; visibility drops once the fade ends so the hidden
+        // rows leave the tab order.
+        className="min-h-0 flex-1 transition-[opacity,visibility] duration-150 ease-(--ease-out-quart) delay-75 group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0"
+      >
+        <SidebarGroupLabel className="text-muted group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:opacity-100">
+          Your decks
+        </SidebarGroupLabel>
+        <DropdownMenu>
+          <Tooltip content="Sort decks" side="right" className="px-2.5 py-1.5">
+            <DropdownMenuTrigger
+              render={<SidebarGroupAction aria-label="Sort decks" className="text-muted" />}
             >
-              {DECK_SORT_OPTIONS.map((option) => (
-                <DropdownMenuRadioItem key={option.value} value={option.value}>
-                  {option.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <SidebarGroupContent>
-        <SidebarMenu className="gap-0.5">
-          {!decksQuery.isSuccess
-            ? Array.from({ length: 3 }, (_, i) => <SidebarMenuSkeleton key={i} />)
-            : decks.map((deck) => {
-                const path = `/deck/${deck.id}`;
-                return (
-                  <ContextMenu key={deck.id}>
-                    <ContextMenuTrigger render={<SidebarMenuItem />}>
-                      <SidebarMenuButton
-                        isActive={isActive(path)}
-                        // The due badge floats over the row's right edge, so long
-                        // names truncate before reaching it.
-                        className={cn(navButton, deck.due > 0 && "pr-8")}
-                        render={
-                          <Link
-                            to="/deck/$deckId"
-                            params={{ deckId: deck.id }}
-                            title={deck.name}
-                            {...linkProps(path)}
-                          />
-                        }
-                      >
-                        <span>{deck.name}</span>
-                      </SidebarMenuButton>
-                      {deck.due > 0 && (
-                        <SidebarMenuBadge className={countBadge}>
-                          {deck.due}
-                          <span className="sr-only"> due</span>
-                        </SidebarMenuBadge>
-                      )}
-                    </ContextMenuTrigger>
-                    <ContextMenuContent className="min-w-40">
-                      <DeckActionItems
-                        onRename={() => deckActions.rename(deck)}
-                        onDelete={() => deckActions.remove(deck)}
-                        Item={ContextMenuItem}
-                        Separator={ContextMenuSeparator}
-                      />
-                    </ContextMenuContent>
-                  </ContextMenu>
-                );
-              })}
-        </SidebarMenu>
-      </SidebarGroupContent>
-      {deckActions.dialogs}
-    </SidebarGroup>
+              <ArrowUpDown strokeWidth={1.5} />
+            </DropdownMenuTrigger>
+          </Tooltip>
+          <DropdownMenuContent side="right" align="start" className="min-w-44">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Sort decks</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={sort}
+                onValueChange={(value) => setSort(value as DeckSortKey)}
+              >
+                {DECK_SORT_OPTIONS.map((option) => (
+                  <DropdownMenuRadioItem key={option.value} value={option.value}>
+                    {option.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <SidebarGroupContent className="-mx-1 min-h-0 w-[calc(100%+0.5rem)] flex-1 overflow-y-auto px-1">
+          <SidebarMenu className="gap-0.5">
+            {!decksQuery.isSuccess
+              ? Array.from({ length: 3 }, (_, i) => <SidebarMenuSkeleton key={i} />)
+              : decks.map(deckRow)}
+          </SidebarMenu>
+        </SidebarGroupContent>
+        {deckActions.dialogs}
+      </SidebarGroup>
+    </>
   );
 }
 
@@ -537,6 +579,7 @@ function useDeckListSort() {
   return [sort, update] as const;
 }
 
+/** Click flips light/dark; right-click picks a specific theme or System. */
 const showInLight = "[[data-theme=dark]_&]:hidden";
 const showInDark = "hidden [[data-theme=dark]_&]:inline";
 
@@ -592,9 +635,11 @@ function ThemeItem() {
   );
 }
 
-/** The signed-in account, with sign-out. */
-function AccountItem() {
+/** The signed-in account: settings and sign-out. */
+function AccountItem({ onSettings }: { onSettings: () => void }) {
   const viewer = useViewer();
+  const navigate = useNavigate();
+  const { isMobile: mobile, setOpenMobile } = useSidebar();
   const { isMobile, state } = useSidebar();
   // Above the row, at its width; the collapsed rail is too narrow for that, so
   // there it opens beside the avatar instead.
@@ -614,7 +659,7 @@ function AccountItem() {
               // pl-1 centers the 24px avatar on the icon column in both states,
               // and the row keeps its 48px height when collapsed so the footer
               // above it doesn't shift.
-              className="mt-1 gap-2.5 pl-1 group-data-[collapsible=icon]:h-12! group-data-[collapsible=icon]:w-8! group-data-[collapsible=icon]:p-1! data-popup-open:bg-sidebar-accent"
+              className="gap-2.5 pl-1 group-data-[collapsible=icon]:h-12! group-data-[collapsible=icon]:w-8! group-data-[collapsible=icon]:p-1! data-popup-open:bg-sidebar-accent"
             />
           }
         >
@@ -639,6 +684,17 @@ function AccountItem() {
           <DropdownMenuGroup>
             <DropdownMenuLabel className="truncate">{email}</DropdownMenuLabel>
           </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => {
+              onSettings();
+              if (mobile) setOpenMobile(false);
+              void navigate({ to: "/settings" });
+            }}
+          >
+            <Settings strokeWidth={1.5} />
+            Settings
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={signOutToSignIn}>
             <LogOut strokeWidth={1.5} />

@@ -28,19 +28,31 @@ function live<Query extends FunctionReference<"query">>(query: Query, args: Func
   return { ...convexQuery(query, args), gcTime: LIVE_GC_MS };
 }
 
+/**
+ * For queries that scan the library's review units or history. Any study or
+ * deck change reruns every open subscription that read them, and the client
+ * sees the change only once all of them have caught up, so unused ones close
+ * after a short grace period instead of five minutes.
+ */
+const HEAVY_GC_MS = 30_000;
+
+function heavy<Query extends FunctionReference<"query">>(query: Query, args: FunctionArgs<Query>) {
+  return { ...convexQuery(query, args), gcTime: HEAVY_GC_MS };
+}
+
 /** Drop unset filters: Convex arguments can't carry `undefined`. */
 function defined<T extends object>(value: T) {
   return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T;
 }
 
 export const decksQuery = (now = studyClockNow()) =>
-  queryOptions({ ...live(api.decks.list, { now }), select: (decks) => decks ?? [] });
+  queryOptions({ ...heavy(api.decks.list, { now }), select: (decks) => decks ?? [] });
 
 export const deckNamesQuery = () =>
   queryOptions({ ...live(api.decks.listNames, {}), select: (decks) => decks ?? [] });
 
 export const deckQuery = (deckId: string, now = studyClockNow()) =>
-  queryOptions({ ...live(api.decks.get, { deckId, now }), select: (deck) => deck ?? null });
+  queryOptions({ ...heavy(api.decks.get, { deckId, now }), select: (deck) => deck ?? null });
 
 export const tagsQuery = () =>
   queryOptions({ ...live(api.flashcards.listTags, {}), select: (tags) => tags ?? [] });
@@ -56,7 +68,7 @@ export type BrowsePageSpec = { cursor: string | null; endCursor?: string };
 
 export const browsePageQuery = (filters: BrowseQueryFilters, page: BrowsePageSpec) =>
   queryOptions(
-    live(api.flashcards.browsePage, {
+    heavy(api.flashcards.browsePage, {
       ...defined(filters),
       paginationOpts: defined({
         numItems: BROWSE_PAGE_SIZE,
@@ -67,7 +79,7 @@ export const browsePageQuery = (filters: BrowseQueryFilters, page: BrowsePageSpe
   );
 
 export const browseCountsQuery = ({ sort: _sort, ...filters }: BrowseQueryFilters) =>
-  queryOptions(live(api.flashcards.browseCounts, defined(filters)));
+  queryOptions(heavy(api.flashcards.browseCounts, defined(filters)));
 
 /** Library due count and the moment time next changes it; drives the study clock. */
 export const reviewStatusQuery = (now = studyClockNow()) =>
@@ -75,15 +87,15 @@ export const reviewStatusQuery = (now = studyClockNow()) =>
 
 /** All Stats page sections for the library or one deck. */
 export const statsOverviewQuery = (deckId?: string, now = studyClockNow()) =>
-  queryOptions({ ...live(api.stats.overview, defined({ deckId, now })) });
+  queryOptions({ ...heavy(api.stats.overview, defined({ deckId, now })) });
 
 /** Compact heatmap and streak for the Decks page. */
 export const statsHeatmapQuery = (weeks = STATS_COMPACT_HEATMAP_WEEKS, now = studyClockNow()) =>
-  queryOptions({ ...live(api.stats.heatmap, { weeks, now }) });
+  queryOptions({ ...heavy(api.stats.heatmap, { weeks, now }) });
 
 /** The review queue for one deck, or for every deck. */
 export const reviewQueueQuery = (deckId?: string, now = studyClockNow()) =>
-  queryOptions(live(api.review.queue, defined({ deckId, now })));
+  queryOptions(heavy(api.review.queue, defined({ deckId, now })));
 
 /** The filters a cram setup sends to the count and queue queries. */
 export type CramFilters = {
@@ -105,13 +117,13 @@ const cramArgs = (deckId: string, filters: CramFilters) =>
 /** Live match count for the cram setup dialog. */
 export const cramCountQuery = (deckId: string, filters: CramFilters) =>
   queryOptions({
-    ...live(api.cram.count, cramArgs(deckId, filters)),
+    ...heavy(api.cram.count, cramArgs(deckId, filters)),
     select: (result) => result?.count ?? 0,
   });
 
 /** Every unit matching a cram setup; the session shuffles and limits locally. */
 export const cramQueueQuery = (deckId: string, filters: CramFilters) =>
-  queryOptions(live(api.cram.queue, cramArgs(deckId, filters)));
+  queryOptions(heavy(api.cram.queue, cramArgs(deckId, filters)));
 
 /** A flashcard's schedule and review history, for the card info dialog. `null` skips. */
 export const cardInfoQuery = (flashcardId: string | null) =>
@@ -140,7 +152,7 @@ export const moveConsequencesQuery = (flashcardId: string | null) =>
 
 export const graphQuery = (deckId: string) =>
   queryOptions({
-    ...live(api.graph.getDeck, { deckId }),
+    ...heavy(api.graph.getDeck, { deckId }),
     select: (graph) => graph ?? { version: 0, nodes: [], edges: [] },
   });
 

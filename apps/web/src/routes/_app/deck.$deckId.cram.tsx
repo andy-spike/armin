@@ -19,7 +19,7 @@ import { toUiReviewUnit } from "@/types/view-models";
 const AGAIN_REPEAT_OFFSET = 3;
 
 function CramPage() {
-  const { deckId } = Route.useParams();
+  const { resolvedDeckId: deckId, deckSlug } = Route.useRouteContext();
   const search = Route.useSearch();
   const { online } = useConnection();
   const deckQuery = useQuery(deckQueryOptions(deckId));
@@ -36,7 +36,7 @@ function CramPage() {
 
   if (!deckQuery.isLoading && !deckQuery.isError && !deckQuery.data) {
     return (
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="mt-16 flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
           <h2 className="text-xl font-semibold">Deck not found</h2>
           <p className="mt-1 text-sm text-muted">This deck isn&apos;t in your library anymore.</p>
@@ -80,7 +80,7 @@ function CramPage() {
         <div className="min-w-0">
           <Link
             to="/deck/$deckId"
-            params={{ deckId }}
+            params={{ deckId: deckSlug }}
             className="inline-flex items-center gap-1 rounded-sm text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <ArrowLeft className="h-4 w-4" /> Back to deck
@@ -94,7 +94,7 @@ function CramPage() {
           : "Practice only — your review schedule is unchanged."
       }
       doneAction={
-        <Link to="/deck/$deckId" params={{ deckId }}>
+        <Link to="/deck/$deckId" params={{ deckId: deckSlug }}>
           <Button variant="outline">Back to deck</Button>
         </Link>
       }
@@ -106,7 +106,8 @@ function CramPage() {
 
 export const Route = createFileRoute("/_app/deck/$deckId/cram")({
   validateSearch: validateCramSearch,
-  loader: ({ context, params }) => prefetchCramPage(context.queryClient, params.deckId),
+  loader: ({ context }) => prefetchCramPage(context.queryClient, context.resolvedDeckId),
   head: () => ({ meta: [{ title: "Cram · Armin" }] }),
   component: CramPage,
+  staticData: { fullbleed: true },
 });

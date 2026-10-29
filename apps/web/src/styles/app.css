@@ -247,6 +247,59 @@
   .animate-pop-out {
     animation: a-pop-out 0.2s var(--ease-out-quart) both;
   }
+  @keyframes a-settle {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes a-rise-sm {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-settle {
+    animation: a-settle 0.3s var(--ease-out) both;
+  }
+  /* Set --animate-delay on the element to stagger a group. */
+  .animate-rise-sm {
+    animation: a-rise-sm 0.2s var(--ease-out) var(--animate-delay, 0s) both;
+  }
+  /* <details> that open and close smoothly where ::details-content is
+     supported (Chromium); other browsers keep the instant toggle. */
+  .details-reveal {
+    interpolate-size: allow-keywords;
+  }
+  .details-reveal::details-content {
+    /* Contains the content's top margin, so closing doesn't end in a snap. */
+    display: flow-root;
+    block-size: 0;
+    opacity: 0;
+    overflow-y: clip;
+    transition:
+      content-visibility 0.2s allow-discrete,
+      block-size 0.2s var(--ease-out),
+      opacity 0.2s var(--ease-out);
+  }
+  .details-reveal[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
+  .animate-fade-in-fast {
+    animation: a-fade-in 0.1s var(--ease-out) both;
+  }
+  .animate-fade-out-fast {
+    animation: a-fade-out 0.1s var(--ease-out) both;
+  }
   .card-grid {
     position: relative;
     align-items: stretch;
@@ -322,56 +375,83 @@
     padding: 0;
   }
 
-  /* Themed scrollbars for inputs and other in-app scroll regions. */
-  .armin-scrollbar,
-  textarea {
-    --armin-scrollbar-gutter: var(--color-surface);
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-border-strong) transparent;
+  /* One scrollbar for every scroll region in the app: pages, dialogs, menus,
+     lists, and text areas. Thin, no arrow buttons, a flat thumb on a clear
+     track. Chrome, Edge, and Safari use the ::-webkit-scrollbar rules, the
+     only way to hide the arrow buttons there: Chrome ignores those rules and
+     draws arrows whenever the standard properties are set, so those are kept
+     for Firefox alone. The thumb's transparent border insets it without
+     needing to know the background. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-border-strong) transparent;
+    }
   }
 
-  .armin-scrollbar-gutter-bg {
-    --armin-scrollbar-gutter: var(--color-bg);
-  }
-
-  .armin-scrollbar::-webkit-scrollbar,
-  textarea::-webkit-scrollbar {
+  *::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
 
-  .armin-scrollbar::-webkit-scrollbar-track,
-  textarea::-webkit-scrollbar-track {
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
     background: transparent;
   }
 
-  .armin-scrollbar::-webkit-scrollbar-thumb,
-  textarea::-webkit-scrollbar-thumb {
+  *::-webkit-scrollbar-thumb {
     background-color: var(--color-border-strong);
-    border: 2px solid var(--armin-scrollbar-gutter);
+    background-clip: padding-box;
+    border: 2px solid transparent;
   }
 
-  .armin-scrollbar::-webkit-scrollbar-thumb:hover,
-  textarea::-webkit-scrollbar-thumb:hover {
+  *::-webkit-scrollbar-thumb:hover {
     background-color: var(--color-ui-3);
   }
 
-  .armin-scrollbar::-webkit-scrollbar-button,
-  textarea::-webkit-scrollbar-button {
+  *::-webkit-scrollbar-button {
     display: none;
     height: 0;
     width: 0;
-  }
-
-  .armin-scrollbar::-webkit-scrollbar-corner,
-  textarea::-webkit-scrollbar-corner {
-    background: transparent;
   }
 }
 
 /* ------------------------------------------------------------------ *
  * Milkdown Crepe card authoring
  * ------------------------------------------------------------------ */
+/* A cloze deletion in the card editor: the hidden text gets a soft accent
+ * wash with its card number after it as a superscript, like a footnote
+ * marker, and any hint after that in muted italics. Everything stays inline
+ * text at the paragraph's own line height, so the caret and line spacing
+ * behave as in plain text. Unlayered, like Crepe's own theme, which would
+ * otherwise reset these styles. */
+.card-markdown-editor .cloze-chip {
+  padding: 0.1em 0.2em;
+  border-radius: 3px;
+  background: color-mix(in oklch, var(--color-accent) 16%, transparent);
+  color: var(--color-accent-deep);
+  font-weight: 500;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.card-markdown-editor .cloze-answer::after {
+  content: attr(data-cluster);
+  margin-left: 0.12em;
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 0.68em;
+  font-weight: 600;
+  vertical-align: 0.5em;
+  line-height: 0;
+}
+.card-markdown-editor .cloze-chip[data-hint]::after {
+  content: " · " attr(data-hint);
+  color: var(--color-muted);
+  font-size: 0.85em;
+  font-style: italic;
+  font-weight: 400;
+}
+
 @layer components {
   /* Read-only rendered Markdown (react-markdown, review cards). Typography
    * (size, weight, leading) is inherited from the wrapper's utility classes. */
@@ -568,9 +648,6 @@ html[data-scroll="document"],
 html[data-scroll="document"] body {
   height: auto;
   overflow: visible;
-}
-html[data-scroll="document"] {
-  scrollbar-color: var(--color-ui-3) var(--color-bg);
 }
 
 .landing-graph {
@@ -778,12 +855,95 @@ html[data-scroll="document"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Fewer, gentler animations: keep fades and color changes, drop movement.
+     The moving keyframes become fades, so components keep their timing and
+     the animationend handlers that unmount them. */
+  @keyframes a-rise {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes a-pop {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes a-flip-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes a-bar-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes a-settle {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes a-rise-sm {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes a-pop-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes a-rise-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes a-bar-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  /* tw-animate popups keep their fade but lose zoom and slide; transitions on
+     position and size jump to their end state. */
   *,
   *::before,
   *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
+    --tw-enter-scale: 1 !important;
+    --tw-enter-translate-x: 0 !important;
+    --tw-enter-translate-y: 0 !important;
+    --tw-exit-scale: 1 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-exit-translate-y: 0 !important;
+    transition-property:
+      color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
+      opacity, box-shadow !important;
   }
   .skeleton {
     animation: none;

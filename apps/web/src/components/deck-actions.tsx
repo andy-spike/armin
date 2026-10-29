@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -8,15 +8,21 @@ import type { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dr
 import { useToast } from "@/components/ui/toast";
 import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
+import { editSaved, forgetEdit, requestDelete, requestRename } from "@/lib/pending-deck-edits";
+import { forgetPin, pinSaved, requestPin } from "@/lib/pending-pins";
 import type { UiDeck } from "@/types/view-models";
 
-/** Rename and delete, shared by a deck's dropdown and right-click menus. */
+/** Pin, rename, and delete, shared by a deck's dropdown and right-click menus. */
 export function DeckActionItems({
+  pinned,
+  onTogglePin,
   onRename,
   onDelete,
   Item,
   Separator,
 }: {
+  pinned: boolean;
+  onTogglePin: () => void;
   onRename: () => void;
   onDelete: () => void;
   Item: typeof DropdownMenuItem;
@@ -24,6 +30,10 @@ export function DeckActionItems({
 }) {
   return (
     <>
+      <Item onClick={onTogglePin}>
+        {pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+        {pinned ? "Unpin from sidebar" : "Pin to sidebar"}
+      </Item>
       <Item onClick={onRename}>
         <Pencil className="h-4 w-4" />
         Rename deck
@@ -51,26 +61,51 @@ export function useDeckActions({ onDeleted }: { onDeleted?: (deck: UiDeck) => vo
   const [deletingDeck, setDeletingDeck] = useState<UiDeck | null>(null);
   const [closingAfterDelete, setClosingAfterDelete] = useState(false);
 
+  // Renames and deletes show at once and close their dialog; the live deck
+  // list takes a couple of seconds to catch up. A failure puts things back.
   const updateDeck = useMutation({
     mutationFn: (input: { id: string; version: number; name: string }) => armin.decks.update(input),
-    onSuccess: (_result, deck) => {
-      toast({ tone: "success", title: "Deck renamed", description: deck.name });
+    onMutate: (deck) => {
+      requestRename(deck.id, deck.name);
       setClosingAfterRename(true);
       setRenameOpen(false);
     },
-    onError: (error) => notifySaveError(toast, "Couldn’t rename deck", error),
+    onSuccess: (_result, deck) => {
+      editSaved("rename", deck.id);
+      toast({ tone: "success", title: "Deck renamed", description: deck.name });
+    },
+    onError: (error, deck) => {
+      forgetEdit("rename", deck.id);
+      notifySaveError(toast, "Couldn’t rename deck", error);
+    },
   });
 
   const deleteDeck = useMutation({
     mutationFn: (deck: UiDeck) => armin.decks.delete(deck.id),
-    onSuccess: (_result, deck) => {
-      toast({ tone: "success", title: "Deck deleted" });
+    onMutate: (deck) => {
+      requestDelete(deck.id);
       setClosingAfterDelete(true);
       setDeleteOpen(false);
       onDeleted?.(deck);
     },
-    onError: () => {
+    onSuccess: (_result, deck) => {
+      editSaved("delete", deck.id);
+      toast({ tone: "success", title: "Deck deleted" });
+    },
+    onError: (_error, deck) => {
+      forgetEdit("delete", deck.id);
       toast({ tone: "error", title: "Couldn’t delete deck" });
+    },
+  });
+
+  const setPinned = useMutation({
+    mutationFn: (input: { deck: UiDeck; pinned: boolean }) =>
+      armin.decks.setPinned(input.deck.id, input.pinned),
+    onMutate: ({ deck, pinned }) => requestPin(deck.id, pinned),
+    onSuccess: (_result, { deck, pinned }) => pinSaved(deck.id, pinned),
+    onError: (_error, { deck, pinned }) => {
+      forgetPin(deck.id);
+      toast({ tone: "error", title: pinned ? "Couldn’t pin deck" : "Couldn’t unpin deck" });
     },
   });
 
@@ -154,6 +189,7 @@ export function useDeckActions({ onDeleted }: { onDeleted?: (deck: UiDeck) => vo
   );
 
   return {
+    togglePin: (deck: UiDeck, pinned: boolean) => setPinned.mutate({ deck, pinned: !pinned }),
     rename: (deck: UiDeck) => {
       setRenamingDeck(deck);
       setRenameName(deck.name);

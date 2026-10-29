@@ -55,8 +55,10 @@ async function deckStats(
   return {
     id: deck._id,
     name: deck.name,
+    slug: deck.slug ?? deck._id,
     description: deck.description,
     version: deck.version,
+    pinnedAt: deck.pinnedAt ?? null,
     createdAt: deck.createdAt,
     updatedAt: deck.updatedAt,
     total: counts.active,
@@ -119,8 +121,12 @@ export const get = query({
     const library = await readableLibrary(ctx);
     if (!library) return null;
     const id = ctx.db.normalizeId("decks", deckId);
-    if (!id) return null;
-    const deck = await ctx.db.get(id);
+    const deck = id
+      ? await ctx.db.get(id)
+      : await ctx.db
+          .query("decks")
+          .withIndex("by_library_slug", (q) => q.eq("libraryId", library._id).eq("slug", deckId))
+          .unique();
     if (!deck || deck.libraryId !== library._id || deck.staging) return null;
     return deckStats(ctx, library, deck, Date.now());
   },
@@ -167,6 +173,22 @@ export const update = mutation({
     const version = await updateDeckDetails(ctx, deck, args, Date.now());
     await bumpRevision(ctx, library._id);
     return { status: "ok" as const, version };
+  },
+});
+
+/**
+ * Pins or unpins a deck in the sidebar. A display preference, not an edit: it
+ * leaves the deck's version and the library revision alone, so an open rename
+ * or graph edit never conflicts with it.
+ */
+export const setPinned = mutation({
+  args: { deckId: v.id("decks"), pinned: v.boolean() },
+  handler: async (ctx, { deckId, pinned }) => {
+    const library = await writableLibrary(ctx);
+    const deck = await ownedOrFail(ctx, library, deckId, "Deck");
+    if (pinned === (deck.pinnedAt != null)) return { ok: true as const };
+    await ctx.db.patch(deck._id, { pinnedAt: pinned ? Date.now() : undefined });
+    return { ok: true as const };
   },
 });
 

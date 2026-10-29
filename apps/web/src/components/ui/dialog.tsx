@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useModalIsolation } from "@/keybindings/keybindings-provider";
 
 const EXIT_MS = 200;
+const VIEW_SWAP_MS = 250;
 
 /**
  * The element focus returns to when the dialog closes. A dialog opened from a
@@ -37,6 +38,7 @@ export function Dialog({
   footer,
   className,
   ariaLabel,
+  view,
 }: {
   open: boolean;
   onClose: () => void;
@@ -48,6 +50,12 @@ export function Dialog({
   className?: string;
   /** Accessible name for dialogs that render their own heading instead of `title`. */
   ariaLabel?: string;
+  /**
+   * Names the content currently shown, for a dialog that switches between
+   * views (an editor and its "Discard changes?" step). Changing it glides the
+   * panel to its new height and fades the new view in instead of snapping.
+   */
+  view?: string;
 }) {
   const panelRef = React.useRef<HTMLDivElement>(null);
   const onCloseRef = React.useRef(onClose);
@@ -207,6 +215,7 @@ export function Dialog({
           className,
         )}
       >
+        <ViewSwap view={view} panelRef={panelRef} />
         {content.title && (
           <div
             className={cn(
@@ -252,4 +261,145 @@ export function Dialog({
     </div>,
     document.body,
   );
+}
+
+/**
+ * Dissolves a dialog between views instead of snapping. Just before React
+ * swaps the DOM, the outgoing view is copied into a frozen, inert ghost; after
+ * the swap the incoming view fades in over it while the panel morphs to its
+ * new height.
+ * Renders nothing; `getSnapshotBeforeUpdate` is React's hook for reading the
+ * DOM before an update lands.
+ */
+class ViewSwap extends React.Component<{
+  view: string | undefined;
+  panelRef: React.RefObject<HTMLDivElement | null>;
+}> {
+  ghost: HTMLElement | null = null;
+
+  getSnapshotBeforeUpdate(prev: { view: string | undefined }) {
+    const panel = this.props.panelRef.current;
+    if (prev.view === this.props.view || !panel) return null;
+    this.ghost?.remove();
+    // Stop only the swap's own animations; the panel's CSS open animation stays.
+    for (const animation of panel.getAnimations({ subtree: true })) {
+      if (!(animation instanceof CSSAnimation)) animation.cancel();
+    }
+    const from = panel.getBoundingClientRect().height;
+    const ghost = document.createElement("div");
+    ghost.className = panel.className;
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.inert = true;
+    ghost.append(...Array.from(panel.children, (child) => child.cloneNode(true)));
+    for (const node of ghost.querySelectorAll("[id]")) node.removeAttribute("id");
+    Object.assign(ghost.style, {
+      position: "absolute",
+      inset: "0 0 auto 0",
+      height: `${from}px`,
+      margin: "0",
+      border: "0",
+      boxShadow: "none",
+      background: "transparent",
+      pointerEvents: "none",
+      animation: "none",
+    });
+    return { ghost, from };
+  }
+
+  componentDidUpdate(
+    _prev: unknown,
+    _state: unknown,
+    snapshot: { ghost: HTMLElement; from: number } | null,
+  ) {
+    const panel = this.props.panelRef.current;
+    if (!snapshot || !panel) return;
+    const { ghost, from } = snapshot;
+    const to = panel.getBoundingClientRect().height;
+    const incoming = Array.from(panel.children) as HTMLElement[];
+    // The old view sits underneath; the new one dissolves in on top with the
+    // panel's own background, covering it as it arrives. The dialog is never
+    // empty mid-swap, which is what read as a flash.
+    ghost.style.zIndex = "0";
+    panel.prepend(ghost);
+    this.ghost = ghost;
+    const surface = getComputedStyle(panel).backgroundColor;
+    const restore = incoming.map((child) => {
+      const { position, zIndex, backgroundColor } = child.style;
+      if (getComputedStyle(child).position === "static") child.style.position = "relative";
+      child.style.zIndex = "1";
+      child.style.backgroundColor = surface;
+      return () => Object.assign(child.style, { position, zIndex, backgroundColor });
+    });
+    const overflow = panel.style.overflow;
+    panel.style.overflow = "hidden";
+    // While the panel resizes, its scrolling body is squeezed and would flash a
+    // scrollbar it doesn't need. Scrolling waits for the final size.
+    const scrollers = incoming.filter((child) =>
+      /auto|scroll/.test(getComputedStyle(child).overflowY),
+    );
+    const scrollerStyle = scrollers.map((child) => ({
+      overflowY: child.style.overflowY,
+      paddingRight: child.style.paddingRight,
+    }));
+    for (const child of scrollers) {
+      // The panel is already at its final size here, so the body's width with
+      // its scrollbar (if it will have one) is known. Hold exactly that space
+      // while scrolling is off, so the content doesn't shift when it returns.
+      const withScrollbar = child.clientWidth;
+      child.style.overflowY = "hidden";
+      const gutter = child.clientWidth - withScrollbar;
+      if (gutter > 0) {
+        child.style.paddingRight = `${parseFloat(getComputedStyle(child).paddingRight) + gutter}px`;
+      }
+    }
+    const finish = () => {
+      ghost.remove();
+      if (this.ghost === ghost) this.ghost = null;
+      for (const undo of restore) undo();
+      panel.style.overflow = overflow;
+      scrollers.forEach((child, index) => {
+        Object.assign(child.style, scrollerStyle[index]);
+        if (child.scrollHeight <= child.clientHeight) return;
+        // The content really overflows: fade the scrollbar in, don't pop it.
+        child.animate(
+          [
+            { scrollbarColor: "transparent transparent" },
+            { scrollbarColor: "var(--color-border-strong) transparent" },
+          ],
+          { duration: 200, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
+        );
+      });
+    };
+
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const fade = { duration: reduce ? 150 : 200, easing: "cubic-bezier(0.23, 1, 0.32, 1)" };
+    for (const child of incoming) {
+      child.animate([{ opacity: 0 }, { opacity: 1 }], { ...fade, fill: "backwards" });
+    }
+    if (reduce) {
+      // Fewer, gentler: the dissolve alone, no resize.
+      window.setTimeout(finish, fade.duration + 10);
+      return;
+    }
+    // An on-screen size change takes the strong ease-in-out. Whatever of the
+    // old view the new one doesn't cover fades out under the moving edge.
+    ghost.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: VIEW_SWAP_MS,
+      easing: "linear",
+      fill: "forwards",
+    });
+    const morph = panel.animate([{ height: `${from}px` }, { height: `${to}px` }], {
+      duration: VIEW_SWAP_MS,
+      easing: "cubic-bezier(0.77, 0, 0.175, 1)",
+    });
+    morph.finished.then(finish, finish);
+  }
+
+  componentWillUnmount() {
+    this.ghost?.remove();
+  }
+
+  render() {
+    return null;
+  }
 }

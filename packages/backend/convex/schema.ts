@@ -223,15 +223,20 @@ export default defineSchema({
     .index("by_library", ["libraryId"]),
 
   decks: defineTable({
+    slug: v.optional(v.string()),
     libraryId: v.id("libraries"),
     name: v.string(),
     description: v.union(v.string(), v.null()),
     version: v.number(),
     /** True while an MCP import is materializing cards; excluded from every normal read. */
     staging: v.optional(v.boolean()),
+    /** When the owner pinned the deck to the sidebar; absent when unpinned. */
+    pinnedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_library", ["libraryId"]),
+  })
+    .index("by_library", ["libraryId"])
+    .index("by_library_slug", ["libraryId", "slug"]),
 
   /** The authored unit. Content is type-specific JSON validated by core. */
   flashcards: defineTable({

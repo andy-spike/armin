@@ -26,6 +26,31 @@ export function cleanDeckDescription(description: string | null | undefined) {
   return trimmed || null;
 }
 
+/** Allocate readable URLs within a library, including hidden import decks. */
+export async function allocateDeckSlug(ctx: MutationCtx, libraryId: Id<"libraries">, name: string) {
+  const base =
+    name
+      .normalize("NFKD")
+      .replace(/\p{M}/gu, "")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 100)
+      .replace(/-$/g, "") || "deck";
+  let slug = base;
+  let suffix = 2;
+  while (
+    ctx.db.normalizeId("decks", slug) ||
+    (await ctx.db
+      .query("decks")
+      .withIndex("by_library_slug", (q) => q.eq("libraryId", libraryId).eq("slug", slug))
+      .first())
+  ) {
+    slug = `${base}-${suffix++}`;
+  }
+  return slug;
+}
+
 /** The one place a deck is created. A staging deck stays hidden until its import publishes it. */
 export async function insertDeck(
   ctx: MutationCtx,
@@ -40,6 +65,7 @@ export async function insertDeck(
   return ctx.db.insert("decks", {
     libraryId: args.libraryId,
     name: cleanDeckName(args.name),
+    slug: await allocateDeckSlug(ctx, args.libraryId, args.name),
     description: cleanDeckDescription(args.description),
     version: 1,
     ...(args.staging ? { staging: true } : {}),

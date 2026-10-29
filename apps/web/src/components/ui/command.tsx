@@ -51,7 +51,7 @@ function CommandList({ className, ...props }: React.ComponentProps<typeof Autoco
   return (
     <Autocomplete.List
       data-slot="command-list"
-      className={cn("armin-scrollbar max-h-80 overflow-y-auto overflow-x-hidden p-1", className)}
+      className={cn("max-h-80 overflow-y-auto overflow-x-hidden p-1", className)}
       {...props}
     />
   );

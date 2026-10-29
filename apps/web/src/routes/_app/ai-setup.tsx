@@ -16,7 +16,7 @@ function AiSetupPage() {
   const { platform } = Route.useSearch();
 
   return (
-    <div className="pb-24">
+    <div className="mx-auto max-w-2xl pb-24">
       <header className="mb-10">
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">AI setup</h1>
         <p className="mt-1.5 text-sm text-muted">

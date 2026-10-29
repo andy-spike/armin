@@ -122,7 +122,9 @@ function contentFromFields(
       return front && back ? { front, back } : null;
     }
     case "cloze": {
-      const text = fields.clozeText;
+      // Trimmed like the other rich-text fields: the editor ends its Markdown
+      // with a newline.
+      const text = fields.clozeText.trim();
       if (parseClozes(text).length === 0 || hasEmptyClozeDeletion(text)) {
         return null;
       }
@@ -218,6 +220,8 @@ export function FlashcardFormDialog({
   const dirty = initialSnapshot !== null && formSnapshot(type, fields, tags) !== initialSnapshot;
 
   const requestClose = () => {
+    // Closing mid-save would hide whether the save landed.
+    if (submitting) return;
     if (dirty) {
       setDiscardOpen(true);
       return;
@@ -242,6 +246,9 @@ export function FlashcardFormDialog({
         setCreateSession((session) => session + 1);
         setInitialSnapshot(formSnapshot(type, EMPTY_FIELDS, tags));
       }
+    } catch {
+      // The caller already reported the failure; the form stays open with the
+      // user's edits so they can try again.
     } finally {
       setSubmitting(false);
     }
@@ -274,6 +281,7 @@ export function FlashcardFormDialog({
         requestClose();
       }}
       onExitComplete={onExitComplete}
+      view={discardOpen ? "discard" : "edit"}
       title={
         discardOpen ? "Discard changes?" : displayMode === "edit" ? "Edit flashcard" : "Add card"
       }
@@ -291,11 +299,15 @@ export function FlashcardFormDialog({
           </div>
         ) : (
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="ghost" onClick={requestClose}>
+            <Button variant="ghost" disabled={submitting} onClick={requestClose}>
               Cancel
               <Kbd>Esc</Kbd>
             </Button>
-            <Button disabled={!canSubmit} onClick={() => void handleSubmit()}>
+            <Button
+              disabled={!canSubmit && !submitting}
+              busy={submitting}
+              onClick={() => void handleSubmit()}
+            >
               {displayMode === "edit" ? "Save changes" : "Add card"}
               <Kbd className="border-on-accent/25 bg-on-accent/10 text-on-accent shadow-none">
                 Ctrl+Enter
@@ -395,6 +407,7 @@ export function FlashcardFormDialog({
               key={`cloze-${editorKey}`}
               value={fields.clozeText}
               onChange={(value) => setField("clozeText", value)}
+              onUploadChange={onUploadChange}
             />
           )}
           {type === "cloze" && (

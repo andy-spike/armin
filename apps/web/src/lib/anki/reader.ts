@@ -1,4 +1,4 @@
-import type { AnkiCollection } from "@armin/core/anki";
+import type { AnkiCollection, ImportOptions, ImportPlan } from "@armin/core/anki";
 import { AnkiImportError, MAX_ANKI_FILE_BYTES } from "@armin/core/anki/reader";
 import type { AnkiWorkerRequest, AnkiWorkerResponse } from "./reader-types";
 
@@ -8,6 +8,7 @@ import type { AnkiWorkerRequest, AnkiWorkerResponse } from "./reader-types";
  *
  *   const reader = await openAnkiFile(file);   // throws AnkiImportError
  *   reader.collection;                         // AnkiCollection, ready for the converter
+ *   await reader.convert({ progress: "keep" }); // ImportPlan, converted off the main thread
  *   await reader.readMedia("cat.png");         // Uint8Array | null, decompressed on demand
  *   reader.close();                            // terminates the worker; always call when done
  *
@@ -16,6 +17,8 @@ import type { AnkiWorkerRequest, AnkiWorkerResponse } from "./reader-types";
  */
 export type AnkiReader = {
   collection: AnkiCollection;
+  /** Runs the converter in the worker so large collections never block the page. */
+  convert(options: ImportOptions): Promise<ImportPlan>;
   /** Bytes of one media file named as note HTML references it; null if absent from the package. */
   readMedia(name: string): Promise<Uint8Array | null>;
   /** Frees the worker and the file handle. Pending reads reject. */
@@ -32,10 +35,8 @@ export async function openAnkiFile(file: File): Promise<AnkiReader> {
   }
 
   const worker = new Worker(new URL("./anki.worker.ts", import.meta.url), { type: "module" });
-  const pending = new Map<
-    number,
-    { resolve(bytes: Uint8Array | null): void; reject(error: Error): void }
-  >();
+  // Media reads and conversions share one request ID space.
+  const pending = new Map<number, { resolve(value: never): void; reject(error: Error): void }>();
   let closed = false;
   let nextRequestId = 0;
 
@@ -63,7 +64,13 @@ export async function openAnkiFile(file: File): Promise<AnkiReader> {
         case "media": {
           const request = pending.get(message.requestId);
           pending.delete(message.requestId);
-          request?.resolve(message.bytes ? new Uint8Array(message.bytes) : null);
+          request?.resolve((message.bytes ? new Uint8Array(message.bytes) : null) as never);
+          break;
+        }
+        case "converted": {
+          const request = pending.get(message.requestId);
+          pending.delete(message.requestId);
+          request?.resolve(message.plan as never);
           break;
         }
         case "media-error": {
@@ -85,16 +92,21 @@ export async function openAnkiFile(file: File): Promise<AnkiReader> {
     throw error;
   });
 
+  const request = <T>(send: (requestId: number) => AnkiWorkerRequest) => {
+    if (closed) return Promise.reject<T>(new AnkiImportError("The import was cancelled."));
+    const requestId = nextRequestId++;
+    return new Promise<T>((resolve, reject) => {
+      pending.set(requestId, { resolve: resolve as (value: never) => void, reject });
+      post(send(requestId));
+    });
+  };
+
   return {
     collection,
-    readMedia(name) {
-      if (closed) return Promise.reject(new AnkiImportError("The import was cancelled."));
-      const requestId = nextRequestId++;
-      return new Promise((resolve, reject) => {
-        pending.set(requestId, { resolve, reject });
-        post({ type: "media", requestId, name });
-      });
-    },
+    convert: (options) =>
+      request<ImportPlan>((requestId) => ({ type: "convert", requestId, options })),
+    readMedia: (name) =>
+      request<Uint8Array | null>((requestId) => ({ type: "media", requestId, name })),
     close,
   };
 }

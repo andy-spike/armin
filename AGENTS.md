@@ -29,6 +29,7 @@ Never use npm or yarn, and don't commit `package-lock.json`.
 
 - Put code in `packages/core/` only when it is free of Electron, Node, and database-driver APIs.
 - Components use Base UI, never Radix UI, unless the user explicitly asks for the Radix API.
+- Tooltips use `Tooltip` from `apps/web/src/components/ui/tooltip.tsx` (or `TruncatedLabel` for clipped text), never the native `title` attribute. Icon-only buttons get one naming the action.
 - Dialog actions keep a static label; show progress with the `busy` prop on `Button`, never a busy verb like "Deleting…". See @packages/core/docs/adr/0016-dialog-action-labels-stay-static.md.
 - Don't use return types unless a shared library needs them.
 - Backend: read @packages/backend/README.md first. Ownership derives from the session's library, study writes stay in single Convex mutations, and clients import only `@armin/backend/api` and `@armin/backend/types`. Commit regenerated `packages/backend/convex/_generated` and `apps/web/src/routeTree.gen.ts`.

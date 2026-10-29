@@ -17,6 +17,7 @@ import type * as agents from "../agents.js";
 import type * as auth from "../auth.js";
 import type * as cram from "../cram.js";
 import type * as crons from "../crons.js";
+import type * as deckSlugs from "../deckSlugs.js";
 import type * as decks from "../decks.js";
 import type * as deletion from "../deletion.js";
 import type * as exportBuilder from "../exportBuilder.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   cram: typeof cram;
   crons: typeof crons;
+  deckSlugs: typeof deckSlugs;
   decks: typeof decks;
   deletion: typeof deletion;
   exportBuilder: typeof exportBuilder;
