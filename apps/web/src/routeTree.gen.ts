@@ -26,6 +26,7 @@ import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppStatsRouteImport } from './routes/_app/stats'
 import { Route as DocsMcpRouteImport } from './routes/docs.mcp'
 import { Route as MediaSplatRouteImport } from './routes/media/$'
+import { Route as AppDeckDeckIdRouteImport } from './routes/_app/deck.$deckId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiExportSplatRouteImport } from './routes/api/export/$'
 import { Route as AppDeckDeckIdIndexRouteImport } from './routes/_app/deck.$deckId.index'
@@ -117,6 +118,11 @@ const MediaSplatRoute = MediaSplatRouteImport.update({
   path: '/media/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppDeckDeckIdRoute = AppDeckDeckIdRouteImport.update({
+  id: '/deck/$deckId',
+  path: '/deck/$deckId',
+  getParentRoute: () => AppRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -128,24 +134,24 @@ const ApiExportSplatRoute = ApiExportSplatRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppDeckDeckIdIndexRoute = AppDeckDeckIdIndexRouteImport.update({
-  id: '/deck/$deckId/',
-  path: '/deck/$deckId/',
-  getParentRoute: () => AppRoute,
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppDeckDeckIdRoute,
 } as any)
 const AppDeckDeckIdCramRoute = AppDeckDeckIdCramRouteImport.update({
-  id: '/deck/$deckId/cram',
-  path: '/deck/$deckId/cram',
-  getParentRoute: () => AppRoute,
+  id: '/cram',
+  path: '/cram',
+  getParentRoute: () => AppDeckDeckIdRoute,
 } as any)
 const AppDeckDeckIdGraphRoute = AppDeckDeckIdGraphRouteImport.update({
-  id: '/deck/$deckId/graph',
-  path: '/deck/$deckId/graph',
-  getParentRoute: () => AppRoute,
+  id: '/graph',
+  path: '/graph',
+  getParentRoute: () => AppDeckDeckIdRoute,
 } as any)
 const AppDeckDeckIdReviewRoute = AppDeckDeckIdReviewRouteImport.update({
-  id: '/deck/$deckId/review',
-  path: '/deck/$deckId/review',
-  getParentRoute: () => AppRoute,
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => AppDeckDeckIdRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/stats': typeof AppStatsRoute
   '/docs/mcp': typeof DocsMcpRoute
   '/media/$': typeof MediaSplatRoute
+  '/deck/$deckId': typeof AppDeckDeckIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/export/$': typeof ApiExportSplatRoute
   '/deck/$deckId/cram': typeof AppDeckDeckIdCramRoute
@@ -215,6 +222,7 @@ export interface FileRoutesById {
   '/docs/mcp': typeof DocsMcpRoute
   '/media/$': typeof MediaSplatRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/deck/$deckId': typeof AppDeckDeckIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/export/$': typeof ApiExportSplatRoute
   '/_app/deck/$deckId/cram': typeof AppDeckDeckIdCramRoute
@@ -241,6 +249,7 @@ export interface FileRouteTypes {
     | '/stats'
     | '/docs/mcp'
     | '/media/$'
+    | '/deck/$deckId'
     | '/api/auth/$'
     | '/api/export/$'
     | '/deck/$deckId/cram'
@@ -290,6 +299,7 @@ export interface FileRouteTypes {
     | '/docs/mcp'
     | '/media/$'
     | '/_app/'
+    | '/_app/deck/$deckId'
     | '/api/auth/$'
     | '/api/export/$'
     | '/_app/deck/$deckId/cram'
@@ -433,6 +443,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MediaSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/deck/$deckId': {
+      id: '/_app/deck/$deckId'
+      path: '/deck/$deckId'
+      fullPath: '/deck/$deckId'
+      preLoaderRoute: typeof AppDeckDeckIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -449,34 +466,52 @@ declare module '@tanstack/react-router' {
     }
     '/_app/deck/$deckId/': {
       id: '/_app/deck/$deckId/'
-      path: '/deck/$deckId'
+      path: '/'
       fullPath: '/deck/$deckId/'
       preLoaderRoute: typeof AppDeckDeckIdIndexRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppDeckDeckIdRoute
     }
     '/_app/deck/$deckId/cram': {
       id: '/_app/deck/$deckId/cram'
-      path: '/deck/$deckId/cram'
+      path: '/cram'
       fullPath: '/deck/$deckId/cram'
       preLoaderRoute: typeof AppDeckDeckIdCramRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppDeckDeckIdRoute
     }
     '/_app/deck/$deckId/graph': {
       id: '/_app/deck/$deckId/graph'
-      path: '/deck/$deckId/graph'
+      path: '/graph'
       fullPath: '/deck/$deckId/graph'
       preLoaderRoute: typeof AppDeckDeckIdGraphRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppDeckDeckIdRoute
     }
     '/_app/deck/$deckId/review': {
       id: '/_app/deck/$deckId/review'
-      path: '/deck/$deckId/review'
+      path: '/review'
       fullPath: '/deck/$deckId/review'
       preLoaderRoute: typeof AppDeckDeckIdReviewRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof AppDeckDeckIdRoute
     }
   }
 }
+
+interface AppDeckDeckIdRouteChildren {
+  AppDeckDeckIdCramRoute: typeof AppDeckDeckIdCramRoute
+  AppDeckDeckIdGraphRoute: typeof AppDeckDeckIdGraphRoute
+  AppDeckDeckIdReviewRoute: typeof AppDeckDeckIdReviewRoute
+  AppDeckDeckIdIndexRoute: typeof AppDeckDeckIdIndexRoute
+}
+
+const AppDeckDeckIdRouteChildren: AppDeckDeckIdRouteChildren = {
+  AppDeckDeckIdCramRoute: AppDeckDeckIdCramRoute,
+  AppDeckDeckIdGraphRoute: AppDeckDeckIdGraphRoute,
+  AppDeckDeckIdReviewRoute: AppDeckDeckIdReviewRoute,
+  AppDeckDeckIdIndexRoute: AppDeckDeckIdIndexRoute,
+}
+
+const AppDeckDeckIdRouteWithChildren = AppDeckDeckIdRoute._addFileChildren(
+  AppDeckDeckIdRouteChildren,
+)
 
 interface AppRouteChildren {
   AppAiSetupRoute: typeof AppAiSetupRoute
@@ -487,10 +522,7 @@ interface AppRouteChildren {
   AppSettingsRoute: typeof AppSettingsRoute
   AppStatsRoute: typeof AppStatsRoute
   AppIndexRoute: typeof AppIndexRoute
-  AppDeckDeckIdCramRoute: typeof AppDeckDeckIdCramRoute
-  AppDeckDeckIdGraphRoute: typeof AppDeckDeckIdGraphRoute
-  AppDeckDeckIdReviewRoute: typeof AppDeckDeckIdReviewRoute
-  AppDeckDeckIdIndexRoute: typeof AppDeckDeckIdIndexRoute
+  AppDeckDeckIdRoute: typeof AppDeckDeckIdRouteWithChildren
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -502,10 +534,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsRoute: AppSettingsRoute,
   AppStatsRoute: AppStatsRoute,
   AppIndexRoute: AppIndexRoute,
-  AppDeckDeckIdCramRoute: AppDeckDeckIdCramRoute,
-  AppDeckDeckIdGraphRoute: AppDeckDeckIdGraphRoute,
-  AppDeckDeckIdReviewRoute: AppDeckDeckIdReviewRoute,
-  AppDeckDeckIdIndexRoute: AppDeckDeckIdIndexRoute,
+  AppDeckDeckIdRoute: AppDeckDeckIdRouteWithChildren,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

@@ -47,7 +47,7 @@ import { toUiFlashcard, type UiDeck, type UiFlashcard } from "@/types/view-model
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
 
 function DeckPage() {
-  const { deckId } = Route.useParams();
+  const { resolvedDeckId: deckId } = Route.useRouteContext();
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -379,7 +379,7 @@ function DeckHeader({
         </Button>
         <Link
           to="/deck/$deckId/graph"
-          params={{ deckId: deck.id }}
+          params={{ deckId: deck.slug }}
           className={buttonVariants({ variant: "outline" })}
         >
           <Share2 className="h-4 w-4" /> Graph
@@ -388,7 +388,11 @@ function DeckHeader({
           <Brain className="h-4 w-4" /> Cram
         </Button>
         {dueCount > 0 && (
-          <Link to="/deck/$deckId/review" params={{ deckId: deck.id }} className={buttonVariants()}>
+          <Link
+            to="/deck/$deckId/review"
+            params={{ deckId: deck.slug }}
+            className={buttonVariants()}
+          >
             <Play className="h-4 w-4" /> Review
           </Link>
         )}
@@ -428,7 +432,7 @@ function FilterField({
 }
 
 export const Route = createFileRoute("/_app/deck/$deckId/")({
-  loader: ({ context, params }) => prefetchDeckPage(context.queryClient, params.deckId),
+  loader: ({ context }) => prefetchDeckPage(context.queryClient, context.resolvedDeckId),
   head: () => ({ meta: [{ title: "Deck · Armin" }] }),
   component: DeckPage,
 });

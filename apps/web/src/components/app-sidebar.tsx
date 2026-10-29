@@ -437,7 +437,7 @@ function DeckList({
   // Deleting the open deck leaves its page behind, so return to Decks.
   const deckActions = useDeckActions({
     onDeleted: (deck) => {
-      if (isActive(`/deck/${deck.id}`)) void navigate({ to: "/" });
+      if (isActive(`/deck/${deck.slug}`)) void navigate({ to: "/" });
     },
   });
 
@@ -481,7 +481,7 @@ function DeckList({
           {!decksQuery.isSuccess
             ? Array.from({ length: 3 }, (_, i) => <SidebarMenuSkeleton key={i} />)
             : decks.map((deck) => {
-                const path = `/deck/${deck.id}`;
+                const path = `/deck/${deck.slug}`;
                 return (
                   <ContextMenu key={deck.id}>
                     <ContextMenuTrigger
@@ -500,7 +500,7 @@ function DeckList({
                         render={
                           <Link
                             to="/deck/$deckId"
-                            params={{ deckId: deck.id }}
+                            params={{ deckId: deck.slug }}
                             {...linkProps(path)}
                           />
                         }

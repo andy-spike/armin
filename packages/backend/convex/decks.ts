@@ -55,6 +55,7 @@ async function deckStats(
   return {
     id: deck._id,
     name: deck.name,
+    slug: deck.slug ?? deck._id,
     description: deck.description,
     version: deck.version,
     createdAt: deck.createdAt,
@@ -119,8 +120,12 @@ export const get = query({
     const library = await readableLibrary(ctx);
     if (!library) return null;
     const id = ctx.db.normalizeId("decks", deckId);
-    if (!id) return null;
-    const deck = await ctx.db.get(id);
+    const deck = id
+      ? await ctx.db.get(id)
+      : await ctx.db
+          .query("decks")
+          .withIndex("by_library_slug", (q) => q.eq("libraryId", library._id).eq("slug", deckId))
+          .unique();
     if (!deck || deck.libraryId !== library._id || deck.staging) return null;
     return deckStats(ctx, library, deck, Date.now());
   },

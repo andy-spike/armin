@@ -19,7 +19,7 @@ import { toUiReviewUnit } from "@/types/view-models";
 const AGAIN_REPEAT_OFFSET = 3;
 
 function CramPage() {
-  const { deckId } = Route.useParams();
+  const { resolvedDeckId: deckId, deckSlug } = Route.useRouteContext();
   const search = Route.useSearch();
   const { online } = useConnection();
   const deckQuery = useQuery(deckQueryOptions(deckId));
@@ -80,7 +80,7 @@ function CramPage() {
         <div className="min-w-0">
           <Link
             to="/deck/$deckId"
-            params={{ deckId }}
+            params={{ deckId: deckSlug }}
             className="inline-flex items-center gap-1 rounded-sm text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <ArrowLeft className="h-4 w-4" /> Back to deck
@@ -94,7 +94,7 @@ function CramPage() {
           : "Practice only — your review schedule is unchanged."
       }
       doneAction={
-        <Link to="/deck/$deckId" params={{ deckId }}>
+        <Link to="/deck/$deckId" params={{ deckId: deckSlug }}>
           <Button variant="outline">Back to deck</Button>
         </Link>
       }
@@ -106,7 +106,7 @@ function CramPage() {
 
 export const Route = createFileRoute("/_app/deck/$deckId/cram")({
   validateSearch: validateCramSearch,
-  loader: ({ context, params }) => prefetchCramPage(context.queryClient, params.deckId),
+  loader: ({ context }) => prefetchCramPage(context.queryClient, context.resolvedDeckId),
   head: () => ({ meta: [{ title: "Cram · Armin" }] }),
   component: CramPage,
   staticData: { fullbleed: true },

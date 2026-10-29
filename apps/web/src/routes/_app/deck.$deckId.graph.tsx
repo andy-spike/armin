@@ -83,7 +83,7 @@ function readSavedViewport(storageKey: string): Viewport | undefined {
 }
 
 function DeckGraphPage() {
-  const { deckId } = Route.useParams();
+  const { resolvedDeckId: deckId, deckSlug } = Route.useRouteContext();
   const navigate = useNavigate();
   const toast = useToast();
   // A lazy initializer runs once, on the first render.
@@ -310,7 +310,7 @@ function DeckGraphPage() {
         <PrerequisiteGraph
           graph={graph}
           deckName={deckQuery.data?.name}
-          onBack={() => void navigate({ to: "/deck/$deckId", params: { deckId } })}
+          onBack={() => void navigate({ to: "/deck/$deckId", params: { deckId: deckSlug } })}
           onEdgesChange={graphEdits.applyEdgeChange}
           nodePlacements={graphEdits.nodePlacements}
           onCreateCardRequest={openCreate}
@@ -382,13 +382,13 @@ function DeckGraphPage() {
 
 export const Route = createFileRoute("/_app/deck/$deckId/graph")({
   staticData: { fullbleed: true },
-  loader: ({ context, params }) => {
+  loader: ({ context }) => {
     // Resolve the deck before asking for its graph, so an unknown id never
     // looks like an empty deck or reaches graph writes.
-    const deckOptions = deckQueryOptions(params.deckId);
+    const deckOptions = deckQueryOptions(context.resolvedDeckId);
     void context.queryClient.prefetchQuery(deckOptions).then(() => {
       if (context.queryClient.getQueryData(deckOptions.queryKey)) {
-        prefetchGraphPage(context.queryClient, params.deckId);
+        prefetchGraphPage(context.queryClient, context.resolvedDeckId);
       }
     });
   },

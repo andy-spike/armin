@@ -319,7 +319,7 @@ function DeckTile({
       >
         <Link
           to="/deck/$deckId"
-          params={{ deckId: deck.id }}
+          params={{ deckId: deck.slug }}
           aria-label={`Open deck: ${deck.name}`}
           className="absolute inset-0 z-10 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         />
@@ -331,7 +331,7 @@ function DeckTile({
             <h2 className="min-w-0 flex-1 font-serif text-lg font-semibold text-ink">
               <Link
                 to="/deck/$deckId"
-                params={{ deckId: deck.id }}
+                params={{ deckId: deck.slug }}
                 tabIndex={-1}
                 aria-hidden
                 className="pointer-events-auto block"

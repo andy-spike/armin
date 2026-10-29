@@ -223,6 +223,7 @@ export default defineSchema({
     .index("by_library", ["libraryId"]),
 
   decks: defineTable({
+    slug: v.optional(v.string()),
     libraryId: v.id("libraries"),
     name: v.string(),
     description: v.union(v.string(), v.null()),
@@ -231,7 +232,9 @@ export default defineSchema({
     staging: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_library", ["libraryId"]),
+  })
+    .index("by_library", ["libraryId"])
+    .index("by_library_slug", ["libraryId", "slug"]),
 
   /** The authored unit. Content is type-specific JSON validated by core. */
   flashcards: defineTable({

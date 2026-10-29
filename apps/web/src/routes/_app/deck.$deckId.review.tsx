@@ -10,7 +10,7 @@ import { useStudyClock } from "@/lib/study-clock";
 import { toUiReviewUnit } from "@/types/view-models";
 
 function ReviewPage() {
-  const { deckId } = Route.useParams();
+  const { resolvedDeckId: deckId, deckSlug } = Route.useRouteContext();
   const now = useStudyClock();
   const actions = useReviewActions();
 
@@ -53,7 +53,7 @@ function ReviewPage() {
         <div className="min-w-0">
           <Link
             to="/deck/$deckId"
-            params={{ deckId }}
+            params={{ deckId: deckSlug }}
             className="inline-flex items-center gap-1 rounded-sm text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <ArrowLeft className="h-4 w-4" /> Back to deck
@@ -62,7 +62,7 @@ function ReviewPage() {
         </div>
       }
       doneAction={
-        <Link to="/deck/$deckId" params={{ deckId }}>
+        <Link to="/deck/$deckId" params={{ deckId: deckSlug }}>
           <Button variant="outline">Back to deck</Button>
         </Link>
       }
@@ -73,7 +73,7 @@ function ReviewPage() {
 }
 
 export const Route = createFileRoute("/_app/deck/$deckId/review")({
-  loader: ({ context, params }) => prefetchReviewPage(context.queryClient, params.deckId),
+  loader: ({ context }) => prefetchReviewPage(context.queryClient, context.resolvedDeckId),
   head: () => ({ meta: [{ title: "Deck review · Armin" }] }),
   component: ReviewPage,
   staticData: { fullbleed: true },
