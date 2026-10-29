@@ -324,12 +324,16 @@
 
   /* One scrollbar for every scroll region in the app: pages, dialogs, menus,
      lists, and text areas. Thin, no arrow buttons, a flat thumb on a clear
-     track. Chrome, Edge, and Firefox use the standard properties; the
-     ::-webkit-scrollbar rules are for Safari, which ignores them. The thumb's
-     transparent border insets it without needing to know the background. */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-border-strong) transparent;
+     track. Chrome, Edge, and Safari use the ::-webkit-scrollbar rules, the
+     only way to hide the arrow buttons there: Chrome ignores those rules and
+     draws arrows whenever the standard properties are set, so those are kept
+     for Firefox alone. The thumb's transparent border insets it without
+     needing to know the background. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-border-strong) transparent;
+    }
   }
 
   *::-webkit-scrollbar {
