@@ -18,6 +18,7 @@ import {
   Settings,
   Sun,
   TrendingUp,
+  Upload,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -112,7 +113,7 @@ export function AppSidebar({
       if (event.button === 0) onNavigate(path);
     },
     onKeyDown: (event) => {
-      if (event.key === "Enter" || event.key === " ") onNavigate(path);
+      if (event.key === "Enter" || event.key === "") onNavigate(path);
     },
     onClick: () => {
       if (isMobile) setOpenMobile(false);
@@ -123,8 +124,9 @@ export function AppSidebar({
     <Sidebar collapsible="icon">
       <BrandHeader linkProps={linkProps("/")} />
 
-      <SidebarContent className="armin-scrollbar">
-        <SidebarGroup className="pt-3">
+      {/* Review and the main pages stay put; only the deck list scrolls. */}
+      <SidebarContent className="overflow-hidden">
+        <SidebarGroup className="shrink-0 pt-3">
           <SidebarGroupContent>
             <SidebarMenu>
               <ReviewItem
@@ -136,7 +138,7 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
+        <SidebarGroup className="shrink-0">
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               <NavItem
@@ -167,14 +169,16 @@ export function AppSidebar({
         <DeckList ready={ready} isActive={isActive} linkProps={linkProps} />
       </SidebarContent>
 
-      <SidebarFooter className="gap-0.5 border-t border-sidebar-border">
-        <SidebarMenu className="gap-0.5">
+      {/* Tools and the theme switch sit above a ruled-off account row, so the
+          footer reads as two clear layers: things to use, then who you are. */}
+      <SidebarFooter className="gap-0 border-t border-sidebar-border p-0">
+        <SidebarMenu className="gap-0.5 p-2">
           <NavItem
-            to="/settings"
-            label="Settings"
-            icon={<Settings strokeWidth={1.5} />}
-            active={isActive("/settings")}
-            linkProps={linkProps("/settings")}
+            to="/import"
+            label="Import from Anki"
+            icon={<Upload strokeWidth={1.5} />}
+            active={isActive("/import")}
+            linkProps={linkProps("/import")}
           />
           <AiSetupItem
             ready={ready}
@@ -182,7 +186,9 @@ export function AppSidebar({
             linkProps={linkProps("/ai-setup")}
           />
           <ThemeItem />
-          <AccountItem />
+        </SidebarMenu>
+        <SidebarMenu className="border-t border-sidebar-border p-2">
+          <AccountItem onSettings={() => onNavigate("/settings")} />
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
@@ -441,7 +447,7 @@ function DeckList({
     <SidebarGroup
       // Fades as one block; visibility drops once the fade ends so the hidden
       // rows leave the tab order.
-      className="transition-[opacity,visibility] duration-150 ease-(--ease-out-quart) delay-75 group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0"
+      className="min-h-0 flex-1 transition-[opacity,visibility] duration-150 ease-(--ease-out-quart) delay-75 group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0"
     >
       <SidebarGroupLabel className="text-muted group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:opacity-100">
         Your decks
@@ -470,7 +476,7 @@ function DeckList({
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <SidebarGroupContent>
+      <SidebarGroupContent className="-mx-1 min-h-0 w-[calc(100%+0.5rem)] flex-1 overflow-y-auto px-1">
         <SidebarMenu className="gap-0.5">
           {!decksQuery.isSuccess
             ? Array.from({ length: 3 }, (_, i) => <SidebarMenuSkeleton key={i} />)
@@ -537,6 +543,7 @@ function useDeckListSort() {
   return [sort, update] as const;
 }
 
+/** Click flips light/dark; right-click picks a specific theme or System. */
 const showInLight = "[[data-theme=dark]_&]:hidden";
 const showInDark = "hidden [[data-theme=dark]_&]:inline";
 
@@ -592,9 +599,11 @@ function ThemeItem() {
   );
 }
 
-/** The signed-in account, with sign-out. */
-function AccountItem() {
+/** The signed-in account: settings and sign-out. */
+function AccountItem({ onSettings }: { onSettings: () => void }) {
   const viewer = useViewer();
+  const navigate = useNavigate();
+  const { isMobile: mobile, setOpenMobile } = useSidebar();
   const { isMobile, state } = useSidebar();
   // Above the row, at its width; the collapsed rail is too narrow for that, so
   // there it opens beside the avatar instead.
@@ -614,7 +623,7 @@ function AccountItem() {
               // pl-1 centers the 24px avatar on the icon column in both states,
               // and the row keeps its 48px height when collapsed so the footer
               // above it doesn't shift.
-              className="mt-1 gap-2.5 pl-1 group-data-[collapsible=icon]:h-12! group-data-[collapsible=icon]:w-8! group-data-[collapsible=icon]:p-1! data-popup-open:bg-sidebar-accent"
+              className="gap-2.5 pl-1 group-data-[collapsible=icon]:h-12! group-data-[collapsible=icon]:w-8! group-data-[collapsible=icon]:p-1! data-popup-open:bg-sidebar-accent"
             />
           }
         >
@@ -639,6 +648,17 @@ function AccountItem() {
           <DropdownMenuGroup>
             <DropdownMenuLabel className="truncate">{email}</DropdownMenuLabel>
           </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => {
+              onSettings();
+              if (mobile) setOpenMobile(false);
+              void navigate({ to: "/settings" });
+            }}
+          >
+            <Settings strokeWidth={1.5} />
+            Settings
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={signOutToSignIn}>
             <LogOut strokeWidth={1.5} />

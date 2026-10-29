@@ -216,8 +216,11 @@ Flat by default. Tonal paper steps and hairline borders define structure.
   collapses to a 3rem icon rail with the panel button beside the wordmark or `[`.
   The open/closed state is saved in a cookie and rendered on the server, so it
   never flashes on load.
-- Order: Review, Decks, Browse; then "Your decks" (each deck with its due count);
-  the footer holds Settings, the theme switch, and the account.
+- Order: Review (the main action), then Decks, Browse, and Stats; then "Your decks"
+  (each deck with its due count). Review, the main pages, and the "Your decks"
+  label stay pinned; only the deck list scrolls. The footer lists Import from
+  Anki, AI setup, and the theme switch, then a ruled-off account row. Import lives
+  here, not on the Decks page header.
 - Rows: muted text, hover fills ui and turns ink. The current route is a paper
   row with ink text and an accent icon.
 - Counts are quiet tabular figures. Review's due count turns accent (accent-tint
@@ -226,7 +229,8 @@ Flat by default. Tonal paper steps and hairline borders define structure.
   when expanding, immediately when collapsing). Footer rows keep their size in
   both states.
 - Account menu opens above the account row; in the rail it opens beside the
-  avatar. Right-click the theme row to pick Light, Dark, or System.
+  avatar. It holds Settings and Sign out. Right-click the theme row to pick Light, Dark,
+  or System.
 - Below 768px: a 48px paper top bar with the menu button and wordmark, and the
   sidebar slides in from the left as a sheet.
 - Brand: serif wordmark, accent brain icon.
