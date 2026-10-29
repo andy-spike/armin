@@ -42,10 +42,19 @@ unchanged.
 7. Checked the chips and popover in the light theme
    ([light-theme.png](2026-10-28-cloze-chips/light-theme.png)).
 
+## Follow-up: chip restyle
+
+The first chip used a boxed number badge and a 1px inset outline, which sat
+off the text baseline and made the caret at a chip's edge look wrong. Chips are
+now inline text only: a soft accent wash with a dotted underline, the card
+number as a small raised numeral, and the hint in muted italics. Measured the
+chip at 20px inside the paragraph's 21px line, and checked the caret inside a
+chip and after it in both themes
+([dark](2026-10-28-cloze-chips/chip-restyle-dark.png),
+[light](2026-10-28-cloze-chips/chip-restyle-light.png)).
+
 ## Notes
 
-- A chip that wraps across lines can leave its number badge at the end of one
-  line and its text on the next.
 - Phone widths and touch input were not checked.
 - Validation: `pnpm check`, `pnpm --filter @armin/web build`, and
   `pnpm --filter @armin/mobile check:bundle` pass.
