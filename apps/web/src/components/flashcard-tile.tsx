@@ -27,6 +27,7 @@ import {
 import { StateBadge, Badge } from "@/components/ui/badge";
 import { FlashcardTypeBadge } from "@/components/flashcard-type-badge";
 import { Dialog } from "@/components/ui/dialog";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { FlashcardDeleteConsequences, UiFlashcard } from "@/types/view-models";
 import {
   FLASHCARD_TILE_EXIT_MS,
@@ -202,18 +203,20 @@ function CardActionsMenu({
   return (
     <div className="pointer-events-auto shrink-0">
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Flashcard actions"
-              className="-mr-2 shrink-0"
-            />
-          }
-        >
-          <Ellipsis className="h-4 w-4" />
-        </DropdownMenuTrigger>
+        <Tooltip content="Flashcard actions" className="px-2.5 py-1.5">
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Flashcard actions"
+                className="-mr-2 shrink-0"
+              />
+            }
+          >
+            <Ellipsis className="h-4 w-4" />
+          </DropdownMenuTrigger>
+        </Tooltip>
         <DropdownMenuContent align="end" className="min-w-40">
           <CardActionItems
             onOpen={onOpen}

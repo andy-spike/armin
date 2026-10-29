@@ -61,7 +61,6 @@ export function GraphToolbar({
           {search.status && (
             <p
               role="status"
-              title={search.stepping ? "Shift+Enter for the previous match" : undefined}
               className="pointer-events-none absolute top-full left-0 mt-1 w-max max-w-64 border border-border bg-surface px-2 py-1 text-[0.6875rem] leading-snug text-muted shadow-overlay"
             >
               {search.status}

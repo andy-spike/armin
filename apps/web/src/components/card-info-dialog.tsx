@@ -175,12 +175,11 @@ export function CardInfoDialog({
                       {RATING_LABELS[review.rating] ?? "Rating"}
                     </span>
                     <span className="text-muted">{review.stateName}</span>
-                    <span
-                      title="Interval this review scheduled"
-                      className="text-right text-xs tabular-nums text-ink"
-                    >
-                      {formatInterval(0, review.intervalMs)}
-                    </span>
+                    <Tooltip content="Interval this review scheduled">
+                      <span className="text-right text-xs tabular-nums text-ink">
+                        {formatInterval(0, review.intervalMs)}
+                      </span>
+                    </Tooltip>
                   </li>
                 ))}
               </ul>

@@ -58,6 +58,7 @@ import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
 import { ArminMark, ArminWordmark } from "@/components/brand";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
+import { TruncatedLabel } from "@/components/ui/truncated-label";
 import { decksQuery as decksQueryOptions, reviewStatusQuery } from "@/lib/queries";
 import { useStudyClock } from "@/lib/study-clock";
 import { signOutToSignIn } from "@/lib/auth-client";
@@ -487,12 +488,11 @@ function DeckList({
                           <Link
                             to="/deck/$deckId"
                             params={{ deckId: deck.id }}
-                            title={deck.name}
                             {...linkProps(path)}
                           />
                         }
                       >
-                        <span>{deck.name}</span>
+                        <TruncatedLabel label={deck.name} side="right" />
                       </SidebarMenuButton>
                       {deck.due > 0 && (
                         <SidebarMenuBadge className={countBadge}>

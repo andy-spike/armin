@@ -220,48 +220,47 @@ function DeckPageSkeleton() {
 /* ---------------------------------------------------------------- Review */
 
 /** Progress row, card face, and answer controls of a review session. */
+/**
+ * The progress row, card, and answer bar of a review session, laid out like the
+ * session's fixed frame so the real card lands in the same place.
+ */
 export function ReviewCardSkeleton() {
   return (
-    <div className="mt-8">
-      <div className="mb-8 flex h-8 items-center gap-3">
+    <>
+      <div className="mt-5 flex h-8 shrink-0 items-center gap-3">
         <Skeleton className="h-1.5 flex-1 rounded-full" />
-        <Skeleton className="h-8 w-[83px] rounded-none" />
+        <Skeleton className="h-3 w-9" />
+        <Skeleton className="h-8 w-[72px]" />
       </div>
-      <Skeleton className="h-[260px] w-full rounded-xl sm:h-[300px]" />
-      <div className="mt-6 flex h-11 gap-2">
-        <Skeleton className="h-11 w-[46px] rounded-none" />
-        <Skeleton className="h-11 flex-1 rounded-none" />
-        <Skeleton className="h-11 w-[46px] rounded-none" />
+      <div className="flex min-h-0 flex-1 flex-col justify-center py-4 sm:py-6">
+        <Skeleton className="max-h-[32rem] min-h-0 flex-1 rounded-xl" />
       </div>
-    </div>
+      <div className="flex h-15 shrink-0 gap-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] box-content sm:pb-8">
+        <Skeleton className="h-15 w-[46px]" />
+        <Skeleton className="h-15 flex-1" />
+        <Skeleton className="h-15 w-[46px]" />
+      </div>
+    </>
   );
 }
 
-/** Stands in for the deck name and position shown beside a review card. */
-export function ReviewMetaSkeleton() {
+function ReviewPageSkeleton({ backLink, title = "Review" }: { backLink: boolean; title?: string }) {
   return (
-    <div className="ml-auto flex h-4 shrink-0 items-center gap-3">
-      <Skeleton className="h-3 w-28" />
-      <Skeleton className="h-3 w-9" />
-    </div>
-  );
-}
-
-function ReviewPageSkeleton({ deckReview }: { deckReview: boolean }) {
-  return (
-    <div className="mx-auto max-w-2xl">
-      {deckReview ? (
-        <Line box="h-6" className="h-3.5 w-24" />
+    <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-4 pt-5 sm:px-6 sm:pt-8">
+      {backLink ? (
+        <div className="shrink-0">
+          <Line box="h-5" className="h-3.5 w-24" />
+          <PageTitle>{title}</PageTitle>
+        </div>
       ) : (
-        <div className="flex items-center justify-between gap-4">
-          <PageTitle>Review</PageTitle>
-          <Skeleton className="h-7 w-40 rounded-none" />
+        <div className="flex shrink-0 items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <PageTitle>Review</PageTitle>
+            <Line box="mt-1 h-5 max-sm:hidden" className="h-3.5 w-64" />
+          </div>
+          <Skeleton className="h-7 w-40 sm:mt-1" />
         </div>
       )}
-      <div className="mt-1.5 flex items-baseline justify-between gap-4">
-        {!deckReview && <Line box="h-5" className="h-3.5 w-64" />}
-        <ReviewMetaSkeleton />
-      </div>
       <ReviewCardSkeleton />
     </div>
   );
@@ -396,11 +395,12 @@ function SettingsPageSkeleton() {
  */
 export function PageSkeleton({ pathname }: { pathname: string }) {
   if (pathname === "/browse") return <BrowsePageSkeleton />;
-  if (pathname === "/review") return <ReviewPageSkeleton deckReview={false} />;
+  if (pathname === "/review") return <ReviewPageSkeleton backLink={false} />;
   if (pathname.startsWith("/settings")) return <SettingsPageSkeleton />;
   if (pathname.startsWith("/deck/")) {
     if (pathname.endsWith("/graph")) return <GraphPageSkeleton />;
-    if (pathname.endsWith("/review")) return <ReviewPageSkeleton deckReview />;
+    if (pathname.endsWith("/review")) return <ReviewPageSkeleton backLink />;
+    if (pathname.endsWith("/cram")) return <ReviewPageSkeleton backLink title="Cram" />;
     return <DeckPageSkeleton />;
   }
   return <DecksPageSkeleton />;

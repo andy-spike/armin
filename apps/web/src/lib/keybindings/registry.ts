@@ -140,6 +140,13 @@ export const COMMANDS: readonly CommandDef[] = [
     defaultBinding: "b",
   },
   {
+    id: "review.undo",
+    scope: "review",
+    group: "Review",
+    label: "Undo last answer",
+    defaultBinding: "z",
+  },
+  {
     id: "review.prev",
     scope: "review",
     group: "Review",

@@ -20,9 +20,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
+import { KeybindingHint } from "@/components/keybinding-hint";
 import { MarkdownContent } from "@/components/ui/markdown-content";
+import { Tooltip } from "@/components/ui/tooltip";
+import { useIsTruncated } from "@/components/ui/truncated-label";
 import { Progress } from "@/components/ui/progress";
-import { ReviewCardSkeleton, ReviewMetaSkeleton } from "@/components/page-skeletons";
+import { ReviewCardSkeleton } from "@/components/page-skeletons";
 import { Dialog } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -35,7 +38,9 @@ import { CardInfoDialog } from "@/components/card-info-dialog";
 import { ImageOcclusionReview } from "@/components/image-occlusion-review";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
-import { useScope } from "@/keybindings/keybindings-provider";
+import { useKeybindings, useScope } from "@/keybindings/keybindings-provider";
+import { isEditableTarget } from "@/lib/keybindings/editable";
+import { formatBinding } from "@/lib/keybindings/keys";
 import type {
   FlashcardDeleteConsequences,
   Grade,
@@ -56,7 +61,6 @@ import type {
 } from "@armin/core/review-session";
 import { useReviewSession } from "@/lib/use-review-session";
 import { DeleteConsequencesList } from "@/components/delete-consequences-list";
-import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /*
@@ -93,9 +97,63 @@ const RATINGS: {
   },
 ];
 
+/** The rebindable command behind each rating button's key hint. */
+const RATING_COMMANDS: Record<Grade, string> = {
+  1: "review.rate.again",
+  2: "review.rate.hard",
+  3: "review.rate.good",
+  4: "review.rate.easy",
+};
+
+/** A tooltip line naming an action and its current key binding. */
+function ShortcutLabel({ label, binding }: { label: string; binding?: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      {label}
+      {binding && <KeybindingHint binding={binding} />}
+    </span>
+  );
+}
+
+/** A menu item's current key binding, aligned to the item's right edge. */
+function MenuShortcut({ binding }: { binding?: string }) {
+  if (!binding) return null;
+  return (
+    <span className="ml-auto pl-4 font-mono text-xs text-muted">{formatBinding(binding)}</span>
+  );
+}
+
+/** Centers an empty, finished, or error panel in the review frame. */
+function ReviewStatePanel({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto py-6 sm:pb-16">
+      <div className="flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /** A unit's rating intervals change only when its schedule (version) does. */
 const previewKey = (reviewUnitId: string, version: number) =>
   ["review-preview", reviewUnitId, version] as const;
+
+/** The current card's deck, with its full name in a tooltip when clipped. */
+function DeckLink({ deckId, name }: { deckId: string; name: string }) {
+  const { ref, truncated } = useIsTruncated<HTMLAnchorElement>();
+  return (
+    <Tooltip content={name} disabled={!truncated} className="px-2.5 py-1.5">
+      <Link
+        ref={ref}
+        to="/deck/$deckId"
+        params={{ deckId }}
+        className="min-w-0 truncate rounded-sm transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        {name}
+      </Link>
+    </Tooltip>
+  );
+}
 
 /**
  * The prompt and revealed answer, shared by review and cram sessions so a
@@ -311,6 +369,7 @@ export function ReviewSession({
   const [flashcardActionPending, setCardActionPending] = useState(false);
   const [infoCardId, setInfoCardId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const cardBodyRef = useRef<HTMLDivElement>(null);
 
   const remaining = cards.filter((c) => !c.reviewed).length;
   const subtitleContent = typeof subtitle === "function" ? subtitle(remaining) : subtitle;
@@ -399,6 +458,7 @@ export function ReviewSession({
     }
   };
 
+  const { keymap } = useKeybindings();
   const openInfo = () => {
     if (card) setInfoCardId(card.flashcardId);
   };
@@ -477,10 +537,10 @@ export function ReviewSession({
         if (flipped) rate(4 as Grade);
       },
       "review.prev": () => {
-        if (!flipped) goPrev();
+        if (card && !flipped) goPrev();
       },
       "review.next": () => {
-        if (!flipped) goNext();
+        if (card && !flipped) goNext();
       },
       "review.info": () => {
         openInfo();
@@ -488,65 +548,60 @@ export function ReviewSession({
       "review.bury": () => {
         void buryCard();
       },
+      "review.undo": () => {
+        void undoLast();
+      },
     },
-    { enabled: reviewActive },
+    { enabled: reviewActive || done },
   );
 
   // Enter-to-reveal stays an intrinsic convention (it also works while the
-  // type-answer field is focused, where the input submits on Enter).
+  // type-answer field is focused, where the input submits on Enter). The page
+  // itself never scrolls, so the up and down arrows scroll a long card.
   useEffect(() => {
     if (!reviewActive) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Enter" && !flipped) {
         e.preventDefault();
         if (card) setFlipped(true);
+        return;
       }
+      const lineDirection = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+      if (lineDirection === 0 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (isEditableTarget(e.target) || e.defaultPrevented) return;
+      const body = cardBodyRef.current;
+      if (!body || body.scrollHeight <= body.clientHeight) return;
+      e.preventDefault();
+      body.scrollBy({ top: lineDirection * 64, behavior: "smooth" });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [reviewActive, flipped, card]);
 
-  return (
-    <div className="mx-auto max-w-2xl">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        <div className="min-w-0 sm:flex-1 [&_h1]:m-0">{header}</div>
-        {deckSelector && <div className="min-w-0 w-full sm:w-auto sm:shrink-0">{deckSelector}</div>}
-      </div>
+  const reviewedCount = cards.filter((c) => c.reviewed).length;
+  const keyLabel = (commandId: string) => formatBinding(keymap[commandId] ?? "");
+  const onAccentKbd = "border-on-accent/25 bg-ink/10 text-on-accent shadow-none max-sm:hidden";
 
-      {(subtitleContent || card || isLoading) && (
-        <div className="mt-1.5 flex flex-col gap-1 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-          {subtitleContent && <p className="min-w-0 text-pretty text-muted">{subtitleContent}</p>}
-          {isLoading && <ReviewMetaSkeleton />}
-          {card && (
-            <div
-              className={cn(
-                "flex min-w-0 items-center gap-3 font-mono text-xs uppercase tracking-wide text-muted sm:max-w-[50%] sm:justify-end",
-                !subtitleContent && "sm:ml-auto",
-              )}
-            >
-              {card.deck && card.deckId && (
-                <Tooltip content={card.deck} side="bottom">
-                  <Link
-                    to="/deck/$deckId"
-                    params={{ deckId: card.deckId }}
-                    className="min-w-0 truncate rounded-sm transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                  >
-                    {card.deck}
-                  </Link>
-                </Tooltip>
-              )}
-              <span className="shrink-0">
-                {index + 1} / {cards.length}
-              </span>
-            </div>
+  return (
+    // The review frame never scrolls. The header sits on top, the card fills
+    // and centers in the space between, and the answer controls stay pinned to
+    // the bottom edge, so every action keeps its place from card to card. Only
+    // a card too long for the space scrolls, inside itself.
+    <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-4 pt-5 sm:px-6 sm:pt-8">
+      <div className="flex shrink-0 items-start justify-between gap-4">
+        <div className="min-w-0 flex-1 [&_h1]:m-0">
+          {header}
+          {subtitleContent && (
+            <p className="mt-1 text-pretty text-sm text-muted max-sm:hidden">{subtitleContent}</p>
           )}
         </div>
-      )}
+        {deckSelector && <div className="min-w-0 max-w-[55%] shrink-0 sm:pt-1">{deckSelector}</div>}
+      </div>
 
       {isLoading && <ReviewCardSkeleton />}
 
       {isError && (
-        <div className="mt-10 flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
+        <ReviewStatePanel>
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-relearning-bg text-relearning">
             <AlertTriangle className="h-6 w-6" strokeWidth={1.5} />
           </div>
@@ -557,11 +612,11 @@ export function ReviewSession({
           <Button variant="outline" className="mt-5" onClick={onRetry}>
             Try again
           </Button>
-        </div>
+        </ReviewStatePanel>
       )}
 
       {(empty || done) && (
-        <div className="mt-16 flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
+        <ReviewStatePanel>
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-review-bg text-good">
             <CheckCircle2 className="h-7 w-7" strokeWidth={1.5} />
           </div>
@@ -575,210 +630,273 @@ export function ReviewSession({
             </p>
           )}
           {onUndo && (history.length > 0 || saving > 0) && (
-            <Button
-              variant="outline"
-              className="mt-5"
-              busy={undoing}
-              disabled={undoing || !online}
-              onClick={() => void undoLast()}
-              aria-label="Undo last review"
+            <Tooltip
+              content={<ShortcutLabel label="Undo last answer" binding={keymap["review.undo"]} />}
             >
-              <Undo2 className="h-4 w-4" />
-              Undo
-            </Button>
-          )}
-          <div className="mt-6">{doneAction}</div>
-        </div>
-      )}
-
-      {card && (
-        <div className="mt-8">
-          <div className="mb-8 flex items-center gap-3">
-            <Progress
-              value={cards.filter((c) => c.reviewed).length}
-              max={cards.length}
-              label="Session progress"
-              className="flex-1"
-            />
-            {onUndo && (
               <Button
                 variant="outline"
-                size="sm"
-                disabled={(history.length === 0 && saving === 0) || undoing || !online}
+                className="mt-5"
+                busy={undoing}
+                disabled={undoing || !online}
                 onClick={() => void undoLast()}
                 aria-label="Undo last review"
               >
                 <Undo2 className="h-4 w-4" />
                 Undo
               </Button>
+            </Tooltip>
+          )}
+          <div className="mt-6">{doneAction}</div>
+        </ReviewStatePanel>
+      )}
+
+      {card && (
+        <>
+          <div className="mt-5 flex h-8 shrink-0 items-center gap-3">
+            <Progress
+              value={reviewedCount}
+              max={cards.length}
+              label="Session progress"
+              className="flex-1"
+            />
+            <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
+              <span className="sr-only">Card </span>
+              {index + 1} / {cards.length}
+            </span>
+            {onUndo && (
+              <Tooltip
+                content={<ShortcutLabel label="Undo last answer" binding={keymap["review.undo"]} />}
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="-mr-2"
+                  disabled={(history.length === 0 && saving === 0) || undoing || !online}
+                  onClick={() => void undoLast()}
+                  aria-label="Undo last review"
+                >
+                  <Undo2 className="h-4 w-4" />
+                  Undo
+                </Button>
+              </Tooltip>
             )}
           </div>
 
-          {staleCard && (
-            <div
-              role="alert"
-              className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-hard/50 bg-hard/10 px-4 py-3 text-sm"
-            >
-              <span>{staleCard.message} Your answer wasn&apos;t saved.</span>
-              <Button size="sm" variant="outline" onClick={acceptStaleCard}>
-                {staleCard.next ? "Show the updated card" : "Skip this card"}
-              </Button>
-            </div>
-          )}
-          {notice && !staleCard && (
-            <div
-              role="status"
-              className="mb-4 rounded-md border border-border-strong bg-surface-sunken px-4 py-3 text-sm"
-            >
-              {notice}
-            </div>
-          )}
-          {saving > 0 && (!online || saveFailing) && (
-            <p role="status" className="mb-4 text-sm text-muted">
-              {online
-                ? "Couldn't save your last answer yet. Retrying…"
-                : "Waiting for the connection to save your answers…"}
-            </p>
-          )}
-
-          <div className="relative flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-border-strong bg-paper px-5 py-10 text-center sm:min-h-[300px] sm:px-10 sm:py-12">
-            <div className="absolute top-3 right-3 flex items-center gap-1">
-              <Tooltip content="Card info (I)" className="px-2.5 py-1.5">
-                <Button variant="ghost" size="icon-sm" aria-label="Card info" onClick={openInfo}>
-                  <Info className="h-4 w-4" />
-                </Button>
-              </Tooltip>
-              <DropdownMenu onOpenChange={prefetchFlashcard}>
-                <DropdownMenuTrigger
-                  render={<Button variant="ghost" size="icon-sm" aria-label="Flashcard actions" />}
+          {(staleCard || notice || (saving > 0 && (!online || saveFailing))) && (
+            <div className="mt-3 shrink-0 space-y-2">
+              {staleCard && (
+                <div
+                  role="alert"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-hard/50 bg-hard/10 px-4 py-3 text-sm"
                 >
-                  <EllipsisVertical className="h-4 w-4" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-40">
-                  {onEditFlashcard && loadCard && (
-                    <DropdownMenuItem onClick={() => void openEdit()}>
-                      <Pencil className="h-4 w-4" />
-                      Edit flashcard
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={openInfo}>
-                    <Info className="h-4 w-4" />
-                    Card info
-                  </DropdownMenuItem>
-                  {onBury && (
-                    <DropdownMenuItem disabled={burying || !online} onClick={() => void buryCard()}>
-                      <Moon className="h-4 w-4" />
-                      Bury until tomorrow
-                    </DropdownMenuItem>
-                  )}
-                  {onArchiveFlashcard && (
-                    <DropdownMenuItem
-                      disabled={flashcardActionPending}
-                      onClick={() => void handleArchive()}
-                    >
-                      <Archive className="h-4 w-4" />
-                      Archive
-                    </DropdownMenuItem>
-                  )}
-                  {onDeleteFlashcard && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        disabled={flashcardActionPending}
-                        onClick={openDeleteConfirm}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            <ReviewCardPrompt
-              card={card}
-              flipped={flipped}
-              typed={typed}
-              onTypedChange={setTyped}
-              onReveal={reveal}
-            />
-          </div>
-
-          {/* One height for both states, sized to the two-line rating buttons, so
-              revealing the answer doesn't grow the row. */}
-          <div className="mt-6 flex items-stretch gap-2 sm:h-15">
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-auto shrink-0 px-3"
-              disabled={index === 0 || undoing}
-              onClick={goPrev}
-              aria-label="Previous review unit"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-
-            <div className="min-w-0 flex-1">
-              {!flipped ? (
-                <Button size="lg" className="h-15 w-full sm:h-full" onClick={reveal}>
-                  {isTypeAnswer ? "Check answer" : "Show answer"}
-                  <Kbd className="ml-1 border-on-accent/25 bg-ink/10 text-on-accent shadow-none max-sm:hidden">
-                    {isTypeAnswer ? "Enter" : "Space"}
-                  </Kbd>
-                </Button>
-              ) : (
-                <div className="grid h-full grid-cols-4 gap-2">
-                  {RATINGS.map((r) => (
-                    <button
-                      key={r.grade}
-                      onClick={() => rate(r.grade)}
-                      disabled={card.reviewed || undoing || Boolean(staleCard) || !online}
-                      className={cn(
-                        "flex h-15 min-w-0 flex-col items-center justify-center gap-0.5 rounded-md px-1 text-sm sm:h-full sm:px-3 font-medium text-on-accent transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
-                        r.bg,
-                        isTypeAnswer &&
-                          ((isCorrect && r.grade === 3) || (!isCorrect && r.grade === 1))
-                          ? "ring-2 ring-ink ring-offset-2 ring-offset-bg"
-                          : undefined,
-                      )}
-                    >
-                      <span className="flex items-center gap-1.5">
-                        {r.label}
-                        {/* Shortcut hints only where there's room, and a keyboard. */}
-                        <Kbd className="border-on-accent/25 bg-ink/10 text-on-accent shadow-none max-sm:hidden">
-                          {r.grade}
-                        </Kbd>
-                      </span>
-                      {showIntervals && (
-                        <span className="font-mono text-xs text-on-accent">
-                          {intervalLabels.get(r.grade) ?? "…"}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                  <span>{staleCard.message} Your answer wasn&apos;t saved.</span>
+                  <Button size="sm" variant="outline" onClick={acceptStaleCard}>
+                    {staleCard.next ? "Show the updated card" : "Skip this card"}
+                  </Button>
                 </div>
               )}
+              {notice && !staleCard && (
+                <div
+                  role="status"
+                  className="rounded-md border border-border-strong bg-surface-sunken px-4 py-3 text-sm"
+                >
+                  {notice}
+                </div>
+              )}
+              {saving > 0 && (!online || saveFailing) && (
+                <p role="status" className="text-sm text-muted">
+                  {online
+                    ? "Couldn't save your last answer yet. Retrying…"
+                    : "Waiting for the connection to save your answers…"}
+                </p>
+              )}
             </div>
-
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-auto shrink-0 px-3"
-              disabled={index >= cards.length - 1 || undoing}
-              onClick={goNext}
-              aria-label="Next review unit"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
-          </div>
-          {card.reviewed && (
-            <p className="mt-3 text-center text-sm text-muted">
-              Already reviewed. Use Undo to change your last answer.
-            </p>
           )}
-        </div>
+
+          <div className="flex min-h-0 flex-1 flex-col justify-center py-4 sm:py-6">
+            <article
+              aria-label="Flashcard"
+              className="flex max-h-[32rem] min-h-0 flex-1 flex-col rounded-xl border border-border-strong bg-paper"
+            >
+              <div className="flex shrink-0 items-center gap-3 py-2 pr-2 pl-4 font-mono text-xs uppercase tracking-wide text-muted sm:pl-5">
+                <div className="flex min-w-0 flex-1">
+                  {card.deck && card.deckId && <DeckLink deckId={card.deckId} name={card.deck} />}
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Tooltip
+                    content={<ShortcutLabel label="Card info" binding={keymap["review.info"]} />}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Card info"
+                      onClick={openInfo}
+                    >
+                      <Info className="h-4 w-4" />
+                    </Button>
+                  </Tooltip>
+                  <DropdownMenu onOpenChange={prefetchFlashcard}>
+                    <Tooltip content="Flashcard actions">
+                      <DropdownMenuTrigger
+                        render={
+                          <Button variant="ghost" size="icon-sm" aria-label="Flashcard actions" />
+                        }
+                      >
+                        <EllipsisVertical className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                    </Tooltip>
+                    <DropdownMenuContent align="end" className="min-w-44">
+                      {onEditFlashcard && loadCard && (
+                        <DropdownMenuItem onClick={() => void openEdit()}>
+                          <Pencil className="h-4 w-4" />
+                          Edit flashcard
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={openInfo}>
+                        <Info className="h-4 w-4" />
+                        Card info
+                        <MenuShortcut binding={keymap["review.info"]} />
+                      </DropdownMenuItem>
+                      {onBury && (
+                        <DropdownMenuItem
+                          disabled={burying || !online}
+                          onClick={() => void buryCard()}
+                        >
+                          <Moon className="h-4 w-4" />
+                          Bury until tomorrow
+                          <MenuShortcut binding={keymap["review.bury"]} />
+                        </DropdownMenuItem>
+                      )}
+                      {onArchiveFlashcard && (
+                        <DropdownMenuItem
+                          disabled={flashcardActionPending}
+                          onClick={() => void handleArchive()}
+                        >
+                          <Archive className="h-4 w-4" />
+                          Archive
+                        </DropdownMenuItem>
+                      )}
+                      {onDeleteFlashcard && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            disabled={flashcardActionPending}
+                            onClick={openDeleteConfirm}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+
+              {/* Remounted per card, so a long card never opens scrolled. */}
+              <div
+                key={card.turnId}
+                ref={cardBodyRef}
+                className="armin-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-b-xl [--armin-scrollbar-gutter:var(--color-paper)] [mask-image:linear-gradient(to_bottom,transparent,black_1rem,black_calc(100%-2.5rem),transparent)]"
+              >
+                {/* The edges fade so a long card reads as scrollable. Bottom padding
+                    mirrors the action strip, so short content sits at the card's
+                    optical center and the last line clears the fade. */}
+                <div className="flex min-h-full flex-col items-center justify-center px-5 pt-4 pb-12 text-center sm:px-12">
+                  <ReviewCardPrompt
+                    card={card}
+                    flipped={flipped}
+                    typed={typed}
+                    onTypedChange={setTyped}
+                    onReveal={reveal}
+                  />
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div className="shrink-0 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-8">
+            {card.reviewed && (
+              <p className="mb-3 text-center text-sm text-muted">
+                Already reviewed. Use Undo to change your last answer.
+              </p>
+            )}
+            {/* One height for both states, sized to the two-line rating buttons,
+                so revealing the answer doesn't move anything. */}
+            <div className="flex h-15 items-stretch gap-2">
+              <Tooltip
+                content={<ShortcutLabel label="Previous card" binding={keymap["review.prev"]} />}
+              >
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="h-full shrink-0 px-3"
+                  disabled={index === 0 || undoing}
+                  onClick={goPrev}
+                  aria-label="Previous review unit"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+              </Tooltip>
+
+              <div className="min-w-0 flex-1">
+                {!flipped ? (
+                  <Button size="lg" className="h-full w-full" onClick={reveal}>
+                    {isTypeAnswer ? "Check answer" : "Show answer"}
+                    <Kbd className={cn("ml-1", onAccentKbd)}>
+                      {isTypeAnswer ? "Enter" : keyLabel("review.flip")}
+                    </Kbd>
+                  </Button>
+                ) : (
+                  <div className="grid h-full grid-cols-4 gap-2">
+                    {RATINGS.map((r) => (
+                      <button
+                        key={r.grade}
+                        onClick={() => rate(r.grade)}
+                        disabled={card.reviewed || undoing || Boolean(staleCard) || !online}
+                        className={cn(
+                          "animate-flip-in flex h-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-md px-1 text-sm font-medium text-on-accent transition-[background-color,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-default disabled:opacity-60 sm:px-3",
+                          r.bg,
+                          isTypeAnswer &&
+                            ((isCorrect && r.grade === 3) || (!isCorrect && r.grade === 1))
+                            ? "ring-2 ring-ink ring-offset-2 ring-offset-bg"
+                            : undefined,
+                        )}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          {r.label}
+                          {/* Shortcut hints only where there's room, and a keyboard. */}
+                          <Kbd className={onAccentKbd}>{keyLabel(RATING_COMMANDS[r.grade])}</Kbd>
+                        </span>
+                        {showIntervals && (
+                          <span className="font-mono text-xs text-on-accent">
+                            {intervalLabels.get(r.grade) ?? "…"}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Tooltip
+                content={<ShortcutLabel label="Next card" binding={keymap["review.next"]} />}
+              >
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="h-full shrink-0 px-3"
+                  disabled={index >= cards.length - 1 || undoing}
+                  onClick={goNext}
+                  aria-label="Next review unit"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              </Tooltip>
+            </div>
+          </div>
+        </>
       )}
 
       {editCard && onEditFlashcard && (

@@ -13,6 +13,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { DeckSettingsOverrides, SchedulingSettings } from "@armin/core/study";
 
@@ -374,15 +375,16 @@ function OverrideRow({
       </div>
       <div className="flex min-h-9 shrink-0 items-center justify-end gap-1.5 max-sm:justify-start">
         {overridden && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Reset ${label} to inherited`}
-            title="Reset to inherited"
-            onClick={onRevert}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
+          <Tooltip content="Reset to inherited" className="px-2.5 py-1.5">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Reset ${label} to inherited`}
+              onClick={onRevert}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </Tooltip>
         )}
         {typeof children === "function" ? children(labelId) : children}
       </div>

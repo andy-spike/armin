@@ -8,6 +8,7 @@ import { Section } from "@/components/settings-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/toast";
 import { convexClient, errorMessage } from "@/lib/armin-client";
 import { useConnection } from "@/lib/session";
@@ -39,9 +40,9 @@ function formatExact(timestamp: number) {
 
 function When({ timestamp }: { timestamp: number }) {
   return (
-    <time dateTime={new Date(timestamp).toISOString()} title={new Date(timestamp).toLocaleString()}>
-      {formatWhen(timestamp)}
-    </time>
+    <Tooltip content={formatExact(timestamp)} className="px-2.5 py-1.5">
+      <time dateTime={new Date(timestamp).toISOString()}>{formatWhen(timestamp)}</time>
+    </Tooltip>
   );
 }
 

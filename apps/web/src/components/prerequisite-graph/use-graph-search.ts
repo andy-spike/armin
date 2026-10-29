@@ -98,7 +98,7 @@ function searchStatus(search: string, matchCount: number, step: number | null) {
   if (search.trim() === "") return null;
   if (matchCount === 0) return `No cards match “${search.trim()}”.`;
   if (step !== null) {
-    return `${Math.min(step + 1, matchCount)} of ${matchCount} · Enter for next`;
+    return `${Math.min(step + 1, matchCount)} of ${matchCount} · Enter for next, Shift+Enter for previous`;
   }
   const noun = matchCount === 1 ? "match" : "matches";
   return `${matchCount} ${noun} · Enter to step through`;

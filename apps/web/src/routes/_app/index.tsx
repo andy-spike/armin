@@ -30,6 +30,7 @@ import { ReviewHeatmap } from "@/components/review-heatmap";
 import { SortControl } from "@/components/sort-control";
 import { AnkiImportDialog } from "@/components/anki-import-dialog";
 import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/toast";
 import { DECK_SORT_OPTIONS, sortDecks, type DeckSortKey } from "@/lib/sort-decks";
 import type { UiDeck } from "@/types/view-models";
@@ -341,18 +342,20 @@ function DeckTile({
             </h2>
             <div className="pointer-events-auto relative z-20 shrink-0">
               <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Deck actions"
-                      className="-mt-1.5 -mr-1.5"
-                    />
-                  }
-                >
-                  <Ellipsis className="h-4 w-4" />
-                </DropdownMenuTrigger>
+                <Tooltip content="Deck actions" className="px-2.5 py-1.5">
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Deck actions"
+                        className="-mt-1.5 -mr-1.5"
+                      />
+                    }
+                  >
+                    <Ellipsis className="h-4 w-4" />
+                  </DropdownMenuTrigger>
+                </Tooltip>
                 <DropdownMenuContent align="end" className="min-w-40">
                   <DeckActionItems
                     onRename={onRename}

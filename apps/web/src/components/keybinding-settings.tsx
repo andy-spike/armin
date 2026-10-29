@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
 import { useToast } from "@/components/ui/toast";
+import { Tooltip } from "@/components/ui/tooltip";
 import { KeybindingHint } from "@/components/keybinding-hint";
 import { useKeybindings } from "@/keybindings/keybindings-provider";
 import {
@@ -265,15 +266,16 @@ export function KeybindingSettings() {
                       <Keyboard className="h-3.5 w-3.5 text-muted" />
                     </button>
                     {overridden && (
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Reset shortcut for ${cmd.label}`}
-                        title="Reset to default"
-                        onClick={() => resetCommand(cmd.id)}
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content="Reset to default" className="px-2.5 py-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Reset shortcut for ${cmd.label}`}
+                          onClick={() => resetCommand(cmd.id)}
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     )}
                   </div>
                 </div>

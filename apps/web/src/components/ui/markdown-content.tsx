@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { mediaDisplayUrl } from "@/lib/media";
 import { parseImageWidth, stripImageWidth } from "@/lib/image-size";
 import { ImageZoomDialog } from "@/components/ui/image-zoom-dialog";
+import { Tooltip } from "@/components/ui/tooltip";
 import { parseMediaRef } from "@armin/core/media-ref";
 import { splitMath } from "@armin/core/math";
 
@@ -148,19 +149,20 @@ function createComponents(
             const source = typeof src === "string" ? src : "";
             if (!source) return null;
             return (
-              <button
-                type="button"
-                className="md-image-zoom"
-                aria-label="Preview image"
-                onClick={() => onPreview(source)}
-              >
-                <img
-                  src={source}
-                  alt={alt ?? ""}
-                  title={caption}
-                  style={width ? { width, maxWidth: "100%" } : undefined}
-                />
-              </button>
+              <Tooltip content={caption} disabled={!caption} className="px-2.5 py-1.5">
+                <button
+                  type="button"
+                  className="md-image-zoom"
+                  aria-label="Preview image"
+                  onClick={() => onPreview(source)}
+                >
+                  <img
+                    src={source}
+                    alt={alt ?? ""}
+                    style={width ? { width, maxWidth: "100%" } : undefined}
+                  />
+                </button>
+              </Tooltip>
             );
           },
   };

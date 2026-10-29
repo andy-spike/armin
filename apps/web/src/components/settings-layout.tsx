@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from "react";
 import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export function Section({
@@ -62,15 +63,16 @@ export function Row({
       </div>
       <div className="flex shrink-0 items-center justify-end gap-1.5 pt-0.5 max-sm:justify-start max-sm:pt-0">
         {onReset && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Reset ${label} to preset default`}
-            title="Reset to preset default"
-            onClick={onReset}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
+          <Tooltip content="Reset to preset default" className="px-2.5 py-1.5">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Reset ${label} to preset default`}
+              onClick={onReset}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </Tooltip>
         )}
         {typeof children === "function" ? children(labelId) : children}
       </div>

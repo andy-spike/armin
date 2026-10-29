@@ -80,7 +80,7 @@ function ReviewsPage() {
           >
             <SelectGroup>
               {deckOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value} title={opt.label}>
+                <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
                 </SelectItem>
               ))}
@@ -109,4 +109,5 @@ export const Route = createFileRoute("/_app/review")({
   loader: ({ context }) => prefetchReviewPage(context.queryClient),
   head: () => ({ meta: [{ title: "Review · Armin" }] }),
   component: ReviewsPage,
+  staticData: { fullbleed: true },
 });
