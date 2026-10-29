@@ -65,7 +65,21 @@ function CopyButton({ text, label }: { text: string; label: string }) {
         aria-label={label}
         onClick={() => void copy(text)}
       >
-        {done ? <Check className="size-4 text-good" /> : <Copy className="size-4" />}
+        {/* Both icons share one cell so the check crossfades in over the copy icon. */}
+        <span className="grid size-4 *:col-start-1 *:row-start-1" aria-hidden>
+          <Copy
+            className={cn(
+              "size-4 transition-[opacity,scale] duration-150 ease-(--ease-out)",
+              done && "scale-80 opacity-0",
+            )}
+          />
+          <Check
+            className={cn(
+              "size-4 text-good transition-[opacity,scale] duration-150 ease-(--ease-out)",
+              !done && "scale-80 opacity-0",
+            )}
+          />
+        </span>
         Copy
       </Button>
       <span role="status" className="sr-only">
@@ -378,7 +392,7 @@ function AgentPanel({ guide }: { guide: AgentGuide }) {
         Paste this into {guide.label}. It sets everything up and tells you when to sign in.
       </p>
       <CodeBlock text={guide.prompt(MCP_ENDPOINT)} label={`Copy the ${guide.label} setup prompt`} />
-      <details className="group text-sm">
+      <details className="details-reveal group text-sm">
         <summary className="cursor-pointer text-muted hover:text-ink">Or run it yourself</summary>
         <div className="mt-3 space-y-2">
           {guide.commands(MCP_ENDPOINT).map((command) => (

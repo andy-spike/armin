@@ -585,7 +585,7 @@ const CHANGE_LABELS: Partial<Record<ImportWarningCode, string>> = {
 function ImportChanges({ warnings, stale }: { warnings: ImportWarning[]; stale: boolean }) {
   return (
     <details
-      className={`group mt-4 text-[0.8125rem] transition-opacity ${stale ? "opacity-60" : ""}`}
+      className={`details-reveal group mt-4 text-[0.8125rem] transition-opacity ${stale ? "opacity-60" : ""}`}
     >
       <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent [&::-webkit-details-marker]:hidden">
         <ChevronRight

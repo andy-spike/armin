@@ -247,6 +247,53 @@
   .animate-pop-out {
     animation: a-pop-out 0.2s var(--ease-out-quart) both;
   }
+  @keyframes a-settle {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes a-rise-sm {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-settle {
+    animation: a-settle 0.3s var(--ease-out) both;
+  }
+  /* Set --animate-delay on the element to stagger a group. */
+  .animate-rise-sm {
+    animation: a-rise-sm 0.2s var(--ease-out) var(--animate-delay, 0s) both;
+  }
+  /* <details> that open and close smoothly where ::details-content is
+     supported (Chromium); other browsers keep the instant toggle. */
+  .details-reveal {
+    interpolate-size: allow-keywords;
+  }
+  .details-reveal::details-content {
+    /* Contains the content's top margin, so closing doesn't end in a snap. */
+    display: flow-root;
+    block-size: 0;
+    opacity: 0;
+    overflow-y: clip;
+    transition:
+      content-visibility 0.2s allow-discrete,
+      block-size 0.2s var(--ease-out),
+      opacity 0.2s var(--ease-out);
+  }
+  .details-reveal[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
   .animate-fade-in-fast {
     animation: a-fade-in 0.1s var(--ease-out) both;
   }
@@ -836,6 +883,22 @@ html[data-scroll="document"] body {
     }
   }
   @keyframes a-bar-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes a-settle {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes a-rise-sm {
     from {
       opacity: 0;
     }
