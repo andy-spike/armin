@@ -267,7 +267,7 @@ export function Dialog({
  * Crossfades a dialog between views instead of snapping. Just before React
  * swaps the DOM, the outgoing view is copied into a frozen, inert ghost; after
  * the swap the ghost fades out over the incoming view while the panel morphs
- * to its new height. A 2px blur on both blends them into one transformation.
+ * to its new height.
  * Renders nothing; `getSnapshotBeforeUpdate` is React's hook for reading the
  * DOM before an update lands.
  */
@@ -281,7 +281,10 @@ class ViewSwap extends React.Component<{
     const panel = this.props.panelRef.current;
     if (prev.view === this.props.view || !panel) return null;
     this.ghost?.remove();
-    for (const animation of panel.getAnimations({ subtree: true })) animation.cancel();
+    // Stop only the swap's own animations; the panel's CSS open animation stays.
+    for (const animation of panel.getAnimations({ subtree: true })) {
+      if (!(animation instanceof CSSAnimation)) animation.cancel();
+    }
     const from = panel.getBoundingClientRect().height;
     const ghost = document.createElement("div");
     ghost.className = panel.className;
@@ -339,21 +342,20 @@ class ViewSwap extends React.Component<{
       duration: VIEW_SWAP_MS,
       easing: "cubic-bezier(0.77, 0, 0.175, 1)",
     });
-    ghost.animate(
-      [
-        { opacity: 1, filter: "blur(0px)" },
-        { opacity: 0, filter: "blur(2px)" },
-      ],
-      { duration: 150, easing: "cubic-bezier(0.23, 1, 0.32, 1)", fill: "forwards" },
-    );
+    // Opacity only: animating `filter` inside the overlay makes Chrome rebuild
+    // compositor layers, which flashed the app behind the backdrop.
+    ghost.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: 150,
+      easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+      fill: "forwards",
+    });
     for (const child of incoming) {
-      child.animate(
-        [
-          { opacity: 0, filter: "blur(2px)" },
-          { opacity: 1, filter: "blur(0px)" },
-        ],
-        { duration: 200, delay: 50, easing: "cubic-bezier(0.23, 1, 0.32, 1)", fill: "backwards" },
-      );
+      child.animate([{ opacity: 0 }, { opacity: 1 }], {
+        duration: 200,
+        delay: 50,
+        easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+        fill: "backwards",
+      });
     }
     morph.finished.then(finish, finish);
   }
