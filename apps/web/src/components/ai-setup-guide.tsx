@@ -103,7 +103,7 @@ function CodeBlock({ text, label }: { text: string; label: string }) {
         <span className="text-xs font-medium text-muted">Prompt</span>
         <CopyButton text={text} label={label} />
       </div>
-      <pre className="armin-scrollbar max-h-80 overflow-auto px-3 py-2.5 font-mono text-[0.8125rem] leading-6 break-words whitespace-pre-wrap text-ink">
+      <pre className="max-h-80 overflow-auto px-3 py-2.5 font-mono text-[0.8125rem] leading-6 break-words whitespace-pre-wrap text-ink">
         {text}
       </pre>
     </div>

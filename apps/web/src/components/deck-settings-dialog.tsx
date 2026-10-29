@@ -138,7 +138,7 @@ export function DeckSettingsDialog({
           <div
             role="status"
             aria-busy
-            className="armin-scrollbar flex-1 space-y-8 overflow-hidden px-4 py-6 sm:px-6"
+            className="flex-1 space-y-8 overflow-hidden px-4 py-6 sm:px-6"
           >
             <span className="sr-only">Loading settings…</span>
             <Section
@@ -149,7 +149,7 @@ export function DeckSettingsDialog({
             </Section>
           </div>
         ) : (
-          <div className="armin-scrollbar flex-1 space-y-8 overflow-y-auto px-4 py-6 sm:px-6">
+          <div className="flex-1 space-y-8 overflow-y-auto px-4 py-6 sm:px-6">
             <Section
               title="Scheduling"
               description="How FSRS schedules reviews for cards in this deck."

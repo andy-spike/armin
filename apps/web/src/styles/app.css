@@ -322,50 +322,40 @@
     padding: 0;
   }
 
-  /* Themed scrollbars for inputs and other in-app scroll regions. */
-  .armin-scrollbar,
-  textarea {
-    --armin-scrollbar-gutter: var(--color-surface);
+  /* One scrollbar for every scroll region in the app: pages, dialogs, menus,
+     lists, and text areas. Thin, no arrow buttons, a flat thumb on a clear
+     track. Chrome, Edge, and Firefox use the standard properties; the
+     ::-webkit-scrollbar rules are for Safari, which ignores them. The thumb's
+     transparent border insets it without needing to know the background. */
+  * {
     scrollbar-width: thin;
     scrollbar-color: var(--color-border-strong) transparent;
   }
 
-  .armin-scrollbar-gutter-bg {
-    --armin-scrollbar-gutter: var(--color-bg);
-  }
-
-  .armin-scrollbar::-webkit-scrollbar,
-  textarea::-webkit-scrollbar {
+  *::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
 
-  .armin-scrollbar::-webkit-scrollbar-track,
-  textarea::-webkit-scrollbar-track {
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
     background: transparent;
   }
 
-  .armin-scrollbar::-webkit-scrollbar-thumb,
-  textarea::-webkit-scrollbar-thumb {
+  *::-webkit-scrollbar-thumb {
     background-color: var(--color-border-strong);
-    border: 2px solid var(--armin-scrollbar-gutter);
+    background-clip: padding-box;
+    border: 2px solid transparent;
   }
 
-  .armin-scrollbar::-webkit-scrollbar-thumb:hover,
-  textarea::-webkit-scrollbar-thumb:hover {
+  *::-webkit-scrollbar-thumb:hover {
     background-color: var(--color-ui-3);
   }
 
-  .armin-scrollbar::-webkit-scrollbar-button,
-  textarea::-webkit-scrollbar-button {
+  *::-webkit-scrollbar-button {
     display: none;
     height: 0;
     width: 0;
-  }
-
-  .armin-scrollbar::-webkit-scrollbar-corner,
-  textarea::-webkit-scrollbar-corner {
-    background: transparent;
   }
 }
 
@@ -568,9 +558,6 @@ html[data-scroll="document"],
 html[data-scroll="document"] body {
   height: auto;
   overflow: visible;
-}
-html[data-scroll="document"] {
-  scrollbar-color: var(--color-ui-3) var(--color-bg);
 }
 
 .landing-graph {
