@@ -178,6 +178,8 @@ export default defineSchema({
     ownerId: v.string(),
     status: v.union(v.literal("active"), v.literal("deleting"), v.literal("resetting")),
     timeZone: v.string(),
+    /** Billing plan; absent means free. */
+    plan: v.optional(v.union(v.literal("free"), v.literal("pro"))),
     statsEpoch: v.optional(v.number()),
     statsReady: v.optional(v.boolean()),
     createdAt: v.number(),

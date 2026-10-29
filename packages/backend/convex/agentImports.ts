@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { generateReviewUnits } from "@armin/core/flashcard-types";
-import { MAX_LIBRARY_MEDIA_BYTES, MAX_MEDIA_FILE_BYTES } from "@armin/core/media";
+import { MAX_MEDIA_FILE_BYTES } from "@armin/core/media";
 import { ANKI_KIT } from "@armin/core/anki-kit";
 import { internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { internalMutation } from "./functions";
@@ -13,9 +13,8 @@ import { fail } from "./model/errors";
 import { insertFlashcard, validateFlashcardInput } from "./model/flashcards";
 import { runAgentWrite } from "./model/agentWrites";
 import { insertDeck } from "./model/decks";
-import { MAX_DECKS, MAX_FLASHCARDS, MAX_REVIEW_UNITS } from "./model/limits";
 import { bumpRevision } from "./model/study";
-import { checkCapacity, libraryUsage } from "./model/usage";
+import { checkCapacity, libraryLimits, libraryUsage } from "./model/usage";
 
 const STAGING_TTL_MS = 24 * 3_600_000;
 const RETENTION_MS = 30 * 24 * 3_600_000;
@@ -147,6 +146,7 @@ export const read = internalQuery({
     if (!schema) fail("INVALID", "Unknown Anki import tool.");
     const parsed = schema.parse(input) as Record<string, unknown>;
     if (tool === "get_anki_import_guide") {
+      const limits = await libraryLimits(ctx, connection.libraryId);
       const siteUrl = (process.env.SITE_URL ?? "").replace(/\/$/, "");
       const site = (process.env.CONVEX_SITE_URL ?? "").replace(/\/$/, "");
       return {
@@ -190,9 +190,9 @@ export const read = internalQuery({
           "Poll anki_import_status until finalized, then show the returned deck links.",
         ],
         limits: {
-          libraryDecks: MAX_DECKS,
-          libraryFlashcards: MAX_FLASHCARDS,
-          libraryReviewUnits: MAX_REVIEW_UNITS,
+          libraryDecks: limits.decks,
+          libraryFlashcards: limits.flashcards,
+          libraryReviewUnits: limits.reviewUnits,
           maxMediaBytes: MAX_MEDIA_FILE_BYTES,
           batchCards: MAX_BATCH_CARDS,
           batchReviewUnits: MAX_BATCH_UNITS,
@@ -671,7 +671,7 @@ export const recordMedia = internalMutation({
         .withIndex("by_library", (q) => q.eq("libraryId", row.libraryId))
         .unique();
       const used = counters?.mediaBytes ?? 0;
-      if (used + args.size > MAX_LIBRARY_MEDIA_BYTES)
+      if (used + args.size > (await libraryLimits(ctx, row.libraryId)).mediaBytes)
         return { ok: false as const, reason: "quota" as const };
       await ctx.db.insert("media", {
         libraryId: row.libraryId,
@@ -853,9 +853,10 @@ async function writeCardBatch(
     prepared.push({ card, deckId, input });
   }
   const usage = await libraryUsage(ctx, row.libraryId);
-  if (usage.flashcards + prepared.length > MAX_FLASHCARDS)
+  const limits = await libraryLimits(ctx, row.libraryId);
+  if (usage.flashcards + prepared.length > limits.flashcards)
     throw new Error("The library reached its flashcard limit while this import materialized.");
-  if (usage.reviewUnits + batchUnits > MAX_REVIEW_UNITS)
+  if (usage.reviewUnits + batchUnits > limits.reviewUnits)
     throw new Error("The library reached its review-item limit while this import materialized.");
   for (const { input } of prepared) {
     for (const fileName of input.mediaFiles) {

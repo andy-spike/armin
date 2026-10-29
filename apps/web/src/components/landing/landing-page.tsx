@@ -236,6 +236,12 @@ export function LandingPage() {
             MCP documentation
           </Link>
           <Link
+            to="/pricing"
+            className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            Pricing
+          </Link>
+          <Link
             to="/privacy"
             className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >

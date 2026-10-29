@@ -1,7 +1,8 @@
 import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { planLimits } from "@armin/core/plans";
 import { fail } from "./errors";
-import { MAX_DECKS, MAX_FLASHCARDS, MAX_REVIEW_UNITS } from "./limits";
+import { MAX_DECKS, MAX_FLASHCARDS } from "./limits";
 
 /*
  * The one place library capacity is measured and checked. Every write that
@@ -45,23 +46,34 @@ export async function libraryUsage(ctx: Pick<QueryCtx, "db">, libraryId: Id<"lib
   return { decks: decks.length, flashcards: flashcards.length, reviewUnits };
 }
 
-function overLimit(noun: string, max: number, have: number, adding: number) {
-  const added = adding === 1 ? "" : ` This adds ${adding}.`;
-  fail("QUOTA", `The beta allows ${max} ${noun} per library, and this one has ${have}.${added}`);
+/** The plan limits that apply to a library; a missing library gets the free plan. */
+export async function libraryLimits(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">) {
+  const library = await ctx.db.get(libraryId);
+  return { plan: library?.plan ?? "free", ...planLimits(library?.plan) };
 }
 
-/** Reject an addition that would cross the beta limits, with the user-facing counts. */
+function overLimit(plan: string, noun: string, max: number, have: number, adding: number) {
+  const added = adding === 1 ? "" : ` This adds ${adding}.`;
+  const name = plan === "pro" ? "The Pro plan" : "The free plan";
+  fail("QUOTA", `${name} allows ${max} ${noun} per library, and this one has ${have}.${added}`);
+}
+
+/** Reject an addition that would cross the library's plan limits, with the user-facing counts. */
 export async function checkCapacity(
   ctx: Pick<QueryCtx, "db">,
   libraryId: Id<"libraries">,
   add: { decks?: number; flashcards?: number; reviewUnits?: number },
 ) {
-  const usage = await libraryUsage(ctx, libraryId);
+  const [usage, limits] = await Promise.all([
+    libraryUsage(ctx, libraryId),
+    libraryLimits(ctx, libraryId),
+  ]);
   const { decks = 0, flashcards = 0, reviewUnits = 0 } = add;
-  if (usage.decks + decks > MAX_DECKS) overLimit("decks", MAX_DECKS, usage.decks, decks);
-  if (usage.flashcards + flashcards > MAX_FLASHCARDS)
-    overLimit("flashcards", MAX_FLASHCARDS, usage.flashcards, flashcards);
-  if (usage.reviewUnits + reviewUnits > MAX_REVIEW_UNITS)
-    overLimit("review items", MAX_REVIEW_UNITS, usage.reviewUnits, reviewUnits);
+  if (usage.decks + decks > limits.decks)
+    overLimit(limits.plan, "decks", limits.decks, usage.decks, decks);
+  if (usage.flashcards + flashcards > limits.flashcards)
+    overLimit(limits.plan, "flashcards", limits.flashcards, usage.flashcards, flashcards);
+  if (usage.reviewUnits + reviewUnits > limits.reviewUnits)
+    overLimit(limits.plan, "review items", limits.reviewUnits, usage.reviewUnits, reviewUnits);
   return usage;
 }

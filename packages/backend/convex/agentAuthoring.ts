@@ -6,7 +6,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { agentAccess, agentUser, requireDeck } from "./model/agentAuth";
 import { agentToolSchemas } from "./model/agentTools";
 import { fail } from "./model/errors";
-import { runAgentWrite } from "./model/agentWrites";
+import { countAgentCards, runAgentWrite } from "./model/agentWrites";
 import { insertDeck, updateDeckDetails } from "./model/decks";
 import {
   editFlashcard,
@@ -117,6 +117,7 @@ async function saveCards(ctx: MutationCtx, connection: Doc<"agentConnections">, 
     decks: args.deck.mode === "new" ? 1 : 0,
     flashcards: args.cards.length,
   });
+  await countAgentCards(ctx, connection.libraryId, args.cards.length);
   let deck: Doc<"decks">;
   if (args.deck.mode === "new") {
     const deckId = await insertDeck(ctx, {

@@ -12,7 +12,8 @@ import { deleteDeckCascade } from "./model/deletion";
 import { fail } from "./model/errors";
 import { insertFlashcard, validateFlashcardInput } from "./model/flashcards";
 import { cleanDeckName, insertDeck } from "./model/decks";
-import { MAX_DECKS, MAX_FLASHCARDS, MAX_REVIEW_UNITS } from "./model/limits";
+import { planLimits } from "@armin/core/plans";
+import { MAX_REVIEW_UNITS } from "./model/limits";
 import { bumpRevision, findRequest, recordRequest, type TagCache } from "./model/study";
 import { checkCapacity, libraryUsage } from "./model/usage";
 
@@ -509,12 +510,13 @@ export const usage = query({
   handler: async (ctx) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
+    const limits = planLimits(library.plan);
     return {
       ...(await libraryUsage(ctx, library._id)),
       limits: {
-        decks: MAX_DECKS,
-        flashcards: MAX_FLASHCARDS,
-        reviewUnits: MAX_REVIEW_UNITS,
+        decks: limits.decks,
+        flashcards: limits.flashcards,
+        reviewUnits: limits.reviewUnits,
         reviewLogs: MAX_IMPORT_REVIEW_LOGS,
       },
     };

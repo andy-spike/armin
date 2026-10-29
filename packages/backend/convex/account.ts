@@ -38,6 +38,7 @@ export const viewer = query({
             id: viewer.library._id,
             status: viewer.library.status,
             timeZone: viewer.library.timeZone,
+            plan: viewer.library.plan ?? "free",
           }
         : null,
     };

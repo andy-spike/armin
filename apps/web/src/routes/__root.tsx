@@ -84,7 +84,9 @@ export const Route = createRootRouteWithContext<{
     if (typeof window === "undefined") {
       // Public documents are cached: never read cookies or serialize a session token.
       if (
-        ctx.matches.some((match) => ["/privacy", "/terms", "/docs/mcp"].includes(match.routeId))
+        ctx.matches.some((match) =>
+          ["/privacy", "/terms", "/docs/mcp", "/pricing"].includes(match.routeId),
+        )
       ) {
         return { isAuthenticated: false, token: null };
       }
