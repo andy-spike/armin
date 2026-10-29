@@ -279,6 +279,7 @@ export function FlashcardFormDialog({
         requestClose();
       }}
       onExitComplete={onExitComplete}
+      view={discardOpen ? "discard" : "edit"}
       title={
         discardOpen ? "Discard changes?" : displayMode === "edit" ? "Edit flashcard" : "Add card"
       }

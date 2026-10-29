@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useModalIsolation } from "@/keybindings/keybindings-provider";
 
 const EXIT_MS = 200;
+const VIEW_SWAP_MS = 220;
 
 /**
  * The element focus returns to when the dialog closes. A dialog opened from a
@@ -37,6 +38,7 @@ export function Dialog({
   footer,
   className,
   ariaLabel,
+  view,
 }: {
   open: boolean;
   onClose: () => void;
@@ -48,6 +50,12 @@ export function Dialog({
   className?: string;
   /** Accessible name for dialogs that render their own heading instead of `title`. */
   ariaLabel?: string;
+  /**
+   * Names the content currently shown, for a dialog that switches between
+   * views (an editor and its "Discard changes?" step). Changing it glides the
+   * panel to its new height and fades the new view in instead of snapping.
+   */
+  view?: string;
 }) {
   const panelRef = React.useRef<HTMLDivElement>(null);
   const onCloseRef = React.useRef(onClose);
@@ -88,6 +96,47 @@ export function Dialog({
   }
 
   const content = exiting ? snapshot : { title, description, children, footer };
+
+  // The panel's height as last laid out, kept current as content resizes, so a
+  // view switch can animate from exactly what was on screen.
+  const lastHeight = React.useRef<number | null>(null);
+  const lastView = React.useRef(view);
+  React.useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) {
+      lastHeight.current = null;
+      return;
+    }
+    const height = panel.getBoundingClientRect().height;
+    const from = lastHeight.current;
+    const changed = view !== lastView.current;
+    lastView.current = view;
+    lastHeight.current = height;
+    if (!changed || from === null || exiting) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timing = { duration: VIEW_SWAP_MS, easing: "cubic-bezier(0.25, 1, 0.5, 1)" };
+    if (Math.abs(from - height) > 1) {
+      panel.animate([{ height: `${from}px` }, { height: `${height}px` }], timing);
+    }
+    for (const child of Array.from(panel.children)) {
+      child.animate(
+        [
+          { opacity: 0, transform: "translateY(4px)" },
+          { opacity: 1, transform: "none" },
+        ],
+        { ...timing, delay: 40, fill: "backwards" },
+      );
+    }
+  });
+  React.useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      lastHeight.current = panel.getBoundingClientRect().height;
+    });
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [present]);
 
   React.useEffect(() => {
     onCloseRef.current = onClose;
