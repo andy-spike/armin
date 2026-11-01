@@ -46,6 +46,20 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
   authFunctions,
   triggers: {
     user: {
+      onCreate: async (ctx, user) => {
+        if (!isSelfHosted()) return;
+        // The single-owner guard that cannot race: this runs in the same
+        // transaction as the insert, so of two concurrent first sign-ups one
+        // conflicts, retries, sees the other, and is rolled back here. The
+        // databaseHooks.user check gives the usual clean 403 before this.
+        const { page } = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+          model: "user",
+          paginationOpts: { numItems: 2, cursor: null },
+        });
+        if (page.some((other: { _id: string }) => other._id !== user._id)) {
+          throw new Error("This is a personal Armin instance. It already has its owner account.");
+        }
+      },
       onDelete: async (ctx, user) => {
         // Revoke library access in the same transaction as the user deletion,
         // then let the bounded cleanup job remove study rows and files.

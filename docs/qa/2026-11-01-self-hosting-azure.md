@@ -99,6 +99,17 @@ VM, still holding the data above, was updated to the rebased code.
    limits of 1,000 decks, 100,000 flashcards, and 250,000 review units for the
    owner, run on the server with `convex run --identity`.
 
+## Concurrent first sign-ups (PR review follow-up)
+
+A Codex review on PR #79 pointed out that the single-owner check ran in Better
+Auth's `user.create.before` hook, separately from the insert. Reproduced on a
+local deployment with `SELF_HOSTED=true` and no users: 8 concurrent
+`POST /api/auth/sign-up/email` requests created **4** accounts. The fix adds
+the same check to the component's `user.onCreate` trigger, which runs in the
+insert's transaction. With it, three runs of 8 concurrent sign-ups each created
+exactly one account; the rest returned 403 (hook) or 422 (rolled back by the
+trigger).
+
 ## Not covered
 
 - Cloning from GitHub (the branch isn't pushed yet).
