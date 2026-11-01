@@ -25,7 +25,7 @@ If you'd rather not run a server, use [armincards.app](https://armincards.app).
 
 | Default             | Value                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------- |
-| Accounts            | One. The first sign-up becomes the owner, then sign-up closes.                                  |
+| Accounts            | One, the owner, created by `setup.sh` on the server. Website sign-up is always closed.          |
 | Email               | None. No verification step; passwords are reset on the server.                                  |
 | Google sign-in      | Off                                                                                             |
 | AI assistants (MCP) | On, at `https://actions.<your domain>/mcp`                                                      |
@@ -77,24 +77,26 @@ cd armin
 ./selfhost/setup.sh
 ```
 
-It asks for two things:
+It asks for:
 
 1. **Domain:** `cards.example.com` (no `https://`).
 2. **Email:** where Let's Encrypt sends certificate notices.
+3. **Your account:** the email, name, and password you'll sign in with.
 
 Then it generates secrets, builds the app (a few minutes the first time), starts
-everything, and prints your address. Run it again at any time; it keeps your
-data, secrets, and account.
+everything, creates your account, and prints your address. Run it again at any
+time; it keeps your data, secrets, and account.
 
-## 4. Create your account
+## 4. Sign in
 
-Open `https://cards.example.com` and create your account. It's verified right
-away and becomes the instance's only account. The sign-up page then closes.
+Open `https://cards.example.com` and sign in with the account you created. It's
+the instance's only account, and it's verified already. Setup creates it on the
+server, and the website never offers sign-up, so nobody who finds the address
+can claim your instance.
 
-Do this right after setup: until the owner account exists, anyone who reaches
-the address can create it. If the sign-up page already says it's closed and you
-didn't create the account, stop the instance, delete `selfhost/data/`, and run
-`./selfhost/setup.sh` again.
+If you answered **n** when setup offered to create the account, run
+`./selfhost/create-owner.sh` before signing in (or restore a backup, which
+brings its own account).
 
 ## 5. Save your secrets
 
@@ -140,8 +142,9 @@ notes before updating.
 **Restoring** replaces everything in the instance with the backup and asks you
 to type `RESTORE` first. A backup from an older version is brought up to date
 the same way. To move to a new server: copy `selfhost/.env` into a
-fresh checkout there, update DNS, run `./selfhost/setup.sh`, restore your
-latest backup, and add the backup `crontab` line again.
+fresh checkout there, update DNS, run `./selfhost/setup.sh` and answer **n**
+when it offers to create an account, restore your latest backup, and add the
+backup `crontab` line again.
 
 **Forgot your password?** The instance doesn't send email. On the server, run
 `./selfhost/reset-password.sh`, enter your email and a new password, and sign
@@ -170,13 +173,13 @@ then visit `http://127.0.0.1:6791`. Sign in with `CONVEX_ADMIN_KEY` from
 
 ## Troubleshooting
 
-| Symptom                                 | Check                                                                                                                                                                                          |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Browser shows a certificate error       | DNS for all three names must point here, and ports 80 and 443 must be open. Then read `docker compose -f selfhost/docker-compose.yml logs caddy`.                                              |
-| `setup.sh` says Docker isn't reachable  | Start Docker (`sudo systemctl start docker`) and add yourself to the `docker` group, then sign in again.                                                                                       |
-| The build stops or the server freezes   | The server ran out of memory. Add swap or use a server with more RAM, then rerun `setup.sh`.                                                                                                   |
-| Sign-up says the instance has its owner | Working as intended: one account per instance. Reset its password if you lost it.                                                                                                              |
-| Ports 80 or 443 are already used        | Stop the other web server, or set `HTTP_PORT` and `HTTPS_PORT` in `selfhost/.env` and rerun `setup.sh`. Let's Encrypt still needs port 80 or 443 reachable from the internet, so forward them. |
+| Symptom                                | Check                                                                                                                                                                                          |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browser shows a certificate error      | DNS for all three names must point here, and ports 80 and 443 must be open. Then read `docker compose -f selfhost/docker-compose.yml logs caddy`.                                              |
+| `setup.sh` says Docker isn't reachable | Start Docker (`sudo systemctl start docker`) and add yourself to the `docker` group, then sign in again.                                                                                       |
+| The build stops or the server freezes  | The server ran out of memory. Add swap or use a server with more RAM, then rerun `setup.sh`.                                                                                                   |
+| Sign-up says it's closed               | Working as intended. Create the account with `./selfhost/create-owner.sh`, or reset its password with `./selfhost/reset-password.sh`.                                                          |
+| Ports 80 or 443 are already used       | Stop the other web server, or set `HTTP_PORT` and `HTTPS_PORT` in `selfhost/.env` and rerun `setup.sh`. Let's Encrypt still needs port 80 or 443 reachable from the internet, so forward them. |
 
 ## Getting help
 
@@ -192,9 +195,10 @@ Report security issues privately as described in [SECURITY.md](../SECURITY.md).
 | `Dockerfile`         | Builds the web app for Node and the Convex command-line tools image         |
 | `Caddyfile`          | HTTPS and routing for the three addresses                                   |
 | `.env.example`       | Settings template; `setup.sh` creates `.env` from it                        |
-| `*.sh`               | Setup, update, backup, restore, and password reset                          |
+| `*.sh`               | Setup, owner account, update, backup, restore, and password reset           |
 
-The backend runs with `SELF_HOSTED=true`, which skips email verification,
-marks the first account verified, and refuses any further sign-up. The web
+The backend runs with `SELF_HOSTED=true`, which skips email verification and
+refuses every sign-up request. Only `create-owner.sh` creates an account,
+through a server-only function, and only while the instance has none. The web
 image is built with `VITE_SELF_HOSTED=true`, which shows the badge and skips
 the public landing page.

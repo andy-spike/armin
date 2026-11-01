@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { defaultSchedulingSettings, isValidTimeZone } from "@armin/core/study";
-import { components } from "./_generated/api";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import { getViewer } from "./model/access";
@@ -16,16 +15,14 @@ import { libraryPlan } from "./model/usage";
  */
 export const authFeatures = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async () => {
     const selfHosted = isSelfHosted();
     return {
       email: Boolean(process.env.RESEND_API_KEY),
       google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
       selfHosted,
-      // A self-hosted instance accepts only its first account (the owner).
-      signUpOpen:
-        !selfHosted ||
-        (await ctx.runQuery(components.betterAuth.adapter.findOne, { model: "user" })) === null,
+      // A self-hosted instance's one account is created on its server.
+      signUpOpen: !selfHosted,
     };
   },
 });

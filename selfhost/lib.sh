@@ -105,6 +105,11 @@ run_migrations() {
   done
 }
 
+# Whether the owner account exists (setup.sh, create-owner.sh).
+owner_exists() {
+  [ "$(convex run selfHost:ownerExists | tr -d '[:space:]')" = true ]
+}
+
 # `convex run` prints the action's return value as JSON; unwrap the string.
 node_json_string() {
   compose run --rm -T tools node -e '
