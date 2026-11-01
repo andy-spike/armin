@@ -13,6 +13,14 @@ import { emailLayout } from "./model/email";
 import { isReviewer } from "./model/reviewer";
 import { isSelfHosted } from "./model/selfHost";
 
+function signUpClosed() {
+  return new APIError("FORBIDDEN", {
+    code: "SIGN_UP_CLOSED",
+    message:
+      "Sign-up is closed. This personal Armin instance's account is created on its server with selfhost/create-owner.sh.",
+  });
+}
+
 function rejectReviewerAccountChange(userId: string) {
   if (isReviewer(userId)) {
     throw new APIError("FORBIDDEN", {
@@ -49,9 +57,8 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
       onCreate: async (ctx, user) => {
         if (!isSelfHosted()) return;
         // The single-owner guard that cannot race: this runs in the same
-        // transaction as the insert, so of two concurrent first sign-ups one
-        // conflicts, retries, sees the other, and is rolled back here. The
-        // databaseHooks.user check gives the usual clean 403 before this.
+        // transaction as the insert, so of two concurrent owner creations one
+        // conflicts, retries, sees the other, and is rolled back here.
         const { page } = await ctx.runQuery(components.betterAuth.adapter.findMany, {
           model: "user",
           paginationOpts: { numItems: 2, cursor: null },
@@ -166,6 +173,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
             }
           }
         }
+        // A self-hosted instance's only account is created on the server by
+        // selfhost/create-owner.sh, so no request can claim it first.
+        if (isSelfHosted() && ctx.path.startsWith("/sign-up")) throw signUpClosed();
         // Better Auth logs a failed email send and still answers 200. When
         // this deployment cannot send mail at all, reject the flows that
         // depend on it before an account or token is created, so the client
@@ -197,7 +207,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     emailAndPassword: {
       enabled: true,
       // A self-hosted instance has no email service; its owner is verified
-      // when the account is created (see databaseHooks.user).
+      // when selfHost:createOwner creates the account.
       requireEmailVerification: !isSelfHosted(),
       minPasswordLength: 10,
       revokeSessionsOnPasswordReset: true,
@@ -259,14 +269,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
         create: {
           before: async (user, context) => {
             if (!isSelfHosted()) return;
-            // A personal instance has exactly one account: the first sign-up.
-            const users = await context?.context.internalAdapter.countTotalUsers();
-            if (users === undefined || users > 0) {
-              throw new APIError("FORBIDDEN", {
-                code: "SIGN_UP_CLOSED",
-                message: "This is a personal Armin instance. It already has its owner account.",
-              });
-            }
+            // Every request runs inside an endpoint context; only the
+            // operator's selfHost:createOwner creates a user outside one.
+            if (context) throw signUpClosed();
             return { data: { ...user, emailVerified: true } };
           },
         },

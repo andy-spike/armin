@@ -4,7 +4,8 @@
 #
 #   ./selfhost/setup.sh
 #
-# Non-interactive: ARMIN_DOMAIN=cards.example.com ACME_EMAIL=you@example.com ./selfhost/setup.sh
+# Non-interactive: ARMIN_DOMAIN=cards.example.com ACME_EMAIL=you@example.com \
+#   ARMIN_OWNER_EMAIL=you@example.com ARMIN_OWNER_PASSWORD=... ./selfhost/setup.sh
 source "$(dirname "$0")/lib.sh"
 
 require_docker
@@ -76,6 +77,25 @@ fi
 
 deploy_backend
 
+# The owner account is created here, never through the website, so nobody
+# who reaches the address can claim the instance first.
+if ! owner_exists; then
+  retry="The owner account wasn't created. Run ./selfhost/create-owner.sh to try again."
+  if [ -n "${ARMIN_OWNER_EMAIL:-}" ]; then
+    "$SELFHOST_DIR/create-owner.sh" || warn "$retry"
+  elif [ -t 0 ]; then
+    printf '\n  Armin has one account, the owner. Create it now, unless you are moving\n'
+    printf '  servers and will restore a backup next (the backup has your account).\n\n'
+    read -r -p "Create the owner account now? [Y/n] " answer
+    case "$answer" in
+      [nN]*) warn "No owner account yet. Restore a backup, or run ./selfhost/create-owner.sh." ;;
+      *) "$SELFHOST_DIR/create-owner.sh" || warn "$retry" ;;
+    esac
+  else
+    warn "No owner account yet. Run ./selfhost/create-owner.sh, or restore a backup."
+  fi
+fi
+
 say "Starting the web app and HTTPS"
 compose up -d web caddy
 
@@ -84,8 +104,7 @@ cat <<EOF
 
   Armin is running.
 
-  1. Open $site now and create your account.
-     It becomes the owner account; sign-up then closes.
+  1. Open $site and sign in with the owner account.
   2. Copy selfhost/.env somewhere safe. Your backups need it.
   3. Schedule daily backups: see "Schedule backups" in docs/self-hosting.md.
 
