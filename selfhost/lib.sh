@@ -75,12 +75,34 @@ deploy_backend() {
     "$(env_get SITE_URL)" "$(env_get BETTER_AUTH_SECRET)" | convex env set --force >/dev/null
   say "Deploying Armin's backend functions (this takes a minute)"
   convex deploy --yes
-  if ! convex env list | grep -q '^JWKS='; then
+  # Capture first: under pipefail, grep -q exiting early would fail the pipe.
+  local vars
+  vars="$(convex env list)"
+  if ! grep -q '^JWKS=' <<<"$vars"; then
     # Store the auth signing keys in the deployment so token checks never
     # fetch this instance's own public URL.
     say "Creating sign-in signing keys"
     convex run selfHost:signingKeys | node_json_string | convex env set JWKS >/dev/null
   fi
+  run_migrations
+}
+
+# Idempotent data migrations that bring data from an older version up to date.
+# Each returns at once and finishes in scheduled jobs; on current data they
+# change nothing. List every new operator backfill from
+# packages/backend/README.md here; setup, update, and restore run them.
+MIGRATIONS=(
+  performance:backfill
+  performance:backfillFrontierKeys
+  media:backfillVariants
+)
+
+run_migrations() {
+  say "Bringing existing data up to date"
+  local fn
+  for fn in "${MIGRATIONS[@]}"; do
+    convex run "$fn" '{"cursor":null}' >/dev/null
+  done
 }
 
 # `convex run` prints the action's return value as JSON; unwrap the string.

@@ -74,11 +74,37 @@ Every other step followed `docs/self-hosting.md` as written.
 - The move-to-a-new-server steps didn't mention the backup cron job, which
   lives outside the checkout's data. The guide now says to add it again.
 
+## Re-run after rebasing onto `master`
+
+The branch was rebased onto `master` (`dfc2c6e`, free and Pro plans). The same
+VM, still holding the data above, was updated to the rebased code.
+
+1. `./selfhost/update.sh` deployed the new schema, then ran the new
+   "Bringing existing data up to date" step: `performance:backfill`,
+   `performance:backfillFrontierKeys`, and `media:backfillVariants`. Without
+   it, a self-hoster would have needed the operator commands from the backend
+   README. Unit summaries gained `frontierKey`; the library gained
+   `statsReady`.
+2. A second `update.sh` skipped "Creating sign-in signing keys", because
+   `JWKS` was already set. Before the fix, `grep -q` exiting early under
+   `pipefail` made that check fail and re-store the same keys on every update.
+3. `/pricing` redirected to `/`, then to sign-in.
+4. After signing in, the deck, the card with its image (loaded, 64 px wide),
+   and the earlier review were intact
+   ([decks](2026-11-01-self-hosting-azure/12-after-rebase-decks.png),
+   [card](2026-11-01-self-hosting-azure/14-after-rebase-card.png)). Stats
+   showed the review in the heatmap and the 30-day chart
+   ([stats](2026-11-01-self-hosting-azure/13-after-rebase-stats.png)).
+5. `account:viewer` returned `plan: "pro"` and `imports:usage` returned
+   limits of 1,000 decks, 100,000 flashcards, and 250,000 review units for the
+   owner, run on the server with `convex run --identity`.
+
 ## Not covered
 
 - Cloning from GitHub (the branch isn't pushed yet).
 - A custom domain with its own DNS provider; `sslip.io` stood in for it.
 - A 2 GB server, the minimum the guide lists. This VM had 4 GiB.
-- The branch is four commits behind `master`, including the free and Pro plans
-  change (#78). Rebasing changes the limits the guide quotes and needs a
-  re-run.
+- Hitting a limit on a self-hosted instance (the "This instance allows..."
+  message); the limits are far above what a test library reaches.
+- `restore.sh` running migrations on an older backup; the step is the same
+  call `update.sh` makes, but no old-version backup was restored.

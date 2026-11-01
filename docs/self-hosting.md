@@ -133,11 +133,13 @@ regularly, with `rsync`, `rclone`, or your host's snapshots.
 | Stop                 | `docker compose -f selfhost/docker-compose.yml down`      |
 | Start again          | `docker compose -f selfhost/docker-compose.yml up -d`     |
 
-**Updating** backs up first, rebuilds, redeploys the backend, and restarts the
-app. Read the release notes before updating.
+**Updating** backs up first, rebuilds, redeploys the backend, brings existing
+data up to date for the new version, and restarts the app. Read the release
+notes before updating.
 
 **Restoring** replaces everything in the instance with the backup and asks you
-to type `RESTORE` first. To move to a new server: copy `selfhost/.env` into a
+to type `RESTORE` first. A backup from an older version is brought up to date
+the same way. To move to a new server: copy `selfhost/.env` into a
 fresh checkout there, update DNS, run `./selfhost/setup.sh`, restore your
 latest backup, and add the backup `crontab` line again.
 
