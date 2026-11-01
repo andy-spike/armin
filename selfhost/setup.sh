@@ -84,10 +84,10 @@ cat <<EOF
 
   Armin is running.
 
-  1. Open $site and create your account.
+  1. Open $site now and create your account.
      It becomes the owner account; sign-up then closes.
   2. Copy selfhost/.env somewhere safe. Your backups need it.
-  3. Schedule daily backups: see "Backups" in docs/self-hosting.md.
+  3. Schedule daily backups: see "Schedule backups" in docs/self-hosting.md.
 
   HTTPS certificates can take a minute after DNS resolves.
   If the page doesn't load: docker compose -f selfhost/docker-compose.yml logs caddy

@@ -91,6 +91,11 @@ data, secrets, and account.
 Open `https://cards.example.com` and create your account. It's verified right
 away and becomes the instance's only account. The sign-up page then closes.
 
+Do this right after setup: until the owner account exists, anyone who reaches
+the address can create it. If the sign-up page already says it's closed and you
+didn't create the account, stop the instance, delete `selfhost/data/`, and run
+`./selfhost/setup.sh` again.
+
 ## 5. Save your secrets
 
 `selfhost/.env` holds the secrets that protect your data and sign-ins.
@@ -133,8 +138,8 @@ app. Read the release notes before updating.
 
 **Restoring** replaces everything in the instance with the backup and asks you
 to type `RESTORE` first. To move to a new server: copy `selfhost/.env` into a
-fresh checkout there, update DNS, run `./selfhost/setup.sh`, then restore your
-latest backup.
+fresh checkout there, update DNS, run `./selfhost/setup.sh`, restore your
+latest backup, and add the backup `crontab` line again.
 
 **Forgot your password?** The instance doesn't send email. On the server, run
 `./selfhost/reset-password.sh`, enter your email and a new password, and sign
