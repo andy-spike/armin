@@ -23,17 +23,17 @@ If you'd rather not run a server, use [armincards.app](https://armincards.app).
                                  └─ data: selfhost/data/
 ```
 
-| Default             | Value                                                            |
-| ------------------- | ---------------------------------------------------------------- |
-| Accounts            | One. The first sign-up becomes the owner, then sign-up closes.   |
-| Email               | None. No verification step; passwords are reset on the server.   |
-| Google sign-in      | Off                                                              |
-| AI assistants (MCP) | On, at `https://actions.<your domain>/mcp`                       |
-| Limits              | Same as armincards.app: 2,000 cards, 200 decks, 80 MiB of images |
-| HTTPS               | Automatic Let's Encrypt certificates through Caddy               |
-| Data                | `selfhost/data/` on the server                                   |
-| Backups             | `selfhost/backup.sh`, keeps the newest 7; you schedule it        |
-| Mobile app          | Not supported. Use the web app in your phone's browser.          |
+| Default             | Value                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------- |
+| Accounts            | One. The first sign-up becomes the owner, then sign-up closes.                                  |
+| Email               | None. No verification step; passwords are reset on the server.                                  |
+| Google sign-in      | Off                                                                                             |
+| AI assistants (MCP) | On, at `https://actions.<your domain>/mcp`                                                      |
+| Limits              | armincards.app Pro limits, free: 100,000 cards (10,000 per deck), 1,000 decks, 80 MiB of images |
+| HTTPS               | Automatic Let's Encrypt certificates through Caddy                                              |
+| Data                | `selfhost/data/` on the server                                                                  |
+| Backups             | `selfhost/backup.sh`, keeps the newest 7; you schedule it                                       |
+| Mobile app          | Not supported. Use the web app in your phone's browser.                                         |
 
 The app shows a **Self-hosted** badge next to the Armin name.
 

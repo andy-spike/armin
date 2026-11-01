@@ -7,7 +7,7 @@ import { internalQuery, query } from "./_generated/server";
 import { internalMutation } from "./functions";
 import type { ActionCtx } from "./_generated/server";
 import { getViewer } from "./model/access";
-import { libraryLimits } from "./model/usage";
+import { libraryLimits, libraryPlan } from "./model/usage";
 
 export const uploaderLibrary = internalQuery({
   args: {},
@@ -322,7 +322,7 @@ export const attachVariant = internalMutation({
       .unique();
     const fits =
       counters != null &&
-      counters.mediaBytes + args.thumbnailSize <= planLimits(library.plan).mediaBytes;
+      counters.mediaBytes + args.thumbnailSize <= planLimits(libraryPlan(library)).mediaBytes;
     await ctx.db.patch(media._id, {
       width: args.width,
       height: args.height,

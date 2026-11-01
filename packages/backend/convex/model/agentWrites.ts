@@ -2,7 +2,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { usageMonth } from "@armin/core/plans";
 import { fail } from "./errors";
-import { libraryLimits } from "./usage";
+import { libraryLimits, limitOwnerName } from "./usage";
 
 const HOUR_MS = 3_600_000;
 /** Monthly meters are kept a little past their month, then pruned with other buckets. */
@@ -100,7 +100,7 @@ export async function countAgentCards(
     .unique();
   const used = bucket?.count ?? 0;
   if (used + cards > limits.agentCardsPerMonth) {
-    const name = limits.plan === "pro" ? "The Pro plan" : "The free plan";
+    const name = limitOwnerName(limits.plan);
     fail(
       "QUOTA",
       `${name} allows ${limits.agentCardsPerMonth} assistant-created cards per month; ${used} are used and this adds ${cards}.`,

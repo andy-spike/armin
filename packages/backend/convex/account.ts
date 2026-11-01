@@ -8,6 +8,7 @@ import { fail } from "./model/errors";
 import { bumpRevision } from "./model/study";
 import { isReviewer, reviewerResetHours } from "./model/reviewer";
 import { isSelfHosted } from "./model/selfHost";
+import { libraryPlan } from "./model/usage";
 
 /**
  * Which optional auth services this deployment has configured. Public so the
@@ -48,7 +49,7 @@ export const viewer = query({
             id: viewer.library._id,
             status: viewer.library.status,
             timeZone: viewer.library.timeZone,
-            plan: viewer.library.plan ?? "free",
+            plan: libraryPlan(viewer.library),
           }
         : null,
     };
