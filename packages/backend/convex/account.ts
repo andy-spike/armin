@@ -1,11 +1,14 @@
 import { v } from "convex/values";
 import { defaultSchedulingSettings, isValidTimeZone } from "@armin/core/study";
+import { components } from "./_generated/api";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import { getViewer } from "./model/access";
 import { fail } from "./model/errors";
 import { bumpRevision } from "./model/study";
 import { isReviewer, reviewerResetHours } from "./model/reviewer";
+import { isSelfHosted } from "./model/selfHost";
+import { libraryPlan } from "./model/usage";
 
 /**
  * Which optional auth services this deployment has configured. Public so the
@@ -13,10 +16,18 @@ import { isReviewer, reviewerResetHours } from "./model/reviewer";
  */
 export const authFeatures = query({
   args: {},
-  handler: async () => ({
-    email: Boolean(process.env.RESEND_API_KEY),
-    google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
-  }),
+  handler: async (ctx) => {
+    const selfHosted = isSelfHosted();
+    return {
+      email: Boolean(process.env.RESEND_API_KEY),
+      google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+      selfHosted,
+      // A self-hosted instance accepts only its first account (the owner).
+      signUpOpen:
+        !selfHosted ||
+        (await ctx.runQuery(components.betterAuth.adapter.findOne, { model: "user" })) === null,
+    };
+  },
 });
 
 /** Who is signed in, whether they may save, and their library state. */
@@ -38,7 +49,7 @@ export const viewer = query({
             id: viewer.library._id,
             status: viewer.library.status,
             timeZone: viewer.library.timeZone,
-            plan: viewer.library.plan ?? "free",
+            plan: libraryPlan(viewer.library),
           }
         : null,
     };

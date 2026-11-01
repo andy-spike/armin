@@ -1,0 +1,25 @@
+# HTTPS for the three public addresses of a self-hosted Armin instance.
+# Caddy obtains and renews Let's Encrypt certificates automatically.
+# Values come from selfhost/.env; see docs/self-hosting.md.
+{
+	email {$ACME_EMAIL}
+	http_port {$HTTP_PORT}
+	https_port {$HTTPS_PORT}
+	{$CADDY_GLOBAL_OPTIONS}
+}
+
+# The web app.
+{$ARMIN_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+# Convex API and live sync (WebSocket) for the browser.
+{$ARMIN_API_DOMAIN} {
+	reverse_proxy backend:3210
+}
+
+# Convex HTTP actions: sign-in, images, exports, and AI assistant (MCP) access.
+{$ARMIN_ACTIONS_DOMAIN} {
+	reverse_proxy backend:3211
+}

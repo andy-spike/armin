@@ -26,7 +26,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { fail } from "./errors";
 import { MAX_REVIEW_UNITS_PER_FLASHCARD } from "./limits";
-import { libraryLimits, reviewUnitTotal } from "./usage";
+import { libraryLimits, limitOwnerName, reviewUnitTotal } from "./usage";
 
 // --- Settings ---
 
@@ -179,7 +179,7 @@ export async function adjustReviewUnitCount(
   if (delta > 0) {
     const limits = await libraryLimits(ctx, libraryId);
     if (next > limits.reviewUnits) {
-      const name = limits.plan === "pro" ? "The Pro plan" : "The free plan";
+      const name = limitOwnerName(limits.plan);
       fail("QUOTA", `${name} allows ${limits.reviewUnits} review units per account.`);
     }
   }

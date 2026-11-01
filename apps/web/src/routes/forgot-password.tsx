@@ -20,6 +20,7 @@ export const Route = createFileRoute("/forgot-password")({
 function ForgotPasswordPage() {
   const features = useAuthFeatures();
   const emailUnavailable = features.data?.email === false;
+  const selfHostedWithoutEmail = emailUnavailable && features.data?.selfHosted === true;
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -37,6 +38,25 @@ function ForgotPasswordPage() {
     if (error) setError(authErrorMessage(error));
     else setSent(true);
   };
+
+  if (selfHostedWithoutEmail) {
+    return (
+      <AuthLayout
+        title="Reset your password"
+        subtitle="This self-hosted instance doesn't send email."
+        footer={
+          <Link to="/sign-in" className="font-medium text-accent hover:text-accent-deep">
+            Back to sign in
+          </Link>
+        }
+      >
+        <FormNotice>
+          On the server, run <code>./selfhost/reset-password.sh</code> from the Armin folder. It
+          asks for the account email and a new password.
+        </FormNotice>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout

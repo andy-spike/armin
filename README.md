@@ -25,6 +25,14 @@ Workers, with its backend on Convex cloud. The Electron
 desktop app, its local MCP server, and the old sync service have been retired.
 Their source and release tooling remain available in Git history.
 
+## Self-hosting
+
+You can run your own private instance with Docker; see
+[self-hosting Armin](docs/self-hosting.md). Self-hosting is for individuals
+running an instance for their own use. It comes as-is, with no warranty or
+support guarantee, and you are responsible for your own server and data. Only
+[armincards.app](https://armincards.app) is operated by the project.
+
 ## Development
 
 The toolchain is [Vite+](https://viteplus.dev) (`vp`). Install its global CLI

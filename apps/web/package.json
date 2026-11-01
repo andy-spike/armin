@@ -11,6 +11,8 @@
     "prebuild": "node ../../scripts/build-anki-kit.mjs",
     "build": "vp build",
     "start": "vp preview --port 3000 --strictPort",
+    "build:node": "node ../../scripts/build-anki-kit.mjs && vp build --mode node",
+    "start:node": "node node-server.mjs",
     "build:cloudflare": "node ../../scripts/build-anki-kit.mjs && vp build --mode cloudflare",
     "preview:cloudflare": "pnpm build:cloudflare && vp preview --mode cloudflare",
     "deploy": "pnpm build:cloudflare && wrangler deploy"

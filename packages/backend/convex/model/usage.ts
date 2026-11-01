@@ -1,8 +1,10 @@
 import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { planLimits } from "@armin/core/plans";
+import { planLimits, type PlanId } from "@armin/core/plans";
+import type { Doc } from "../_generated/dataModel";
 import { fail } from "./errors";
 import { MAX_DECKS, MAX_FLASHCARDS_PER_DECK } from "./limits";
+import { isSelfHosted } from "./selfHost";
 
 /*
  * The one place library capacity is measured and checked. Every write that
@@ -59,16 +61,32 @@ export async function libraryUsage(ctx: Pick<QueryCtx, "db">, libraryId: Id<"lib
   return { decks: decks.length, flashcards, reviewUnits };
 }
 
-/** The plan limits that apply to a library; a missing library gets the free plan. */
-export async function libraryLimits(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">) {
-  const library = await ctx.db.get(libraryId);
-  return { plan: library?.plan ?? "free", ...planLimits(library?.plan) };
+/**
+ * The plan a library is on. A self-hosted instance has no billing, so its
+ * owner gets Pro's limits, which are the technical bounds. A missing library
+ * gets the free plan.
+ */
+export function libraryPlan(library: Pick<Doc<"libraries">, "plan"> | null): PlanId {
+  if (isSelfHosted()) return "pro";
+  return library?.plan ?? "free";
 }
 
-function overLimit(plan: string, noun: string, max: number, have: number, adding: number) {
+/** Who a limit belongs to, for quota messages. */
+export function limitOwnerName(plan: PlanId) {
+  if (isSelfHosted()) return "This instance";
+  return plan === "pro" ? "The Pro plan" : "The free plan";
+}
+
+/** The plan limits that apply to a library. */
+export async function libraryLimits(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">) {
+  const plan = libraryPlan(await ctx.db.get(libraryId));
+  return { plan, ...planLimits(plan) };
+}
+
+function overLimit(plan: PlanId, noun: string, max: number, have: number, adding: number) {
   const n = (value: number) => value.toLocaleString("en-US");
   const added = adding === 1 ? "" : ` This adds ${n(adding)}.`;
-  const name = plan === "pro" ? "The Pro plan" : "The free plan";
+  const name = limitOwnerName(plan);
   fail(
     "QUOTA",
     `${name} allows ${n(max)} ${noun} per library, and this one has ${n(have)}.${added}`,

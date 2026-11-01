@@ -367,6 +367,10 @@ pnpm --filter @armin/backend exec convex run performance:backfillFrontierKeys '{
 
 Deck counters (`deckUnitCounts`) build themselves on each deck's next write.
 
+Self-hosted instances run these backfills on every update and restore, from
+the `MIGRATIONS` list in `selfhost/lib.sh`. Add each new idempotent backfill
+that takes `{"cursor":null}` to that list.
+
 The commands above use the checkout's local deployment by default. Production
 requires the normal explicit production deployment workflow. Inspect scheduled
 functions for completion and confirm libraries have `statsReady: true` before

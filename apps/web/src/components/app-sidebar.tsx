@@ -59,6 +59,7 @@ import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
 import { useShownDecks, type ShownDeck } from "@/lib/pending-deck-edits";
 import { usePinnedAt } from "@/lib/pending-pins";
 import { ArminMark, ArminWordmark } from "@/components/brand";
+import { SelfHostedBadge } from "@/components/self-hosted-badge";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
 import { TruncatedLabel } from "@/components/ui/truncated-label";
@@ -216,8 +217,9 @@ function BrandHeader({ linkProps }: { linkProps: LinkProps }) {
         {...linkProps}
       >
         <ArminMark className="size-5" />
-        <span className={cn(fade, "flex text-lg leading-none")}>
+        <span className={cn(fade, "flex items-center gap-2 text-lg leading-none")}>
           <ArminWordmark />
+          <SelfHostedBadge />
         </span>
       </Link>
       {collapsed && (

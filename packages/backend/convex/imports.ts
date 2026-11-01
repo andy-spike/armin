@@ -15,7 +15,7 @@ import { cleanDeckName, insertDeck } from "./model/decks";
 import { planLimits } from "@armin/core/plans";
 import { MAX_REVIEW_UNITS_PER_FLASHCARD } from "./model/limits";
 import { bumpRevision, findRequest, recordRequest, type TagCache } from "./model/study";
-import { checkCapacity, libraryUsage } from "./model/usage";
+import { checkCapacity, libraryPlan, libraryUsage } from "./model/usage";
 
 // Per-call caps keep every mutation inside Convex's write and read limits even
 // when each card is a 60-deletion cloze.
@@ -516,7 +516,7 @@ export const usage = query({
   handler: async (ctx) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const limits = planLimits(library.plan);
+    const limits = planLimits(libraryPlan(library));
     return {
       ...(await libraryUsage(ctx, library._id)),
       limits: {

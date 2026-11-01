@@ -82,12 +82,14 @@ function SignInPage() {
       title="Sign in"
       subtitle="Study your prerequisite-ordered decks from any device."
       footer={
-        <>
-          New to Armin?{" "}
-          <Link to="/sign-up" className="font-medium text-accent hover:text-accent-deep">
-            Create an account
-          </Link>
-        </>
+        features.data?.signUpOpen === false ? undefined : (
+          <>
+            New to Armin?{" "}
+            <Link to="/sign-up" className="font-medium text-accent hover:text-accent-deep">
+              Create an account
+            </Link>
+          </>
+        )
       }
     >
       <div className="space-y-4">
