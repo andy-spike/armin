@@ -1,6 +1,6 @@
 # Armin Terms of Service
 
-_Last updated: 25 October 2026_
+_Last updated: 2 November 2026_
 
 **Armin** — the spaced-repetition flashcard app at
 [armincards.app](https://armincards.app), its mobile apps, and its MCP server
@@ -84,20 +84,45 @@ Don't use Armin to:
 If you break these, we may limit, suspend, or delete the account involved,
 with a notice where it's reasonable.
 
-Armin is free. If paid features arrive later, they will be opt-in, priced and
-described before you're charged, and cancelable — never a silent charge to an
-existing free account.
+## 8. Plans, payments, and refunds
 
-## 8. Availability
+- **Free and Pro.** Armin has a free plan and an optional paid **Pro** plan.
+  Current prices and limits are on the [pricing page](/pricing). Nothing is
+  ever charged to a free account; Pro starts only when you buy it.
+- **Polar is the seller.** Pro is sold through [Polar](https://polar.sh), our
+  merchant of record. Polar processes the payment, charges and remits any sales
+  tax or VAT, and issues your receipts and invoices. Your purchase is also
+  subject to Polar's buyer terms, shown at checkout. We never see or store your
+  card details.
+- **Automatic renewal.** Pro is a subscription, billed monthly or yearly as you
+  choose. It renews automatically at the end of each period, at the price shown
+  when you bought it, until you cancel. If we change the price, we tell you by
+  email at least 14 days before it applies to your next renewal.
+- **Cancel anytime.** Cancel from Settings → Billing → Manage subscription.
+  Pro stays active until the end of the period you've paid for, and then your
+  account returns to the free plan.
+- **Refunds.** If you're not happy, email **support@armincards.app** within
+  **14 days** of a payment, initial or renewal, for a full refund of that
+  payment. After 14 days, payments are not refundable, except where the law
+  says otherwise. A refunded payment ends Pro for the period it covered.
+- **When Pro ends, nothing is deleted.** If your library is larger than the
+  free limits, you keep studying, editing, and exporting everything; you just
+  can't add cards, decks, or images past the free limits until you're back
+  under them or on Pro again.
+- **Deleting your account** cancels any subscription immediately; it doesn't
+  refund the current period automatically, but a payment made in the last 14
+  days is still refundable on request.
 
-A free service from one person, run on rented infrastructure. We work hard to
+## 9. Availability
+
+A service from one person, run on rented infrastructure. We work hard to
 keep it up, but we don't promise any particular uptime, that a feature will
 exist forever, or that updates will never change behavior. For material
 subtraction of features we aim to give advance notice and to keep export
 working so you can take your data somewhere else. You keep the ZIP export as
 your safety net.
 
-## 9. Disclaimers
+## 10. Disclaimers
 
 Armin is provided **as is** and **as available**, without warranties of any
 kind, express or implied, including fitness for a particular purpose. In
@@ -112,12 +137,12 @@ particular:
 Some countries give consumers warranties that cannot be disclaimed. Where you
 live, nothing in these terms takes those away.
 
-## 10. Liability
+## 11. Liability
 
 To the greatest extent the law allows: our total liability for any claim in
 connection with Armin is limited to the greater of (a) any amounts you paid us
-in the 12 months before the claim (today, effectively zero, because Armin is
-free) or (b) **USD 20**. We are not liable for lost profits, lost data, or
+in the 12 months before the claim (zero if you've only used the free plan) or
+(b) **USD 20**. We are not liable for lost profits, lost data, or
 indirect/consequential damages — but note: (1) that does not limit liability
 for gross negligence or willful misconduct, for personal injury, or anything
 else the law doesn't allow limiting; and (2) if your home law instead imposes
@@ -126,13 +151,13 @@ mandatory liability rules, those rules win.
 If you lose data because you skipped the export and backup options the app
 gives you, that is on you; the ZIP export exists for a reason.
 
-## 11. Ending these terms
+## 12. Ending these terms
 
 You can stop any time: delete your account, or just stop using Armin.
 We can end these terms for a specific account as described in §7. If we end
 your account, you keep access to an export up to the moment access ended.
 
-## 12. Governing law and disputes
+## 13. Governing law and disputes
 
 - The **laws of Colombia** govern these terms (without regard to conflict rules).
 - Disputes go to the courts of **Colombia**.
@@ -142,14 +167,14 @@ your account, you keep access to an export up to the moment access ended.
 - Please try emailing **support@armincards.app** first; most things can be
   fixed by talking.
 
-## 13. Changes to these terms
+## 14. Changes to these terms
 
 We'll post updates here with a new date and, if a change is material,
 notify you by email at least 14 days before it takes effect. Changes are not
 retroactive. Continued use after the effective date means you accept the
 update; if you don't, delete your account (the export button stays yours).
 
-## 14. Contact
+## 15. Contact
 
 **support@armincards.app** — the fastest and best way to reach us about
 anything in these terms.
