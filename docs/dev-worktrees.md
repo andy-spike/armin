@@ -92,7 +92,6 @@ After every successful merge into `master`:
 4. Verify the source path is absent and `git worktree list` no longer lists it.
    Report the merge result and completed cleanup.
 
-
 A checkout's deployment data lives inside the checkout, in
 `packages/backend/.convex/local/default/` (SQLite database, file storage, and
 admin key). It does not expire. Removing the worktree deletes it, and the next
