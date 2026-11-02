@@ -130,3 +130,14 @@ files are collected an hour after they stop being used).
 `pnpm check`, `pnpm --filter @armin/web build`, and
 `pnpm --filter @armin/mobile check:bundle` pass. The mobile app itself is
 unchanged.
+
+## Review fixes
+
+- A full pool during a browser Anki import stopped being recognised once the
+  message changed, so the runner would skip files and import partially. The
+  server and the runner now share `MEDIA_STORAGE_FULL_MESSAGE`
+  (`@armin/core/plans`).
+- Card audio now stops when the card side that started it goes away. In
+  Chromium, a review clip started from its button and followed 0.3 s later by
+  leaving for Decks reported `paused: true, ended: false` at 0.67 s of a
+  0.80 s clip.

@@ -18,7 +18,13 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { parseMediaRef } from "@armin/core/media-ref";
 import { isAudioFile } from "@armin/core/media";
 import { CardAudio, CardAudioPlaceholder } from "@/components/ui/card-audio";
-import { AudioGroup, AudioGroupContext, autoplayGroup, trackGroup } from "@/lib/card-audio";
+import {
+  AudioGroup,
+  AudioGroupContext,
+  autoplayGroup,
+  stopAudioOf,
+  trackGroup,
+} from "@/lib/card-audio";
 import { inlineMarks } from "@/lib/markdown-marks";
 import { splitMath } from "@armin/core/math";
 
@@ -217,6 +223,8 @@ export function MarkdownContent({
     return () => {
       untrack();
       cancelAutoplay();
+      // A side that leaves (next card, other page) stops the audio it started.
+      stopAudioOf(group);
     };
   }, [group, audio, content]);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);

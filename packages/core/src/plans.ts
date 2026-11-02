@@ -32,6 +32,13 @@ export const PLAN_PRICES = {
 
 export const MAX_FLASHCARDS_PER_DECK = 10_000;
 
+/**
+ * The upload response when a file doesn't fit the library's image and audio
+ * pool. Clients match it exactly to tell a full pool from a single file that
+ * is too large (both are HTTP 413).
+ */
+export const MEDIA_STORAGE_FULL_MESSAGE = "Your storage for images and audio is full.";
+
 export function planLimits(plan: PlanId | undefined) {
   return PLAN_LIMITS[plan ?? "free"];
 }

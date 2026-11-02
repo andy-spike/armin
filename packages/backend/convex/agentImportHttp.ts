@@ -4,6 +4,7 @@ import {
   sniffMediaExt,
   UNSUPPORTED_MEDIA_MESSAGE,
 } from "@armin/core/media";
+import { MEDIA_STORAGE_FULL_MESSAGE } from "@armin/core/plans";
 import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { hashSecret } from "./model/agentAuth";
@@ -99,7 +100,7 @@ export async function uploadAgentImportMedia(ctx: ActionCtx, request: Request) {
       if (recorded.reason === "quota")
         return json(
           {
-            error: "Your storage for images and audio is full.",
+            error: MEDIA_STORAGE_FULL_MESSAGE,
           },
           413,
         );

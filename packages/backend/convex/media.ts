@@ -6,6 +6,7 @@ import {
   UNSUPPORTED_MEDIA_MESSAGE,
 } from "@armin/core/media";
 import { mediaRefFromFileName } from "@armin/core/media-ref";
+import { MEDIA_STORAGE_FULL_MESSAGE } from "@armin/core/plans";
 import { internal } from "./_generated/api";
 import { internalQuery, query } from "./_generated/server";
 import { internalMutation } from "./functions";
@@ -99,8 +100,7 @@ export async function uploadMedia(ctx: ActionCtx, request: Request) {
       }),
     );
     if (result.status !== "stored") await ctx.storage.delete(storageId);
-    if (result.status === "quota")
-      return new Response("Your storage for images and audio is full.", { status: 413 });
+    if (result.status === "quota") return new Response(MEDIA_STORAGE_FULL_MESSAGE, { status: 413 });
     if (result.status === "claimed") return new Response("Upload failed.", { status: 409 });
     return Response.json({ ref: mediaRefFromFileName(fileName), fileName, mime, bytes: size });
   } catch (error) {

@@ -11,8 +11,8 @@ import { createContext, useContext } from "react";
  */
 
 const blobUrls = new Map<string, Promise<string>>();
-/** The run playing now; starting another stops it. */
-let current: { stop: () => void } | null = null;
+/** The run playing now and what started it; starting another stops it. */
+let current: { stop: () => void; owner: object | null } | null = null;
 const listeners = new Set<() => void>();
 let playingSrc: string | null = null;
 
@@ -47,13 +47,22 @@ export function stopAudio() {
   current?.stop();
 }
 
-/** Play clips one after another; resolves when they finish or something else starts. */
-export async function playClips(sources: string[]) {
+/** Stop playback that `owner` started, such as a card side that is going away. */
+export function stopAudioOf(owner: object) {
+  if (current?.owner === owner) current.stop();
+}
+
+/**
+ * Play clips one after another; resolves when they finish or something else
+ * starts. `owner` (a card side or clip button) can stop its own run later.
+ */
+export async function playClips(sources: string[], owner: object | null = null) {
   stopAudio();
   let stopped = false;
   let audio: HTMLAudioElement | null = null;
   let finishClip: (() => void) | null = null;
   const run = {
+    owner,
     stop: () => {
       stopped = true;
       audio?.pause();
@@ -107,7 +116,7 @@ export class AudioGroup {
     if (pendingAutoplay.has(this)) {
       pendingAutoplay.delete(this);
       // Wait for the rest of the side's clips, which register in the same pass.
-      queueMicrotask(() => void playClips([...this.sources]));
+      queueMicrotask(() => void playClips([...this.sources], this));
     }
     return () => {
       const index = this.sources.indexOf(src);
@@ -133,7 +142,7 @@ export function trackGroup(group: AudioGroup) {
  */
 export function autoplayGroup(group: AudioGroup) {
   if (group.sources.length > 0) {
-    void playClips([...group.sources]);
+    void playClips([...group.sources], group);
     return () => {};
   }
   pendingAutoplay.add(group);
@@ -147,7 +156,7 @@ export function replayCardAudio() {
   const latest = [...groups]
     .filter(([group]) => group.sources.length > 0)
     .sort((a, b) => b[1] - a[1])[0]?.[0];
-  if (latest) void playClips([...latest.sources]);
+  if (latest) void playClips([...latest.sources], latest);
 }
 
 export const AudioGroupContext = createContext<AudioGroup | null>(null);
