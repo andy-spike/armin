@@ -306,6 +306,12 @@ export const armin = {
   exports: {
     start: () => q().mutation(api.exports.start, {}),
   },
+  billing: {
+    createCheckout: (interval: "month" | "year") =>
+      q().action(api.billing.createCheckout, { interval }),
+    createPortalSession: () => q().action(api.billing.createPortalSession, {}),
+    refresh: () => q().action(api.billing.refresh, {}),
+  },
 };
 
 export type ArminClient = typeof armin;

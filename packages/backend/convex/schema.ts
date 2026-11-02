@@ -188,6 +188,30 @@ export default defineSchema({
   }).index("by_owner", ["ownerId"]),
 
   /**
+   * A user's Pro subscription as last read from Polar, the merchant of
+   * record and source of truth. Written only by `billing.applyState` after a
+   * fresh read of Polar's customer state; `libraries.plan` is derived in the
+   * same transaction. `syncedAt` orders concurrent syncs.
+   */
+  billing: defineTable({
+    ownerId: v.string(),
+    subscription: v.union(
+      v.null(),
+      v.object({
+        id: v.string(),
+        productId: v.string(),
+        interval: v.union(v.literal("month"), v.literal("year")),
+        status: v.string(),
+        amount: v.number(),
+        currency: v.string(),
+        currentPeriodEnd: v.string(),
+        cancelAtPeriodEnd: v.boolean(),
+      }),
+    ),
+    syncedAt: v.number(),
+  }).index("by_owner", ["ownerId"]),
+
+  /**
    * Write-side counters for a library. Kept apart from `libraries` so that
    * reactive reads of the library row are not invalidated by every write.
    */

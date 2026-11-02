@@ -6,6 +6,7 @@ import { authComponent, createAuth } from "./auth";
 import { uploadImage } from "./media";
 import { uploadAgentImportMedia } from "./agentImportHttp";
 import { registerAgentRoutes } from "./agentHttp";
+import { registerBillingRoutes } from "./billing";
 
 const http = httpRouter();
 registerAgentRoutes(http);
@@ -18,6 +19,8 @@ http.route({
 });
 
 authComponent.registerRoutes(http, createAuth);
+// Polar subscription webhooks (`/polar/events`), signature-verified in billing.ts.
+registerBillingRoutes(http);
 
 const MEDIA_FILE_RE = /^[a-f0-9]{64}\.(?:png|jpg|gif|webp|svg|bmp|avif)$/;
 

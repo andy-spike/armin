@@ -23,6 +23,8 @@ export async function markLibraryDeleting(ctx: GenericMutationCtx<DataModel>, ow
   await ctx.scheduler.runAfter(0, internal.deletion.cleanupLibrary, {
     libraryId: library._id,
   });
+  // Stop charging for a library that no longer exists.
+  await ctx.scheduler.runAfter(0, internal.billing.endForDeletedUser, { userId: ownerId });
 }
 
 /**
