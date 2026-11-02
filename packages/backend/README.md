@@ -100,7 +100,8 @@ Client entry points (see `package.json` `exports`):
   alone next changes a due count (its `refreshAt`), so subscriptions re-run
   for writes and for due times, never on a fixed tick.
 - Images and audio are validated by their bytes (type sniffing, size), counted
-  against separate per-library quotas (`model/mediaQuota.ts`), content-addressed,
+  against one per-library pool shared by images and audio
+  (`model/mediaQuota.ts`; `media.usage` reports the split for the account page), content-addressed,
   and only served through authenticated routes. No storage URL is ever returned
   to a client. Exports include audio unless the caller passes
   `includeAudio: false`, for a smaller file.
@@ -165,15 +166,14 @@ Rules:
 Each library has a `plan` (absent means free). `@armin/core/plans` holds the
 plan limits that `model/usage.ts` (`checkCapacity`, `libraryLimits`) enforces:
 
-| Limit                           | Free    | Pro     |
-| ------------------------------- | ------- | ------- |
-| Flashcards                      | 1,000   | 100,000 |
-| Review units                    | 5,000   | 250,000 |
-| Decks                           | 50      | 1,000   |
-| Images                          | 250 MiB | 2 GiB   |
-| Audio                           | 200 MiB | 2 GiB   |
-| Assistant-created cards / month | 300     | 10,000  |
-| Assistant writes / hour         | 60      | 600     |
+| Limit                           | Free  | Pro     |
+| ------------------------------- | ----- | ------- |
+| Flashcards                      | 1,000 | 100,000 |
+| Review units                    | 5,000 | 250,000 |
+| Decks                           | 50    | 1,000   |
+| Images and audio (shared pool)  | 1 GiB | 5 GiB   |
+| Assistant-created cards / month | 300   | 10,000  |
+| Assistant writes / hour         | 60    | 600     |
 
 The monthly assistant allowance is per library and counts `save_cards`; staged
 Anki imports are bounded only by the library limits. There is no payment

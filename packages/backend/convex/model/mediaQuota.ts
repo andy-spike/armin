@@ -1,18 +1,19 @@
 import { isAudioFile } from "@armin/core/media";
 import type { Doc, Id } from "../_generated/dataModel";
-import type { MutationCtx } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { libraryLimits } from "./usage";
 
 /**
- * Images and audio have separate per-library quotas (`@armin/core/plans`):
- * audio files are much larger, so sharing one budget would let a single audio
- * deck use up the image space. The kind follows the stored file's extension.
+ * Images and audio share one storage pool per library (`mediaBytes` in
+ * `@armin/core/plans`). Their bytes are counted separately, in `mediaBytes`
+ * and `audioBytes`, only so the account page can show the split. The kind
+ * follows the stored file's extension.
  */
 function counterFor(fileName: string) {
   return isAudioFile(fileName) ? ("audioBytes" as const) : ("mediaBytes" as const);
 }
 
-async function countersRow(ctx: MutationCtx, libraryId: Id<"libraries">) {
+async function countersRow(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">) {
   return ctx.db
     .query("libraryCounters")
     .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
@@ -29,8 +30,9 @@ export async function reserveMediaBytes(
   const key = counterFor(fileName);
   const counters = await countersRow(ctx, libraryId);
   const used = counters?.[key] ?? 0;
+  const pool = (counters?.mediaBytes ?? 0) + (counters?.audioBytes ?? 0);
   const limits = await libraryLimits(ctx, libraryId);
-  if (used + size > limits[key]) return false;
+  if (pool + size > limits.mediaBytes) return false;
   if (counters) {
     await ctx.db.patch(counters._id, { [key]: used + size, revision: counters.revision + 1 });
   } else {
@@ -53,4 +55,16 @@ export async function releaseMediaBytes(ctx: MutationCtx, media: Doc<"media">) {
     [key]: Math.max(0, (counters[key] ?? 0) - media.size - (media.thumbnailSize ?? 0)),
     revision: counters.revision + 1,
   });
+}
+
+/** How much of the shared image and audio pool a library uses. */
+export async function mediaUsage(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">) {
+  const counters = await countersRow(ctx, libraryId);
+  const { plan, mediaBytes: limitBytes } = await libraryLimits(ctx, libraryId);
+  return {
+    plan,
+    imageBytes: counters?.mediaBytes ?? 0,
+    audioBytes: counters?.audioBytes ?? 0,
+    limitBytes,
+  };
 }

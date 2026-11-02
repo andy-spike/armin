@@ -2,15 +2,13 @@ import { Link } from "@tanstack/react-router";
 import { MAX_FLASHCARDS_PER_DECK, PLAN_LIMITS, PLAN_PRICES } from "@armin/core/plans";
 import { ArminMark, ArminWordmark } from "@/components/brand";
 import { buttonVariants } from "@/components/ui/button";
+import { formatStorage, picturesIn } from "@/lib/storage-size";
 
 const number = new Intl.NumberFormat("en-US");
 
-/** A typical picture after Armin shrinks it on upload (1600 px WebP). */
-const TYPICAL_PICTURE_BYTES = 180 * 1024;
-
-/** The image quota as an approximate number of pictures, to the nearest hundred. */
-function pictures(bytes: number) {
-  return `About ${number.format(Math.round(bytes / TYPICAL_PICTURE_BYTES / 100) * 100)} pictures`;
+/** The shared image and audio pool, with roughly how many pictures it holds. */
+function storage(bytes: number) {
+  return `${formatStorage(bytes)} for images and audio (about ${number.format(picturesIn(bytes))} pictures)`;
 }
 
 const plans = [
@@ -22,7 +20,7 @@ const plans = [
     features: [
       `${number.format(PLAN_LIMITS.free.flashcards)} cards`,
       `${PLAN_LIMITS.free.decks} decks`,
-      pictures(PLAN_LIMITS.free.mediaBytes),
+      storage(PLAN_LIMITS.free.mediaBytes),
       `${number.format(PLAN_LIMITS.free.agentCardsPerMonth)} AI assistant cards per month`,
       "Prerequisite graph and FSRS scheduling",
       "Web and mobile",
@@ -40,7 +38,7 @@ const plans = [
       `${number.format(PLAN_LIMITS.pro.agentCardsPerMonth)} AI assistant cards per month`,
       "Room for the largest Anki collections",
       "Everything in Free",
-      pictures(PLAN_LIMITS.pro.mediaBytes),
+      storage(PLAN_LIMITS.pro.mediaBytes),
     ],
     action: null,
   },

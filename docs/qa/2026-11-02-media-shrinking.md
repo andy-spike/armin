@@ -70,15 +70,31 @@ library large enough to exceed the old 95 MiB limit.
 
 ## 4. Higher image limits
 
-- Image limits are now 250 MiB (Free) and 2 GiB (Pro); audio is unchanged.
-- The pricing page lists "About 1,400 pictures" for Free and "About 11,700
-  pictures" for Pro (limit ÷ 180 KiB, a typical shrunk picture, rounded to
-  the nearest hundred).
+- Image limits rose to 250 MiB (Free) and 2 GiB (Pro), later replaced by the
+  shared pool in section 5. Picture counts on the pricing page are the limit ÷
+  180 KiB (a typical shrunk picture), rounded to the nearest hundred.
 - The unused 80 MiB `MAX_LIBRARY_MEDIA_BYTES` constant is removed. The Anki
   converter kit bundles that module, so the unreleased kit 1.1.0's manifest
   checksum was regenerated.
 
 ![Pricing page](2026-11-02-media-shrinking/04-pricing.png)
+
+## 5. One storage pool for images and audio
+
+- Plan limits now have one `mediaBytes` pool: 1 GiB (Free) and 5 GiB (Pro).
+  Uploads check images plus audio together against it; the two counters stay
+  separate only to show the split. Quota errors now say "Your storage for
+  images and audio is full."
+- Settings → Account → **Storage** shows "0.9 MB of 1 GB used" for the test
+  library, a bar split into Images 0.7 MB and Audio 0.3 MB, "Room for about
+  5,800 more pictures", and a **See plans** link on the Free plan.
+- The pricing page lists "1 GB for images and audio (about 5,800 pictures)"
+  and "5 GB for images and audio (about 29,100 pictures)".
+
+![Storage usage](2026-11-02-media-shrinking/05-storage-usage.png)
+
+Not verified: a full pool (the "storage is full" text and upload rejection),
+and the bar at high usage.
 
 ## Validation
 

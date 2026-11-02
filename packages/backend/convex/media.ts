@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import {
-  isAudioFile,
   MAX_MEDIA_FILE_BYTES,
   MIME_BY_EXT,
   sniffMediaExt,
@@ -11,8 +10,8 @@ import { internal } from "./_generated/api";
 import { internalQuery, query } from "./_generated/server";
 import { internalMutation } from "./functions";
 import type { ActionCtx } from "./_generated/server";
-import { getViewer } from "./model/access";
-import { releaseMediaBytes, reserveMediaBytes } from "./model/mediaQuota";
+import { getViewer, readableLibrary } from "./model/access";
+import { mediaUsage, releaseMediaBytes, reserveMediaBytes } from "./model/mediaQuota";
 
 export const uploaderLibrary = internalQuery({
   args: {},
@@ -101,10 +100,7 @@ export async function uploadMedia(ctx: ActionCtx, request: Request) {
     );
     if (result.status !== "stored") await ctx.storage.delete(storageId);
     if (result.status === "quota")
-      return new Response(
-        isAudioFile(fileName) ? "Your audio storage is full." : "Your image storage is full.",
-        { status: 413 },
-      );
+      return new Response("Your storage for images and audio is full.", { status: 413 });
     if (result.status === "claimed") return new Response("Upload failed.", { status: 409 });
     return Response.json({ ref: mediaRefFromFileName(fileName), fileName, mime, bytes: size });
   } catch (error) {
@@ -208,6 +204,15 @@ export const collectUnreferenced = internalMutation({
       await ctx.db.delete(media._id);
       await releaseMediaBytes(ctx, media);
     }
+  },
+});
+
+/** How much of the shared image and audio storage the caller's library uses. */
+export const usage = query({
+  args: {},
+  handler: async (ctx) => {
+    const library = await readableLibrary(ctx);
+    return library ? await mediaUsage(ctx, library._id) : null;
   },
 });
 

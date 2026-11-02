@@ -131,7 +131,7 @@ session expires after 24 hours without activity; records are retained for 30
 days. Cleanup deletes staging rows and releases import-only media tracking, then
 uses the normal unreferenced-image collector so images shared with existing cards
 are never deleted. Uploads are content-addressed and validated by bytes; the
-per-library image quota still applies.
+per-library storage limit for images and audio still applies.
 
 Only an active approved connection can start an import. All new
 decks retain provenance for that connection. The ordinary `save_cards` tool

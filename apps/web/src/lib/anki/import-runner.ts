@@ -7,7 +7,7 @@ import {
   validateContent,
   type FlashcardContent,
 } from "@armin/core/flashcard-types";
-import { isAudioFile, MIME_BY_EXT, sniffImageExt, sniffMediaExt } from "@armin/core/media";
+import { MIME_BY_EXT, sniffImageExt, sniffMediaExt } from "@armin/core/media";
 import { rasterizeSvg } from "./rasterize-svg";
 import { MAX_DEVICE_MEDIA_BYTES } from "@/lib/shrink-media";
 import type { FsrsFieldsMs } from "@armin/core/scheduler";
@@ -183,9 +183,8 @@ async function uploadMedia(
     } catch (error) {
       if (error instanceof MediaUploadError && error.status === 413) {
         if (/storage is full/i.test(error.message)) {
-          const kind = isAudioFile(ext) ? "audio" : "image";
           throw new ImportError(
-            `Your ${kind} storage is full, so these files can't be added. Nothing was imported. Deselect decks with many ${kind === "audio" ? "audio files" : "images"}, or delete ones you no longer need, and try again.`,
+            "Your storage for images and audio is full, so these files can't be added. Nothing was imported. Deselect decks with many images or audio files, or delete ones you no longer need, and try again. Settings → Account shows how much you use.",
           );
         }
         return;

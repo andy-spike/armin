@@ -1,5 +1,4 @@
 import {
-  isAudioFile,
   MAX_MEDIA_FILE_BYTES,
   MIME_BY_EXT,
   sniffMediaExt,
@@ -100,9 +99,7 @@ export async function uploadAgentImportMedia(ctx: ActionCtx, request: Request) {
       if (recorded.reason === "quota")
         return json(
           {
-            error: isAudioFile(fileName)
-              ? "Your audio storage is full."
-              : "Your image storage is full.",
+            error: "Your storage for images and audio is full.",
           },
           413,
         );
