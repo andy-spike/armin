@@ -146,13 +146,14 @@ function formatSteps(minutes: number[] | null) {
  * Values outside Armin's accepted ranges are left to the library default.
  */
 export function deckSettingsFromConfig(config: AnkiDeckConfig): ImportDeckSettings | undefined {
-  const retention = config.desiredRetention;
+  // Modern presets store retention as float32 (70% reads as 0.699999988), so
+  // round before checking Armin's accepted range.
+  const retention =
+    config.desiredRetention === null ? null : Math.round(config.desiredRetention * 100) / 100;
   const params = config.fsrsParams.map((value) => Math.round(value * 10_000) / 10_000);
   const settings: ImportDeckSettings = {
     requestRetention:
-      retention !== null && retention >= 0.7 && retention <= 0.99
-        ? Math.round(retention * 100) / 100
-        : null,
+      retention !== null && retention >= 0.7 && retention <= 0.99 ? retention : null,
     maximumInterval:
       config.maximumInterval !== null && config.maximumInterval >= 1
         ? Math.min(36_500, Math.round(config.maximumInterval))

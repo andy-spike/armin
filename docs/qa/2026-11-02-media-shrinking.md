@@ -164,3 +164,10 @@ unchanged.
   wrong."
 
 ![Export failed](2026-11-02-media-shrinking/09-export-missing-media.png)
+- Imported desired retention is rounded before the 70–99% range check, so
+  float32 values such as 0.699999988 (70%) and 0.990000010 (99%) keep the
+  preset's retention instead of falling back to the library's. Kit 1.1.0
+  (unreleased) checksum refreshed.
+- Loaded card audio is now an LRU cache of 32 clips; older blob URLs are
+  revoked, except the one playing. Review audio still autoplays and plays to
+  the end in Chromium.

@@ -10,7 +10,9 @@ import { createContext, useContext } from "react";
  * shortcut plays the group of the side shown last.
  */
 
+/** Loaded clips, least recently played first; the oldest are released past the cap. */
 const blobUrls = new Map<string, Promise<string>>();
+const MAX_CACHED_CLIPS = 32;
 /** The run playing now and what started it; starting another stops it. */
 let current: { stop: () => void; owner: object | null } | null = null;
 const listeners = new Set<() => void>();
@@ -31,7 +33,11 @@ export function playingClip() {
 
 function blobUrl(src: string) {
   let url = blobUrls.get(src);
-  if (!url) {
+  if (url) {
+    // Most recently used goes last.
+    blobUrls.delete(src);
+    blobUrls.set(src, url);
+  } else {
     url = fetch(src, { credentials: "same-origin" }).then(async (response) => {
       if (!response.ok) throw new Error(`Audio unavailable (${response.status}).`);
       return URL.createObjectURL(await response.blob());
@@ -39,6 +45,15 @@ function blobUrl(src: string) {
     // A failed load can be retried on the next press.
     url.catch(() => blobUrls.delete(src));
     blobUrls.set(src, url);
+    for (const [oldSrc, oldUrl] of blobUrls) {
+      if (blobUrls.size <= MAX_CACHED_CLIPS) break;
+      if (oldSrc === playingSrc) continue;
+      blobUrls.delete(oldSrc);
+      void oldUrl.then(
+        (expired) => URL.revokeObjectURL(expired),
+        () => {},
+      );
+    }
   }
   return url;
 }
