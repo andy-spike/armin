@@ -1,6 +1,7 @@
-import { strFromU8, strToU8, unzipSync, Zip, ZipDeflate, ZipPassThrough } from "fflate";
+import { strFromU8, unzipSync } from "fflate";
 import { api } from "@armin/backend/api";
 import { convexClient } from "@/lib/armin-client";
+import { ZipWriter } from "@/lib/zip-writer";
 
 /**
  * Library exports are assembled in the browser. The server prepares a small
@@ -14,6 +15,9 @@ import { convexClient } from "@/lib/armin-client";
  */
 
 export type ExportProgress = { done: number; total: number };
+
+/** An export failure whose message is written for the user. */
+export class ExportError extends Error {}
 
 export type ExportSink = {
   write: (chunk: Uint8Array) => Promise<void>;
@@ -90,12 +94,15 @@ async function fetchMedia(path: string, checksum: string, signal: AbortSignal) {
     signal.throwIfAborted();
     try {
       const response = await fetch(`/${path}`, { signal, credentials: "same-origin" });
-      // Deleted since the export was prepared: nothing references it any more.
+      // Deleted since the export was prepared.
       if (response.status === 404) return null;
-      if (!response.ok) throw new Error(`Couldn't download ${path} (${response.status}).`);
+      if (!response.ok)
+        throw new ExportError(
+          `An image or audio file couldn't be downloaded (${response.status}). Check your connection and export again.`,
+        );
       const bytes = new Uint8Array(await response.arrayBuffer());
       if (hex(await crypto.subtle.digest("SHA-256", bytes)) !== checksum)
-        throw new Error(`${path} didn't match its checksum.`);
+        throw new ExportError("An image or audio file arrived damaged. Export again.");
       return bytes;
     } catch (error) {
       if (signal.aborted) throw error;
@@ -119,7 +126,7 @@ export function waitForExport(exportId: string, signal: AbortSignal) {
     const check = () => {
       const row = watch.localQueryResult()?.find((candidate) => candidate.id === exportId);
       if (row?.status === "ready") settle();
-      else if (row?.status === "failed") settle(new Error(row.error ?? "Export failed."));
+      else if (row?.status === "failed") settle(new ExportError(row.error ?? "Export failed."));
     };
     const onAbort = () => settle(signal.reason as Error);
     stop = watch.onUpdate(check);
@@ -142,7 +149,7 @@ export async function assembleExport({
 }) {
   try {
     const response = await fetch(`/api/export/${exportId}`, { signal });
-    if (!response.ok) throw new Error("The prepared export is no longer available.");
+    if (!response.ok) throw new ExportError("The prepared export is no longer available.");
     const entries = unzipSync(new Uint8Array(await response.arrayBuffer()));
     const manifest = JSON.parse(strFromU8(entries["manifest.json"])) as {
       counts: Record<string, number>;
@@ -153,50 +160,39 @@ export async function assembleExport({
       (path) => path.startsWith("media/") && !entries[path],
     );
 
-    let writing = Promise.resolve();
-    let zipError: unknown = null;
-    const zip = new Zip((error, chunk) => {
-      if (error) zipError = error;
-      else writing = writing.then(() => sink.write(chunk));
-    });
-    const add = (path: string, bytes: Uint8Array, compress: boolean) => {
-      const file = compress ? new ZipDeflate(path, { level: 6 }) : new ZipPassThrough(path);
-      zip.add(file);
-      file.push(bytes, true);
-    };
+    const zip = new ZipWriter(sink.write);
+    // Same order as the server-built ZIP: manifest first, then data.
+    await zip.add("manifest.json", entries["manifest.json"], true);
     for (const [path, bytes] of Object.entries(entries))
-      if (path !== "manifest.json") add(path, bytes, true);
+      if (path !== "manifest.json") await zip.add(path, bytes, true);
 
     onProgress({ done: 0, total: mediaPaths.length });
-    const fetches: Promise<Uint8Array | null>[] = [];
+    // A bounded window of downloads; each is dropped once written, so memory
+    // stays at a few files however large the library is.
+    const fetches = new Map<number, Promise<Uint8Array | null>>();
     const startFetch = (index: number) => {
       if (index >= mediaPaths.length) return;
       const path = mediaPaths[index];
       const pending = fetchMedia(path, manifest.checksums[path], signal);
       pending.catch(() => {}); // awaited in order below
-      fetches[index] = pending;
+      fetches.set(index, pending);
     };
     for (let index = 0; index < PREFETCH; index++) startFetch(index);
     for (let index = 0; index < mediaPaths.length; index++) {
-      const bytes = await fetches[index];
+      const bytes = await fetches.get(index)!;
+      fetches.delete(index);
       startFetch(index + PREFETCH);
-      const path = mediaPaths[index];
+      // The exported cards still reference the file, so a gap would be a
+      // silently incomplete backup.
+      if (!bytes)
+        throw new ExportError(
+          "An image or audio file was deleted while exporting. Export again for a complete copy.",
+        );
       // Images and audio are already compressed, so they're stored as-is.
-      if (bytes) add(path, bytes, false);
-      else {
-        delete manifest.checksums[path];
-        manifest.counts.media -= 1;
-      }
-      // Wait for the disk (or memory) to catch up before fetching further.
-      await writing;
-      if (zipError) throw zipError;
+      await zip.add(mediaPaths[index], bytes, false);
       onProgress({ done: index + 1, total: mediaPaths.length });
     }
-    // Written last so it reflects any media deleted while exporting.
-    add("manifest.json", strToU8(JSON.stringify(manifest, null, 2)), true);
-    zip.end();
-    await writing;
-    if (zipError) throw zipError;
+    await zip.finish();
     await sink.close();
   } catch (error) {
     await sink.abort().catch(() => {});

@@ -150,3 +150,17 @@ unchanged.
   imports as no steps (`""`) instead of falling back to the library's `10m`
   default; a preset that doesn't say still keeps the default. The unreleased
   kit 1.1.0 checksum was regenerated.
+- Exports now use a streaming writer (`apps/web/src/lib/zip-writer.ts`) that
+  switches to ZIP64 records past 4 GiB, and drop each media file from memory
+  once written. In Node, the writer produced a 4,718,640,666-byte archive of
+  450 × 10 MiB files plus a deflated JSON file stored after the 4 GiB mark;
+  Python's `zipfile.testzip()` and `unzip -t` both report no errors. A small
+  archive stays a plain ZIP (version 2.0).
+- A browser export with the new writer: 22 entries, manifest first, 14 media
+  files, every checksum matches.
+- A media file that returns 404 mid-export now fails the export with "An image
+  or audio file was deleted while exporting. Export again for a complete copy."
+  Export errors written for users now show in full instead of "Something went
+  wrong."
+
+![Export failed](2026-11-02-media-shrinking/09-export-missing-media.png)

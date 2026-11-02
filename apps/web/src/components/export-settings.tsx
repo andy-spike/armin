@@ -10,6 +10,7 @@ import { armin, errorMessage } from "@/lib/armin-client";
 import {
   assembleExport,
   chooseExportSink,
+  ExportError,
   type ExportProgress,
   waitForExport,
 } from "@/lib/library-export";
@@ -59,7 +60,11 @@ export function ExportSettings() {
     } catch (error) {
       await sink.abort().catch(() => {});
       if (!controller.signal.aborted)
-        toast({ tone: "error", title: "Export failed", description: errorMessage(error) });
+        toast({
+          tone: "error",
+          title: "Export failed",
+          description: error instanceof ExportError ? error.message : errorMessage(error),
+        });
     } finally {
       setActive(null);
     }

@@ -110,7 +110,9 @@ Client entry points (see `package.json` `exports`):
   SHA-256 checksum, which is its file name. The web app
   (`apps/web/src/lib/library-export.ts`) downloads that ZIP, fetches each media
   file through the authenticated `/media/*` route, checks it, and writes the
-  finished ZIP, streaming it to disk where the browser allows. No server
+  finished ZIP (`zip-writer.ts`, ZIP64 past 4 GiB), streaming it to disk where
+  the browser allows. A media file deleted mid-export fails the export rather
+  than leaving the backup incomplete. No server
   function holds a library's media, so exports have no media size limit.
 
 ## Anki import
