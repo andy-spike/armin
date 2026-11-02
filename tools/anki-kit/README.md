@@ -31,8 +31,8 @@ history; use the browser importer when progress must come along.
   notes, media references, and counts.
 - `manifest.json` — source SHA-256, kit version, output checksum, and counts.
 - `preview.html` — an offline preview; open it from the output folder so its
-  `media/` images resolve.
-- `media/` — supported images, named by their SHA-256. The content-addressed
+  `media/` files resolve.
+- `media/` — supported images and audio, named by their SHA-256. The content-addressed
   name is also the reference Armin stores after upload.
 
 The output is deterministic for the same input and options. `plan.json` never
@@ -42,8 +42,9 @@ contains an absolute source path.
 
 Basic, reversed, typed-answer, cloze, and image-occlusion cards use the existing
 Armin converter. Images are extracted only when the bytes are PNG, JPEG, GIF,
-WebP, BMP, or AVIF and fit Armin's 10 MiB per-image limit. Audio, video, SVG, and
-missing images are reported in the warnings; cards whose required content cannot
+WebP, BMP, or AVIF, and audio only when it is MP3, OGG, M4A, WAV, FLAC, or AAC;
+each file must fit Armin's 10 MiB per-file limit. Video, SVG, unsupported audio,
+text-to-speech, and missing files are reported in the warnings; cards whose required content cannot
 be represented appear under `unresolved`.
 
 No prerequisites are inferred. Polishing and prerequisite writing are separate,

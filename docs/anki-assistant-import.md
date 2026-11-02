@@ -3,7 +3,7 @@
 Armin's AI assistant connections can import Anki decks through a staged MCP
 workflow. Conversion still happens outside Armin: the assistant downloads a
 versioned converter kit, runs it in its own environment, and sends normalized
-cards and supported images through scoped tools. The backend never receives or
+cards and supported images and audio through scoped tools. The backend never receives or
 parses the original archive.
 
 This route is recommended inside the Anki import dialog. Browser import remains
@@ -72,14 +72,15 @@ node armin-anki-kit.mjs path/to/deck.apkg --out ./armin-import
   content, warnings, unresolved notes, and media references.
 - `manifest.json` — source and plan checksums plus counts.
 - `preview.html` — offline preview. Open it beside `media/`.
-- `media/` — supported images named by SHA-256.
+- `media/` — supported images and audio named by SHA-256.
 
 The kit applies **fresh** progress only. MCP imports do not carry Anki due dates
 or review history; use browser import when progress must come along. No
 prerequisites are inferred.
 
 Supported image types are PNG, JPEG, GIF, WebP, BMP, and AVIF up to 10 MiB each.
-Audio, video, SVG, and missing images are reported. A card whose required content
+Video, SVG, unsupported audio formats, text-to-speech, and missing files are
+reported; missing audio is dropped without failing the card. A card whose required content
 cannot be represented is listed under `unresolved`; it is never silently replaced
 by text.
 

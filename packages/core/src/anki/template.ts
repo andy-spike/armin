@@ -93,22 +93,30 @@ export type TemplateContext = {
 
 /**
  * `usedField`: a field shows something (Anki generates the card only then).
- * `audioOnly`: a field had content, but only `[sound:…]` that Armin drops.
+ * `unusableField`: a field had content, but none of it survives conversion.
+ * `tts`: a `{{tts …:Field}}` reference was dropped (Armin doesn't speak text).
  */
 type RenderResult = {
   html: string;
   usedField: boolean;
-  audioOnly: boolean;
   unusableField: boolean;
+  tts: boolean;
 };
 
-const SOUND_RE = /\[sound:[^\]]*\]/g;
-
-function applyFilters(value: string, filters: string[], ctx: TemplateContext) {
+function applyFilters(
+  value: string,
+  filters: string[],
+  ctx: TemplateContext,
+  result: RenderResult,
+) {
   let out = value;
   for (const filter of filters) {
     const name = filter.split(/\s/)[0].toLowerCase();
-    if (name === "type" || name === "tts") return "";
+    if (name === "tts") {
+      if (!isFieldEmpty(value)) result.tts = true;
+      return "";
+    }
+    if (name === "type") return "";
     if (name === "text") out = escapeHtml(stripHtml(out));
     else if (name === "furigana" || name === "kana" || name === "kanji") out = furigana(out, name);
     else if (name === "cloze" || name === "cloze-only") {
@@ -131,11 +139,9 @@ function renderNodes(nodes: Node[], ctx: TemplateContext, result: RenderResult):
     } else {
       const raw = lookup(node.name, ctx);
       if (raw === undefined) continue;
-      const value = applyFilters(raw, node.filters, ctx);
+      const value = applyFilters(raw, node.filters, ctx, result);
       if (ctx.fields.has(node.name) && !isFieldEmpty(value)) {
-        // Audio is removed on import, so a field holding only sound shows nothing.
-        if (isFieldEmpty(value.replace(SOUND_RE, ""))) result.audioOnly = true;
-        else if (ctx.fieldIsUsable && !ctx.fieldIsUsable(value)) result.unusableField = true;
+        if (ctx.fieldIsUsable && !ctx.fieldIsUsable(value)) result.unusableField = true;
         else result.usedField = true;
       }
       out += value;
@@ -169,8 +175,8 @@ export function renderTemplate(source: string, ctx: TemplateContext): RenderResu
   const result: RenderResult = {
     html: "",
     usedField: false,
-    audioOnly: false,
     unusableField: false,
+    tts: false,
   };
   result.html = renderNodes(parseTemplate(source), ctx, result);
   return result;
@@ -182,7 +188,8 @@ const ANSWER_RULE_RE = /<hr\s+id\s*=\s*["']?answer["']?\s*\/?>/i;
 /**
  * Render one card: the front, and the back with the repeated front removed.
  * Returns null when Anki would not generate the card (the front shows no field),
- * and `{ audioOnly: true }` when its front shows nothing but audio Armin drops.
+ * and `{ unusableFront: true }` when its front content doesn't survive conversion.
+ * `tts` says a text-to-speech reference was dropped from either side.
  */
 export function renderCard(
   notetype: AnkiNotetype,
@@ -198,8 +205,7 @@ export function renderCard(
   };
   const front = renderTemplate(template.qfmt, ctx);
   if (!front.usedField) {
-    if (front.audioOnly) return { audioOnly: true as const };
-    if (front.unusableField) return { unusableFront: true as const };
+    if (front.unusableField || front.tts) return { unusableFront: true as const, tts: front.tts };
     return null;
   }
   if (isFieldEmpty(front.html)) return null;
@@ -212,5 +218,5 @@ export function renderCard(
   backHtml = backHtml.split(FRONT_MARK).join("");
   // A back that only repeats the front has nothing new to show.
   if (isFieldEmpty(backHtml)) backHtml = front.html;
-  return { front: front.html, back: backHtml };
+  return { front: front.html, back: backHtml, tts: front.tts || back.tts };
 }

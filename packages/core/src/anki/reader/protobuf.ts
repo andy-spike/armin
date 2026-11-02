@@ -1,8 +1,8 @@
 /**
  * A minimal protobuf wire-format reader, enough for the few Anki messages the
  * importer needs (notetype config, template config, package metadata, media
- * entries). Only varint and length-delimited fields are surfaced; fixed-width
- * fields are skipped.
+ * entries, deck options). Varint, length-delimited, and 32-bit float fields are
+ * surfaced; 64-bit fields are skipped.
  */
 
 export type ProtoField = {
@@ -12,6 +12,8 @@ export type ProtoField = {
   varint?: number;
   /** Set for length-delimited fields (strings, bytes, nested messages). */
   bytes?: Uint8Array;
+  /** Set for 32-bit fields, read as a little-endian float. */
+  float?: number;
 };
 
 export function* readProtoFields(data: Uint8Array): Generator<ProtoField> {
@@ -44,6 +46,11 @@ export function* readProtoFields(data: Uint8Array): Generator<ProtoField> {
     } else if (wireType === 1) {
       pos += 8;
     } else if (wireType === 5) {
+      if (pos + 4 > data.length) throw new Error("Truncated protobuf field");
+      yield {
+        number,
+        float: new DataView(data.buffer, data.byteOffset + pos, 4).getFloat32(0, true),
+      };
       pos += 4;
     } else {
       throw new Error(`Unsupported protobuf wire type ${wireType}`);
@@ -55,4 +62,15 @@ const utf8 = new TextDecoder();
 
 export function protoString(field: ProtoField) {
   return field.bytes ? utf8.decode(field.bytes) : "";
+}
+
+/** A `repeated float` field: packed (one length-delimited run) or one value per field. */
+export function protoFloats(field: ProtoField) {
+  if (field.float !== undefined) return [field.float];
+  if (!field.bytes) return [];
+  const view = new DataView(field.bytes.buffer, field.bytes.byteOffset, field.bytes.byteLength);
+  const values: number[] = [];
+  for (let offset = 0; offset + 4 <= field.bytes.byteLength; offset += 4)
+    values.push(view.getFloat32(offset, true));
+  return values;
 }

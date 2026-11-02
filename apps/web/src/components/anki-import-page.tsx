@@ -2,10 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useBlocker } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
-import { Check, ChevronRight, LoaderCircle, TriangleAlert } from "lucide-react";
+import { Check, ChevronRight, Copy, LoaderCircle, TriangleAlert } from "lucide-react";
 import { api } from "@armin/backend/api";
 import type { Id } from "@armin/backend/types";
-import type { ImportPlan, ImportWarning, ImportWarningCode } from "@armin/core/anki";
+import {
+  customNotetypes,
+  type ImportPlan,
+  type ImportWarning,
+  type ImportWarningCode,
+  type NotetypeMapping,
+} from "@armin/core/anki";
+import { isAudioFile } from "@armin/core/media";
+import { mappingComplete, NotetypeMappingSection } from "@/components/anki-notetype-mapping";
 import { AnkiFilePicker } from "@/components/anki-file-picker";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -98,6 +106,7 @@ function ImportFlow({
     () => new Set(source.decks.map((deck) => deck.key)),
   );
   const [mode, setMode] = useState<ProgressMode>("keep");
+  const [mappings, setMappings] = useState<Record<string, NotetypeMapping>>({});
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [confirmStop, setConfirmStop] = useState(false);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
@@ -108,8 +117,21 @@ function ImportFlow({
 
   // Converting 30,000 cards takes a moment, so it runs in the reader's worker. The
   // last plan stays on screen, dimmed, until the one for the current choices arrives.
-  const planKey = `${mode}|${[...selected].sort().join(",")}`;
-  const usesInitialPlan = selected.size === source.decks.length && mode === "keep";
+  // Only finished mappings change the plan; a half-chosen one waits until it can produce cards.
+  const activeMappings = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(mappings).filter(
+          ([, mapping]) => mapping.kind !== "template" && mappingComplete(mapping),
+        ),
+      ),
+    [mappings],
+  );
+  const planKey = `${mode}|${[...selected].sort().join(",")}|${JSON.stringify(activeMappings)}`;
+  const usesInitialPlan =
+    selected.size === source.decks.length &&
+    mode === "keep" &&
+    Object.keys(activeMappings).length === 0;
   const [converted, setConverted] = useState<{ key: string; plan: ImportPlan } | null>(null);
   const plan = usesInitialPlan ? source.initialPlan : (converted?.plan ?? source.initialPlan);
   const planStale = !usesInitialPlan && converted?.key !== planKey;
@@ -118,16 +140,30 @@ function ImportFlow({
     let current = true;
     // A short pause lets several quick checkbox clicks share one conversion.
     const timer = setTimeout(() => {
-      source.reader.convert({ progress: mode, deckIds: [...selected], now: source.openedAt }).then(
-        (next) => current && setConverted({ key: planKey, plan: next }),
-        () => {},
-      );
+      source.reader
+        .convert({
+          progress: mode,
+          deckIds: [...selected],
+          now: source.openedAt,
+          rasterizeSvg: true,
+          notetypeMappings: activeMappings,
+        })
+        .then(
+          (next) => current && setConverted({ key: planKey, plan: next }),
+          () => {},
+        );
     }, 150);
     return () => {
       current = false;
       clearTimeout(timer);
     };
-  }, [source, usesInitialPlan, selected, mode, planKey]);
+  }, [source, usesInitialPlan, selected, mode, planKey, activeMappings]);
+
+  const notetypes = useMemo(
+    () => customNotetypes(source.reader.collection, [...selected]),
+    [source, selected],
+  );
+  const mappingsReady = notetypes.every((notetype) => mappingComplete(mappings[notetype.id]));
 
   const usage = useQuery({ ...convexQuery(api.imports.usage, {}), enabled: previewing });
   const running = useQuery({ ...convexQuery(api.imports.current, {}), enabled: previewing });
@@ -234,7 +270,8 @@ function ImportFlow({
 
   const skippedNotes = plan.warnings.find((w) => w.code === "empty_note_skipped")?.count ?? 0;
   const blocked = problems.length > 0 || Boolean(running.data);
-  const canImport = previewing && plan.decks.length > 0 && !planStale && usage.data && !blocked;
+  const canImport =
+    previewing && plan.decks.length > 0 && !planStale && usage.data && !blocked && mappingsReady;
 
   const stopDialog = (
     <Dialog
@@ -340,6 +377,13 @@ function ImportFlow({
           setSelected(all ? new Set(source.decks.map((deck) => deck.key)) : new Set())
         }
         problems={problems}
+        notetypeSection={
+          <NotetypeMappingSection
+            notetypes={notetypes}
+            mappings={mappings}
+            onChange={(id, mapping) => setMappings((current) => ({ ...current, [id]: mapping }))}
+          />
+        }
         otherImport={running.data ?? null}
         cancellingOther={cancelOther.isPending}
         onCancelOther={() => running.data && cancelOther.mutate(running.data.id)}
@@ -379,6 +423,7 @@ function PreviewStep({
   onToggle,
   onSelectAll,
   problems,
+  notetypeSection,
   otherImport,
   cancellingOther,
   onCancelOther,
@@ -395,6 +440,7 @@ function PreviewStep({
   onToggle: (key: string, checked: boolean) => void;
   onSelectAll: (all: boolean) => void;
   problems: string[];
+  notetypeSection: React.ReactNode;
   otherImport: { fileName: string } | null;
   cancellingOther: boolean;
   onCancelOther: () => void;
@@ -404,6 +450,20 @@ function PreviewStep({
   const allSelected = selected.size === source.decks.length;
   const historyCount = source.initialPlan.totals.reviewLogs;
   const shared = sharedDeckPrefix(source.decks.map((deck) => names.get(deck.key) ?? deck.name));
+  const media = new Set(plan.flashcards.flatMap((card) => card.media));
+  const audioFiles = [...media].filter((name) => isAudioFile(name)).length;
+  const imageFiles = media.size - audioFiles;
+  const mediaParts = [
+    imageFiles > 0 && plural(imageFiles, "image"),
+    audioFiles > 0 && plural(audioFiles, "audio file"),
+  ].filter(Boolean);
+  const presets = new Set(
+    plan.decks.flatMap((deck) =>
+      deck.settings && deck.ankiLimits ? [deck.ankiLimits.preset] : [],
+    ),
+  );
+  const decksWithSettings = plan.decks.filter((deck) => deck.settings).length;
+  const limits = plan.decks.find((deck) => deck.ankiLimits)?.ankiLimits;
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
@@ -458,6 +518,7 @@ function PreviewStep({
           </ul>
         </div>
         {plan.warnings.length > 0 && <ImportChanges warnings={plan.warnings} stale={stale} />}
+        {notetypeSection}
       </section>
 
       <aside className="space-y-5 lg:sticky lg:top-0 lg:pt-7">
@@ -481,13 +542,39 @@ function PreviewStep({
                   <span className="font-medium">{plural(plan.totals.flashcards, "card")}</span>
                   {" in "}
                   {plural(plan.decks.length, "deck")}
-                  {plan.totals.mediaFiles > 0 &&
-                    `, with ${plural(plan.totals.mediaFiles, "image")}`}
+                  {mediaParts.length > 0 && `, with ${mediaParts.join(" and ")}`}
                 </span>
               </p>
             </>
           )}
         </section>
+
+        {(decksWithSettings > 0 || limits) && plan.decks.length > 0 && (
+          <section aria-label="Deck options" className="space-y-1.5 text-[0.8125rem] text-muted">
+            {decksWithSettings > 0 && (
+              <p>
+                <span className="font-medium text-ink">Deck options carry over</span> for{" "}
+                {plural(decksWithSettings, "deck")}
+                {presets.size > 0 && ` (${[...presets].join(", ")})`}: desired retention, learning
+                steps, maximum interval, and FSRS parameters.
+              </p>
+            )}
+            {limits && (
+              <p>
+                Anki&apos;s daily limits
+                {limits.newPerDay !== null && ` (${n(limits.newPerDay)} new`}
+                {limits.reviewsPerDay !== null &&
+                  `${limits.newPerDay !== null ? ", " : " ("}${n(limits.reviewsPerDay)} reviews`}
+                {(limits.newPerDay !== null || limits.reviewsPerDay !== null) && " a day)"} stay
+                behind. Armin uses one daily limit for your whole library, set in{" "}
+                <Link to="/settings" className="text-accent hover:text-accent-deep">
+                  Settings
+                </Link>
+                .
+              </p>
+            )}
+          </section>
+        )}
 
         {source.reader.collection.format !== "text" && (
           <fieldset className="space-y-2">
@@ -574,10 +661,12 @@ const CHANGE_LABELS: Partial<Record<ImportWarningCode, string>> = {
   custom_notetype_rendered: "became basic cards from custom note types",
   scripts_removed: "had scripts and styles removed",
   empty_note_skipped: "skipped for empty or unusable content",
-  audio_removed: "had audio removed",
+  audio_removed: "had audio in an unsupported format removed",
+  tts_removed: "had text-to-speech left out",
   video_removed: "had video removed",
-  missing_media: "had missing images removed",
-  unsupported_image_removed: "had unsupported images removed, such as SVG",
+  missing_media: "had missing images or audio removed",
+  unsupported_image_removed: "had unsupported images removed",
+  flags_as_tags: "had flags turned into tags, such as flag::red",
   content_truncated: "shortened to fit size limits",
   tags_trimmed: "had tags trimmed",
 };
@@ -618,7 +707,7 @@ function ImportingStep({
   onCancel: () => void;
 }) {
   const phases = [
-    { stage: "images", label: "Uploading images", counter: progress.images },
+    { stage: "images", label: "Uploading images and audio", counter: progress.images },
     { stage: "cards", label: "Adding cards", counter: progress.cards },
     { stage: "history", label: "Adding review history", counter: progress.history },
   ] as const;
@@ -725,7 +814,7 @@ function DoneStep({
       `${plural(summary.skippedCards, "card")} left out because an image they need couldn't be imported`,
     skippedNotes > 0 && `${plural(skippedNotes, "note")} skipped for having no usable content`,
     summary.skippedImages > 0 &&
-      `${plural(summary.skippedImages, "image")} left out (unsupported, too large, or missing)`,
+      `${plural(summary.skippedImages, "media file")} left out (unsupported, too large, or missing)`,
   ].filter(Boolean);
   const only = summary.decks.length === 1 ? summary.decks[0] : null;
 
@@ -792,6 +881,8 @@ function DoneStep({
         ))}
       </ul>
 
+      <PrerequisitePrompt decks={summary.decks.map((deck) => deck.name)} />
+
       {leftOut.length > 0 && (
         <div className="border-t border-border bg-bg-2 px-6 py-4 text-[0.8125rem]">
           <p className="font-medium text-ink">Left out</p>
@@ -822,5 +913,47 @@ function DoneStep({
         )}
       </div>
     </section>
+  );
+}
+
+/** A prompt an AI assistant connected to Armin can act on with its linking tools. */
+export function prerequisitePrompt(decks: string[]) {
+  const list = decks.map((deck) => `"${deck}"`).join(", ");
+  return `In Armin, look through the cards in ${decks.length === 1 ? "my deck" : "my decks"} ${list}, which I just imported from Anki. Suggest prerequisite links where one card is clearly needed to understand another, and explain each suggestion. Show me the list first and only link the ones I approve.`;
+}
+
+/**
+ * Imported decks arrive without prerequisites, the one thing Anki can't give
+ * them. A connected assistant can suggest the links; this hands over the prompt.
+ */
+function PrerequisitePrompt({ decks }: { decks: string[] }) {
+  const toast = useToast();
+  const prompt = prerequisitePrompt(decks);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      toast({ title: "Prompt copied", description: "Paste it into your AI assistant." });
+    } catch {
+      toast({ tone: "error", title: "Couldn't copy the prompt" });
+    }
+  };
+  return (
+    <div className="border-t border-border px-6 py-4 text-[0.8125rem]">
+      <p className="font-medium text-ink">Next: connect your cards</p>
+      <p className="mt-1 text-muted">
+        Imported cards start without prerequisites. An AI assistant connected to Armin can suggest
+        which cards build on which, and link the ones you approve.
+      </p>
+      <p className="mt-2 border border-border bg-bg-2 px-3 py-2 text-ink">{prompt}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => void copy()}>
+          <Copy className="h-3.5 w-3.5" aria-hidden />
+          Copy prompt
+        </Button>
+        <Link to="/ai-setup" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+          Set up an AI assistant
+        </Link>
+      </div>
+    </div>
   );
 }

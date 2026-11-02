@@ -111,10 +111,14 @@ clients without those capabilities should use browser import.
 decks (`.apkg`), whole collections (`.colpkg`, from Anki 2.1 through current
 releases), and plain-text exports (`.txt`, `.csv`, `.tsv`). Each Anki deck
 becomes an Armin deck; Basic, reversed, typed-answer, Cloze, and Image Occlusion
-notes map to the matching Armin card types, and other note types are rendered
-from their templates. Images and, optionally, review progress come along; audio
-and video don't. The file is read in the browser and the preview lists anything
-left out before importing. See
+notes map to the matching Armin card types. Other note types are rendered from
+their templates, or the preview lets you choose which fields go on each side.
+Images (SVG is converted to PNG), audio, superscript, subscript, highlights,
+flags (as `flag::<color>` tags), and deck options (desired retention, steps,
+maximum interval, FSRS parameters) come along, and optionally review progress,
+including buried cards and Anki's new-card order. Video, text-to-speech, card
+styling, and per-deck daily limits don't. The file is read in the browser and
+the preview lists anything left out before importing. See
 [ADR 0022](packages/core/docs/adr/0022-anki-import-runs-in-the-browser.md) and
 [AI assistant Anki import](docs/agent-connections.md#anki-import).
 

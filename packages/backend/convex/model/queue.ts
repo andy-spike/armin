@@ -4,7 +4,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { activeDeckIds } from "./access";
 import { MAX_REVIEW_UNITS_PER_FLASHCARD, MAX_SESSION_REVIEWS } from "./limits";
-import { frontierKey } from "./performance";
+import { unitFrontierKey } from "./performance";
 import { parseFlashcard, SettingsCache } from "./study";
 
 export type QueueUnit = Pick<
@@ -256,7 +256,7 @@ export async function frontierCandidates(
       .filter(eligible)
       .sort(
         (a, b) =>
-          frontierKey(a.flashcardId) - frontierKey(b.flashcardId) ||
+          unitFrontierKey(a) - unitFrontierKey(b) ||
           a.flashcardId.localeCompare(b.flashcardId) ||
           a.subKey.localeCompare(b.subKey),
       )
@@ -315,8 +315,7 @@ async function continuingUnits(
     }
   }
   return units.sort(
-    (a, b) =>
-      frontierKey(a.flashcardId) - frontierKey(b.flashcardId) || a.subKey.localeCompare(b.subKey),
+    (a, b) => unitFrontierKey(a) - unitFrontierKey(b) || a.subKey.localeCompare(b.subKey),
   );
 }
 

@@ -147,6 +147,13 @@ export const COMMANDS: readonly CommandDef[] = [
     defaultBinding: "z",
   },
   {
+    id: "review.replayAudio",
+    scope: "review",
+    group: "Review",
+    label: "Replay audio",
+    defaultBinding: "r",
+  },
+  {
     id: "review.prev",
     scope: "review",
     group: "Review",

@@ -44,8 +44,26 @@ the backend receives ordinary flashcard input in batches through
   review logs can't be undone (`unitVersionAfter` is 0).
 - Anki's Cloze "Back Extra" maps to a new optional cloze `extra` field, shown only
   after the answer.
-- Audio, video, SVG, and scripts are dropped, and MathJax stays as text; the
+- Images and audio (MP3, OGG, M4A, WAV, FLAC, AAC) are kept. Audio is stored
+  as `![audio](armin-media:…)` and plays from a button, with autoplay and a
+  replay shortcut in review; it has its own per-library quota because it is
+  far larger than images. SVG is drawn to a PNG in the browser (never stored as
+  SVG); the Node kit can't, so it reports those cards. MathJax becomes KaTeX.
+- Superscript, subscript, and deliberate highlights (`<mark>`, `<u>`, colored
+  text that isn't black, white, or gray) become `^x^`, `~x~`, and `==x==`.
+  The rich editor can't show these or audio, so such fields open as source
+  with a rendered preview.
+- Video, text-to-speech, scripts, and note-type styling are dropped; the
   preview names each loss before anything is imported.
+- Each deck's options preset carries its desired retention, steps, maximum
+  interval, and FSRS parameters into deck settings. Daily limits stay behind:
+  Armin has one library-wide limit. Buried cards stay buried until the next
+  study day, new cards keep Anki's queue order (spread over the order keys so
+  they interleave with existing new cards), and flags become `flag::<color>`
+  tags.
+- Custom note types render from their templates by default; the preview can
+  instead map their fields onto Basic, Basic and reversed, or Type the answer.
+  Re-importing an updated deck is out of scope: it creates new decks.
 - The beta library limits still apply. The preview blocks a selection that would
   exceed them and lets the user import a subset of decks.
 

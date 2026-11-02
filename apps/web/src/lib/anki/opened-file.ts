@@ -18,7 +18,11 @@ export async function openAnkiImport(file: File): Promise<OpenedAnkiFile> {
   try {
     reader = await openAnkiFile(file);
     const openedAt = Date.now();
-    const initialPlan = await reader.convert({ progress: "keep", now: openedAt });
+    const initialPlan = await reader.convert({
+      progress: "keep",
+      now: openedAt,
+      rasterizeSvg: true,
+    });
     if (initialPlan.decks.length === 0) {
       throw new AnkiImportError(
         "This file doesn't contain any cards Armin can import. Check that it's an Anki export with at least one note.",

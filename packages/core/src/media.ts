@@ -1,5 +1,5 @@
 /**
- * Portable Flashcard media rules: supported image kinds, magic-byte sniffing,
+ * Portable Flashcard media rules: supported image and audio kinds, magic-byte sniffing,
  * and extracting the `armin-media:` references a flashcard's content uses.
  * Free of Node `Buffer` so it runs in Convex and React Native.
  */
@@ -9,7 +9,10 @@ import { isMediaRef, parseMediaRef } from "./media-ref";
 
 export type ImageExt = "png" | "jpg" | "gif" | "webp" | "svg" | "bmp" | "avif";
 
-export const MIME_BY_EXT: Record<ImageExt, string> = {
+export type AudioExt = "mp3" | "ogg" | "m4a" | "wav" | "flac" | "aac";
+export type MediaExt = ImageExt | AudioExt;
+
+export const IMAGE_MIME_BY_EXT: Record<ImageExt, string> = {
   png: "image/png",
   jpg: "image/jpeg",
   gif: "image/gif",
@@ -18,6 +21,31 @@ export const MIME_BY_EXT: Record<ImageExt, string> = {
   bmp: "image/bmp",
   avif: "image/avif",
 };
+
+export const AUDIO_MIME_BY_EXT: Record<AudioExt, string> = {
+  mp3: "audio/mpeg",
+  ogg: "audio/ogg",
+  m4a: "audio/mp4",
+  wav: "audio/wav",
+  flac: "audio/flac",
+  aac: "audio/aac",
+};
+
+export const MIME_BY_EXT: Record<MediaExt, string> = { ...IMAGE_MIME_BY_EXT, ...AUDIO_MIME_BY_EXT };
+
+const AUDIO_EXTS = new Set<string>(Object.keys(AUDIO_MIME_BY_EXT));
+
+/** Whether a stored media file name (`<sha>.<ext>`) or extension is audio. */
+export function isAudioFile(fileNameOrExt: string) {
+  return AUDIO_EXTS.has(fileNameOrExt.slice(fileNameOrExt.lastIndexOf(".") + 1).toLowerCase());
+}
+
+export function isAudioMime(mime: string) {
+  return mime.startsWith("audio/");
+}
+
+export const UNSUPPORTED_MEDIA_MESSAGE =
+  "Use a PNG, JPG, GIF, WebP, BMP, or AVIF image, or an MP3, OGG, M4A, WAV, FLAC, or AAC audio file.";
 
 /** Beta media limits. Adjust together with the backend quota copy. */
 export const MAX_MEDIA_FILE_BYTES = 10 * 1024 * 1024;
@@ -53,6 +81,29 @@ export function sniffImageExt(bytes: Uint8Array): ImageExt | null {
   // SVG is not accepted for uploads: it can carry script and is served from
   // an authenticated route. Existing desktop exports may still contain it.
   return null;
+}
+
+/** Detect the actual audio type from file bytes; null when unsupported. */
+export function sniffAudioExt(bytes: Uint8Array): AudioExt | null {
+  if (ascii(bytes, 0, 3) === "ID3") return "mp3";
+  if (ascii(bytes, 0, 4) === "OggS") return "ogg";
+  if (ascii(bytes, 0, 4) === "fLaC") return "flac";
+  if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 4) === "WAVE") return "wav";
+  if (ascii(bytes, 4, 4) === "ftyp") {
+    const brand = ascii(bytes, 8, 4);
+    if (/^(?:M4A |M4B |mp4\d|isom|iso\d|dash|MSNV)$/.test(brand)) return "m4a";
+    return null;
+  }
+  // MPEG audio frame sync: 11 set bits. Layer bits 00 mean an ADTS AAC stream.
+  if (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) {
+    return (bytes[1] & 0x06) === 0 ? "aac" : "mp3";
+  }
+  return null;
+}
+
+/** An uploadable image or audio type; null when neither. */
+export function sniffMediaExt(bytes: Uint8Array): MediaExt | null {
+  return sniffImageExt(bytes) ?? sniffAudioExt(bytes);
 }
 
 const MARKDOWN_IMAGE_RE = /!\[[^\]]*\]\(([^)\s]+)(?:\s+["'][^)]*["'])?\)/g;

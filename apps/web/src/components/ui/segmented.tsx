@@ -7,16 +7,20 @@ export function Segmented<T extends string>({
   onChange,
   size = "md",
   className,
+  "aria-label": ariaLabel,
 }: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (value: T) => void;
   size?: "sm" | "md";
   className?: string;
+  /** Names the group when several controls sit side by side. */
+  "aria-label"?: string;
 }) {
   return (
     <div
       role="tablist"
+      aria-label={ariaLabel}
       className={cn(
         "inline-flex items-center gap-0.5 rounded-md border border-border bg-surface-sunken p-0.5",
         className,

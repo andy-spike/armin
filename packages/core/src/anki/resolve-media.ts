@@ -1,7 +1,7 @@
 import type { FlashcardContent, FlashcardType } from "../flashcard-types";
 import { ANKI_MEDIA_PREFIX } from "./types";
 
-const MARKDOWN_PLACEHOLDER_RE = /!\[[^\]]*\]\(anki-media:([^)\s]+)\)/g;
+const MARKDOWN_PLACEHOLDER_RE = /!\[([^\]]*)\]\(anki-media:([^)\s]+)\)/g;
 
 function decodeName(encoded: string) {
   try {
@@ -21,16 +21,20 @@ function tidy(text: string) {
 
 function resolveMarkdown(text: string, media: ReadonlyMap<string, string>, required = false) {
   let removed = false;
-  const out = text.replace(MARKDOWN_PLACEHOLDER_RE, (_, encoded: string) => {
+  let dropped = false;
+  const out = text.replace(MARKDOWN_PLACEHOLDER_RE, (_, alt: string, encoded: string) => {
+    const audio = alt === "audio";
     const ref = media.get(decodeName(encoded));
-    if (ref) return `![](${ref})`;
-    removed = true;
+    if (ref) return audio ? `![audio](${ref})` : `![](${ref})`;
+    dropped = true;
+    // Audio accompanies text; a card that only had audio ends up empty and is rejected.
+    if (!audio) removed = true;
     return "";
   });
   // A required field may contain static labels around its image. Keeping
   // those labels cannot establish that the question or answer still works.
   if (removed && required) throw new Error("A required image could not be imported.");
-  return removed ? tidy(out) : out;
+  return dropped ? tidy(out) : out;
 }
 
 /**
@@ -38,7 +42,8 @@ function resolveMarkdown(text: string, media: ReadonlyMap<string, string>, requi
  * references the client got back from uploading (`media` maps the Anki file name
  * to its `armin-media:` reference). A placeholder with no entry is dropped
  * from optional answer extras. Missing images in question/answer fields reject
- * the card rather than retaining an unanswerable static prompt. A missing
+ * the card rather than retaining an unanswerable static prompt; missing audio is
+ * dropped, and a field left empty by it fails validation. A missing
  * occlusion base becomes empty so `validateContent` rejects that card too.
  */
 export function resolveImportMedia(

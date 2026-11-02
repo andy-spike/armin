@@ -55,6 +55,25 @@ export type AnkiDeck = {
   id: string;
   /** Full path with Anki's `::` separator, e.g. `Spanish::Verbs`. */
   name: string;
+  /** The deck options preset ({@link AnkiDeckConfig}) the deck uses, when known. */
+  configId?: string | null;
+};
+
+/**
+ * The parts of an Anki deck options preset Armin can use. Steps are in minutes,
+ * as Anki stores them. Null or empty means the package doesn't say.
+ */
+export type AnkiDeckConfig = {
+  id: string;
+  name: string;
+  learnSteps: number[];
+  relearnSteps: number[];
+  maximumInterval: number | null;
+  desiredRetention: number | null;
+  /** The newest FSRS parameter set the preset holds (FSRS-6, -5, or -4.5). */
+  fsrsParams: number[];
+  newPerDay: number | null;
+  reviewsPerDay: number | null;
 };
 
 export type AnkiNote = {
@@ -85,6 +104,8 @@ export type AnkiCard = {
   lapses: number;
   /** Raw `cards.data` JSON string; may hold FSRS memory state `{ s, d, dr }`. */
   data: string;
+  /** Anki's flag color: 0 none, 1 red, 2 orange, 3 green, 4 blue, 5 pink, 6 turquoise, 7 purple. */
+  flags?: number;
 };
 
 export type AnkiReview = {
@@ -106,6 +127,8 @@ export type AnkiCollection = {
   createdAt: number;
   notetypes: AnkiNotetype[];
   decks: AnkiDeck[];
+  /** Deck options presets; empty when the package carries none. */
+  deckConfigs?: AnkiDeckConfig[];
   notes: AnkiNote[];
   cards: AnkiCard[];
   revlog: AnkiReview[];
@@ -129,6 +152,33 @@ export type ImportOptions = {
   deckIds?: string[];
   /** Import time, epoch ms. */
   now: number;
+  /**
+   * Keep SVG images as placeholders because the caller turns them into PNGs
+   * before upload (the browser can; the Node kit can't). Default: removed.
+   */
+  rasterizeSvg?: boolean;
+  /** How the user chose to map note types Armin doesn't recognize, by notetype id. */
+  notetypeMappings?: Record<string, NotetypeMapping>;
+};
+
+/**
+ * A user's mapping for a custom note type: which Armin type it becomes and
+ * which Anki fields (by position) fill each side. `template` keeps the
+ * default: each Anki card's template is rendered into a Basic card.
+ */
+export type NotetypeMapping =
+  | { kind: "template" }
+  | { kind: "basic" | "basic_reversed"; front: number[]; back: number[] }
+  | { kind: "type_answer"; front: number[]; answer: number };
+
+/** Armin scheduling settings for an imported deck, from its Anki options preset. */
+export type ImportDeckSettings = {
+  requestRetention: number | null;
+  maximumInterval: number | null;
+  learningSteps: string | null;
+  relearningSteps: string | null;
+  /** JSON array of FSRS parameters, as Armin's deck settings store them. */
+  weights: string | null;
 };
 
 export type ImportDeck = {
@@ -138,6 +188,10 @@ export type ImportDeck = {
   name: string;
   ankiName: string;
   cardCount: number;
+  /** Scheduling settings carried over from the deck's Anki preset; absent when it has none. */
+  settings?: ImportDeckSettings;
+  /** The preset's Anki daily limits, which Armin replaces with its one library-wide limit. */
+  ankiLimits?: { newPerDay: number | null; reviewsPerDay: number | null; preset: string };
 };
 
 /** One review in the imported history, mirroring the backend `reviewLogs` row. */
@@ -159,6 +213,8 @@ export type ImportReviewUnit = {
   schedule: FsrsFieldsMs | null;
   /** Oldest first. Empty when progress is "fresh" or Anki has no history. */
   logs: ImportReviewLog[];
+  /** Buried in Anki: hidden until the next study day. */
+  buried?: boolean;
 };
 
 export type ImportFlashcard = {
@@ -173,6 +229,11 @@ export type ImportFlashcard = {
   units: ImportReviewUnit[];
   /** Anki media file names this card's content references. */
   media: string[];
+  /**
+   * Anki's new-card queue position (lowest first), so a curated deck is
+   * learned in its intended order. Null when no Anki card of it is new.
+   */
+  newPosition?: number | null;
   /** Which Anki rows this card came from, for previews and provenance. */
   source?: {
     noteId: string;
@@ -202,6 +263,7 @@ export type ImportOmitted = {
 
 export type ImportWarningCode =
   | "audio_removed"
+  | "tts_removed"
   | "video_removed"
   | "unsupported_image_removed"
   | "missing_media"
@@ -218,7 +280,8 @@ export type ImportWarningCode =
   | "empty_note_skipped"
   | "content_truncated"
   | "tags_trimmed"
-  | "scripts_removed";
+  | "scripts_removed"
+  | "flags_as_tags";
 
 export type ImportWarning = {
   code: ImportWarningCode;

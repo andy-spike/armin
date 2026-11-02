@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { Download, LoaderCircle } from "lucide-react";
 import { api } from "@armin/backend/api";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
 import { armin, errorMessage } from "@/lib/armin-client";
 import { useConnection } from "@/lib/session";
@@ -24,9 +26,10 @@ export function ExportSettings() {
   const exportsQuery = useQuery(convexQuery(api.exports.list, {}));
   const rows = exportsQuery.data ?? [];
   const pending = rows.some((row) => row.status === "pending");
+  const [includeAudio, setIncludeAudio] = useState(true);
 
   const start = useMutation({
-    mutationFn: () => armin.exports.start(),
+    mutationFn: () => armin.exports.start({ includeAudio }),
     onError: (error) =>
       toast({ tone: "error", title: "Couldn't start export", description: errorMessage(error) }),
   });
@@ -35,8 +38,8 @@ export function ExportSettings() {
     <div>
       <div className="flex items-start justify-between gap-6 px-4 py-3.5">
         <p className="text-[0.8125rem] leading-snug text-muted">
-          A versioned ZIP with JSON data, a manifest with checksums, and your images. Sign-in
-          details are never included.
+          A versioned ZIP with JSON data, a manifest with checksums, and your images and audio.
+          Sign-in details are never included.
         </p>
         <Button
           variant="outline"
@@ -49,6 +52,17 @@ export function ExportSettings() {
           <Download className="h-4 w-4" />
           Export
         </Button>
+      </div>
+      <div className="flex items-center justify-between gap-6 border-t border-border px-4 py-2.5">
+        <label htmlFor="export-include-audio" className="text-[0.8125rem] leading-snug text-muted">
+          <span className="font-medium text-ink">Include audio</span>
+          <span className="block">Turn this off if your audio is too large for one file.</span>
+        </label>
+        <Switch
+          id="export-include-audio"
+          checked={includeAudio}
+          onCheckedChange={setIncludeAudio}
+        />
       </div>
       {rows.length > 0 && (
         <ul className="border-t border-border">

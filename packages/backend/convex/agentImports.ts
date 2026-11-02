@@ -14,6 +14,8 @@ import { insertFlashcard, validateFlashcardInput } from "./model/flashcards";
 import { runAgentWrite } from "./model/agentWrites";
 import { insertDeck } from "./model/decks";
 import { bumpRevision } from "./model/study";
+import { reserveMediaBytes } from "./model/mediaQuota";
+import { isSafeMediaFileName } from "@armin/core/media-ref";
 import { checkCapacity, libraryLimits, libraryUsage } from "./model/usage";
 
 const STAGING_TTL_MS = 24 * 3_600_000;
@@ -657,7 +659,7 @@ export const recordMedia = internalMutation({
       !(await activeImportConnection(ctx, connection, library))
     )
       return { ok: false as const, reason: "cancelled" as const };
-    if (!/^[a-f0-9]{64}\.(?:png|jpg|gif|webp|bmp|avif)$/.test(args.fileName))
+    if (!isSafeMediaFileName(args.fileName) || args.fileName.endsWith(".svg"))
       return { ok: false as const, reason: "invalid" as const };
     const existing = await ctx.db
       .query("media")
@@ -666,12 +668,7 @@ export const recordMedia = internalMutation({
       )
       .unique();
     if (!existing) {
-      const counters = await ctx.db
-        .query("libraryCounters")
-        .withIndex("by_library", (q) => q.eq("libraryId", row.libraryId))
-        .unique();
-      const used = counters?.mediaBytes ?? 0;
-      if (used + args.size > (await libraryLimits(ctx, row.libraryId)).mediaBytes)
+      if (!(await reserveMediaBytes(ctx, row.libraryId, args.fileName, args.size)))
         return { ok: false as const, reason: "quota" as const };
       await ctx.db.insert("media", {
         libraryId: row.libraryId,
@@ -681,17 +678,6 @@ export const recordMedia = internalMutation({
         size: args.size,
         createdAt: Date.now(),
       });
-      if (counters)
-        await ctx.db.patch(counters._id, {
-          mediaBytes: used + args.size,
-          revision: counters.revision + 1,
-        });
-      else
-        await ctx.db.insert("libraryCounters", {
-          libraryId: row.libraryId,
-          revision: 1,
-          mediaBytes: args.size,
-        });
       await ctx.scheduler.runAfter(24 * 3_600_000, internal.media.collectUnreferenced, {
         libraryId: row.libraryId,
         fileNames: [args.fileName],

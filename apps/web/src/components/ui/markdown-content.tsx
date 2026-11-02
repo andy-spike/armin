@@ -1,5 +1,13 @@
 import { PrivateCardImage } from "./private-card-image";
-import { useMemo, useState, lazy, Suspense, type ComponentProps, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  lazy,
+  Suspense,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import { Markdown, type MarkdownReactOptions } from "@tanstack/markdown/react";
 import type { MarkdownExtension, UrlTransform } from "@tanstack/markdown";
 import { cn } from "@/lib/utils";
@@ -8,6 +16,10 @@ import { parseImageWidth, stripImageWidth } from "@/lib/image-size";
 import { ImageZoomDialog } from "@/components/ui/image-zoom-dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import { parseMediaRef } from "@armin/core/media-ref";
+import { isAudioFile } from "@armin/core/media";
+import { CardAudio, CardAudioPlaceholder } from "@/components/ui/card-audio";
+import { AudioGroup, AudioGroupContext, autoplayGroup, trackGroup } from "@/lib/card-audio";
+import { inlineMarks } from "@/lib/markdown-marks";
 import { splitMath } from "@armin/core/math";
 
 const MathEquation = lazy(() => import("./math-equation"));
@@ -114,7 +126,7 @@ const autolinks: MarkdownExtension = {
   },
 };
 
-const EXTENSIONS = [autolinks];
+const EXTENSIONS = [autolinks, inlineMarks];
 
 type MarkdownContentProps = {
   /** Markdown source to render read-only. */
@@ -124,6 +136,11 @@ type MarkdownContentProps = {
   images?: "show" | "placeholder";
   /** Rendered after the Markdown, inside the same styled container. */
   imageLoading?: "eager" | "lazy";
+  /**
+   * A review card side: its audio clips form one group the replay shortcut
+   * plays, and `autoplay` plays them as soon as the side appears.
+   */
+  audio?: "autoplay" | "manual";
   children?: ReactNode;
 };
 
@@ -142,14 +159,20 @@ function createComponents(
     img:
       images === "placeholder"
         ? // Numbered by a CSS counter (`.md-image-placeholder`) in document order.
-          () => <span className="md-image-placeholder" />
+          ({ src }: ComponentProps<"img">) =>
+            typeof src === "string" && isAudioFile(src) ? (
+              <CardAudioPlaceholder />
+            ) : (
+              <span className="md-image-placeholder" />
+            )
         : // Apply the stored display width (encoded in the title) and let
           // clicking the image open the centered zoom preview.
           ({ src, alt, title }: ComponentProps<"img">) => {
+            const source = typeof src === "string" ? src : "";
+            if (isAudioFile(source)) return <CardAudio src={source} />;
             const rawTitle = typeof title === "string" ? title : null;
             const width = parseImageWidth(rawTitle);
             const caption = stripImageWidth(rawTitle);
-            const source = typeof src === "string" ? src : "";
             if (!source) return null;
             return (
               <Tooltip content={caption} disabled={!caption} className="px-2.5 py-1.5">
@@ -182,8 +205,20 @@ export function MarkdownContent({
   className,
   images = "show",
   imageLoading = "lazy",
+  audio,
   children,
 }: MarkdownContentProps) {
+  const group = useMemo(() => (audio ? new AudioGroup() : null), [audio]);
+  // Runs again for each new card shown in the same place (new content).
+  useEffect(() => {
+    if (!group) return;
+    const untrack = trackGroup(group);
+    const cancelAutoplay = audio === "autoplay" ? autoplayGroup(group) : () => {};
+    return () => {
+      untrack();
+      cancelAutoplay();
+    };
+  }, [group, audio, content]);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const components = useMemo(
     () => createComponents(images, setPreviewSrc, imageLoading),
@@ -193,23 +228,25 @@ export function MarkdownContent({
   const math = useMemo(() => mathDocument(content), [content]);
 
   return (
-    <div className={cn("markdown-content", className)}>
-      <Markdown
-        components={components}
-        urlTransform={cardUrlTransform}
-        extensions={math.extensions}
-        headingIds={false}
-      >
-        {math.source}
-      </Markdown>
-      {children}
-      {images === "show" && (
-        <ImageZoomDialog
-          src={previewSrc}
-          open={previewSrc !== null}
-          onClose={() => setPreviewSrc(null)}
-        />
-      )}
-    </div>
+    <AudioGroupContext.Provider value={group}>
+      <div className={cn("markdown-content", className)}>
+        <Markdown
+          components={components}
+          urlTransform={cardUrlTransform}
+          extensions={math.extensions}
+          headingIds={false}
+        >
+          {math.source}
+        </Markdown>
+        {children}
+        {images === "show" && (
+          <ImageZoomDialog
+            src={previewSrc}
+            open={previewSrc !== null}
+            onClose={() => setPreviewSrc(null)}
+          />
+        )}
+      </div>
+    </AudioGroupContext.Provider>
   );
 }

@@ -287,8 +287,8 @@ export const armin = {
     setTimeZone: (timeZone: string) => q().mutation(api.account.setTimeZone, { timeZone }),
   },
   media: {
-    /** Upload an image to private library storage and return its reference. */
-    importImage: async (input: {
+    /** Upload an image or audio file to private library storage and return its reference. */
+    upload: async (input: {
       file: Blob;
       fileName?: string;
       signal?: AbortSignal;
@@ -304,7 +304,7 @@ export const armin = {
     },
   },
   exports: {
-    start: () => q().mutation(api.exports.start, {}),
+    start: (input: { includeAudio: boolean }) => q().mutation(api.exports.start, input),
   },
 };
 

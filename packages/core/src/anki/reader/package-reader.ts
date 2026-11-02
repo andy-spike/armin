@@ -17,6 +17,7 @@ import type {
   AnkiCard,
   AnkiCollection,
   AnkiDeck,
+  AnkiDeckConfig,
   AnkiNote,
   AnkiNotetype,
   AnkiPackageFormat,
@@ -26,7 +27,7 @@ import type {
 import type { Database, SqlJsStatic } from "sql.js";
 import { decompress as zstdDecompress } from "fzstd";
 import { AnkiImportError } from "./errors";
-import { protoString, readProtoFields } from "./protobuf";
+import { protoFloats, protoString, readProtoFields } from "./protobuf";
 import { readZipDirectory, readZipEntry, type ByteSource, type ZipEntry } from "./zip";
 
 /** Highest `col.ver` schema this reader understands (Anki 2.1.50+ through 25.x). */
@@ -204,12 +205,14 @@ function readCollection(
     const modern = tables.has("notetypes");
     let notetypes: AnkiNotetype[];
     let decks: AnkiDeck[];
+    let deckConfigs: AnkiDeckConfig[] = [];
     if (modern) {
       withReadableCollations(db);
       notetypes = readModernNotetypes(db);
       decks = readModernDecks(db);
+      if (tables.has("deck_config")) deckConfigs = readModernDeckConfigs(db);
     } else {
-      ({ notetypes, decks } = readLegacyModels(db));
+      ({ notetypes, decks, deckConfigs } = readLegacyModels(db));
     }
 
     return {
@@ -217,6 +220,7 @@ function readCollection(
       createdAt: Number(col[1]),
       notetypes,
       decks,
+      deckConfigs,
       notes: readNotes(db),
       cards: readCards(db),
       revlog: tables.has("revlog") ? readRevlog(db) : [],
@@ -323,14 +327,69 @@ function readModernDecks(db: Database): AnkiDeck[] {
     // Deck.kind oneof { Normal normal = 1; Filtered filtered = 2 }. Filtered
     // decks only borrow cards; the cards are attributed to their home deck.
     let filtered = false;
+    let configId: string | null = null;
     for (const field of readProtoFields(kind as Uint8Array)) {
       if (field.number === 2) filtered = true;
+      // Normal { int64 config_id = 1; … }
+      if (field.number === 1 && field.bytes) {
+        for (const inner of readProtoFields(field.bytes)) {
+          if (inner.number === 1 && inner.varint !== undefined) configId = String(inner.varint);
+        }
+      }
     }
     if (!filtered) {
-      decks.push({ id: String(id), name: String(name).replaceAll(NAME_SEPARATOR, "::") });
+      decks.push({
+        id: String(id),
+        name: String(name).replaceAll(NAME_SEPARATOR, "::"),
+        configId,
+      });
     }
   }
   return decks;
+}
+
+/**
+ * DeckConfig.Config (proto/anki/deck_config.proto): learn_steps 1,
+ * relearn_steps 2, fsrs_params_4 3, fsrs_params_5 5, fsrs_params_6 6,
+ * new_per_day 9, reviews_per_day 10, maximum_review_interval 16,
+ * desired_retention 37.
+ */
+function readModernDeckConfigs(db: Database): AnkiDeckConfig[] {
+  const configs: AnkiDeckConfig[] = [];
+  for (const [id, name, config] of stepRows(
+    db,
+    "SELECT CAST(id AS TEXT), name, config FROM deck_config",
+  )) {
+    const params: Record<number, number[]> = { 3: [], 5: [], 6: [] };
+    const parsed: AnkiDeckConfig = {
+      id: String(id),
+      name: String(name),
+      learnSteps: [],
+      relearnSteps: [],
+      maximumInterval: null,
+      desiredRetention: null,
+      fsrsParams: [],
+      newPerDay: null,
+      reviewsPerDay: null,
+    };
+    try {
+      for (const field of readProtoFields(config as Uint8Array)) {
+        if (field.number === 1) parsed.learnSteps.push(...protoFloats(field));
+        else if (field.number === 2) parsed.relearnSteps.push(...protoFloats(field));
+        else if (field.number in params) params[field.number].push(...protoFloats(field));
+        else if (field.number === 9) parsed.newPerDay = field.varint ?? null;
+        else if (field.number === 10) parsed.reviewsPerDay = field.varint ?? null;
+        else if (field.number === 16) parsed.maximumInterval = field.varint ?? null;
+        else if (field.number === 37) parsed.desiredRetention = field.float ?? null;
+      }
+    } catch {
+      // A preset we can't read leaves its decks on the library defaults.
+      continue;
+    }
+    parsed.fsrsParams = [params[6], params[5], params[3]].find((set) => set.length > 0) ?? [];
+    configs.push(parsed);
+  }
+  return configs;
 }
 
 // --- Schema 11 (legacy) ---
@@ -343,7 +402,23 @@ type LegacyModel = {
   tmpls?: { name?: string; ord?: number; qfmt?: string; afmt?: string }[];
 };
 
-type LegacyDeck = { name?: string; dyn?: number };
+type LegacyDeck = { name?: string; dyn?: number; conf?: number };
+
+type LegacyDeckConfig = {
+  name?: string;
+  new?: { delays?: number[]; perDay?: number };
+  lapse?: { delays?: number[] };
+  rev?: { perDay?: number; maxIvl?: number };
+  desiredRetention?: number;
+  fsrsWeights?: number[];
+  fsrsParams5?: number[];
+  fsrsParams6?: number[];
+};
+
+const numbers = (value: unknown) =>
+  Array.isArray(value) ? value.filter((item): item is number => typeof item === "number") : [];
+const numberOrNull = (value: unknown) =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
 
 function parseJsonColumn<T>(text: unknown): Record<string, T> {
   try {
@@ -355,7 +430,7 @@ function parseJsonColumn<T>(text: unknown): Record<string, T> {
 }
 
 function readLegacyModels(db: Database) {
-  const [col] = rows(db, "SELECT models, decks FROM col LIMIT 1");
+  const [col] = rows(db, "SELECT models, decks, dconf FROM col LIMIT 1");
   // Object keys are the exact id strings; the inner `id` numbers can lose precision.
   const models = parseJsonColumn<LegacyModel>(col?.[0]);
   const deckMap = parseJsonColumn<LegacyDeck>(col?.[1]);
@@ -380,8 +455,28 @@ function readLegacyModels(db: Database) {
 
   const decks: AnkiDeck[] = Object.entries(deckMap)
     .filter(([, deck]) => !deck.dyn)
-    .map(([id, deck]) => ({ id, name: deck.name ?? `Deck ${id}` }));
-  return { notetypes, decks };
+    .map(([id, deck]) => ({
+      id,
+      name: deck.name ?? `Deck ${id}`,
+      configId: typeof deck.conf === "number" ? String(deck.conf) : null,
+    }));
+  const deckConfigs: AnkiDeckConfig[] = Object.entries(
+    parseJsonColumn<LegacyDeckConfig>(col?.[2]),
+  ).map(([id, config]) => ({
+    id,
+    name: config.name ?? `Preset ${id}`,
+    learnSteps: numbers(config.new?.delays),
+    relearnSteps: numbers(config.lapse?.delays),
+    maximumInterval: numberOrNull(config.rev?.maxIvl),
+    desiredRetention: numberOrNull(config.desiredRetention),
+    fsrsParams:
+      [config.fsrsParams6, config.fsrsParams5, config.fsrsWeights]
+        .map(numbers)
+        .find((set) => set.length > 0) ?? [],
+    newPerDay: numberOrNull(config.new?.perDay),
+    reviewsPerDay: numberOrNull(config.rev?.perDay),
+  }));
+  return { notetypes, decks, deckConfigs };
 }
 
 // --- Shared tables ---
@@ -410,7 +505,7 @@ function readCards(db: Database): AnkiCard[] {
     `SELECT CAST(id AS TEXT), CAST(nid AS TEXT),
             CAST(CASE WHEN odid != 0 THEN odid ELSE did END AS TEXT),
             ord, type, queue, CASE WHEN odid != 0 THEN odue ELSE due END,
-            ivl, factor, reps, lapses, data
+            ivl, factor, reps, lapses, data, flags
        FROM cards`,
   )) {
     cards.push({
@@ -426,6 +521,7 @@ function readCards(db: Database): AnkiCard[] {
       reps: Number(row[9]),
       lapses: Number(row[10]),
       data: String(row[11] ?? ""),
+      flags: Number(row[12] ?? 0),
     });
   }
   return cards;

@@ -3,6 +3,7 @@
 import { strToU8, zipSync, type Zippable } from "fflate";
 import { v } from "convex/values";
 import { parseStoredContent } from "@armin/core/flashcard-types";
+import { isAudioFile } from "@armin/core/media";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
@@ -27,7 +28,8 @@ This archive contains one Armin account's study library.
 - \`data/review-logs.json\` — every review, oldest first.
 - \`data/prerequisites.json\` — prerequisite edges (prerequisite → dependent).
 - \`data/settings.json\` — account time zone, study settings, deck overrides.
-- \`media/\` — images referenced by flashcards as \`armin-media:<file>\`.
+- \`media/\` — images and audio referenced by flashcards as \`armin-media:<file>\`
+  (audio is left out when the export was made without it).
 
 Timestamps are ISO 8601 UTC. No passwords, sessions, or sign-in data are
 included. Restoring an export is not supported yet.
@@ -214,10 +216,20 @@ export const build = internalAction({
           }),
         ),
       });
-      for (const media of snapshot.media) {
-        const blob = await ctx.storage.get(media.storageId);
-        if (!blob) throw new Error(`Image ${media.fileName} is missing from storage.`);
-        files[`media/${media.fileName}`] = new Uint8Array(await blob.arrayBuffer());
+      const media = snapshot.media.filter((row) => job.includeAudio || !isAudioFile(row.fileName));
+      // Check the total before reading any bytes: audio can far exceed what one ZIP holds.
+      const mediaBytes = media.reduce((sum, row) => sum + row.size, 0);
+      if (mediaBytes > MAX_EXPORT_BYTES) {
+        throw new Error(
+          job.includeAudio && media.some((row) => isAudioFile(row.fileName))
+            ? "This library's images and audio are too large for one export file. Export again without audio."
+            : "This library is too large to export in one file during the beta.",
+        );
+      }
+      for (const row of media) {
+        const blob = await ctx.storage.get(row.storageId);
+        if (!blob) throw new Error(`Media file ${row.fileName} is missing from storage.`);
+        files[`media/${row.fileName}`] = new Uint8Array(await blob.arrayBuffer());
       }
       files["README.md"] = strToU8(README);
 
@@ -240,19 +252,23 @@ export const build = internalAction({
           reviewUnits: snapshot.reviewUnits.length,
           reviewLogs: logs.length,
           prerequisites: snapshot.prereqs.length,
-          media: snapshot.media.length,
+          media: media.length,
         },
         checksums,
       };
 
       const zippable: Zippable = { "manifest.json": json(manifest) };
       for (const [path, bytes] of Object.entries(files)) {
-        // Images are already compressed; store them as-is.
+        // Images and audio are already compressed; store them as-is.
         zippable[path] = path.startsWith("media/") ? [bytes, { level: 0 }] : bytes;
       }
       const zip = zipSync(zippable, { level: 6 });
       if (zip.byteLength > MAX_EXPORT_BYTES) {
-        throw new Error("This library is too large to export in one file during the beta.");
+        throw new Error(
+          job.includeAudio
+            ? "This library is too large to export in one file. Export again without audio."
+            : "This library is too large to export in one file during the beta.",
+        );
       }
       const storageId = await ctx.storage.store(new Blob([zip], { type: "application/zip" }));
       await ctx.runMutation(internal.exports.markResult, {

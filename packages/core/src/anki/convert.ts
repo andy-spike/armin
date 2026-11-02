@@ -14,6 +14,9 @@ import { escapeHtml, isFieldEmpty, renderCard } from "./template";
 import type {
   AnkiCard,
   AnkiCollection,
+  AnkiDeckConfig,
+  ImportDeckSettings,
+  NotetypeMapping,
   AnkiNote,
   AnkiDeck,
   AnkiNotetype,
@@ -63,11 +66,15 @@ const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ?
 const WARNING_MESSAGES: Record<ImportWarningCode, (count: number) => string> = {
   math_unsupported: (n) =>
     `Equations in ${plural(n, "note")} contain invalid or unsupported math syntax; their source is kept with a warning.`,
-  audio_removed: (n) => `Audio was removed from ${plural(n, "note")} (Armin has no audio yet).`,
-  video_removed: (n) => `Video was removed from ${plural(n, "note")} (Armin has no video yet).`,
+  audio_removed: (n) =>
+    `Audio in a format Armin can't play (such as WMA or AMR) was removed from ${plural(n, "note")}.`,
+  tts_removed: (n) =>
+    `Text-to-speech in ${plural(n, "note")} was left out; Armin plays recorded audio only.`,
+  video_removed: (n) => `Video was removed from ${plural(n, "note")} (Armin doesn't play video).`,
   unsupported_image_removed: (n) =>
     `Images in an unsupported format (such as SVG) were removed from ${plural(n, "note")}.`,
-  missing_media: (n) => `Images missing from the package were removed from ${plural(n, "note")}.`,
+  missing_media: (n) =>
+    `Images or audio files missing from the package were removed from ${plural(n, "note")}.`,
   math_as_text: (n) =>
     `Legacy [latex] content in ${plural(n, "note")} is kept as source; full LaTeX documents are not supported.`,
   nested_cloze_flattened: (n) =>
@@ -91,7 +98,68 @@ const WARNING_MESSAGES: Record<ImportWarningCode, (count: number) => string> = {
   content_truncated: (n) => `${plural(n, "note")} exceeded Armin's size limits and was shortened.`,
   tags_trimmed: (n) => `Tags on ${plural(n, "note")} were shortened or limited to 20.`,
   scripts_removed: (n) => `Scripts and styles were removed from ${plural(n, "note")}.`,
+  flags_as_tags: (n) =>
+    `Flags on ${plural(n, "note")} became tags such as flag::red, so you can still filter by them.`,
 };
+
+// --- Flags ---
+
+const FLAG_NAMES = ["", "red", "orange", "green", "blue", "pink", "turquoise", "purple"];
+
+/** Anki flags are per card; a note gets one `flag::<color>` tag per color its cards carry. */
+function flagTags(cards: AnkiCard[]) {
+  const names = new Set<string>();
+  for (const card of cards) {
+    const name = FLAG_NAMES[(card.flags ?? 0) & 7];
+    if (name) names.add(`flag::${name}`);
+  }
+  return [...names];
+}
+
+// --- Deck options ---
+
+/** Anki steps are minutes; Armin writes them as `10m`, `1h`, `1d`. */
+function formatSteps(minutes: number[]) {
+  const steps = minutes.filter((step) => Number.isFinite(step) && step > 0);
+  if (steps.length === 0) return null;
+  const amount = (value: number) => String(Math.round(value * 100) / 100);
+  return steps
+    .map((step) =>
+      step >= 1440 && step % 1440 === 0
+        ? `${amount(step / 1440)}d`
+        : step >= 60 && step % 60 === 0
+          ? `${amount(step / 60)}h`
+          : `${amount(step)}m`,
+    )
+    .join(", ");
+}
+
+/**
+ * The parts of an Anki options preset that have an Armin deck setting. Daily
+ * limits stay out: Armin has one library-wide limit, which the preview names.
+ * Values outside Armin's accepted ranges are left to the library default.
+ */
+export function deckSettingsFromConfig(config: AnkiDeckConfig): ImportDeckSettings | undefined {
+  const retention = config.desiredRetention;
+  const params = config.fsrsParams.map((value) => Math.round(value * 10_000) / 10_000);
+  const settings: ImportDeckSettings = {
+    requestRetention:
+      retention !== null && retention >= 0.7 && retention <= 0.99
+        ? Math.round(retention * 100) / 100
+        : null,
+    maximumInterval:
+      config.maximumInterval !== null && config.maximumInterval >= 1
+        ? Math.min(36_500, Math.round(config.maximumInterval))
+        : null,
+    learningSteps: formatSteps(config.learnSteps),
+    relearningSteps: formatSteps(config.relearnSteps),
+    weights:
+      [17, 19, 21].includes(params.length) && params.every(Number.isFinite)
+        ? JSON.stringify(params)
+        : null,
+  };
+  return Object.values(settings).some((value) => value !== null) ? settings : undefined;
+}
 
 // --- Content ---
 
@@ -162,6 +230,8 @@ type NoteContext = {
   warnings: Set<ImportWarningCode>;
   /** Markdown for a field; `plain` for fields Armin shows without Markdown. */
   md: (html: string, plain?: boolean) => string;
+  /** SVG images are kept for the client to convert. */
+  svg: boolean;
 };
 
 type Prepared =
@@ -272,6 +342,7 @@ function prepareOcclusion(
   const image = inspectImage(
     decodeEntities(source[1] ?? source[2] ?? source[3] ?? ""),
     ctx.mediaNames,
+    ctx.svg,
   );
   if (!image.ok) {
     ctx.warnings.add(image.reason);
@@ -413,12 +484,18 @@ export function convertAnkiCollection(
           mediaNames,
           warn: (code) => warnings.add(code),
           plain,
+          svg: options.rasterizeSvg,
         }).markdown,
+      svg: Boolean(options.rasterizeSvg),
     };
     const kind = kindOf(notetype);
+    const mapping = options.notetypeMappings?.[notetype.id];
 
     let candidates: Candidate[] = [];
-    if (kind.kind === "custom") {
+    if (kind.kind === "custom" && mapping && mapping.kind !== "template") {
+      const content = mappedContent(note, mapping, ctx);
+      if (content) candidates = [{ content, cards, key: note.id, templateOrd: cards[0]!.ord }];
+    } else if (kind.kind === "custom") {
       candidates = renderCustomNotetypeCards(note, notetype, cards, decks, ctx);
       if (candidates.length > 0) warnings.add("custom_notetype_rendered");
     } else {
@@ -433,7 +510,9 @@ export function convertAnkiCollection(
       }
     }
 
-    const { tags, trimmed } = convertTags(note.tags);
+    const flags = flagTags(cards);
+    if (flags.length > 0) warnings.add("flags_as_tags");
+    const { tags, trimmed } = convertTags([...note.tags, ...flags]);
     let produced = 0;
     for (const candidate of candidates) {
       const draft = finishFlashcard(candidate, tags, collection, options, reviewsByCard, warnings);
@@ -477,6 +556,29 @@ function groupBy<Item>(items: readonly Item[], keyOf: (item: Item) => string) {
 /** One Armin flashcard a note will become, with the Anki cards it replaces. */
 type Candidate = { content: Content; cards: AnkiCard[]; key: string; templateOrd: number | null };
 
+/** A custom note type the user mapped onto an Armin type in the preview. */
+function mappedContent(
+  note: AnkiNote,
+  mapping: Exclude<NotetypeMapping, { kind: "template" }>,
+  ctx: NoteContext,
+): Content | null {
+  const side = (indexes: number[]) =>
+    indexes
+      .map((index) => ctx.md(note.fields[index] ?? ""))
+      .filter(Boolean)
+      .join("\n\n");
+  const front = side(mapping.front);
+  if (!front) return null;
+  if (mapping.kind === "type_answer") {
+    const answer = ctx.md(note.fields[mapping.answer] ?? "", true).trim();
+    return answer
+      ? { type: "type_answer", content: { prompt: front, answer, acceptedAnswers: [] } }
+      : null;
+  }
+  const back = side(mapping.back);
+  return back ? { type: mapping.kind, content: { front, back } } : null;
+}
+
 /** A note type Armin doesn't recognize: render each card's template into a Basic card. */
 function renderCustomNotetypeCards(
   note: AnkiNote,
@@ -501,10 +603,7 @@ function renderCustomNotetypeCards(
       fieldIsUsable: (html) => Boolean(ctx.md(html).trim()),
     });
     if (!rendered) continue;
-    if ("audioOnly" in rendered) {
-      ctx.warnings.add("audio_only_card_skipped");
-      continue;
-    }
+    if (rendered.tts) ctx.warnings.add("tts_removed");
     if ("unusableFront" in rendered) {
       ctx.warnings.add("required_content_card_skipped");
       continue;
@@ -526,7 +625,6 @@ function renderCustomNotetypeCards(
 function omissionReason(warnings: Set<ImportWarningCode>, isCustom: boolean): ImportOmittedReason {
   if (warnings.has("missing_media")) return "missing_image";
   if (warnings.has("unsupported_image_removed")) return "unsupported_image";
-  if (warnings.has("audio_only_card_skipped")) return "audio_only";
   if (warnings.has("required_content_card_skipped") || isCustom) return "unusable_template";
   return "empty_content";
 }
@@ -567,8 +665,11 @@ function finishFlashcard(
       reviewsByCard.get(card.id) ?? [],
       collection.createdAt,
     );
-    return { subKey: spec.subKey, schedule, logs };
+    const buried = card.queue === -2 || card.queue === -3;
+    return { subKey: spec.subKey, schedule, logs, ...(buried ? { buried } : {}) };
   });
+  // New Anki cards carry their queue position in `due`.
+  const positions = candidate.cards.filter((card) => card.type === 0).map((card) => card.due);
 
   return {
     key: candidate.key,
@@ -579,12 +680,13 @@ function finishFlashcard(
     archived: candidate.cards.every((card) => card.queue === -1),
     units,
     media: mediaIn(content),
+    newPosition: positions.length > 0 ? Math.min(...positions) : null,
   };
 }
 
 function buildPlan(
   collection: AnkiCollection,
-  decks: Map<string, { id: string; name: string }>,
+  decks: Map<string, AnkiDeck>,
   drafts: Draft[],
   warningCounts: Map<ImportWarningCode, number>,
   omitted: ImportOmitted[],
@@ -592,13 +694,32 @@ function buildPlan(
   const counts = new Map<string, number>();
   for (const draft of drafts) counts.set(draft.deckKey, (counts.get(draft.deckKey) ?? 0) + 1);
 
+  const configs = new Map((collection.deckConfigs ?? []).map((config) => [config.id, config]));
   const importDecks: ImportDeck[] = [];
   const seen = new Set<string>();
   const add = (id: string, ankiName: string) => {
     const cardCount = counts.get(id) ?? 0;
     if (cardCount === 0 || seen.has(id)) return;
     seen.add(id);
-    importDecks.push({ key: id, name: armDeckName(ankiName), ankiName, cardCount });
+    const configId = decks.get(id)?.configId;
+    const config = configId ? configs.get(configId) : undefined;
+    const settings = config ? deckSettingsFromConfig(config) : undefined;
+    importDecks.push({
+      key: id,
+      name: armDeckName(ankiName),
+      ankiName,
+      cardCount,
+      ...(settings ? { settings } : {}),
+      ...(config && (config.newPerDay !== null || config.reviewsPerDay !== null)
+        ? {
+            ankiLimits: {
+              newPerDay: config.newPerDay,
+              reviewsPerDay: config.reviewsPerDay,
+              preset: config.name,
+            },
+          }
+        : {}),
+    });
   };
   for (const deck of collection.decks) add(deck.id, deck.name);
   // Cards can point at a deck the package doesn't list; file them under "Default".

@@ -99,9 +99,11 @@ Client entry points (see `package.json` `exports`):
   a `now` argument that the client moves only when `review.status` says time
   alone next changes a due count (its `refreshAt`), so subscriptions re-run
   for writes and for due times, never on a fixed tick.
-- Images are validated by their bytes (type sniffing, size), counted against a
-  per-library quota, content-addressed, and only served through authenticated
-  routes. No storage URL is ever returned to a client.
+- Images and audio are validated by their bytes (type sniffing, size), counted
+  against separate per-library quotas (`model/mediaQuota.ts`), content-addressed,
+  and only served through authenticated routes. No storage URL is ever returned
+  to a client. Exports include audio unless the caller passes
+  `includeAudio: false`, for libraries whose audio won't fit one ZIP.
 
 ## Anki import
 
@@ -110,14 +112,14 @@ Browser import: the web client parses an Anki file, converts it with
 to `convex/imports.ts` in batches. Every function uses the first-party session and
 checks `libraryId`; imported cards have no prerequisites and are never locked.
 
-| Function                         | Does                                                                                                                                             |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `imports.start`                  | Rejects imports over the plan limits (`QUOTA`, with counts in the message), then creates one deck per Anki deck. One running import per library. |
-| `imports.addCards`               | Up to 100 cards and 1,500 review units per call, all-or-nothing. A unit's `schedule` replaces its new-card state; unknown `subKey`s are ignored. |
-| `imports.addReviewLogs`          | Up to 1,000 past reviews per call, for cards this import created. History only: it never changes a unit's schedule.                              |
-| `imports.finish`                 | Needs every declared card and review to have arrived, then closes the import.                                                                    |
-| `imports.cancel`                 | Stops the import, then deletes every deck it made in scheduled jobs, one deck per transaction. Clients call it on any failure.                   |
-| `imports.get`, `imports.current` | Status of one import, or of the library's running import (to resume or cancel after a reload).                                                   |
+| Function                         | Does                                                                                                                                                                                                                                                |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `imports.start`                  | Rejects imports over the plan limits (`QUOTA`, with counts in the message), then creates one deck per Anki deck, with any deck settings from its Anki preset. One running import per library.                                                       |
+| `imports.addCards`               | Up to 100 cards and 1,500 review units per call, all-or-nothing. A unit's `schedule` replaces its new-card state and `buried` hides it until the next study day; a card's `frontierKey` keeps Anki's new-card order. Unknown `subKey`s are ignored. |
+| `imports.addReviewLogs`          | Up to 1,000 past reviews per call, for cards this import created. History only: it never changes a unit's schedule.                                                                                                                                 |
+| `imports.finish`                 | Needs every declared card and review to have arrived, then closes the import.                                                                                                                                                                       |
+| `imports.cancel`                 | Stops the import, then deletes every deck it made in scheduled jobs, one deck per transaction. Clients call it on any failure.                                                                                                                      |
+| `imports.get`, `imports.current` | Status of one import, or of the library's running import (to resume or cancel after a reload).                                                                                                                                                      |
 
 Agent import: `convex/agentImports.ts` runs the staged MCP route. The assistant
 downloads and runs the versioned converter kit itself; the backend never receives
@@ -156,14 +158,15 @@ Rules:
 Each library has a `plan` (absent means free). `@armin/core/plans` holds the
 plan limits that `model/usage.ts` (`checkCapacity`, `libraryLimits`) enforces:
 
-| Limit                           | Free   | Pro     |
-| ------------------------------- | ------ | ------- |
-| Flashcards                      | 1,000  | 100,000 |
-| Review units                    | 5,000  | 250,000 |
-| Decks                           | 50     | 1,000   |
-| Images                          | 50 MiB | 80 MiB  |
-| Assistant-created cards / month | 300    | 10,000  |
-| Assistant writes / hour         | 60     | 600     |
+| Limit                           | Free    | Pro     |
+| ------------------------------- | ------- | ------- |
+| Flashcards                      | 1,000   | 100,000 |
+| Review units                    | 5,000   | 250,000 |
+| Decks                           | 50      | 1,000   |
+| Images                          | 50 MiB  | 80 MiB  |
+| Audio                           | 200 MiB | 2 GiB   |
+| Assistant-created cards / month | 300     | 10,000  |
+| Assistant writes / hour         | 60      | 600     |
 
 The monthly assistant allowance is per library and counts `save_cards`; staged
 Anki imports are bounded only by the library limits. There is no payment
