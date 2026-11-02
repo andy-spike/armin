@@ -41,6 +41,29 @@ Not a real device.
    `subscription.updated` itself (a CLI-side payload error), so real
    subscription events covered that path.
 
+## After the code review
+
+A Codex review found that deletion revokes were neither retried nor applied to
+checkouts completed after deletion, that concurrent syncs could apply an older
+Polar read last, and that the checkout return announced Pro without checking.
+The sync became a leased per-user job with request numbers, retries, and a
+deletion tombstone. Re-tested:
+
+9. Opening `/settings?tab=billing&checkout=success` without paying showed
+   "Confirming your payment", then after 30 s "Payment not confirmed yet" with
+   Retry, and no "Welcome to Pro" (`checkout-unconfirmed.png`).
+10. A yearly checkout ($48.00) returned to Billing, which showed Pro,
+    "$48.00 / year" once the job applied it; `requested` and `applied` both 8,
+    lease released (`billing-pro.png`).
+11. Deletion tombstone: set the account's `billing` row to `deleted` and
+    requested a sync, as a late webhook does. The runner revoked the live
+    yearly subscription; Polar reported it `canceled` with `ended_at` set, and
+    the revoke webhooks that followed were all applied (`requested` =
+    `applied` = 13). The row was then restored for further testing.
+12. Retry: with an invalid Polar token, a sync recorded `failures: 1` and
+    the 401 in `lastError`; after restoring the token the scheduled retry
+    30 s later succeeded and set the plan to `free`.
+
 `pnpm check`, `pnpm --filter @armin/web build`, and
 `pnpm --filter @armin/mobile check:bundle` pass.
 
@@ -48,6 +71,6 @@ Not a real device.
 
 - Production Polar organization, its dashboard webhook, and payouts.
 - A failed renewal (`past_due`), switching monthly ↔ yearly in the portal, and
-  account deletion revoking a live subscription.
+  deleting an account through the app (the tombstone was set directly).
 - Self-hosted mode hiding billing (covered by the `billingEnabled` check, not
   run here) and the mobile app, which does not show billing.

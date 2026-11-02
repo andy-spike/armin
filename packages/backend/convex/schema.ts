@@ -188,10 +188,15 @@ export default defineSchema({
   }).index("by_owner", ["ownerId"]),
 
   /**
-   * A user's Pro subscription as last read from Polar, the merchant of
-   * record and source of truth. Written only by `billing.applyState` after a
-   * fresh read of Polar's customer state; `libraries.plan` is derived in the
-   * same transaction. `syncedAt` orders concurrent syncs.
+   * A user's Pro subscription as last read from Polar, the merchant of record
+   * and source of truth, plus the state of the per-user sync job
+   * (`model/billing.ts`). Webhooks raise `requested`; one runner at a time
+   * reads Polar and records the request it read for in `applied`, so the
+   * stored state always comes from a read that began after the latest
+   * request. `deleted` is a permanent tombstone for a deleted account: the
+   * runner revokes any subscription it finds, including one paid for in a
+   * checkout left open across the deletion. Keyed by the Better Auth user ID,
+   * so it outlives the library.
    */
   billing: defineTable({
     ownerId: v.string(),
@@ -208,7 +213,16 @@ export default defineSchema({
         cancelAtPeriodEnd: v.boolean(),
       }),
     ),
-    syncedAt: v.number(),
+    requested: v.number(),
+    applied: v.number(),
+    /** A runner holds the job until this time; it renews the lease each pass. */
+    leaseUntil: v.optional(v.number()),
+    /** Identifies the runner holding the lease; a superseded runner stops. */
+    leaseId: v.optional(v.string()),
+    /** Consecutive failed passes, for retry backoff. */
+    failures: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+    deleted: v.optional(v.boolean()),
   }).index("by_owner", ["ownerId"]),
 
   /**

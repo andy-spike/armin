@@ -50,24 +50,41 @@ export function BillingSettings() {
   const status = useBillingStatus();
   const [interval, setInterval] = useState<Interval>("year");
 
-  const refresh = useMutation({ mutationFn: () => armin.billing.refresh() });
+  const refresh = useMutation({
+    mutationFn: () => armin.billing.refresh(),
+    onError: (error) =>
+      toast({ tone: "error", title: "Couldn't check your plan", description: errorMessage(error) }),
+  });
 
-  // Polar's checkout returns here with `checkout=success`. The webhook
-  // usually arrives first; reading Polar directly covers a delayed one.
-  const handledReturn = useRef(false);
+  // Polar's checkout returns here with `checkout=success`. That marker is
+  // not proof of payment: the page waits until the synced plan is Pro before
+  // announcing it, and offers Retry if confirmation doesn't arrive.
+  const [awaitingPro] = useState(() => search.checkout === "success");
+  const [slow, setSlow] = useState(false);
+  const startedReturn = useRef(false);
   useEffect(() => {
-    if (search.checkout !== "success" || handledReturn.current) return;
-    handledReturn.current = true;
-    refresh.mutate(undefined, {
-      onSettled: () =>
-        toast({
-          tone: "success",
-          title: "Welcome to Pro",
-          description: "Thanks for supporting Armin. Your new limits apply now.",
-        }),
-    });
+    if (!awaitingPro || startedReturn.current) return;
+    startedReturn.current = true;
+    refresh.mutate();
     void navigate({ to: "/settings", search: { tab: "billing" }, replace: true });
-  }, [search.checkout, refresh, toast, navigate]);
+  }, [awaitingPro, refresh, navigate]);
+  useEffect(() => {
+    if (!awaitingPro) return;
+    const timer = window.setTimeout(() => setSlow(true), 30_000);
+    return () => window.clearTimeout(timer);
+  }, [awaitingPro]);
+
+  const plan = status.data?.plan;
+  const announced = useRef(false);
+  useEffect(() => {
+    if (!awaitingPro || plan !== "pro" || announced.current) return;
+    announced.current = true;
+    toast({
+      tone: "success",
+      title: "Welcome to Pro",
+      description: "Thanks for supporting Armin. Your new limits apply now.",
+    });
+  }, [awaitingPro, plan, toast]);
 
   const checkout = useMutation({
     mutationFn: async (selected: Interval) => {
@@ -96,6 +113,8 @@ export function BillingSettings() {
   if (!data?.enabled) return null;
   const subscription = data.subscription;
   const pro = data.plan === "pro";
+  const pending = awaitingPro && !pro;
+  const unconfirmed = slow || data.syncFailed || refresh.isError;
 
   return (
     <Section
@@ -109,7 +128,7 @@ export function BillingSettings() {
             ? `Up to ${number.format(PLAN_LIMITS.pro.flashcards)} cards and ${number.format(PLAN_LIMITS.pro.agentCardsPerMonth)} AI assistant cards a month.`
             : `Up to ${number.format(PLAN_LIMITS.free.flashcards)} cards and ${number.format(PLAN_LIMITS.free.agentCardsPerMonth)} AI assistant cards a month.`
         }
-        last={!subscription && pro}
+        last={!subscription && pro && !pending}
       >
         {subscription ? (
           <p className="text-sm text-muted">
@@ -143,6 +162,28 @@ export function BillingSettings() {
               Manage subscription
             </Button>
           </div>
+        </Row>
+      ) : pending ? (
+        <Row
+          label={unconfirmed ? "Payment not confirmed yet" : "Confirming your payment"}
+          hint={
+            unconfirmed
+              ? "Polar hasn't confirmed a Pro subscription for this account yet. If you were charged, Pro appears here as soon as it does."
+              : "Waiting for Polar to confirm your subscription. This usually takes a few seconds."
+          }
+          last
+        >
+          {unconfirmed && (
+            <Button
+              variant="outline"
+              size="sm"
+              busy={refresh.isPending || data.syncing}
+              disabled={!online}
+              onClick={() => refresh.mutate()}
+            >
+              Retry
+            </Button>
+          )}
         </Row>
       ) : !pro ? (
         <Row

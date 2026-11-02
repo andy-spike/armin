@@ -182,23 +182,33 @@ dunning, and pays out.
   whether a user has Pro in one call.
 - **Checkout.** `billing.createCheckout({ interval })` returns a hosted
   checkout URL for the monthly or yearly product; Polar returns the buyer to
-  `/settings?tab=billing&checkout=success`, where the page calls
-  `billing.refresh`. It refuses when Polar already shows an active Pro
+  `/settings?tab=billing&checkout=success`. That marker isn't proof of
+  payment: the page requests a sync (`billing.refresh`) and announces Pro only
+  once the synced plan is Pro, with Retry if Polar hasn't confirmed it after
+  30 seconds. Checkout refuses when Polar already shows an active Pro
   subscription.
-- **Webhooks.** `POST /polar/events` verifies the signature (both Polar's
-  legacy and Standard Webhooks secrets), and for `subscription.*` and
-  `customer.state_changed` re-reads the customer's state from Polar.
-  `billing.applyState` stores the subscription in `billing` and sets
-  `libraries.plan` in one transaction; `syncedAt` stops an older read from
-  overwriting a newer one, so webhook order and retries don't matter. Unknown
-  event types are acknowledged and ignored.
+- **Sync job.** `POST /polar/events` verifies the signature (both Polar's
+  legacy and Standard Webhooks secrets) and, for `subscription.*` and
+  `customer.state_changed`, raises the user's `billing.requested`. One runner
+  per user (`billing.runSync`, holding a lease) reads Polar's customer state
+  and applies it with the request number it read for (`applied`), deriving
+  `libraries.plan` in the same transaction, and reads again while newer
+  requests arrived. The stored state therefore comes from a read that began
+  after the latest webhook, whatever the order of webhooks and retries. A
+  failed pass keeps the lease and retries with backoff (30 s doubling, at most
+  hourly); `failures` and `lastError` on the row show why. Unknown event types
+  are acknowledged and ignored.
 - **Plan rule.** Pro while the subscription is in Polar's active list (active,
   trialing, or past due during payment retries), including after a
   cancellation until the paid period ends. Free afterwards; nothing is deleted.
 - **Portal.** `billing.createPortalSession` opens Polar's customer portal for
   cancelling, switching monthly/yearly, cards, and invoices.
-- **Account deletion** removes the `billing` row and revokes an active
-  subscription.
+- **Account deletion** marks the user's `billing` row `deleted`, in the same
+  transaction as the user removal. The job revokes every active subscription
+  and retries until Polar shows none. The row is a permanent tombstone keyed by
+  the Better Auth user ID, so a checkout left open and paid after deletion is
+  revoked when its webhook arrives. That first charge is not refunded
+  automatically; refund it from Polar if the customer asks.
 - **Excluded.** Self-hosted instances (`SELF_HOSTED=true`) and the public
   reviewer account never see billing, and a deployment without the Polar
   variables below has billing off.

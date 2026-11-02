@@ -310,7 +310,7 @@ export const armin = {
     createCheckout: (interval: "month" | "year") =>
       q().action(api.billing.createCheckout, { interval }),
     createPortalSession: () => q().action(api.billing.createPortalSession, {}),
-    refresh: () => q().action(api.billing.refresh, {}),
+    refresh: () => q().mutation(api.billing.refresh, {}),
   },
 };
 
