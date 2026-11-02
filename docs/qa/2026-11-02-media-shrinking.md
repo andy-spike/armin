@@ -93,8 +93,37 @@ library large enough to exceed the old 95 MiB limit.
 
 ![Storage usage](2026-11-02-media-shrinking/05-storage-usage.png)
 
-Not verified: a full pool (the "storage is full" text and upload rejection),
-and the bar at high usage.
+### Full pool
+
+The local `libraryCounters` row was backed up, replaced with
+`convex import --table libraryCounters --replace` to fill the pool, and then
+restored. Uploads went through the card editor in Chromium.
+
+| Pool state | Upload | Sent | Result |
+| --- | --- | --- | --- |
+| 50,000 B left | 1200×900 noise JPEG | 704,010 B (kept as JPEG) | 413, toast "Image not added · Your storage for images and audio is full." |
+| 50,000 B left | 31.7 s speech MP3 (507,863 B) | 131,586 B Ogg Opus | 413, same message; audio counter unchanged |
+| 50,000 B left | 64×64 PNG | 408 B | Stored; image counter +408 |
+| Exactly 1 GiB | 8×8 PNG | 77 B | 413, same message |
+
+- Nearly full, Storage showed "0.99 GB of 1 GB used", Images 0.99 GB, Audio
+  274 KB, and "49 KB left."
+- Full, it showed "1 GB of 1 GB used", a full bar, and "Your storage is full.
+  Delete images or audio you no longer need to add more."
+- Rejected uploads' blobs are deleted by the upload action.
+- Fixed during the test: the page first read "1024 MB of 1 GB used" and would
+  have shown "0 MB left" for small remainders. Sizes near 1 GB now show in GB
+  rounded down to two decimals, and sizes under 1 MB show in KB.
+- After restoring, the counters (691,955 B images, 280,984 B audio) equal the
+  sum of the library's 11 `media` rows.
+
+![Nearly full](2026-11-02-media-shrinking/06-storage-nearly-full.png)
+![Upload rejected](2026-11-02-media-shrinking/07-upload-rejected.png)
+![Full](2026-11-02-media-shrinking/08-storage-full.png)
+
+Not verified: the full-pool message during a browser Anki import or an
+assistant import, and space being freed after media is deleted (unreferenced
+files are collected an hour after they stop being used).
 
 ## Validation
 
