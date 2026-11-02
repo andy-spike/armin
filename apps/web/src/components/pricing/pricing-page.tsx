@@ -55,6 +55,14 @@ const questions = [
     a: "Nothing is deleted. You keep studying and exporting everything; you just can't add cards past the free limits.",
   },
   {
+    q: "Can I get a refund?",
+    a: "Yes. Email support@armincards.app within 14 days of any payment for a full refund. You can cancel anytime from Settings → Billing; Pro then lasts until the end of the period you paid for.",
+  },
+  {
+    q: "Who handles the payment?",
+    a: "Polar, our merchant of record. Polar charges your card, handles sales tax and VAT, and sends your receipts. Armin never sees your card details.",
+  },
+  {
     q: "Why limit AI assistant cards?",
     a: "Assistants can create cards far faster than anyone can learn them. The monthly allowance keeps the service fast for everyone. Anki imports through an assistant don't count toward it.",
   },
