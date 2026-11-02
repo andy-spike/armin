@@ -20,11 +20,29 @@ npx convex deploy
 
 The production environment variables (`SITE_URL`, `BETTER_AUTH_SECRET`,
 `EMAIL_FROM`, `MOBILE_TRUSTED_ORIGINS`, `RESEND_API_KEY`, `GOOGLE_CLIENT_ID`,
-`GOOGLE_CLIENT_SECRET`) live on the Convex deployment, never in the
-repository. See [the backend README](../packages/backend/README.md#deployment-environment-variables).
+`GOOGLE_CLIENT_SECRET`, and the Polar billing variables) live on the Convex
+deployment, never in the repository. See [the backend README](../packages/backend/README.md#deployment-environment-variables).
 In a worktree, whose `.env.local` selects a local deployment, prefix Convex
 commands with `CONVEX_DEPLOYMENT=dev:oceanic-fly-888` so the CLI resolves the
 cloud project; `--prod` and `deploy` then target production.
+
+### Polar billing
+
+Pro is sold through a production Polar organization. Once, before enabling
+billing in production:
+
+1. Connect the payout account (Finance → Payout account) and pass Polar's
+   organization review.
+2. Create the monthly and yearly Pro products and an organization access token
+   with the scopes in the backend README.
+3. Add a webhook (Settings → Webhooks): URL `<production Convex site URL>/polar/events`,
+   format Raw, a generated secret, events `subscription.*` and
+   `customer.state_changed`.
+4. Set `POLAR_ORGANIZATION_TOKEN`, `POLAR_WEBHOOK_SECRET`,
+   `POLAR_PRODUCT_PRO_MONTHLY`, `POLAR_PRODUCT_PRO_YEARLY`, and
+   `POLAR_SERVER=production` with `npx convex env set --prod`.
+
+Billing stays off until all of them are set.
 
 ### One-time data backfills
 

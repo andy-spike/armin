@@ -19,7 +19,12 @@ const plans = [
       "Web and mobile",
       "Anki import and full export",
     ],
-    action: { label: "Start free", to: "/sign-up" as const },
+    action: {
+      label: "Start free",
+      to: "/sign-up" as const,
+      billing: false,
+      variant: "outline" as const,
+    },
   },
   {
     name: "Pro",
@@ -33,7 +38,14 @@ const plans = [
       "Everything in Free",
       "More room for images",
     ],
-    action: null,
+    // Settings → Billing opens checkout; signed-out visitors sign in first
+    // and return there.
+    action: {
+      label: "Upgrade to Pro",
+      to: "/settings" as const,
+      billing: true,
+      variant: "primary" as const,
+    },
   },
 ];
 
@@ -95,14 +107,24 @@ export function PricingPage() {
                 ))}
               </ul>
               <div className="mt-6">
-                {plan.action ? (
-                  <Link to={plan.action.to} className={buttonVariants({ className: "w-full" })}>
+                {plan.action.billing ? (
+                  <Link
+                    to="/settings"
+                    search={{ tab: "billing" }}
+                    className={buttonVariants({ className: "w-full" })}
+                  >
                     {plan.action.label}
                   </Link>
                 ) : (
-                  <p className="rounded-md border border-border-strong px-3 py-2 text-center text-sm text-muted">
-                    Coming soon
-                  </p>
+                  <Link
+                    to={plan.action.to}
+                    className={buttonVariants({
+                      variant: plan.action.variant,
+                      className: "w-full",
+                    })}
+                  >
+                    {plan.action.label}
+                  </Link>
                 )}
               </div>
             </section>

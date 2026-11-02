@@ -188,6 +188,44 @@ export default defineSchema({
   }).index("by_owner", ["ownerId"]),
 
   /**
+   * A user's Pro subscription as last read from Polar, the merchant of record
+   * and source of truth, plus the state of the per-user sync job
+   * (`model/billing.ts`). Webhooks raise `requested`; one runner at a time
+   * reads Polar and records the request it read for in `applied`, so the
+   * stored state always comes from a read that began after the latest
+   * request. `deleted` is a permanent tombstone for a deleted account: the
+   * runner revokes any subscription it finds, including one paid for in a
+   * checkout left open across the deletion. Keyed by the Better Auth user ID,
+   * so it outlives the library.
+   */
+  billing: defineTable({
+    ownerId: v.string(),
+    subscription: v.union(
+      v.null(),
+      v.object({
+        id: v.string(),
+        productId: v.string(),
+        interval: v.union(v.literal("month"), v.literal("year")),
+        status: v.string(),
+        amount: v.number(),
+        currency: v.string(),
+        currentPeriodEnd: v.string(),
+        cancelAtPeriodEnd: v.boolean(),
+      }),
+    ),
+    requested: v.number(),
+    applied: v.number(),
+    /** A runner holds the job until this time; it renews the lease each pass. */
+    leaseUntil: v.optional(v.number()),
+    /** Identifies the runner holding the lease; a superseded runner stops. */
+    leaseId: v.optional(v.string()),
+    /** Consecutive failed passes, for retry backoff. */
+    failures: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+    deleted: v.optional(v.boolean()),
+  }).index("by_owner", ["ownerId"]),
+
+  /**
    * Write-side counters for a library. Kept apart from `libraries` so that
    * reactive reads of the library row are not invalidated by every write.
    */
