@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { SOURCE_CODE_URL } from "@/lib/source-code";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, Brain, Check, Lock } from "lucide-react";
 import { ArminMark, ArminWordmark } from "@/components/brand";
@@ -7,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { UnlockGraph } from "./unlock-graph";
 import { ReviewDemo } from "./review-demo";
 
-const GITHUB_URL = "https://github.com/andy-spike/armin";
+const GITHUB_URL = SOURCE_CODE_URL;
 
 function GitHubMark({ className }: { className?: string }) {
   return (

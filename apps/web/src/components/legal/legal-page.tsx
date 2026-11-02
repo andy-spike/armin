@@ -1,6 +1,7 @@
 // Explicit table roles preserve semantics when the mobile layout uses display: block.
 /* oxlint-disable jsx-a11y/no-redundant-roles, jsx-a11y/no-interactive-element-to-noninteractive-role */
 import { Children, cloneElement, createContext, isValidElement, useContext } from "react";
+import { SOURCE_CODE_URL } from "@/lib/source-code";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link } from "@tanstack/react-router";
@@ -156,6 +157,9 @@ export function LegalPage({ source }: { source: string }) {
           <Link to="/terms" className="hover:text-ink" activeProps={{ "aria-current": "page" }}>
             Terms of Service
           </Link>
+          <a href={SOURCE_CODE_URL} target="_blank" rel="noreferrer" className="hover:text-ink">
+            Source code
+          </a>
         </nav>
       </footer>
     </div>
