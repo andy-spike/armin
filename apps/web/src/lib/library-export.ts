@@ -148,7 +148,10 @@ export async function assembleExport({
       counts: Record<string, number>;
       checksums: Record<string, string>;
     };
-    const mediaPaths = Object.keys(manifest.checksums).filter((path) => path.startsWith("media/"));
+    // An older backend already packed the media; only fetch what's missing.
+    const mediaPaths = Object.keys(manifest.checksums).filter(
+      (path) => path.startsWith("media/") && !entries[path],
+    );
 
     let writing = Promise.resolve();
     let zipError: unknown = null;
