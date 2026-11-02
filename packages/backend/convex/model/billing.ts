@@ -21,12 +21,21 @@ export function productIds() {
   };
 }
 
-/** Billing runs only on a hosted deployment with Polar fully configured. */
+/**
+ * Billing runs only on a hosted deployment with Polar fully configured,
+ * including the webhook secret: without webhooks, a cancellation or renewal
+ * could never reach the stored plan.
+ */
 export function billingEnabled() {
   const products = productIds();
   return (
     !isSelfHosted() &&
-    Boolean(process.env.POLAR_ORGANIZATION_TOKEN && products.month && products.year)
+    Boolean(
+      process.env.POLAR_ORGANIZATION_TOKEN &&
+      process.env.POLAR_WEBHOOK_SECRET &&
+      products.month &&
+      products.year,
+    )
   );
 }
 
