@@ -45,3 +45,25 @@ Uploaded through the card editor's **Add audio** button in Chromium.
 Not verified: Opus playback on Mac Safari and iPhone (caniuse lists iOS Safari
 18.4+ as supported and Mac Safari as partial), and encoding in Firefox and
 Safari 26.
+
+## 3. Export is assembled in the browser
+
+Settings → Data → **Export**, on the same library (17 flashcards, 10 media
+files including the QA uploads above).
+
+- **Save-dialog path (Chrome/Edge).** `showSaveFilePicker` was replaced with a
+  stand-in that records the chunks written to it, since headless Chromium has
+  no save dialog. The progress row showed "Preparing cards", then saved.
+  The 981,956-byte ZIP passes Python's `zipfile.testzip()`, contains the
+  manifest, README, six data files, and all 10 media files, and every manifest
+  checksum matches its file.
+- **In-memory path (Firefox/Safari).** With `showSaveFilePicker` removed and
+  **Include audio** off, the browser built a 699,254-byte ZIP and downloaded it
+  through a link. It holds the 4 images and no audio; every checksum matches.
+- The server's stored ZIP now holds only the manifest and data; its listed
+  size includes the media, so **Download** shows the approximate final size.
+
+![Export preparing](2026-11-02-media-shrinking/03-export-progress.png)
+
+Not verified: a real save dialog, Firefox and Safari themselves, Cancel, and a
+library large enough to exceed the old 95 MiB limit.

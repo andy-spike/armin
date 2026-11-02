@@ -103,7 +103,14 @@ Client entry points (see `package.json` `exports`):
   against separate per-library quotas (`model/mediaQuota.ts`), content-addressed,
   and only served through authenticated routes. No storage URL is ever returned
   to a client. Exports include audio unless the caller passes
-  `includeAudio: false`, for libraries whose audio won't fit one ZIP.
+  `includeAudio: false`, for a smaller file.
+- Exports are assembled in the browser. `exportBuilder.build` stores a ZIP with
+  only the manifest and JSON data; the manifest lists every media file with its
+  SHA-256 checksum, which is its file name. The web app
+  (`apps/web/src/lib/library-export.ts`) downloads that ZIP, fetches each media
+  file through the authenticated `/media/*` route, checks it, and writes the
+  finished ZIP, streaming it to disk where the browser allows. No server
+  function holds a library's media, so exports have no media size limit.
 
 ## Anki import
 
@@ -182,8 +189,8 @@ lock refresh, cram) reads a whole deck, so every deck holds at most 10,000
 flashcards and 15,000 review units on any plan; the deck-size triggers enforce
 this for every create, import, and move. A change to the library-wide
 prerequisite floor refreshes locks one deck per scheduled transaction. Other
-bounds: 2,000 prerequisite links per deck, 10 MiB per image, and one export ZIP
-of at most 95 MiB. Review
+bounds: 2,000 prerequisite links per deck, 10 MiB per uploaded file, and 95 MiB
+of card data in the server-built part of an export. Review
 history is unbounded and is read in pages or deleted in batches. Deletion
 consequences use review-unit lifetime counts and indexed boundary logs. Moving
 a card keeps its history without rewriting it; exports resolve each log to its

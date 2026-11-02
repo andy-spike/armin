@@ -62,7 +62,10 @@ function fsrs(row: Doc<"reviewUnits">) {
 }
 
 /**
- * Build a versioned ZIP of one library. Library rows, each deck's contents,
+ * Build the data part of a versioned library export: the manifest (with a
+ * checksum for every file, media included) and the JSON data. The web app
+ * downloads it, then adds each media file in the browser, so the finished
+ * ZIP has no server-side size ceiling. Library rows, each deck's contents,
  * and review history are read in pages. The library revision is checked
  * before and after collection and the export retries if the library changed
  * meanwhile, so the archive is internally consistent.
@@ -217,20 +220,6 @@ export const build = internalAction({
         ),
       });
       const media = snapshot.media.filter((row) => job.includeAudio || !isAudioFile(row.fileName));
-      // Check the total before reading any bytes: audio can far exceed what one ZIP holds.
-      const mediaBytes = media.reduce((sum, row) => sum + row.size, 0);
-      if (mediaBytes > MAX_EXPORT_BYTES) {
-        throw new Error(
-          job.includeAudio && media.some((row) => isAudioFile(row.fileName))
-            ? "This library's images and audio are too large for one export file. Export again without audio."
-            : "This library is too large to export in one file during the beta.",
-        );
-      }
-      for (const row of media) {
-        const blob = await ctx.storage.get(row.storageId);
-        if (!blob) throw new Error(`Media file ${row.fileName} is missing from storage.`);
-        files[`media/${row.fileName}`] = new Uint8Array(await blob.arrayBuffer());
-      }
       files["README.md"] = strToU8(README);
 
       const checksums: Record<string, string> = {};
@@ -240,6 +229,10 @@ export const build = internalAction({
           .map((byte) => byte.toString(16).padStart(2, "0"))
           .join("");
       }
+      // Media files are named by the SHA-256 of their bytes. The browser
+      // downloads each one, checks it against this checksum, and adds it to
+      // the final ZIP, so the server never holds every file at once.
+      for (const row of media) checksums[`media/${row.fileName}`] = row.fileName.split(".")[0];
       const manifest = {
         format: FORMAT,
         version: FORMAT_VERSION,
@@ -257,24 +250,18 @@ export const build = internalAction({
         checksums,
       };
 
-      const zippable: Zippable = { "manifest.json": json(manifest) };
-      for (const [path, bytes] of Object.entries(files)) {
-        // Images and audio are already compressed; store them as-is.
-        zippable[path] = path.startsWith("media/") ? [bytes, { level: 0 }] : bytes;
-      }
+      // The stored ZIP holds the manifest and data; the browser adds media.
+      const zippable: Zippable = { "manifest.json": json(manifest), ...files };
       const zip = zipSync(zippable, { level: 6 });
       if (zip.byteLength > MAX_EXPORT_BYTES) {
-        throw new Error(
-          job.includeAudio
-            ? "This library is too large to export in one file. Export again without audio."
-            : "This library is too large to export in one file during the beta.",
-        );
+        throw new Error("This library's card data is too large to export during the beta.");
       }
       const storageId = await ctx.storage.store(new Blob([zip], { type: "application/zip" }));
       await ctx.runMutation(internal.exports.markResult, {
         exportId,
         storageId,
-        size: zip.byteLength,
+        // About the size of the finished download, which also holds the media.
+        size: zip.byteLength + media.reduce((sum, row) => sum + row.size, 0),
       });
     } catch (error) {
       await ctx.runMutation(internal.exports.markResult, {
