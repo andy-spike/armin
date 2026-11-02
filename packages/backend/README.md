@@ -384,9 +384,13 @@ changes schedule their own activity rebuild.
 The web app shrinks images in the browser before upload
 (`apps/web/src/lib/shrink-image.ts`): the longest side is at most 1600 px,
 photos become WebP at quality 80, screenshots and diagrams lossless WebP, EXIF
-data is dropped, and GIF and SVG pass through unchanged. The library stores that
-one copy, and the quota counts only it. The web app accepts files up to 25 MB
-before shrinking; the server's 10 MiB per-file limit applies to what arrives.
+data is dropped, and GIF and SVG pass through unchanged. Audio becomes mono Opus
+at 32 kbps in an Ogg file with silence trimmed from both ends
+(`shrink-audio.ts`, using WebCodecs; browsers without an Opus `AudioEncoder`
+upload the original). Files already at or below the target quality, or that
+would shrink by less than 10%, upload unchanged. The library stores that one
+copy, and the quota counts only it. The web app accepts files up to 25 MB before
+shrinking; the server's 10 MiB per-file limit applies to what arrives.
 Uploads that don't come through the browser, such as assistant imports, are
 stored as sent.
 

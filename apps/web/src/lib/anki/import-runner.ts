@@ -7,15 +7,9 @@ import {
   validateContent,
   type FlashcardContent,
 } from "@armin/core/flashcard-types";
-import {
-  isAudioFile,
-  MAX_MEDIA_FILE_BYTES,
-  MIME_BY_EXT,
-  sniffImageExt,
-  sniffMediaExt,
-} from "@armin/core/media";
+import { isAudioFile, MIME_BY_EXT, sniffImageExt, sniffMediaExt } from "@armin/core/media";
 import { rasterizeSvg } from "./rasterize-svg";
-import { MAX_DEVICE_MEDIA_BYTES } from "@/lib/shrink-image";
+import { MAX_DEVICE_MEDIA_BYTES } from "@/lib/shrink-media";
 import type { FsrsFieldsMs } from "@armin/core/scheduler";
 import {
   armin,
@@ -178,9 +172,8 @@ async function uploadMedia(
     if (!bytes || bytes.byteLength === 0) return;
     const ext = sniffMediaExt(bytes);
     if (!ext) return;
-    // Images shrink on the device before upload, so they may start larger.
-    const limit = isAudioFile(ext) ? MAX_MEDIA_FILE_BYTES : MAX_DEVICE_MEDIA_BYTES;
-    if (bytes.byteLength > limit) return;
+    // Files shrink on the device before upload, so they may start larger.
+    if (bytes.byteLength > MAX_DEVICE_MEDIA_BYTES) return;
     const file = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: MIME_BY_EXT[ext] });
     try {
       const stored = await withRetry(signal, () =>

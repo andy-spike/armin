@@ -10,8 +10,8 @@ import { replaceAll, insert } from "@milkdown/kit/utils";
 import { paragraphSchema } from "@milkdown/kit/preset/commonmark";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
-import { AUDIO_MIME_BY_EXT, IMAGE_MIME_BY_EXT, MAX_MEDIA_FILE_BYTES } from "@armin/core/media";
-import { MAX_DEVICE_MEDIA_BYTES } from "@/lib/shrink-image";
+import { AUDIO_MIME_BY_EXT, IMAGE_MIME_BY_EXT } from "@armin/core/media";
+import { MAX_DEVICE_MEDIA_BYTES } from "@/lib/shrink-media";
 import { hasInlineMarks } from "@/lib/markdown-marks";
 import { hasMath, splitMath } from "@armin/core/math";
 import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
@@ -205,11 +205,10 @@ export function MarkdownEditor({
         throw new Error(UNSUPPORTED_IMAGE_MESSAGE);
       if (kind === "audio" && file.type && !file.type.startsWith("audio/"))
         throw new Error(UNSUPPORTED_AUDIO_MESSAGE);
-      // Images are shrunk on the device before upload, so they may start larger.
-      const limit = kind === "image" ? MAX_DEVICE_MEDIA_BYTES : MAX_MEDIA_FILE_BYTES;
-      if (file.size > limit)
+      // Files are shrunk on the device before upload, so they may start larger.
+      if (file.size > MAX_DEVICE_MEDIA_BYTES)
         throw new Error(
-          `That ${noun} is ${megabytes(file.size)} MB. Files must be ${megabytes(limit)} MB or smaller.`,
+          `That ${noun} is ${megabytes(file.size)} MB. Files must be ${megabytes(MAX_DEVICE_MEDIA_BYTES)} MB or smaller.`,
         );
       const stored = await armin.media.upload({ file, fileName: file.name });
       if (!alive.current)

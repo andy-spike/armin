@@ -13,11 +13,6 @@ import { sniffImageExt } from "@armin/core/media";
  * - A small file keeps its original bytes unless the new one is at least 10%
  *   smaller, except a JPEG carrying EXIF, which is replaced whenever it shrinks.
  */
-/**
- * Largest file the web app accepts from the user. Images shrink on the device
- * first; the server's per-file limit applies to what is uploaded.
- */
-export const MAX_DEVICE_MEDIA_BYTES = 25 * 1024 * 1024;
 const MAX_SIDE = 1600;
 const PHOTO_WEBP_QUALITY = 0.8;
 const PHOTO_JPEG_QUALITY = 0.82;

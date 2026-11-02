@@ -16,7 +16,7 @@ import type {
 import type { FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
 import { MAX_MEDIA_FILE_BYTES } from "@armin/core/media";
 import type { Grade } from "@/types/view-models";
-import { shrinkImage } from "@/lib/shrink-image";
+import { shrinkMedia } from "@/lib/shrink-media";
 
 /**
  * Imperative calls to the Convex backend: writes, plus a few reads a page
@@ -291,16 +291,14 @@ export const armin = {
   media: {
     /**
      * Upload an image or audio file to private library storage and return its
-     * reference. Images are shrunk on the device first (`shrinkImage`).
+     * reference. Images and audio are shrunk on the device first (`shrinkMedia`).
      */
     upload: async (input: {
       file: Blob;
       fileName?: string;
       signal?: AbortSignal;
     }): Promise<ImportedMedia> => {
-      const file = input.file.type.startsWith("image/")
-        ? await shrinkImage(input.file)
-        : input.file;
+      const file = await shrinkMedia(input.file);
       if (file.size > MAX_MEDIA_FILE_BYTES)
         throw new MediaUploadError(
           `Files must be ${Math.round(MAX_MEDIA_FILE_BYTES / (1024 * 1024))} MB or smaller after Armin shrinks them.`,
