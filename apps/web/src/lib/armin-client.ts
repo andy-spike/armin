@@ -317,6 +317,12 @@ export const armin = {
   exports: {
     start: (input: { includeAudio: boolean }) => q().mutation(api.exports.start, input),
   },
+  billing: {
+    createCheckout: (interval: "month" | "year") =>
+      q().action(api.billing.createCheckout, { interval }),
+    createPortalSession: () => q().action(api.billing.createPortalSession, {}),
+    refresh: () => q().mutation(api.billing.refresh, {}),
+  },
 };
 
 export type ArminClient = typeof armin;

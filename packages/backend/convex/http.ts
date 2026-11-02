@@ -7,6 +7,7 @@ import { authComponent, createAuth } from "./auth";
 import { uploadMedia } from "./media";
 import { uploadAgentImportMedia } from "./agentImportHttp";
 import { registerAgentRoutes } from "./agentHttp";
+import { registerBillingRoutes } from "./billing";
 
 const http = httpRouter();
 registerAgentRoutes(http);
@@ -20,6 +21,8 @@ http.route({
 });
 
 authComponent.registerRoutes(http, createAuth);
+// Polar subscription webhooks (`/polar/events`), signature-verified in billing.ts.
+registerBillingRoutes(http);
 
 function denied(status: number) {
   return new Response(status === 404 ? "Not found" : "Unauthorized", {

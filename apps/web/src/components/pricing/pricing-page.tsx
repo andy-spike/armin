@@ -26,7 +26,12 @@ const plans = [
       "Web and mobile",
       "Anki import and full export",
     ],
-    action: { label: "Start free", to: "/sign-up" as const },
+    action: {
+      label: "Start free",
+      to: "/sign-up" as const,
+      billing: false,
+      variant: "outline" as const,
+    },
   },
   {
     name: "Pro",
@@ -40,7 +45,14 @@ const plans = [
       "Everything in Free",
       storage(PLAN_LIMITS.pro.mediaBytes),
     ],
-    action: null,
+    // Settings → Billing opens checkout; signed-out visitors sign in first
+    // and return there.
+    action: {
+      label: "Upgrade to Pro",
+      to: "/settings" as const,
+      billing: true,
+      variant: "primary" as const,
+    },
   },
 ];
 
@@ -48,6 +60,14 @@ const questions = [
   {
     q: "What happens if Pro ends?",
     a: "Nothing is deleted. You keep studying and exporting everything; you just can't add cards past the free limits.",
+  },
+  {
+    q: "Can I get a refund?",
+    a: "Yes. Email support@armincards.app within 14 days of any payment for a full refund. You can cancel anytime from Settings → Billing; Pro then lasts until the end of the period you paid for.",
+  },
+  {
+    q: "Who handles the payment?",
+    a: "Polar, our merchant of record. Polar charges your card, handles sales tax and VAT, and sends your receipts. Armin never sees your card details.",
   },
   {
     q: "Why limit AI assistant cards?",
@@ -102,14 +122,24 @@ export function PricingPage() {
                 ))}
               </ul>
               <div className="mt-6">
-                {plan.action ? (
-                  <Link to={plan.action.to} className={buttonVariants({ className: "w-full" })}>
+                {plan.action.billing ? (
+                  <Link
+                    to="/settings"
+                    search={{ tab: "billing" }}
+                    className={buttonVariants({ className: "w-full" })}
+                  >
                     {plan.action.label}
                   </Link>
                 ) : (
-                  <p className="rounded-md border border-border-strong px-3 py-2 text-center text-sm text-muted">
-                    Coming soon
-                  </p>
+                  <Link
+                    to={plan.action.to}
+                    className={buttonVariants({
+                      variant: plan.action.variant,
+                      className: "w-full",
+                    })}
+                  >
+                    {plan.action.label}
+                  </Link>
                 )}
               </div>
             </section>

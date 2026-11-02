@@ -24,6 +24,7 @@
     "@convex-dev/better-auth": "0.12.5",
     "@convex-dev/mcp": "0.1.0-alpha.7",
     "@convex-dev/resend": "0.2.9",
+    "@polar-sh/sdk": "1.0.2",
     "better-auth": "1.6.33",
     "convex": "1.47.0",
     "convex-helpers": "^0.1.106",

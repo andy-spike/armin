@@ -7,6 +7,7 @@ import {
   ArrowUpDown,
   Check,
   ChevronsUpDown,
+  Code,
   GraduationCap,
   Layers,
   Library,
@@ -66,6 +67,7 @@ import { TruncatedLabel } from "@/components/ui/truncated-label";
 import { reviewStatusQuery } from "@/lib/queries";
 import { useStudyClock } from "@/lib/study-clock";
 import { signOutToSignIn } from "@/lib/auth-client";
+import { SOURCE_CODE_URL } from "@/lib/source-code";
 import { useViewer } from "@/lib/session";
 import { TITLEBAR_THEME_OPTIONS } from "@/lib/theme";
 import { DECK_SORT_OPTIONS, sortDecks, type DeckSortKey } from "@/lib/sort-decks";
@@ -699,6 +701,13 @@ function AccountItem({ onSettings }: { onSettings: () => void }) {
           >
             <Settings strokeWidth={1.5} />
             Settings
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            // AGPL §13: users of the service can get its source.
+            onClick={() => window.open(SOURCE_CODE_URL, "_blank", "noopener,noreferrer")}
+          >
+            <Code strokeWidth={1.5} />
+            Source code
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={signOutToSignIn}>

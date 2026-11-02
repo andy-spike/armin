@@ -1,4 +1,5 @@
 import { internal } from "../_generated/api";
+import { requestBillingSync } from "./billing";
 import type { GenericMutationCtx } from "convex/server";
 import type { DataModel, Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
@@ -9,6 +10,10 @@ import type { MutationCtx } from "../_generated/server";
  * that removes the user; reads and writes check `status === "active"`.
  */
 export async function markLibraryDeleting(ctx: GenericMutationCtx<DataModel>, ownerId: string) {
+  // Stop charging a deleted account, durably: the billing job revokes its
+  // subscriptions, retries until Polar shows none, and keeps a tombstone so a
+  // checkout completed after deletion is revoked too.
+  await requestBillingSync(ctx, ownerId, { deleted: true });
   const library = await ctx.db
     .query("libraries")
     .withIndex("by_owner", (q) => q.eq("ownerId", ownerId))

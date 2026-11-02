@@ -176,8 +176,68 @@ plan limits that `model/usage.ts` (`checkCapacity`, `libraryLimits`) enforces:
 | Assistant writes / hour         | 60    | 600     |
 
 The monthly assistant allowance is per library and counts `save_cards`; staged
-Anki imports are bounded only by the library limits. There is no payment
-integration yet; set `plan` on the library row to change it.
+Anki imports are bounded only by the library limits. Pro is sold through
+Polar (see [Billing](#billing-polar)); every limit check reads only
+`libraries.plan`.
+
+### Billing (Polar)
+
+`convex/billing.ts` sells Pro through [Polar](https://polar.sh), the merchant
+of record, with `@polar-sh/sdk` 1.x (API version `2026-10`) called directly; no
+Convex component. Polar charges the card, handles tax, invoices, refunds, and
+dunning, and pays out.
+
+- **Identity.** Checkout sets Polar's `external_customer_id` to the Better Auth
+  user ID, so Polar's customer state (`customers.getStateExternal`) answers
+  whether a user has Pro in one call.
+- **Checkout.** `billing.createCheckout({ interval })` returns a hosted
+  checkout URL for the monthly or yearly product; Polar returns the buyer to
+  `/settings?tab=billing&checkout=success`. That marker isn't proof of
+  payment: the page requests a sync (`billing.refresh`) and announces Pro only
+  once the synced plan is Pro, with Retry if Polar hasn't confirmed it after
+  30 seconds. Checkout refuses when Polar already shows an active Pro
+  subscription.
+- **Sync job.** `POST /polar/events` verifies the signature (both Polar's
+  legacy and Standard Webhooks secrets) and, for `subscription.*` and
+  `customer.state_changed`, raises the user's `billing.requested`. One runner
+  per user (`billing.runSync`, holding a lease) reads Polar's customer state
+  and applies it with the request number it read for (`applied`), deriving
+  `libraries.plan` in the same transaction, and reads again while newer
+  requests arrived. The stored state therefore comes from a read that began
+  after the latest webhook, whatever the order of webhooks and retries. A
+  failed pass keeps the lease and retries with backoff (30 s doubling, at most
+  hourly); `failures` and `lastError` on the row show why. Unknown event types
+  are acknowledged and ignored.
+- **Plan rule.** Pro while the subscription is in Polar's active list (active,
+  trialing, or past due during payment retries), including after a
+  cancellation until the paid period ends. Free afterwards; nothing is deleted.
+- **Portal.** `billing.createPortalSession` opens Polar's customer portal for
+  cancelling, switching monthly/yearly, cards, and invoices.
+- **Account deletion** marks the user's `billing` row `deleted`, in the same
+  transaction as the user removal. The job revokes every active subscription
+  and retries until Polar shows none. The row is a permanent tombstone keyed by
+  the Better Auth user ID, so a checkout left open and paid after deletion is
+  revoked when its webhook arrives. That first charge is not refunded
+  automatically; refund it from Polar if the customer asks.
+- **Excluded.** Self-hosted instances (`SELF_HOSTED=true`) and the public
+  reviewer account never see billing, and a deployment without the Polar
+  variables below has billing off.
+
+Local testing uses a Polar **sandbox** organization. Polar can't reach a local
+backend, so forward events with the Polar CLI, then copy its signing secret
+into the deployment:
+
+```bash
+polar auth login --sandbox
+cd packages/backend
+pnpm exec convex env set POLAR_WEBHOOK_SECRET "$(polar webhook listen --print-secret)"
+polar webhook listen http://127.0.0.1:<convex-site-port>/polar/events
+```
+
+The Convex site port is `convexSitePort` in `.armin/dev.json`. Pay with
+Stripe's test card `4242 4242 4242 4242`. Polar rejects reserved email domains
+such as the seed account's `example.com`; checkout then asks the buyer for an
+email instead of prefilling it.
 
 `convex/model/limits.ts` holds the technical bounds every plan sits under, so
 each query and mutation fits Convex's per-function limits (32,000 documents
@@ -288,15 +348,19 @@ Set these on the Convex deployment with `npx convex env set <NAME> <value>` from
 `packages/backend` (values are never stored in the repository). For the local
 dev deployment, keep `pnpm dev` running while you set them:
 
-| Name                                       | Purpose                                                                                                                                                                               |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET`                       | Session signing secret. Generate with `openssl rand -base64 32`.                                                                                                                      |
-| `SITE_URL`                                 | Public web origin, `http://localhost:3000` in development. Used for auth callbacks and email links.                                                                                   |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth web client. Register `${SITE_URL}/api/auth/callback/google` as a redirect URI.                                                                                           |
-| `RESEND_API_KEY`                           | Resend key for verification and password-reset email.                                                                                                                                 |
-| `EMAIL_FROM`                               | Optional. Defaults to `Armin <onboarding@resend.dev>`, which Resend only delivers to the Resend account's own address.                                                                |
-| `MOBILE_TRUSTED_ORIGINS`                   | Optional comma-separated origins for the Expo app. Defaults to `armin://`. The development deployment adds `exp://,exp://**` for Expo Go; never use `exp://` wildcards in production. |
-| `OPENAI_APPS_CHALLENGE`                    | Optional. The exact domain-verification token from OpenAI's plugin portal, served at `/.well-known/openai-apps-challenge`. See [plugin publishing](../../plugins/PUBLISHING.md).      |
+| Name                                                    | Purpose                                                                                                                                                                                                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `BETTER_AUTH_SECRET`                                    | Session signing secret. Generate with `openssl rand -base64 32`.                                                                                                                                                                           |
+| `SITE_URL`                                              | Public web origin, `http://localhost:3000` in development. Used for auth callbacks and email links.                                                                                                                                        |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`              | Google OAuth web client. Register `${SITE_URL}/api/auth/callback/google` as a redirect URI.                                                                                                                                                |
+| `RESEND_API_KEY`                                        | Resend key for verification and password-reset email.                                                                                                                                                                                      |
+| `EMAIL_FROM`                                            | Optional. Defaults to `Armin <onboarding@resend.dev>`, which Resend only delivers to the Resend account's own address.                                                                                                                     |
+| `MOBILE_TRUSTED_ORIGINS`                                | Optional comma-separated origins for the Expo app. Defaults to `armin://`. The development deployment adds `exp://,exp://**` for Expo Go; never use `exp://` wildcards in production.                                                      |
+| `POLAR_ORGANIZATION_TOKEN`                              | Polar organization access token (sandbox and production tokens differ). Scopes: `checkouts:write`, `customers:read`, `customers:write`, `customer_sessions:write`, `subscriptions:read`, `subscriptions:write`. Billing is off without it. |
+| `POLAR_WEBHOOK_SECRET`                                  | Signing secret of the Polar webhook endpoint (`<site>/polar/events`), or of `polar webhook listen` locally. Billing is off without it.                                                                                                     |
+| `POLAR_SERVER`                                          | `production` or `sandbox` (default).                                                                                                                                                                                                       |
+| `POLAR_PRODUCT_PRO_MONTHLY`, `POLAR_PRODUCT_PRO_YEARLY` | Polar product IDs of the monthly and yearly Pro subscriptions. Billing is off unless both are set.                                                                                                                                         |
+| `OPENAI_APPS_CHALLENGE`                                 | Optional. The exact domain-verification token from OpenAI's plugin portal, served at `/.well-known/openai-apps-challenge`. See [plugin publishing](../../plugins/PUBLISHING.md).                                                           |
 
 Without `RESEND_API_KEY`, sign-up, password reset, and verification resends are
 disabled and say that email is unavailable; existing verified accounts can still

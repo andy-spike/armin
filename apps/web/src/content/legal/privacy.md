@@ -1,6 +1,6 @@
 # Armin Privacy Policy
 
-_Last updated: 25 October 2026_
+_Last updated: 2 November 2026_
 
 This policy explains what personal data Armin handles, why, how long we keep it,
 and what you can do about it. It covers all of Armin: the web app at
@@ -19,6 +19,7 @@ person is us. Contact: **support@armincards.app**.
   share them, or sell them. We don't use them to train AI.
 - We collect the minimum needed to run a study service: an account (an email),
   the study data you create, and the technical logs our hosting providers keep.
+  If you buy Pro, Polar handles the payment; we only keep your plan's status.
 - No analytics tools, no advertising trackers, no profiling, no cookies for
   marketing. If that ever changes, this page changes first.
 - Connecting an AI app (Claude, ChatGPT, Codex, Claude Code) is a choice you
@@ -76,10 +77,21 @@ code, timestamps) to keep the service secure and fast. We don't buy or install
 analytics on top of them, so we can't show you a dashboard of your visits —
 nobody's watching in that sense.
 
-### 5. What we never have
+### 5. Payments, if you buy Pro
 
-We never have credit-card data (Armin is free) and we don't process analytics
-or advertising data at all.
+Pro is sold through **Polar**, our merchant of record (see "Provided by
+others"). When you upgrade, we send Polar your account email and an internal
+account ID so your purchase is linked to your account. Polar collects your
+payment details, billing name, and country or address to charge you and
+handle tax. From Polar we keep only your subscription's status: the plan,
+billing interval, price, renewal or end date, and whether it's cancelled. We
+use that to apply your plan's limits and show it in Settings → Billing.
+
+### 6. What we never have
+
+We never have your card number or other payment-card data — Polar and its
+payment processor handle those — and we don't process analytics or
+advertising data at all.
 
 ## Provided by others
 
@@ -91,6 +103,11 @@ policy. Today's list:
   MCP endpoint (`*.convex.site`).
 - **Cloudflare** — serving the web app and the domain `armincards.app`.
 - **Resend** — sending our verification and password-reset email.
+- **Polar** — selling Pro as merchant of record: checkout, payment processing
+  (through Stripe), sales tax, receipts, invoices, and the subscription
+  management portal. Polar is the seller of record for your purchase, so it
+  also processes your payment data under its own privacy policy and keeps
+  transaction records as tax law requires. Only if you buy Pro.
 - **Google** — only if you use Google sign-in (see §1 above).
 
 Two points we want on the record:
@@ -115,6 +132,11 @@ We keep your data while your account exists. When you delete your account:
    in cleanup batches the system runs automatically.
 3. Hosting-provider access logs expire on their own schedule, typically within
    a few weeks.
+4. If you had Pro, any active subscription is cancelled. We keep a small
+   billing record — the internal account ID and the fact that the account was
+   deleted, without your email or study data — so that a payment still in
+   progress can't restart a subscription for a deleted account. Polar keeps
+   its own transaction records for as long as tax law requires.
 
 We keep a copy of a cancellation/notice act where a law requires it
 (e.g. a dispute, an investigation) for as long as that law says, and nothing

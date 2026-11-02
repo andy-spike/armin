@@ -278,7 +278,7 @@ importers:
         version: link:../../packages/core
       '@base-ui/react':
         specifier: ^1.5.0
-        version: 1.5.0(@types/react@19.2.16)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        version: 1.5.0(@types/react@19.2.16)(date-fns@4.4.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@convex-dev/better-auth':
         specifier: 0.12.5
         version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.33(@tanstack/react-start@1.169.3(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.12.4)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(typescript@5.9.3)(yaml@2.9.1))(esbuild@0.28.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.2.14)(rollup@4.62.0)(supports-color@8.1.1)(webpack@5.107.2(esbuild@0.28.2)(lightningcss@1.32.0)(postcss@8.5.26)))(better-sqlite3@12.10.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@types/better-sqlite3@7.6.13)(@types/sql.js@1.4.11)(better-sqlite3@12.10.1)(kysely@0.29.6)(sql.js@1.15.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.8)(vue@3.5.44(typescript@5.9.3)))(convex@1.47.0(react@19.2.7))(hono@4.13.0)(react@19.2.7)(typescript@5.9.3)
@@ -436,6 +436,9 @@ importers:
       '@convex-dev/resend':
         specifier: 0.2.9
         version: 0.2.9(convex-helpers@0.1.128(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.7))(hono@4.13.13)(react@19.2.7)(typescript@5.9.3)(zod@4.6.7))(convex@1.47.0(react@19.2.7))(react@19.2.7)
+      '@polar-sh/sdk':
+        specifier: 1.0.2
+        version: 1.0.2
       better-auth:
         specifier: 1.6.33
         version: 1.6.33(@tanstack/react-start@1.169.3(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.12.4)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(typescript@5.9.3)(yaml@2.9.1))(esbuild@0.28.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.2.14)(rollup@4.62.0)(supports-color@8.1.1)(webpack@5.107.2(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.31)))(better-sqlite3@12.10.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@types/better-sqlite3@7.6.13)(@types/sql.js@1.4.11)(better-sqlite3@12.10.1)(kysely@0.29.6)(sql.js@1.15.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.8)(vue@3.5.44(typescript@5.9.3))
@@ -2971,6 +2974,10 @@ packages:
     resolution: {integrity: sha512-TJBBNl4KIxbxrSk7gsqlz6iM1kxidfyTizEzfWqXvijF2Ou8/Da58GvjemBVmCmaUamwRij+JwsVc0kpBFuqfg==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
 
+  '@polar-sh/sdk@1.0.2':
+    resolution: {integrity: sha512-c3jdqYloVfcejKsAqYfYcW4bG7KkXj5bXkgdsdx4GHlJPzHFV5tysfeZGf9V7dJReLBirAluchsuHWiAIBco8w==}
+    engines: {node: '>=22'}
+
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
 
@@ -5051,6 +5058,9 @@ packages:
   d3-zoom@3.0.0:
     resolution: {integrity: sha512-b8AmV3kfQaqWAuacbPuNbL6vahnOJflOhexLzMMNLga62+/nh0JzvJ0aO/5a5MVgUFGS7Hu1P9P03o3fJkDCyw==}
     engines: {node: '>=12'}
+
+  date-fns@4.4.0:
+    resolution: {integrity: sha512-+1UMbeh68lH1SegH83CGWwpb6OHHbpSgr3+s5Eww5M4CAgswBpoWS0AjTOfEJ33HiYKz1hdj/KTFprzXHmq/6w==}
 
   debug@2.6.9:
     resolution: {integrity: sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==}
@@ -8519,7 +8529,7 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@base-ui/react@1.5.0(@types/react@19.2.16)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@base-ui/react@1.5.0(@types/react@19.2.16)(date-fns@4.4.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@babel/runtime': 7.29.7
       '@base-ui/utils': 0.2.9(@types/react@19.2.16)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -8530,6 +8540,7 @@ snapshots:
       use-sync-external-store: 1.6.0(react@19.2.7)
     optionalDependencies:
       '@types/react': 19.2.16
+      date-fns: 4.4.0
 
   '@base-ui/utils@0.2.9(@types/react@19.2.16)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
@@ -10967,6 +10978,8 @@ snapshots:
     optional: true
 
   '@oxlint/plugins@1.89.0': {}
+
+  '@polar-sh/sdk@1.0.2': {}
 
   '@polka/url@1.0.0-next.29': {}
 
@@ -13471,6 +13484,9 @@ snapshots:
       d3-interpolate: 3.0.1
       d3-selection: 3.0.0
       d3-transition: 3.0.1(d3-selection@3.0.0)
+
+  date-fns@4.4.0:
+    optional: true
 
   debug@2.6.9(supports-color@8.1.1):
     dependencies:

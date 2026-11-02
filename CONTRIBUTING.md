@@ -26,6 +26,16 @@ then, please open an issue to discuss an idea rather than sending a PR.
 If you've found a fix and want to help, describe it in an issue — that's the
 fastest way for it to land.
 
+## Licensing of contributions
+
+Armin is licensed under the AGPL-3.0-only (see [LICENSE](LICENSE)), and the Armin
+name and logo are covered by [TRADEMARKS.md](TRADEMARKS.md). When code pull
+requests open, each contributor will be asked to agree to a contributor license
+agreement first, granting the maintainer the right to relicense their
+contribution. That keeps the project able to ship the mobile app through app
+stores and to offer the code under other terms if needed. Until then, ideas and
+fixes described in issues are used under the project's license.
+
 ## Reporting a security issue
 
 Do **not** open a public issue for security problems. See [SECURITY.md](SECURITY.md)

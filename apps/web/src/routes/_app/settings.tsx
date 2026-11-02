@@ -25,6 +25,7 @@ import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { Row, Section } from "@/components/settings-layout";
 import { AccountSettings } from "@/components/account-settings";
 import { AgentSettings } from "@/components/agent-settings";
+import { BillingSettings, useBillingStatus } from "@/components/billing-settings";
 import { ExportSettings } from "@/components/export-settings";
 import { ImportSettings } from "@/components/import-settings";
 import { KeybindingSettings } from "@/components/keybinding-settings";
@@ -65,12 +66,14 @@ const SETTINGS_TABS = [
   "keyboard",
   "assistants",
   "account",
+  "billing",
   "data",
   "appearance",
 ] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number];
-type SettingsSearch = { tab?: SettingsTab };
+/** `checkout=success` marks the return from Polar checkout (Billing). */
+type SettingsSearch = { tab?: SettingsTab; checkout?: "success" };
 
 function isSettingsTab(value: unknown): value is SettingsTab {
   return typeof value === "string" && (SETTINGS_TABS as readonly string[]).includes(value);
@@ -109,7 +112,12 @@ function settingsEqual(a: SettingsState, b: SettingsState): boolean {
 
 function SettingsPage() {
   const navigate = useNavigate();
-  const activeTab = Route.useSearch().tab ?? "scheduling";
+  const billing = useBillingStatus();
+  const billingEnabled = billing.data?.enabled === true;
+  const requestedTab = Route.useSearch().tab ?? "scheduling";
+  // Billing is hidden on self-hosted instances and for the shared reviewer.
+  const activeTab =
+    requestedTab === "billing" && billing.data && !billingEnabled ? "account" : requestedTab;
 
   const selectTab = (value: string | number | null) => {
     if (!isSettingsTab(value) || value === activeTab) return;
@@ -134,6 +142,7 @@ function SettingsPage() {
           <TabsTab value="keyboard">Keyboard</TabsTab>
           <TabsTab value="assistants">AI assistants</TabsTab>
           <TabsTab value="account">Account</TabsTab>
+          {billingEnabled && <TabsTab value="billing">Billing</TabsTab>}
           <TabsTab value="data">Data</TabsTab>
           <TabsTab value="appearance">Appearance</TabsTab>
         </TabsList>
@@ -157,6 +166,10 @@ function SettingsPage() {
 
         <TabsPanel value="account" className="space-y-10">
           <AccountSettings />
+        </TabsPanel>
+
+        <TabsPanel value="billing" className="space-y-10">
+          <BillingSettings />
         </TabsPanel>
 
         <TabsPanel value="data" className="space-y-10">
@@ -553,6 +566,7 @@ function AppearanceTab() {
 export const Route = createFileRoute("/_app/settings")({
   validateSearch: (search: Record<string, unknown>): SettingsSearch => ({
     tab: isSettingsTab(search.tab) ? search.tab : undefined,
+    checkout: search.checkout === "success" ? "success" : undefined,
   }),
   loader: ({ context }) => prefetchSettingsPage(context.queryClient),
   head: () => ({ meta: [{ title: "Settings · Armin" }] }),
