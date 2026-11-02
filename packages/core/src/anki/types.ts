@@ -61,13 +61,15 @@ export type AnkiDeck = {
 
 /**
  * The parts of an Anki deck options preset Armin can use. Steps are in minutes,
- * as Anki stores them. Null or empty means the package doesn't say.
+ * as Anki stores them; an empty list means the preset has no steps, and null
+ * means the package doesn't say. For other fields, null or empty means the
+ * package doesn't say.
  */
 export type AnkiDeckConfig = {
   id: string;
   name: string;
-  learnSteps: number[];
-  relearnSteps: number[];
+  learnSteps: number[] | null;
+  relearnSteps: number[] | null;
   maximumInterval: number | null;
   desiredRetention: number | null;
   /** The newest FSRS parameter set the preset holds (FSRS-6, -5, or -4.5). */

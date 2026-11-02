@@ -9,7 +9,8 @@ import { sniffImageExt } from "@armin/core/media";
  *   become lossless WebP so text stays crisp. Browsers that can't make WebP
  *   (some Safari versions) get JPEG 82 for photos and PNG for graphics.
  * - Re-encoding turns photos upright and drops EXIF (camera, GPS) data.
- * - GIF (animation) and SVG are left untouched.
+ * - Animated images (GIF, animated WebP, APNG, AVIF sequences) and SVG are
+ *   left untouched: a canvas would keep only their first frame.
  * - A small file keeps its original bytes unless the new one is at least 10%
  *   smaller, except a JPEG carrying EXIF, which is replaced whenever it shrinks.
  */
@@ -126,6 +127,36 @@ function jpegHasExif(bytes: Uint8Array) {
   return false;
 }
 
+const ascii = (bytes: Uint8Array, start: number, length: number) =>
+  String.fromCharCode(...bytes.subarray(start, start + length));
+
+/** Whether a WebP, PNG, or AVIF holds more than one frame. */
+async function isAnimated(file: Blob, ext: string, head: Uint8Array) {
+  if (ext === "webp") {
+    // Extended format header with the animation flag.
+    return ascii(head, 12, 4) === "VP8X" && (head[20] & 0x02) !== 0;
+  }
+  if (ext === "avif") {
+    // Image sequences declare the "avis" brand in the leading ftyp box.
+    const size = new DataView(head.buffer, head.byteOffset).getUint32(0);
+    for (let offset = 8; offset + 4 <= Math.min(size, head.length); offset += 4)
+      if (ascii(head, offset, 4) === "avis") return true;
+    return false;
+  }
+  if (ext === "png") {
+    // APNG puts an acTL chunk before the first image data chunk.
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const view = new DataView(bytes.buffer);
+    for (let offset = 8; offset + 8 <= bytes.length;) {
+      const type = ascii(bytes, offset + 4, 4);
+      if (type === "acTL") return true;
+      if (type === "IDAT") return false;
+      offset += 12 + view.getUint32(offset);
+    }
+  }
+  return false;
+}
+
 /**
  * Return a smaller version of an image for upload, or the original when it is
  * already as small as it should be or the browser can't decode it (the server
@@ -135,7 +166,7 @@ export async function shrinkImage(file: Blob): Promise<Blob> {
   if (typeof document === "undefined" || typeof createImageBitmap === "undefined") return file;
   const bytes = new Uint8Array(await file.slice(0, 64 * 1024).arrayBuffer());
   const ext = sniffImageExt(bytes);
-  if (!ext || !SHRINKABLE.has(ext)) return file;
+  if (!ext || !SHRINKABLE.has(ext) || (await isAnimated(file, ext, bytes))) return file;
   let bitmap: ImageBitmap;
   try {
     bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });

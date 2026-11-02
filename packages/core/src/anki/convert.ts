@@ -118,8 +118,14 @@ function flagTags(cards: AnkiCard[]) {
 
 // --- Deck options ---
 
-/** Anki steps are minutes; Armin writes them as `10m`, `1h`, `1d`. */
-function formatSteps(minutes: number[]) {
+/**
+ * Anki steps are minutes; Armin writes them as `10m`, `1h`, `1d`. An explicit
+ * empty list stays empty (`""`, no steps); unknown or unusable steps return
+ * null, which keeps the library default.
+ */
+function formatSteps(minutes: number[] | null) {
+  if (minutes === null) return null;
+  if (minutes.length === 0) return "";
   const steps = minutes.filter((step) => Number.isFinite(step) && step > 0);
   if (steps.length === 0) return null;
   const amount = (value: number) => String(Math.round(value * 100) / 100);

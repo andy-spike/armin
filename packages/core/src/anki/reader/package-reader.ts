@@ -361,11 +361,15 @@ function readModernDeckConfigs(db: Database): AnkiDeckConfig[] {
     "SELECT CAST(id AS TEXT), name, config FROM deck_config",
   )) {
     const params: Record<number, number[]> = { 3: [], 5: [], 6: [] };
+    // A readable modern preset always states its steps; protobuf simply
+    // leaves an empty list out, so "no field" means "no steps" here.
+    const learnSteps: number[] = [];
+    const relearnSteps: number[] = [];
     const parsed: AnkiDeckConfig = {
       id: String(id),
       name: String(name),
-      learnSteps: [],
-      relearnSteps: [],
+      learnSteps,
+      relearnSteps,
       maximumInterval: null,
       desiredRetention: null,
       fsrsParams: [],
@@ -374,8 +378,8 @@ function readModernDeckConfigs(db: Database): AnkiDeckConfig[] {
     };
     try {
       for (const field of readProtoFields(config as Uint8Array)) {
-        if (field.number === 1) parsed.learnSteps.push(...protoFloats(field));
-        else if (field.number === 2) parsed.relearnSteps.push(...protoFloats(field));
+        if (field.number === 1) learnSteps.push(...protoFloats(field));
+        else if (field.number === 2) relearnSteps.push(...protoFloats(field));
         else if (field.number in params) params[field.number].push(...protoFloats(field));
         else if (field.number === 9) parsed.newPerDay = field.varint ?? null;
         else if (field.number === 10) parsed.reviewsPerDay = field.varint ?? null;
@@ -465,8 +469,8 @@ function readLegacyModels(db: Database) {
   ).map(([id, config]) => ({
     id,
     name: config.name ?? `Preset ${id}`,
-    learnSteps: numbers(config.new?.delays),
-    relearnSteps: numbers(config.lapse?.delays),
+    learnSteps: Array.isArray(config.new?.delays) ? numbers(config.new.delays) : null,
+    relearnSteps: Array.isArray(config.lapse?.delays) ? numbers(config.lapse.delays) : null,
     maximumInterval: numberOrNull(config.rev?.maxIvl),
     desiredRetention: numberOrNull(config.desiredRetention),
     fsrsParams:

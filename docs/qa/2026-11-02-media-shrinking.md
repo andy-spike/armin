@@ -141,3 +141,12 @@ unchanged.
   Chromium, a review clip started from its button and followed 0.3 s later by
   leaving for Decks reported `paused: true, ended: false` at 0.67 s of a
   0.80 s clip.
+- Animated images are no longer flattened to their first frame. In Chromium,
+  a 3-frame animated WebP (1,015,218 B) and APNG (3,956,362 B) uploaded
+  byte-for-byte unchanged, while a still 900×600 PNG still shrank from
+  1,251,954 B to a 499,704 B WebP. AVIF sequences are detected by their
+  `avis` brand but weren't tested.
+- An Anki preset with explicitly empty learning or relearning steps now
+  imports as no steps (`""`) instead of falling back to the library's `10m`
+  default; a preset that doesn't say still keeps the default. The unreleased
+  kit 1.1.0 checksum was regenerated.
