@@ -56,9 +56,9 @@ settings are machine/app settings; another machine must register the same action
    it up to date with `master` and wait for the required `Verify` check to pass
    before merging through GitHub. Direct pushes and local Worktrunk merges into
    `master` are not part of this workflow.
-   Retain the task branch and worktree unless cleanup is requested. Stop
-   servers with Ctrl+C before removing the worktree. Code merges through Git;
-   fixture accounts, data, and environment variables stay in the local deployment.
+   After merging into `master`, complete the cleanup steps below. Code merges
+   through Git; fixture accounts, data, and environment variables stay in the
+   local deployment.
 
 Setup is repeatable. It reuses the selected deployment and local port allocation;
 it does not reset sample data, passwords, edits, or reviews. Existing deployments
@@ -78,6 +78,20 @@ Setup preserves an existing `JWKS` value. If you intentionally rotate local
 signing keys, remove that variable and rerun setup to copy the new key set.
 
 ## Data and cleanup
+
+After every successful merge into `master`:
+
+1. Verify the merge succeeded and the source changes are present in `master`
+   (use the merged PR for squash or rebase merges).
+2. Stop the source worktree's development servers. Check for uncommitted and
+   untracked work; preserve any remaining work before removing the checkout.
+3. Change to the main checkout and run `git worktree remove <source-path>`.
+   Remove the source worktree automatically, unless the user explicitly asks to
+   retain it. Keep its branch unless branch deletion is requested. If removal
+   fails, resolve the cause without discarding uncommitted work.
+4. Verify the source path is absent and `git worktree list` no longer lists it.
+   Report the merge result and completed cleanup.
+
 
 A checkout's deployment data lives inside the checkout, in
 `packages/backend/.convex/local/default/` (SQLite database, file storage, and
