@@ -16,6 +16,8 @@ import { planLimits } from "@armin/core/plans";
 import { MAX_REVIEW_UNITS_PER_FLASHCARD } from "./model/limits";
 import { bumpRevision, findRequest, recordRequest, type TagCache } from "./model/study";
 import { checkCapacity, libraryPlan, libraryUsage } from "./model/usage";
+import { checkRanges, checkSteps, checkWeights } from "./model/settingsChecks";
+import { startOfNextStudyDayMs } from "@armin/core/study";
 
 // Per-call caps keep every mutation inside Convex's write and read limits even
 // when each card is a 60-deletion cloze.
@@ -29,6 +31,17 @@ const ABANDON_AFTER_MS = 60 * 60_000;
 /** Finished, cancelled, and failed import records are kept this long. */
 const RECORD_RETENTION_MS = 30 * 24 * 3_600_000;
 const DAY_MS = 24 * 3_600_000;
+
+/** Scheduling settings an Anki deck's options preset carries; null keeps the library default. */
+const importDeckSettings = v.object({
+  requestRetention: v.union(v.number(), v.null()),
+  maximumInterval: v.union(v.number(), v.null()),
+  learningSteps: v.union(v.string(), v.null()),
+  relearningSteps: v.union(v.string(), v.null()),
+  weights: v.union(v.string(), v.null()),
+});
+
+const MAX_FRONTIER_KEY = 2 ** 32 - 1;
 
 const counts = v.object({
   flashcards: v.number(),
@@ -126,7 +139,9 @@ export const start = mutation({
   args: {
     requestId: v.string(),
     fileName: v.string(),
-    decks: v.array(v.object({ key: v.string(), name: v.string() })),
+    decks: v.array(
+      v.object({ key: v.string(), name: v.string(), settings: v.optional(importDeckSettings) }),
+    ),
     totals: counts,
   },
   handler: async (ctx, args) => {
@@ -139,6 +154,13 @@ export const start = mutation({
     if (keys.has("") || keys.size !== args.decks.length)
       fail("INVALID", "Each deck needs a unique key.");
     const names = args.decks.map((deck) => cleanDeckName(deck.name));
+    for (const { settings } of args.decks) {
+      if (!settings) continue;
+      checkSteps(settings.learningSteps);
+      checkSteps(settings.relearningSteps);
+      checkWeights(settings.weights);
+      checkRanges(settings);
+    }
     const totals = {
       flashcards: wholeNumber(args.totals.flashcards, "Card total"),
       reviewUnits: wholeNumber(args.totals.reviewUnits, "Review unit total"),
@@ -170,6 +192,17 @@ export const start = mutation({
     const created: StartedDeck[] = [];
     for (const [index, deck] of args.decks.entries()) {
       const deckId = await insertDeck(ctx, { libraryId: library._id, name: names[index]!, now });
+      if (deck.settings)
+        await ctx.db.insert("deckSettings", {
+          libraryId: library._id,
+          deckId,
+          ...deck.settings,
+          enableFuzz: null,
+          enableShortTerm: null,
+          prereqStabilityFloor: null,
+          keepSiblingReviewUnitsTogether: null,
+          updatedAt: now,
+        });
       created.push({ key: deck.key, deckId });
     }
     const importId = await ctx.db.insert("imports", {
@@ -208,7 +241,16 @@ export const addCards = mutation({
         content: v.any(),
         tags: v.array(v.string()),
         archived: v.boolean(),
-        units: v.array(v.object({ subKey: v.string(), schedule: v.union(v.null(), fsrsSnapshot) })),
+        /** Place in the new-card order, from the Anki deck's own order; omitted keeps the default. */
+        frontierKey: v.optional(v.number()),
+        units: v.array(
+          v.object({
+            subKey: v.string(),
+            schedule: v.union(v.null(), fsrsSnapshot),
+            /** Buried in Anki: hidden until the next study day. */
+            buried: v.optional(v.boolean()),
+          }),
+        ),
       }),
     ),
   },
@@ -229,6 +271,15 @@ export const addCards = mutation({
       keys.add(card.key);
       const deckId = deckIds.get(card.deckKey);
       if (!deckId) fail("INVALID", "A card names a deck that is not part of this import.");
+      if (
+        card.frontierKey !== undefined &&
+        !(
+          Number.isInteger(card.frontierKey) &&
+          card.frontierKey >= 0 &&
+          card.frontierKey <= MAX_FRONTIER_KEY
+        )
+      )
+        fail("INVALID", "A card's new-card order must be a whole number.");
       const input = validateFlashcardInput(card.type, card.content);
       unitCount += generateReviewUnits(input.type, input.content).length;
       const subKeys = new Set<string>();
@@ -254,6 +305,7 @@ export const addCards = mutation({
 
     const added: { key: string; flashcardId: Id<"flashcards"> }[] = [];
     let addedUnits = 0;
+    const buriedUntil = startOfNextStudyDayMs(now, library.timeZone);
     const tagCache: TagCache = new Map();
     for (const { card, deckId, input } of parsed) {
       // An accepted review proves access, so reviewed cards keep it for good.
@@ -274,11 +326,15 @@ export const addCards = mutation({
         .query("reviewUnits")
         .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcardId))
         .collect();
-      const bySubKey = new Map(units.map((unit) => [unit.subKey, unit]));
-      for (const unit of card.units) {
-        const target = unit.schedule ? bySubKey.get(unit.subKey) : undefined;
-        if (target && unit.schedule)
-          await ctx.db.patch(target._id, pickFsrsFieldsMs(unit.schedule));
+      const imported = new Map(card.units.map((unit) => [unit.subKey, unit]));
+      for (const target of units) {
+        const unit = imported.get(target.subKey);
+        const patch = {
+          ...(unit?.schedule ? pickFsrsFieldsMs(unit.schedule) : {}),
+          ...(unit?.buried ? { buriedUntil } : {}),
+          ...(card.frontierKey !== undefined ? { frontierKey: card.frontierKey } : {}),
+        };
+        if (Object.keys(patch).length > 0) await ctx.db.patch(target._id, patch);
       }
       addedUnits += units.length;
       added.push({ key: card.key, flashcardId });

@@ -1,5 +1,5 @@
 import { hasOcclusionMarkers } from "./occlusion";
-import type { AnkiNote, AnkiNotetype } from "./types";
+import type { AnkiCollection, AnkiNote, AnkiNotetype } from "./types";
 
 /**
  * How an Anki notetype maps onto an Armin flashcard type. Anki lets users
@@ -150,4 +150,60 @@ export function classifyNotetype(notetype: AnkiNotetype, notes: AnkiNote[]): Not
     }
   }
   return structural;
+}
+
+/** A note type Armin can't map on its own, for the preview's field mapping. */
+export type CustomNotetypeSummary = {
+  id: string;
+  name: string;
+  fields: string[];
+  /** Notes of this type in the selected decks. */
+  noteCount: number;
+  /** One note's field values as plain text, so the user can tell the fields apart. */
+  sample: string[];
+};
+
+const plainSample = (html: string) =>
+  html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\[sound:[^\]]*\]/g, "🔊")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+
+/** Custom note types with notes in the selected decks (every deck when `deckIds` is omitted). */
+export function customNotetypes(
+  collection: AnkiCollection,
+  deckIds?: readonly string[],
+): CustomNotetypeSummary[] {
+  const wanted = deckIds ? new Set(deckIds) : null;
+  const selectedNotes = new Set(
+    collection.cards
+      .filter((card) => !wanted || wanted.has(card.deckId))
+      .map((card) => card.noteId),
+  );
+  const notesByType = new Map<string, AnkiNote[]>();
+  for (const note of collection.notes) {
+    const list = notesByType.get(note.notetypeId) ?? [];
+    list.push(note);
+    notesByType.set(note.notetypeId, list);
+  }
+  const out: CustomNotetypeSummary[] = [];
+  for (const notetype of collection.notetypes) {
+    const notes = notesByType.get(notetype.id) ?? [];
+    const selected = notes.filter((note) => selectedNotes.has(note.id));
+    if (selected.length === 0 || classifyNotetype(notetype, notes).kind !== "custom") continue;
+    const sample =
+      selected.find((note) => note.fields.filter((field) => plainSample(field)).length >= 2) ??
+      selected[0]!;
+    out.push({
+      id: notetype.id,
+      name: notetype.name,
+      fields: notetype.fields.map((field) => field.name),
+      noteCount: selected.length,
+      sample: notetype.fields.map((_, index) => plainSample(sample.fields[index] ?? "")),
+    });
+  }
+  return out.sort((a, b) => b.noteCount - a.noteCount);
 }

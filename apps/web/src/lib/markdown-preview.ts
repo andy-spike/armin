@@ -1,3 +1,5 @@
+import { AUDIO_MIME_BY_EXT } from "@armin/core/media";
+
 const NAMED_HTML_ENTITIES: Record<string, string> = {
   amp: "&",
   lt: "<",
@@ -32,14 +34,20 @@ function decodeHtmlEntities(source: string) {
   );
 }
 
+const AUDIO_MARKDOWN_RE = new RegExp(
+  `!\\[[^\\]]*\\]\\([^)]*\\.(?:${Object.keys(AUDIO_MIME_BY_EXT).join("|")})\\)`,
+  "g",
+);
+
 /** Fast plain-text excerpt for card grid previews (avoids react-markdown per tile). */
 export function stripMarkdownForPreview(source: string): string {
   const text = source
     // The serializer escapes markdown syntax with a backslash; keep the
     // literal character so underscores and asterisks in the source survive.
-    .replace(/\\([\\`*_[\]{}()#+\-.!>~])/g, "$1")
+    .replace(/\\([\\`*_[\]{}()#+\-.!>~^=])/g, "$1")
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/`([^`]+)`/g, "$1")
+    .replace(AUDIO_MARKDOWN_RE, "[Audio]")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, "[Image]")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     .replace(/^#{1,6}\s+/gm, "")
@@ -50,6 +58,9 @@ export function stripMarkdownForPreview(source: string): string {
     .replace(/\*(.+?)\*/g, "$1")
     .replace(/_(.+?)_/g, "$1")
     .replace(/~~(.+?)~~/g, "$1")
+    .replace(/==(\S(?:.*?\S)?)==/g, "$1")
+    .replace(/\^(\S+?)\^/g, "$1")
+    .replace(/~(\S+?)~/g, "$1")
     .replace(/\s+/g, " ")
     .trim();
 

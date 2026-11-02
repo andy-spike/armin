@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { isSafeMediaFileName } from "@armin/core/media-ref";
 import { convexSiteUrl, getToken, proxyAuthenticated } from "@/lib/auth-server";
-
-const MEDIA_FILE_RE = /^[a-f0-9]{64}\.(?:png|jpg|gif|webp|svg|bmp|avif)$/;
 
 /** Same-origin private image route; authorization happens in Convex. */
 export const Route = createFileRoute("/media/$")({
@@ -33,12 +32,16 @@ export const Route = createFileRoute("/media/$")({
       },
       GET: ({ params, request }) => {
         const fileName = params._splat ?? "";
-        if (!MEDIA_FILE_RE.test(fileName)) {
+        if (!isSafeMediaFileName(fileName)) {
           return new Response("Not found", { status: 404 });
         }
         const preview =
           new URL(request.url).searchParams.get("preview") === "1" ? "?preview=1" : "";
-        return proxyAuthenticated(`/media/${fileName}${preview}`, "private, max-age=600");
+        // Files are named by a hash of their bytes and never change.
+        return proxyAuthenticated(
+          `/media/${fileName}${preview}`,
+          "private, max-age=31536000, immutable",
+        );
       },
     },
   },

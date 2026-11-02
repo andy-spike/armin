@@ -2,8 +2,14 @@ import { Link } from "@tanstack/react-router";
 import { MAX_FLASHCARDS_PER_DECK, PLAN_LIMITS, PLAN_PRICES } from "@armin/core/plans";
 import { ArminMark, ArminWordmark } from "@/components/brand";
 import { buttonVariants } from "@/components/ui/button";
+import { formatStorage, picturesIn } from "@/lib/storage-size";
 
 const number = new Intl.NumberFormat("en-US");
+
+/** The shared image and audio pool, with roughly how many pictures it holds. */
+function storage(bytes: number) {
+  return `${formatStorage(bytes)} for images and audio (about ${number.format(picturesIn(bytes))} pictures)`;
+}
 
 const plans = [
   {
@@ -14,6 +20,7 @@ const plans = [
     features: [
       `${number.format(PLAN_LIMITS.free.flashcards)} cards`,
       `${PLAN_LIMITS.free.decks} decks`,
+      storage(PLAN_LIMITS.free.mediaBytes),
       `${number.format(PLAN_LIMITS.free.agentCardsPerMonth)} AI assistant cards per month`,
       "Prerequisite graph and FSRS scheduling",
       "Web and mobile",
@@ -36,7 +43,7 @@ const plans = [
       `${number.format(PLAN_LIMITS.pro.agentCardsPerMonth)} AI assistant cards per month`,
       "Room for the largest Anki collections",
       "Everything in Free",
-      "More room for images",
+      storage(PLAN_LIMITS.pro.mediaBytes),
     ],
     // Settings → Billing opens checkout; signed-out visitors sign in first
     // and return there.

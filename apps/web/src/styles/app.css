@@ -492,6 +492,66 @@
     text-decoration: line-through;
   }
 
+  /* `==highlight==`: imported Anki colors, underline, and highlights all land here. */
+  .markdown-content mark {
+    background-color: color-mix(in oklab, var(--color-hard) 24%, transparent);
+    color: inherit;
+    padding: 0 0.12em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  .markdown-content sup,
+  .markdown-content sub {
+    font-size: 0.75em;
+    line-height: 0;
+  }
+
+  /* Audio clip: a compact play button that sits in the line of text. */
+  .markdown-content .md-audio {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    margin: 0 0.15em;
+    vertical-align: middle;
+    border: 1px solid var(--color-border-strong);
+    background-color: var(--color-surface);
+    color: var(--color-accent);
+    cursor: pointer;
+    transition:
+      background-color 150ms var(--ease-out-quart, ease-out),
+      border-color 150ms var(--ease-out-quart, ease-out),
+      transform 120ms var(--ease-out-quart, ease-out);
+  }
+
+  .markdown-content .md-audio:hover {
+    border-color: var(--color-accent);
+    background-color: var(--color-accent-tint);
+  }
+
+  .markdown-content .md-audio:active {
+    transform: scale(0.94);
+  }
+
+  .markdown-content .md-audio:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .markdown-content .md-audio[data-playing] {
+    border-color: var(--color-accent);
+    background-color: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+
+  .markdown-content .md-audio-placeholder {
+    display: inline-flex;
+    vertical-align: middle;
+    color: var(--color-muted);
+  }
+
   .markdown-content a {
     color: var(--color-accent);
     text-decoration: underline;

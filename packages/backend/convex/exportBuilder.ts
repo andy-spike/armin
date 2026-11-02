@@ -3,6 +3,7 @@
 import { strToU8, zipSync, type Zippable } from "fflate";
 import { v } from "convex/values";
 import { parseStoredContent } from "@armin/core/flashcard-types";
+import { isAudioFile } from "@armin/core/media";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
@@ -27,7 +28,8 @@ This archive contains one Armin account's study library.
 - \`data/review-logs.json\` — every review, oldest first.
 - \`data/prerequisites.json\` — prerequisite edges (prerequisite → dependent).
 - \`data/settings.json\` — account time zone, study settings, deck overrides.
-- \`media/\` — images referenced by flashcards as \`armin-media:<file>\`.
+- \`media/\` — images and audio referenced by flashcards as \`armin-media:<file>\`
+  (audio is left out when the export was made without it).
 
 Timestamps are ISO 8601 UTC. No passwords, sessions, or sign-in data are
 included. Restoring an export is not supported yet.
@@ -60,7 +62,10 @@ function fsrs(row: Doc<"reviewUnits">) {
 }
 
 /**
- * Build a versioned ZIP of one library. Library rows, each deck's contents,
+ * Build the data part of a versioned library export: the manifest (with a
+ * checksum for every file, media included) and the JSON data. The web app
+ * downloads it, then adds each media file in the browser, so the finished
+ * ZIP has no server-side size ceiling. Library rows, each deck's contents,
  * and review history are read in pages. The library revision is checked
  * before and after collection and the export retries if the library changed
  * meanwhile, so the archive is internally consistent.
@@ -214,11 +219,7 @@ export const build = internalAction({
           }),
         ),
       });
-      for (const media of snapshot.media) {
-        const blob = await ctx.storage.get(media.storageId);
-        if (!blob) throw new Error(`Image ${media.fileName} is missing from storage.`);
-        files[`media/${media.fileName}`] = new Uint8Array(await blob.arrayBuffer());
-      }
+      const media = snapshot.media.filter((row) => job.includeAudio || !isAudioFile(row.fileName));
       files["README.md"] = strToU8(README);
 
       const checksums: Record<string, string> = {};
@@ -228,6 +229,10 @@ export const build = internalAction({
           .map((byte) => byte.toString(16).padStart(2, "0"))
           .join("");
       }
+      // Media files are named by the SHA-256 of their bytes. The browser
+      // downloads each one, checks it against this checksum, and adds it to
+      // the final ZIP, so the server never holds every file at once.
+      for (const row of media) checksums[`media/${row.fileName}`] = row.fileName.split(".")[0];
       const manifest = {
         format: FORMAT,
         version: FORMAT_VERSION,
@@ -240,25 +245,23 @@ export const build = internalAction({
           reviewUnits: snapshot.reviewUnits.length,
           reviewLogs: logs.length,
           prerequisites: snapshot.prereqs.length,
-          media: snapshot.media.length,
+          media: media.length,
         },
         checksums,
       };
 
-      const zippable: Zippable = { "manifest.json": json(manifest) };
-      for (const [path, bytes] of Object.entries(files)) {
-        // Images are already compressed; store them as-is.
-        zippable[path] = path.startsWith("media/") ? [bytes, { level: 0 }] : bytes;
-      }
+      // The stored ZIP holds the manifest and data; the browser adds media.
+      const zippable: Zippable = { "manifest.json": json(manifest), ...files };
       const zip = zipSync(zippable, { level: 6 });
       if (zip.byteLength > MAX_EXPORT_BYTES) {
-        throw new Error("This library is too large to export in one file during the beta.");
+        throw new Error("This library's card data is too large to export during the beta.");
       }
       const storageId = await ctx.storage.store(new Blob([zip], { type: "application/zip" }));
       await ctx.runMutation(internal.exports.markResult, {
         exportId,
         storageId,
-        size: zip.byteLength,
+        // About the size of the finished download, which also holds the media.
+        size: zip.byteLength + media.reduce((sum, row) => sum + row.size, 0),
       });
     } catch (error) {
       await ctx.runMutation(internal.exports.markResult, {

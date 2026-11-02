@@ -99,9 +99,21 @@ Client entry points (see `package.json` `exports`):
   a `now` argument that the client moves only when `review.status` says time
   alone next changes a due count (its `refreshAt`), so subscriptions re-run
   for writes and for due times, never on a fixed tick.
-- Images are validated by their bytes (type sniffing, size), counted against a
-  per-library quota, content-addressed, and only served through authenticated
-  routes. No storage URL is ever returned to a client.
+- Images and audio are validated by their bytes (type sniffing, size), counted
+  against one per-library pool shared by images and audio
+  (`model/mediaQuota.ts`; `media.usage` reports the split for the account page), content-addressed,
+  and only served through authenticated routes. No storage URL is ever returned
+  to a client. Exports include audio unless the caller passes
+  `includeAudio: false`, for a smaller file.
+- Exports are assembled in the browser. `exportBuilder.build` stores a ZIP with
+  only the manifest and JSON data; the manifest lists every media file with its
+  SHA-256 checksum, which is its file name. The web app
+  (`apps/web/src/lib/library-export.ts`) downloads that ZIP, fetches each media
+  file through the authenticated `/media/*` route, checks it, and writes the
+  finished ZIP (`zip-writer.ts`, ZIP64 past 4 GiB), streaming it to disk where
+  the browser allows. A media file deleted mid-export fails the export rather
+  than leaving the backup incomplete. No server
+  function holds a library's media, so exports have no media size limit.
 
 ## Anki import
 
@@ -110,14 +122,14 @@ Browser import: the web client parses an Anki file, converts it with
 to `convex/imports.ts` in batches. Every function uses the first-party session and
 checks `libraryId`; imported cards have no prerequisites and are never locked.
 
-| Function                         | Does                                                                                                                                             |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `imports.start`                  | Rejects imports over the plan limits (`QUOTA`, with counts in the message), then creates one deck per Anki deck. One running import per library. |
-| `imports.addCards`               | Up to 100 cards and 1,500 review units per call, all-or-nothing. A unit's `schedule` replaces its new-card state; unknown `subKey`s are ignored. |
-| `imports.addReviewLogs`          | Up to 1,000 past reviews per call, for cards this import created. History only: it never changes a unit's schedule.                              |
-| `imports.finish`                 | Needs every declared card and review to have arrived, then closes the import.                                                                    |
-| `imports.cancel`                 | Stops the import, then deletes every deck it made in scheduled jobs, one deck per transaction. Clients call it on any failure.                   |
-| `imports.get`, `imports.current` | Status of one import, or of the library's running import (to resume or cancel after a reload).                                                   |
+| Function                         | Does                                                                                                                                                                                                                                                |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `imports.start`                  | Rejects imports over the plan limits (`QUOTA`, with counts in the message), then creates one deck per Anki deck, with any deck settings from its Anki preset. One running import per library.                                                       |
+| `imports.addCards`               | Up to 100 cards and 1,500 review units per call, all-or-nothing. A unit's `schedule` replaces its new-card state and `buried` hides it until the next study day; a card's `frontierKey` keeps Anki's new-card order. Unknown `subKey`s are ignored. |
+| `imports.addReviewLogs`          | Up to 1,000 past reviews per call, for cards this import created. History only: it never changes a unit's schedule.                                                                                                                                 |
+| `imports.finish`                 | Needs every declared card and review to have arrived, then closes the import.                                                                                                                                                                       |
+| `imports.cancel`                 | Stops the import, then deletes every deck it made in scheduled jobs, one deck per transaction. Clients call it on any failure.                                                                                                                      |
+| `imports.get`, `imports.current` | Status of one import, or of the library's running import (to resume or cancel after a reload).                                                                                                                                                      |
 
 Agent import: `convex/agentImports.ts` runs the staged MCP route. The assistant
 downloads and runs the versioned converter kit itself; the backend never receives
@@ -156,14 +168,14 @@ Rules:
 Each library has a `plan` (absent means free). `@armin/core/plans` holds the
 plan limits that `model/usage.ts` (`checkCapacity`, `libraryLimits`) enforces:
 
-| Limit                           | Free   | Pro     |
-| ------------------------------- | ------ | ------- |
-| Flashcards                      | 1,000  | 100,000 |
-| Review units                    | 5,000  | 250,000 |
-| Decks                           | 50     | 1,000   |
-| Images                          | 50 MiB | 80 MiB  |
-| Assistant-created cards / month | 300    | 10,000  |
-| Assistant writes / hour         | 60     | 600     |
+| Limit                           | Free  | Pro     |
+| ------------------------------- | ----- | ------- |
+| Flashcards                      | 1,000 | 100,000 |
+| Review units                    | 5,000 | 250,000 |
+| Decks                           | 50    | 1,000   |
+| Images and audio (shared pool)  | 1 GiB | 5 GiB   |
+| Assistant-created cards / month | 300   | 10,000  |
+| Assistant writes / hour         | 60    | 600     |
 
 The monthly assistant allowance is per library and counts `save_cards`; staged
 Anki imports are bounded only by the library limits. Pro is sold through
@@ -239,8 +251,8 @@ lock refresh, cram) reads a whole deck, so every deck holds at most 10,000
 flashcards and 15,000 review units on any plan; the deck-size triggers enforce
 this for every create, import, and move. A change to the library-wide
 prerequisite floor refreshes locks one deck per scheduled transaction. Other
-bounds: 2,000 prerequisite links per deck, 10 MiB per image, and one export ZIP
-of at most 95 MiB. Review
+bounds: 2,000 prerequisite links per deck, 10 MiB per uploaded file, and 95 MiB
+of card data in the server-built part of an export. Review
 history is unbounded and is read in pages or deleted in batches. Deletion
 consequences use review-unit lifetime counts and indexed boundary logs. Moving
 a card keeps its history without rewriting it; exports resolve each log to its
@@ -442,14 +454,26 @@ calling the migration complete. Both backfills can be rerun after interruption;
 log generation markers prevent double counting. New libraries and timezone
 changes schedule their own activity rebuild.
 
-Private images optionally get a WebP preview bounded to 1280×1280, plus intrinsic
-dimensions. Zoom and exports always retain originals. Preview processing runs in
-a Node action using the pinned Sharp package, externalized in `convex.json`.
-Animated images keep their original display behavior. Images above the decoder's
-16-million-pixel bound or unsupported/corrupt inputs fall back to the original.
-Previews are retained only when smaller than the original and within the media
-quota; their bytes count toward that quota and their blobs follow the original's
-cleanup lifecycle. Both original and preview routes require the session.
+The web app shrinks images in the browser before upload
+(`apps/web/src/lib/shrink-image.ts`): the longest side is at most 1600 px,
+photos become WebP at quality 80, screenshots and diagrams lossless WebP, EXIF
+data is dropped, and GIF and SVG pass through unchanged. Audio becomes mono Opus
+at 32 kbps in an Ogg file with silence trimmed from both ends
+(`shrink-audio.ts`, using WebCodecs; browsers without an Opus `AudioEncoder`
+upload the original). Files already at or below the target quality, or that
+would shrink by less than 10%, upload unchanged. The library stores that one
+copy, and the quota counts only it. The web app accepts files up to 25 MB before
+shrinking; the server's 10 MiB per-file limit applies to what arrives.
+Uploads that don't come through the browser, such as assistant imports, are
+stored as sent.
+
+The server records each image's intrinsic dimensions in a Node action using the
+pinned Sharp package, externalized in `convex.json`. Images above the decoder's
+16-million-pixel bound or unsupported/corrupt inputs get no dimensions. New
+images get no server preview. Images uploaded before this change keep any WebP
+preview they already have, with its bytes still counted. Media files are named
+by their content hash, so the media routes let the browser cache them privately
+for a year. Every media route requires the session.
 
 Local launchers place temporary files under `.convex/tmp`, on the same
 filesystem as local storage, so installing external Node packages does not fail

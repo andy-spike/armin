@@ -10,7 +10,9 @@ import { replaceAll, insert } from "@milkdown/kit/utils";
 import { paragraphSchema } from "@milkdown/kit/preset/commonmark";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
-import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT } from "@armin/core/media";
+import { AUDIO_MIME_BY_EXT, IMAGE_MIME_BY_EXT } from "@armin/core/media";
+import { MAX_DEVICE_MEDIA_BYTES } from "@/lib/shrink-media";
+import { hasInlineMarks } from "@/lib/markdown-marks";
 import { hasMath, splitMath } from "@armin/core/math";
 import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
 import { cn } from "@/lib/utils";
@@ -48,10 +50,27 @@ import "@milkdown/crepe/theme/frame.css";
 // authenticated route, and SVG can carry script. The server sniffs uploaded
 // bytes and rejects it too; keeping the picker honest avoids a pointless round
 // trip. Derive the rest from the shared media rules so the two stay in sync.
-const UPLOAD_MIME_TYPES = Object.values(MIME_BY_EXT).filter((mime) => mime !== MIME_BY_EXT.svg);
+const UPLOAD_MIME_TYPES = Object.values(IMAGE_MIME_BY_EXT).filter(
+  (mime) => mime !== IMAGE_MIME_BY_EXT.svg,
+);
 const UPLOAD_ACCEPT = UPLOAD_MIME_TYPES.join(",");
-const MAX_UPLOAD_MB = Math.round(MAX_MEDIA_FILE_BYTES / (1024 * 1024));
+// Browsers report some audio types under other names (audio/mp3, audio/x-wav, audio/x-m4a).
+const AUDIO_ACCEPT = [
+  ...Object.values(AUDIO_MIME_BY_EXT),
+  ".mp3",
+  ".ogg",
+  ".oga",
+  ".opus",
+  ".m4a",
+  ".wav",
+  ".flac",
+  ".aac",
+].join(",");
 const UNSUPPORTED_IMAGE_MESSAGE = "Use a PNG, JPG, GIF, WebP, BMP, or AVIF image.";
+const UNSUPPORTED_AUDIO_MESSAGE = "Use an MP3, OGG, M4A, WAV, FLAC, or AAC audio file.";
+const AUDIO_REF_RE = new RegExp(
+  `!\\[[^\\]]*\\]\\((?:armin-media:|/media/)[a-f0-9]{64}\\.(?:${Object.keys(AUDIO_MIME_BY_EXT).join("|")})\\)`,
+);
 const NETWORK_ERROR_MESSAGE = "Couldn't reach the server. Check your connection and try again.";
 
 /** Turn an upload failure into the most specific message we can. */
@@ -80,6 +99,8 @@ function needsSourceMode(value: string) {
   )
     return true;
   if (/\$\d/.test(prose)) return true;
+  // Rich text can't show audio, superscript, subscript, or highlights; keep them as written.
+  if (AUDIO_REF_RE.test(value) || hasInlineMarks(value)) return true;
   let offset = 0;
   return splitMath(value).some((part) => {
     const start = offset;
@@ -138,6 +159,7 @@ export function MarkdownEditor({
   const hostRef = useRef<HTMLDivElement>(null);
   const sourceRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const audioFileRef = useRef<HTMLInputElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
   const latest = useRef({ value, onChange });
   const emitted = useRef<string | null>(null);
@@ -173,21 +195,31 @@ export function MarkdownEditor({
     latest.current = { value, onChange };
   });
 
-  const upload = async (file: File) => {
+  const upload = async (file: File, kind: "image" | "audio" = "image") => {
     onUploadChange?.(1);
     setUploading((count) => count + 1);
+    const noun = kind === "image" ? "image" : "audio file";
     try {
-      if (!UPLOAD_MIME_TYPES.includes(file.type)) throw new Error(UNSUPPORTED_IMAGE_MESSAGE);
-      if (file.size > MAX_MEDIA_FILE_BYTES)
+      // The server checks the bytes; the picker only filters by what the browser reports.
+      if (kind === "image" && !UPLOAD_MIME_TYPES.includes(file.type))
+        throw new Error(UNSUPPORTED_IMAGE_MESSAGE);
+      if (kind === "audio" && file.type && !file.type.startsWith("audio/"))
+        throw new Error(UNSUPPORTED_AUDIO_MESSAGE);
+      // Files are shrunk on the device before upload, so they may start larger.
+      if (file.size > MAX_DEVICE_MEDIA_BYTES)
         throw new Error(
-          `That image is ${megabytes(file.size)} MB. Images must be ${MAX_UPLOAD_MB} MB or smaller.`,
+          `That ${noun} is ${megabytes(file.size)} MB. Files must be ${megabytes(MAX_DEVICE_MEDIA_BYTES)} MB or smaller.`,
         );
-      const stored = await armin.media.importImage({ file, fileName: file.name });
+      const stored = await armin.media.upload({ file, fileName: file.name });
       if (!alive.current)
         throw new Error("The card editor was closed before the upload completed.");
       return mediaDisplayUrl(stored.ref);
     } catch (error) {
-      toast({ tone: "error", title: "Image not added", description: uploadErrorMessage(error) });
+      toast({
+        tone: "error",
+        title: kind === "image" ? "Image not added" : "Audio not added",
+        description: uploadErrorMessage(error),
+      });
       throw error;
     } finally {
       onUploadChange?.(-1);
@@ -410,6 +442,32 @@ export function MarkdownEditor({
     }
   };
 
+  /** Audio goes in as source; the editor switches to source so the clip stays as written. */
+  const insertAudio = async (files: File[]) => {
+    for (const file of files) {
+      try {
+        const src = await uploadRef.current(file, "audio");
+        const markdown = persistMediaRefsInMarkdown(`![audio](${src})`);
+        if (!alive.current) return;
+        const current = latest.current.value;
+        let next: string;
+        if (sourceMode.current) {
+          const start = sourceRef.current?.selectionStart ?? current.length;
+          const end = sourceRef.current?.selectionEnd ?? start;
+          next = current.slice(0, start) + markdown + current.slice(end);
+        } else {
+          next = current.trim() ? `${current.trimEnd()}\n\n${markdown}` : markdown;
+          holdHeight();
+          setSource(true);
+        }
+        latest.current.value = next;
+        latest.current.onChange(next);
+      } catch {
+        /* Upload already reports a specific error. */
+      }
+    }
+  };
+
   return (
     <div
       className={cn(
@@ -429,6 +487,7 @@ export function MarkdownEditor({
         uploading={uploading > 0}
         onCommand={(command) => crepeRef.current?.editor.action(command)}
         onAddImage={() => fileRef.current?.click()}
+        onAddAudio={() => audioFileRef.current?.click()}
         onEditSource={() => {
           holdHeight();
           setSource(true);
@@ -475,10 +534,10 @@ export function MarkdownEditor({
       </div>
       {uploading > 0 && (
         <p role="status" className="px-3 py-1 text-xs text-muted">
-          Uploading image…
+          Uploading…
         </p>
       )}
-      {source && hasMath(value) && (
+      {source && (hasMath(value) || hasInlineMarks(value) || AUDIO_REF_RE.test(value)) && (
         <div className="border-t border-border px-3 py-2">
           <MarkdownContent content={value} />
         </div>
@@ -491,6 +550,17 @@ export function MarkdownEditor({
         className="hidden"
         onChange={(event) => {
           void insertImages(Array.from(event.target.files ?? []));
+          event.target.value = "";
+        }}
+      />
+      <input
+        ref={audioFileRef}
+        type="file"
+        accept={AUDIO_ACCEPT}
+        multiple
+        className="hidden"
+        onChange={(event) => {
+          void insertAudio(Array.from(event.target.files ?? []));
           event.target.value = "";
         }}
       />

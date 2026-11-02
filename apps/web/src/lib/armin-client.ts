@@ -14,7 +14,9 @@ import type {
   UpdateResult,
 } from "@armin/backend/types";
 import type { FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
+import { MAX_MEDIA_FILE_BYTES } from "@armin/core/media";
 import type { Grade } from "@/types/view-models";
+import { shrinkMedia } from "@/lib/shrink-media";
 
 /**
  * Imperative calls to the Convex backend: writes, plus a few reads a page
@@ -287,16 +289,25 @@ export const armin = {
     setTimeZone: (timeZone: string) => q().mutation(api.account.setTimeZone, { timeZone }),
   },
   media: {
-    /** Upload an image to private library storage and return its reference. */
-    importImage: async (input: {
+    /**
+     * Upload an image or audio file to private library storage and return its
+     * reference. Images and audio are shrunk on the device first (`shrinkMedia`).
+     */
+    upload: async (input: {
       file: Blob;
       fileName?: string;
       signal?: AbortSignal;
     }): Promise<ImportedMedia> => {
+      const file = await shrinkMedia(input.file);
+      if (file.size > MAX_MEDIA_FILE_BYTES)
+        throw new MediaUploadError(
+          `Files must be ${Math.round(MAX_MEDIA_FILE_BYTES / (1024 * 1024))} MB or smaller after Armin shrinks them.`,
+          413,
+        );
       const response = await fetch("/media/upload", {
         method: "POST",
-        headers: { "Content-Type": input.file.type || "application/octet-stream" },
-        body: input.file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
         signal: input.signal,
       });
       if (!response.ok) throw new MediaUploadError(await response.text(), response.status);
@@ -304,7 +315,7 @@ export const armin = {
     },
   },
   exports: {
-    start: () => q().mutation(api.exports.start, {}),
+    start: (input: { includeAudio: boolean }) => q().mutation(api.exports.start, input),
   },
   billing: {
     createCheckout: (interval: "month" | "year") =>

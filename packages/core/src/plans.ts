@@ -11,7 +11,8 @@ export const PLAN_LIMITS = {
     decks: 50,
     flashcards: 1000,
     reviewUnits: 5000,
-    mediaBytes: 50 * 1024 * 1024,
+    /** One storage pool shared by images and audio. */
+    mediaBytes: 1024 * 1024 * 1024,
     agentCardsPerMonth: 300,
     agentWritesPerHour: 60,
   },
@@ -19,7 +20,7 @@ export const PLAN_LIMITS = {
     decks: 1000,
     flashcards: 100_000,
     reviewUnits: 250_000,
-    mediaBytes: 80 * 1024 * 1024,
+    mediaBytes: 5 * 1024 * 1024 * 1024,
     agentCardsPerMonth: 10_000,
     agentWritesPerHour: 600,
   },
@@ -30,6 +31,13 @@ export const PLAN_PRICES = {
 };
 
 export const MAX_FLASHCARDS_PER_DECK = 10_000;
+
+/**
+ * The upload response when a file doesn't fit the library's image and audio
+ * pool. Clients match it exactly to tell a full pool from a single file that
+ * is too large (both are HTTP 413).
+ */
+export const MEDIA_STORAGE_FULL_MESSAGE = "Your storage for images and audio is full.";
 
 export function planLimits(plan: PlanId | undefined) {
   return PLAN_LIMITS[plan ?? "free"];

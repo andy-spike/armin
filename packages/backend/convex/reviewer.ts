@@ -56,7 +56,8 @@ export const finishReset = internalMutation({
       .query("libraryCounters")
       .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
       .unique();
-    if (counters) await ctx.db.patch(counters._id, { mediaBytes: 0, reviewUnits: 0 });
+    if (counters)
+      await ctx.db.patch(counters._id, { mediaBytes: 0, audioBytes: 0, reviewUnits: 0 });
     await bumpRevision(ctx, libraryId);
     await ctx.db.insert("settings", {
       libraryId,

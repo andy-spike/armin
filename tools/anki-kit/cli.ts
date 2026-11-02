@@ -22,12 +22,14 @@ import {
   type FlashcardContent,
   type FlashcardType,
 } from "../../packages/core/src/flashcard-types";
-import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT, sniffImageExt } from "../../packages/core/src/media";
+import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT, sniffMediaExt } from "../../packages/core/src/media";
 import {
   openAnkiPackage,
   parseAnkiText,
   type OpenedAnkiPackage,
 } from "../../packages/core/src/anki/reader";
+
+const AUDIO_NAME = /\.(?:mp3|ogg|oga|opus|m4a|wav|flac|aac)$/i;
 import kitVersion from "../../packages/core/src/anki/kit-version.json";
 
 type ByteSource = {
@@ -54,7 +56,7 @@ Output:
   plan.json       Normalized cards, provenance, warnings, and unresolved notes.
   manifest.json   Source checksum, counts, and output checksums.
   preview.html    Offline preview. Images are relative to media/.
-  media/          Supported images, named by content hash.
+  media/          Supported images and audio, named by content hash.
 
 MCP imports always start fresh: no due dates or review history are included.
 The kit needs Node.js 20, 22, or 24 and no package install. It was tested with
@@ -140,6 +142,7 @@ function previewHtml(plan: PlanFile) {
     )
     .join("\n");
   const media = plan.media
+    .filter((item) => item.mime.startsWith("image/"))
     .map(
       (item) =>
         `<figure><img src="${escapeHtml(item.file)}" alt="" loading="lazy"><figcaption>${escapeHtml(item.name)}<br><code>${item.sha256}</code></figcaption></figure>`,
@@ -161,7 +164,7 @@ ul{padding-left:1.2rem}code{font-family:ui-monospace,monospace;font-size:.78rem;
 </style></head><body>
 <h1>Armin import preview</h1>
 <p>${escapeHtml(plan.source.fileName)} · ${escapeHtml(plan.source.format)} · SHA-256 <code>${plan.source.sha256}</code></p>
-<p>${plan.totals.flashcards} cards in ${plan.decks.length} decks · ${plan.totals.reviewUnits} review items · ${plan.media.length} images</p>
+<p>${plan.totals.flashcards} cards in ${plan.decks.length} decks · ${plan.totals.reviewUnits} review items · ${plan.media.length} images and audio files</p>
 ${warnings ? `<h2>Changes on the way in</h2><ul>${warnings}</ul>` : ""}
 ${unresolved ? `<h2>Unresolved notes (repair or explicitly skip)</h2><ul>${unresolved}</ul>` : ""}
 <h2>Cards</h2>
@@ -254,7 +257,7 @@ async function main() {
       missing.add(name);
       continue;
     }
-    const ext = sniffImageExt(media);
+    const ext = sniffMediaExt(media);
     if (!ext) {
       missing.add(name);
       continue;
@@ -284,7 +287,8 @@ async function main() {
       if (media) refs.set(name, media.ref);
     }
     try {
-      if (card.media.some((name) => missing.has(name)))
+      // Missing audio is dropped like in the browser; a missing image leaves the card unresolved.
+      if (card.media.some((name) => missing.has(name) && !AUDIO_NAME.test(name)))
         throw new Error("An image could not be preserved.");
       const content = resolveImportMedia(card.content, card.type, refs);
       validateContent(card.type, content);
@@ -451,7 +455,7 @@ async function main() {
   };
   await writeFile(join(out, "manifest.json"), json(manifest));
   console.log(
-    `Wrote ${cards.length} cards, ${media.length} images, and ${unresolved.length} unresolved notes to ${out}`,
+    `Wrote ${cards.length} cards, ${media.length} media files, and ${unresolved.length} unresolved notes to ${out}`,
   );
 }
 

@@ -182,7 +182,7 @@ function SettingsPage() {
 
           <Section
             title="Export"
-            description="Download your library as a ZIP: decks, flashcards, prerequisites, schedules, review history, settings, and images."
+            description="Download your library as a ZIP: decks, flashcards, prerequisites, schedules, review history, settings, images, and audio."
           >
             <ExportSettings />
           </Section>
@@ -501,33 +501,65 @@ function SchedulingTab() {
   );
 }
 
-function AppearanceTab() {
-  const { preference: themePreference, setPreference: setThemePreference } = useTheme();
+/** Review behavior saved to the account, so it follows you across devices. */
+function AudioSection() {
+  const toast = useToast();
+  const query = useQuery(settingsQueryOptions());
+  const save = useMutation({
+    mutationFn: (autoplayAudio: boolean) => armin.settings.update({ autoplayAudio }),
+    onError: () => toast({ tone: "error", title: "Couldn’t save settings" }),
+  });
+  const autoplay = save.isPending ? save.variables : (query.data?.autoplayAudio ?? true);
   return (
-    <Section title="Appearance" description="How Armin looks on this device.">
-      <Row label="Theme" hint="Flexoki light, Flexoki dark, or match your system setting." last>
+    <Section title="Audio" description="How cards with audio behave during review.">
+      <Row
+        label="Play audio automatically"
+        hint="Play a side's audio as soon as it appears. Replay it any time with the replay shortcut."
+        last
+      >
         {(labelId) => (
-          <Select
-            value={themePreference}
-            items={THEME_OPTIONS}
-            onValueChange={(value) => setThemePreference(value as ThemePreference)}
-          >
-            <SelectTrigger className="w-44" aria-labelledby={labelId}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false}>
-              <SelectGroup>
-                {THEME_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+          <Switch
+            checked={autoplay}
+            disabled={!query.data}
+            onCheckedChange={(value) => save.mutate(value)}
+            aria-labelledby={labelId}
+          />
         )}
       </Row>
     </Section>
+  );
+}
+
+function AppearanceTab() {
+  const { preference: themePreference, setPreference: setThemePreference } = useTheme();
+  return (
+    <>
+      <AudioSection />
+      <Section title="Appearance" description="How Armin looks on this device.">
+        <Row label="Theme" hint="Flexoki light, Flexoki dark, or match your system setting." last>
+          {(labelId) => (
+            <Select
+              value={themePreference}
+              items={THEME_OPTIONS}
+              onValueChange={(value) => setThemePreference(value as ThemePreference)}
+            >
+              <SelectTrigger className="w-44" aria-labelledby={labelId}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent alignItemWithTrigger={false}>
+                <SelectGroup>
+                  {THEME_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          )}
+        </Row>
+      </Section>
+    </>
   );
 }
 

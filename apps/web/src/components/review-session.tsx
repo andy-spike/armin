@@ -66,6 +66,8 @@ import type {
 import { useReviewSession } from "@/lib/use-review-session";
 import { DeleteConsequencesList } from "@/components/delete-consequences-list";
 import { cn } from "@/lib/utils";
+import { replayCardAudio } from "@/lib/card-audio";
+import { settingsQuery } from "@/lib/queries";
 
 /*
  * Rating colours. Every label, interval, and shortcut chip inside these
@@ -186,6 +188,8 @@ export function ReviewCardPrompt({
   const clozeContent = card.type === "cloze" ? (card.content as ClozeContent) : null;
   const clozeExtra = clozeContent?.extra;
   const isCorrect = typeAnswerContent ? matchesTypeAnswer(typed, typeAnswerContent) : false;
+  const autoplay = useQuery(settingsQuery()).data?.autoplayAudio ?? true;
+  const audio = autoplay ? "autoplay" : "manual";
 
   if (imageOcclusionContent) {
     return (
@@ -201,6 +205,7 @@ export function ReviewCardPrompt({
     <>
       <MarkdownContent
         imageLoading="eager"
+        audio={audio}
         content={card.front}
         className="max-w-[52ch] text-pretty text-xl font-medium leading-snug text-balance"
       />
@@ -241,6 +246,7 @@ export function ReviewCardPrompt({
           )}
           <MarkdownContent
             imageLoading="eager"
+            audio={audio}
             content={
               clozeContent && clozeExtra ? renderClozeText(clozeContent.text, null) : card.back
             }
@@ -249,6 +255,7 @@ export function ReviewCardPrompt({
           {clozeExtra && (
             <MarkdownContent
               imageLoading="eager"
+              audio="manual"
               content={clozeExtra}
               className="mt-4 max-w-[52ch] text-pretty text-sm leading-relaxed text-muted"
             />
@@ -600,6 +607,9 @@ export function ReviewSession({
       },
       "review.undo": () => {
         void undoLast();
+      },
+      "review.replayAudio": () => {
+        replayCardAudio();
       },
     },
     { enabled: reviewActive || done },

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { useToast } from "@/components/ui/toast";
 import { Row, Section } from "@/components/settings-layout";
+import { StorageUsage } from "@/components/storage-usage";
 import { GoogleIcon } from "@/components/auth/auth-layout";
 import { armin, errorMessage } from "@/lib/armin-client";
 import { authClient, signOutToSignIn } from "@/lib/auth-client";
@@ -169,6 +170,7 @@ export function AccountSettings() {
         </Row>
       </Section>
 
+      <StorageUsage />
       <Section title="Sessions" description="Signing out ends access on that device immediately.">
         <Row label="This device">
           <Button variant="outline" size="sm" onClick={signOutToSignIn}>

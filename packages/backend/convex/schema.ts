@@ -233,7 +233,10 @@ export default defineSchema({
     libraryId: v.id("libraries"),
     /** Bumped by every study-data write; export uses it as a snapshot check. */
     revision: v.number(),
+    /** Image bytes, counted against the plan's image quota. */
     mediaBytes: v.number(),
+    /** Audio bytes, counted against the plan's separate audio quota. */
+    audioBytes: v.optional(v.number()),
     /** Review units in the library; bounds every per-library read. */
     reviewUnits: v.optional(v.number()),
   }).index("by_library", ["libraryId"]),
@@ -244,6 +247,8 @@ export default defineSchema({
     schedulingPreset: v.string(),
     /** JSON object of keybinding overrides; null = defaults. */
     keybindings: v.union(v.string(), v.null()),
+    /** Play a card side's audio when it appears. Absent means on. */
+    autoplayAudio: v.optional(v.boolean()),
     updatedAt: v.number(),
   }).index("by_library", ["libraryId"]),
 
@@ -319,6 +324,11 @@ export default defineSchema({
      * stay valid, and absent means never buried.
      */
     buriedUntil: v.optional(v.number()),
+    /**
+     * Fixed place in the new-card order when it was chosen, such as an Anki
+     * deck's own order on import. Absent means the hash of the flashcard id.
+     */
+    frontierKey: v.optional(v.number()),
     /** Incremented on every schedule or display change; reviews name the version shown. */
     version: v.number(),
     createdAt: v.number(),
@@ -717,6 +727,8 @@ export default defineSchema({
     fileName: v.string(),
     size: v.optional(v.number()),
     error: v.optional(v.string()),
+    /** False leaves audio files out, so a library with a lot of audio still fits one ZIP. */
+    includeAudio: v.optional(v.boolean()),
     createdAt: v.number(),
     expiresAt: v.number(),
   })

@@ -1,13 +1,18 @@
 import { v } from "convex/values";
-import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT, sniffImageExt } from "@armin/core/media";
+import {
+  MAX_MEDIA_FILE_BYTES,
+  MIME_BY_EXT,
+  sniffMediaExt,
+  UNSUPPORTED_MEDIA_MESSAGE,
+} from "@armin/core/media";
 import { mediaRefFromFileName } from "@armin/core/media-ref";
-import { planLimits } from "@armin/core/plans";
+import { MEDIA_STORAGE_FULL_MESSAGE } from "@armin/core/plans";
 import { internal } from "./_generated/api";
 import { internalQuery, query } from "./_generated/server";
 import { internalMutation } from "./functions";
 import type { ActionCtx } from "./_generated/server";
-import { getViewer } from "./model/access";
-import { libraryLimits, libraryPlan } from "./model/usage";
+import { getViewer, readableLibrary } from "./model/access";
+import { mediaUsage, releaseMediaBytes, reserveMediaBytes } from "./model/mediaQuota";
 
 export const uploaderLibrary = internalQuery({
   args: {},
@@ -41,17 +46,20 @@ async function drainBody(body: ReadableStream<Uint8Array> | null) {
   }
 }
 
-/** Authenticated raw bytes, stored by this action. Clients cannot name a blob. */
-export async function uploadImage(ctx: ActionCtx, request: Request) {
+/**
+ * Authenticated raw image or audio bytes, stored by this action. Clients
+ * cannot name a blob; the type comes from the bytes, never the request.
+ */
+export async function uploadMedia(ctx: ActionCtx, request: Request) {
   const upload = await ctx.runQuery(internal.media.uploaderLibrary, {});
   if (!upload) return new Response("Sign in with a verified account.", { status: 401 });
   const declared = Number(request.headers.get("content-length"));
   if (declared > MAX_MEDIA_FILE_BYTES) {
     await drainBody(request.body);
-    return new Response("Image too large.", { status: 413 });
+    return new Response("File too large.", { status: 413 });
   }
   const reader = request.body?.getReader();
-  if (!reader) return new Response("Image is empty.", { status: 400 });
+  if (!reader) return new Response("File is empty.", { status: 400 });
   const chunks: Uint8Array[] = [];
   let size = 0;
   let tooLarge = false;
@@ -67,15 +75,15 @@ export async function uploadImage(ctx: ActionCtx, request: Request) {
     }
     chunks.push(value);
   }
-  if (tooLarge) return new Response("Image too large.", { status: 413 });
+  if (tooLarge) return new Response("File too large.", { status: 413 });
   const bytes = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) {
     bytes.set(chunk, offset);
     offset += chunk.length;
   }
-  const ext = sniffImageExt(bytes);
-  if (!ext) return new Response("Use a PNG, JPG, GIF, WebP, BMP, or AVIF image.", { status: 400 });
+  const ext = sniffMediaExt(bytes);
+  if (!ext) return new Response(UNSUPPORTED_MEDIA_MESSAGE, { status: 400 });
   const sha = hex(await crypto.subtle.digest("SHA-256", bytes));
   const fileName = `${sha}.${ext}`;
   const mime = MIME_BY_EXT[ext];
@@ -92,8 +100,7 @@ export async function uploadImage(ctx: ActionCtx, request: Request) {
       }),
     );
     if (result.status !== "stored") await ctx.storage.delete(storageId);
-    if (result.status === "quota")
-      return new Response("Your image storage is full.", { status: 413 });
+    if (result.status === "quota") return new Response(MEDIA_STORAGE_FULL_MESSAGE, { status: 413 });
     if (result.status === "claimed") return new Response("Upload failed.", { status: 409 });
     return Response.json({ ref: mediaRefFromFileName(fileName), fileName, mime, bytes: size });
   } catch (error) {
@@ -144,28 +151,11 @@ export const recordUpload = internalMutation({
       )
       .unique();
     if (existing) return { status: "duplicate" as const };
-    const counters = await ctx.db
-      .query("libraryCounters")
-      .withIndex("by_library", (q) => q.eq("libraryId", args.libraryId))
-      .unique();
-    const used = counters?.mediaBytes ?? 0;
-    const { mediaBytes: maxBytes } = await libraryLimits(ctx, args.libraryId);
-    if (used + args.size > maxBytes) return { status: "quota" as const };
+    if (!(await reserveMediaBytes(ctx, args.libraryId, args.fileName, args.size)))
+      return { status: "quota" as const };
     const { reviewerResetAt: _resetAt, ...media } = args;
     await ctx.db.insert("media", { ...media, createdAt: Date.now() });
-    if (counters) {
-      await ctx.db.patch(counters._id, {
-        mediaBytes: used + args.size,
-        revision: counters.revision + 1,
-      });
-    } else {
-      await ctx.db.insert("libraryCounters", {
-        libraryId: args.libraryId,
-        revision: 1,
-        mediaBytes: args.size,
-      });
-    }
-    // An image that is never attached to a flashcard is removed later.
+    // A file that is never attached to a flashcard is removed later.
     await ctx.scheduler.runAfter(24 * 3_600_000, internal.media.collectUnreferenced, {
       libraryId: args.libraryId,
       fileNames: [args.fileName],
@@ -212,17 +202,17 @@ export const collectUnreferenced = internalMutation({
       await ctx.storage.delete(media.storageId);
       if (media.thumbnailId) await ctx.storage.delete(media.thumbnailId);
       await ctx.db.delete(media._id);
-      const counters = await ctx.db
-        .query("libraryCounters")
-        .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
-        .unique();
-      if (counters) {
-        await ctx.db.patch(counters._id, {
-          mediaBytes: Math.max(0, counters.mediaBytes - media.size - (media.thumbnailSize ?? 0)),
-          revision: counters.revision + 1,
-        });
-      }
+      await releaseMediaBytes(ctx, media);
     }
+  },
+});
+
+/** How much of the shared image and audio storage the caller's library uses. */
+export const usage = query({
+  args: {},
+  handler: async (ctx) => {
+    const library = await readableLibrary(ctx);
+    return library ? await mediaUsage(ctx, library._id) : null;
   },
 });
 
@@ -304,33 +294,14 @@ export const variantSource = internalQuery({
 });
 
 export const attachVariant = internalMutation({
-  args: {
-    mediaId: v.id("media"),
-    width: v.number(),
-    height: v.number(),
-    thumbnailId: v.optional(v.id("_storage")),
-    thumbnailSize: v.number(),
-  },
-  returns: v.boolean(),
+  args: { mediaId: v.id("media"), width: v.number(), height: v.number() },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const media = await ctx.db.get(args.mediaId);
     const library = media ? await ctx.db.get(media.libraryId) : null;
-    if (!media || library?.status !== "active" || media.width != null) return false;
-    const counters = await ctx.db
-      .query("libraryCounters")
-      .withIndex("by_library", (q) => q.eq("libraryId", media.libraryId))
-      .unique();
-    const fits =
-      counters != null &&
-      counters.mediaBytes + args.thumbnailSize <= planLimits(libraryPlan(library)).mediaBytes;
-    await ctx.db.patch(media._id, {
-      width: args.width,
-      height: args.height,
-      ...(fits ? { thumbnailId: args.thumbnailId, thumbnailSize: args.thumbnailSize } : {}),
-    });
-    if (fits && args.thumbnailSize && counters)
-      await ctx.db.patch(counters._id, { mediaBytes: counters.mediaBytes + args.thumbnailSize });
-    return fits;
+    if (!media || library?.status !== "active" || media.width != null) return null;
+    await ctx.db.patch(media._id, { width: args.width, height: args.height });
+    return null;
   },
 });
 

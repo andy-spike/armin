@@ -1,4 +1,10 @@
-import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT, sniffImageExt } from "@armin/core/media";
+import {
+  MAX_MEDIA_FILE_BYTES,
+  MIME_BY_EXT,
+  sniffMediaExt,
+  UNSUPPORTED_MEDIA_MESSAGE,
+} from "@armin/core/media";
+import { MEDIA_STORAGE_FULL_MESSAGE } from "@armin/core/plans";
 import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { hashSecret } from "./model/agentAuth";
@@ -49,10 +55,10 @@ export async function uploadAgentImportMedia(ctx: ActionCtx, request: Request) {
   const declared = Number(request.headers.get("content-length"));
   if (declared > MAX_MEDIA_FILE_BYTES) {
     await drainBody(request.body);
-    return json({ error: "Image too large." }, 413);
+    return json({ error: "File too large." }, 413);
   }
   const reader = request.body?.getReader();
-  if (!reader) return json({ error: "Image is empty." }, 400);
+  if (!reader) return json({ error: "File is empty." }, 400);
   const chunks: Uint8Array[] = [];
   let size = 0;
   let tooLarge = false;
@@ -68,19 +74,15 @@ export async function uploadAgentImportMedia(ctx: ActionCtx, request: Request) {
     }
     chunks.push(value);
   }
-  if (tooLarge) return json({ error: "Image too large." }, 413);
+  if (tooLarge) return json({ error: "File too large." }, 413);
   const bytes = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) {
     bytes.set(chunk, offset);
     offset += chunk.length;
   }
-  const ext = sniffImageExt(bytes);
-  if (!ext)
-    return json(
-      { error: "Use a PNG, JPG, GIF, WebP, BMP, or AVIF image. SVG is not accepted." },
-      415,
-    );
+  const ext = sniffMediaExt(bytes);
+  if (!ext) return json({ error: `${UNSUPPORTED_MEDIA_MESSAGE} SVG is not accepted.` }, 415);
   const fileName = `${hex(await crypto.subtle.digest("SHA-256", bytes))}.${ext}`;
   const mime = MIME_BY_EXT[ext];
   const storageId = await ctx.storage.store(new Blob([bytes], { type: mime }));
@@ -95,7 +97,13 @@ export async function uploadAgentImportMedia(ctx: ActionCtx, request: Request) {
     });
     if (!recorded.ok) {
       await ctx.storage.delete(storageId);
-      if (recorded.reason === "quota") return json({ error: "Your image storage is full." }, 413);
+      if (recorded.reason === "quota")
+        return json(
+          {
+            error: MEDIA_STORAGE_FULL_MESSAGE,
+          },
+          413,
+        );
       return json({ error: "This import is no longer accepting uploads." }, 409);
     }
     if (recorded.duplicate) await ctx.storage.delete(storageId);

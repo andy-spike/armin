@@ -10,6 +10,31 @@ import { renderMath } from "../math-render";
  */
 
 const SUPPORTED_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"]);
+/** Audio Armin plays; the bytes are sniffed again on upload (`sniffAudioExt`). */
+export const SUPPORTED_AUDIO_EXTENSIONS = new Set([
+  "mp3",
+  "ogg",
+  "oga",
+  "opus",
+  "m4a",
+  "wav",
+  "flac",
+  "aac",
+]);
+const VIDEO_EXTENSIONS = new Set([
+  "mp4",
+  "m4v",
+  "webm",
+  "mkv",
+  "mov",
+  "avi",
+  "ogv",
+  "flv",
+  "mpg",
+  "mpeg",
+  "wmv",
+  "3gp",
+]);
 const VOID_TAGS = new Set(["br", "img", "hr", "input", "meta", "link", "source", "wbr", "area"]);
 const SKIPPED_TAGS = new Set(["script", "style", "head", "title", "template", "noscript"]);
 const BLOCK_TAGS = new Set([
@@ -196,23 +221,34 @@ export type HtmlOptions = {
   warn: HtmlWarningSink;
   /** Plain text for fields Armin shows without Markdown (occlusion header/extra). */
   plain?: boolean;
+  /** Keep SVG images; the caller converts them to PNG before upload. */
+  svg?: boolean;
 };
 
-const SOUND_RE = /\[sound:[^\]]*\]/g;
+const SOUND_RE = /\[sound:([^\]]*)\]/g;
+/** Stands in for `[sound:…]` while the HTML is parsed; the name is percent-encoded. */
+const AUDIO_TAG = "armin-audio";
 
 /** Escape characters that would start Markdown syntax when they appear in plain text. */
 function escapeMarkdown(text: string) {
-  return text
-    .replace(/[\\`*[\]<]/g, "\\$&")
-    .replace(/_/g, (ch, offset: number) => {
-      const word = (c: string | undefined) => c !== undefined && /[A-Za-z0-9]/.test(c);
-      return word(text[offset - 1]) && word(text[offset + 1]) ? ch : "\\_";
-    })
-    .replace(/~~/g, "\\~\\~")
-    .replace(/^(\s*)([#>+-])(?=\s|$|>)/gm, "$1\\$2")
-    .replace(/^(\s*\d+)([.)])(?=\s)/gm, "$1\\$2")
-    .replace(/^(\s*)([-=*_]{3,})\s*$/gm, (_, indent: string, rule: string) => `${indent}\\${rule}`)
-    .replace(/&(?=#?\w+;)/g, "\\&");
+  return (
+    text
+      .replace(/[\\`*[\]<]/g, "\\$&")
+      .replace(/_/g, (ch, offset: number) => {
+        const word = (c: string | undefined) => c !== undefined && /[A-Za-z0-9]/.test(c);
+        return word(text[offset - 1]) && word(text[offset + 1]) ? ch : "\\_";
+      })
+      // `~sub~`, `^sup^`, and `==highlight==` are Armin formatting too.
+      .replace(/[~^]/g, "\\$&")
+      .replace(/==/g, "\\=\\=")
+      .replace(/^(\s*)([#>+-])(?=\s|$|>)/gm, "$1\\$2")
+      .replace(/^(\s*\d+)([.)])(?=\s)/gm, "$1\\$2")
+      .replace(
+        /^(\s*)([-=*_]{3,})\s*$/gm,
+        (_, indent: string, rule: string) => `${indent}\\${rule}`,
+      )
+      .replace(/&(?=#?\w+;)/g, "\\&")
+  );
 }
 
 function escapeText(text: string, plain: boolean) {
@@ -223,7 +259,7 @@ type RenderState = {
   options: HtmlOptions;
   media: Set<string>;
   /** Open emphasis wrappers, so nested duplicates don't produce `****`. */
-  open: { bold: number; italic: number; strike: number };
+  open: { bold: number; italic: number; strike: number; sup: number; sub: number; mark: number };
 };
 
 function textOf(nodes: HtmlNode[]): string {
@@ -245,26 +281,125 @@ export type ImageCheck =
   | { ok: true; name: string; placeholder: string }
   | { ok: false; reason: "missing_media" | "unsupported_image_removed" };
 
-/** Check an `<img src>` against the package media and Armin's supported formats. */
-export function inspectImage(rawSrc: string, mediaNames: ReadonlySet<string>): ImageCheck {
+function packageName(rawSrc: string) {
   let name = rawSrc.trim();
-  // Remote images aren't part of the package, so they count as missing.
-  if (/^(?:https?:|data:|\/\/)/i.test(name)) return { ok: false, reason: "missing_media" };
   try {
     name = decodeURIComponent(name);
   } catch {
     // Keep the raw name when it isn't valid percent-encoding.
   }
-  if (!SUPPORTED_IMAGE_EXTENSIONS.has(imageExtension(name))) {
+  return name;
+}
+
+/** Check an `<img src>` against the package media and Armin's supported formats. */
+export function inspectImage(
+  rawSrc: string,
+  mediaNames: ReadonlySet<string>,
+  svg = false,
+): ImageCheck {
+  // Remote images aren't part of the package, so they count as missing.
+  if (/^(?:https?:|data:|\/\/)/i.test(rawSrc.trim())) return { ok: false, reason: "missing_media" };
+  const name = packageName(rawSrc);
+  const ext = imageExtension(name);
+  if (!SUPPORTED_IMAGE_EXTENSIONS.has(ext) && !(svg && ext === "svg")) {
     return { ok: false, reason: "unsupported_image_removed" };
   }
   if (!mediaNames.has(name)) return { ok: false, reason: "missing_media" };
   return { ok: true, name, placeholder: `${ANKI_MEDIA_PREFIX}${encodeMediaName(name)}` };
 }
 
+export type AudioCheck =
+  | { ok: true; name: string; placeholder: string }
+  | { ok: false; reason: "missing_media" | "audio_removed" | "video_removed" };
+
+/** Check a `[sound:…]` or `<audio src>` file against the package media and Armin's formats. */
+export function inspectAudio(rawSrc: string, mediaNames: ReadonlySet<string>): AudioCheck {
+  if (/^(?:https?:|data:|\/\/)/i.test(rawSrc.trim())) return { ok: false, reason: "missing_media" };
+  const name = packageName(rawSrc);
+  const ext = imageExtension(name);
+  if (VIDEO_EXTENSIONS.has(ext)) return { ok: false, reason: "video_removed" };
+  if (!SUPPORTED_AUDIO_EXTENSIONS.has(ext)) return { ok: false, reason: "audio_removed" };
+  if (!mediaNames.has(name)) return { ok: false, reason: "missing_media" };
+  return { ok: true, name, placeholder: `${ANKI_MEDIA_PREFIX}${encodeMediaName(name)}` };
+}
+
+/** Markdown for an audio file, or "" when it can't be kept. Plain fields can't play audio. */
+function audioMarkdown(rawSrc: string, state: RenderState) {
+  if (state.options.plain) {
+    state.options.warn("audio_removed");
+    return "";
+  }
+  const audio = inspectAudio(rawSrc, state.options.mediaNames);
+  if (!audio.ok) {
+    state.options.warn(audio.reason);
+    return "";
+  }
+  state.media.add(audio.name);
+  return `![audio](${audio.placeholder})`;
+}
+
+/**
+ * Whether an inline `color` or `background-color` is a deliberate highlight.
+ * Text pasted into Anki often carries black, white, or gray, which isn't.
+ */
+function isAccentColor(value: string) {
+  const color = value.trim().toLowerCase();
+  if (!color || /^(?:inherit|initial|unset|transparent|currentcolor|none|var\()/.test(color))
+    return false;
+  const named: Record<string, string> = {
+    black: "#000000",
+    white: "#ffffff",
+    gray: "#808080",
+    grey: "#808080",
+    silver: "#c0c0c0",
+    darkgray: "#a9a9a9",
+    darkgrey: "#a9a9a9",
+    lightgray: "#d3d3d3",
+    lightgrey: "#d3d3d3",
+    dimgray: "#696969",
+    dimgrey: "#696969",
+    gainsboro: "#dcdcdc",
+    whitesmoke: "#f5f5f5",
+  };
+  let rgb: number[] | null = null;
+  const hex = /^#([0-9a-f]{3,8})$/.exec(named[color] ?? color);
+  if (hex) {
+    const digits =
+      hex[1].length <= 4
+        ? hex[1]
+            .split("")
+            .map((d) => d + d)
+            .join("")
+        : hex[1];
+    rgb = [0, 2, 4].map((i) => parseInt(digits.slice(i, i + 2), 16));
+  } else {
+    const fn = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+%?))?/.exec(color);
+    if (fn) {
+      if (fn[4] !== undefined && parseFloat(fn[4]) === 0) return false;
+      rgb = [fn[1], fn[2], fn[3]].map(Number);
+    }
+  }
+  // Any other named color (red, blue, …) or format (hsl) is a choice.
+  if (!rgb) return /^[a-z]+$|^hsla?\(/.test(color);
+  const max = Math.max(...rgb) / 255;
+  const min = Math.min(...rgb) / 255;
+  const saturation = max === 0 ? 0 : (max - min) / max;
+  return saturation > 0.25 && max > 0.2;
+}
+
+function highlighted(el: HtmlElement) {
+  if (el.tag === "mark" || el.tag === "u") return true;
+  if (el.tag === "font" && el.attrs.color && isAccentColor(el.attrs.color)) return true;
+  const style = el.attrs.style ?? "";
+  for (const match of style.matchAll(/(?:^|;)\s*(color|background(?:-color)?)\s*:\s*([^;]+)/gi)) {
+    if (isAccentColor(match[2])) return true;
+  }
+  return false;
+}
+
 /** Resolve an `<img src>` to a placeholder reference, or null when it can't be kept. */
 function imagePlaceholder(rawSrc: string, state: RenderState) {
-  const image = inspectImage(rawSrc, state.options.mediaNames);
+  const image = inspectImage(rawSrc, state.options.mediaNames, state.options.svg);
   if (!image.ok) {
     state.options.warn(image.reason);
     return null;
@@ -541,18 +676,37 @@ function renderInline(node: HtmlNode, state: RenderState): string {
       const placeholder = imagePlaceholder(src, state);
       return placeholder ? `![](${placeholder})` : "";
     }
-    case "audio":
+    case AUDIO_TAG:
+      return audioMarkdown(decodeURIComponent(node.attrs["data-src"] ?? ""), state);
+    case "audio": {
+      const sourceTag = node.children.find(
+        (child): child is HtmlElement => "tag" in child && child.tag === "source",
+      );
+      const src = node.attrs.src ?? sourceTag?.attrs.src ?? "";
+      if (src) return audioMarkdown(src, state);
       state.options.warn("audio_removed");
       return "";
+    }
     case "video":
       state.options.warn("video_removed");
       return "";
     case "sup":
-    case "sub":
+    case "sub": {
+      const kind = node.tag;
+      if (plain || state.open[kind] > 0) return children();
+      state.open[kind]++;
+      const inner = trimInline(children());
+      state.open[kind]--;
+      if (!inner) return "";
+      // `^x^` and `~x~` can't hold a bare space or line break, so escape the spaces.
+      const mark = kind === "sup" ? "^" : "~";
+      return `${mark}${inner.replace(/\s*\n\s*/g, " ").replace(/ /g, "\\ ")}${mark}`;
+    }
     case "span":
     case "font":
     case "u":
     case "mark":
+      return highlighted(node) ? emphasize(node, "mark", "==") : children();
     case "small":
     case "big":
     case "ins":
@@ -605,13 +759,16 @@ export function htmlToMarkdown(html: string, options: HtmlOptions): HtmlConversi
   const state: RenderState = {
     options,
     media: new Set(),
-    open: { bold: 0, italic: 0, strike: 0 },
+    open: { bold: 0, italic: 0, strike: 0, sup: 0, sub: 0, mark: 0 },
   };
   let source = html;
 
   if (/<script\b|<style\b/i.test(source)) options.warn("scripts_removed");
-  if (source.search(SOUND_RE) !== -1) options.warn("audio_removed");
-  source = source.replace(SOUND_RE, "");
+  source = source.replace(
+    SOUND_RE,
+    (_, name: string) =>
+      `<${AUDIO_TAG} data-src="${encodeURIComponent(decodeEntities(name))}"></${AUDIO_TAG}>`,
+  );
   // Protect TeX before HTML parsing and Markdown escaping: comparisons can
   // contain '<', arrays use '&', and backslashes must survive unchanged.
   if (/\[latex\]/i.test(source)) options.warn("math_as_text");

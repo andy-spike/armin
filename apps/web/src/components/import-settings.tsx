@@ -13,9 +13,9 @@ export function ImportSettings() {
     <div className="flex items-start justify-between gap-6 px-4 py-3.5">
       <p className="text-[0.8125rem] leading-snug text-muted">
         Import an Anki deck (.apkg), a full collection (.colpkg), or a plain-text export (.txt,
-        .csv, .tsv). You can hand the file to a connected AI assistant for a guided,
-        image-preserving import, or convert it in this browser now. Cards, images, and your review
-        progress come with the browser route; audio and video don&apos;t.
+        .csv, .tsv). You can hand the file to a connected AI assistant for a guided import, or
+        convert it in this browser now. Cards, images, audio, deck options, and your review progress
+        come with the browser route; video doesn&apos;t.
       </p>
       <Button
         variant="outline"

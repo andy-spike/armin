@@ -251,6 +251,11 @@ export function frontierKey(flashcardId: Id<"flashcards">) {
   return h >>> 0;
 }
 
+/** A unit's new-card order key: one chosen at import, otherwise the flashcard hash. */
+export function unitFrontierKey(unit: { flashcardId: Id<"flashcards">; frontierKey?: number }) {
+  return unit.frontierKey ?? frontierKey(unit.flashcardId);
+}
+
 export async function syncUnitSummary(
   ctx: MutationCtx,
   unit: Doc<"reviewUnits"> | null,
@@ -279,6 +284,7 @@ export async function syncUnitSummary(
     buriedUntil,
     createdAt,
   } = unit;
+  const order = unitFrontierKey(unit);
   const fields = {
     libraryId,
     deckId,
@@ -294,7 +300,7 @@ export async function syncUnitSummary(
     version,
     buriedUntil,
     createdAt,
-    frontierKey: frontierKey(flashcardId),
+    frontierKey: order,
   };
   if (row) await ctx.db.patch(row._id, fields);
   else {

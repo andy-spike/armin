@@ -7,7 +7,10 @@ import {
   validateContent,
   type FlashcardContent,
 } from "@armin/core/flashcard-types";
-import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT, sniffImageExt } from "@armin/core/media";
+import { MIME_BY_EXT, sniffImageExt, sniffMediaExt } from "@armin/core/media";
+import { MEDIA_STORAGE_FULL_MESSAGE } from "@armin/core/plans";
+import { rasterizeSvg } from "./rasterize-svg";
+import { MAX_DEVICE_MEDIA_BYTES } from "@/lib/shrink-media";
 import type { FsrsFieldsMs } from "@armin/core/scheduler";
 import {
   armin,
@@ -19,11 +22,11 @@ import {
 import type { AnkiReader } from "./reader";
 
 /**
- * Runs an Anki import plan against the backend. Order matters: images upload
- * first and cards are re-validated with the real image references before
- * `imports.start`, so the totals it declares are exact and a full image
- * library stops the import before any deck exists. After `start`, any failure
- * or cancellation removes everything the import created.
+ * Runs an Anki import plan against the backend. Order matters: images and
+ * audio upload first and cards are re-validated with the real media references
+ * before `imports.start`, so the totals it declares are exact and a full image
+ * or audio library stops the import before any deck exists. After `start`, any
+ * failure or cancellation removes everything the import created.
  */
 
 const MAX_NAME_CHARS = 120;
@@ -49,8 +52,10 @@ export type ImportSummary = {
   reviewLogs: number;
   /** Cards dropped because an image they depend on could not be imported. */
   skippedCards: number;
-  /** Distinct images left out (unsupported, too large, or missing from the file). */
+  /** Distinct images and audio files left out (unsupported, too large, or missing from the file). */
   skippedImages: number;
+  /** Decks whose Anki options preset carried scheduling settings over. */
+  decksWithSettings: number;
 };
 
 /** Thrown when the user cancels; everything created so far has been removed. */
@@ -131,7 +136,24 @@ export function uniqueDeckNames(decks: ImportDeck[]) {
   });
 }
 
-/** Upload every referenced image a few at a time; returns Anki name -> Armin reference. */
+/**
+ * Spread Anki's new-card positions over Armin's order keys. Imported cards keep
+ * their relative order, and the even spread interleaves them with new cards
+ * already in the library instead of putting every imported card first.
+ */
+export function frontierKeys(cards: { key: string; newPosition?: number | null }[]) {
+  const ordered = cards
+    .filter((card) => card.newPosition != null)
+    .sort((a, b) => a.newPosition! - b.newPosition!);
+  const keys = new Map<string, number>();
+  const span = 2 ** 32;
+  ordered.forEach((card, index) =>
+    keys.set(card.key, Math.floor(((index + 0.5) / ordered.length) * span)),
+  );
+  return keys;
+}
+
+/** Upload every referenced image and audio file a few at a time; returns Anki name -> Armin reference. */
 async function uploadMedia(
   reader: AnkiReader,
   names: string[],
@@ -144,21 +166,26 @@ async function uploadMedia(
   let failure: unknown = null;
 
   const uploadOne = async (name: string) => {
-    const bytes = await reader.readMedia(name);
-    if (!bytes || bytes.byteLength === 0 || bytes.byteLength > MAX_MEDIA_FILE_BYTES) return;
-    const ext = sniffImageExt(bytes);
+    let bytes = await reader.readMedia(name);
+    if (!bytes || bytes.byteLength === 0) return;
+    // SVG can carry script, so it's never stored: the browser draws it to a PNG instead.
+    if (/\.svg$/i.test(name) && !sniffImageExt(bytes)) bytes = await rasterizeSvg(bytes);
+    if (!bytes || bytes.byteLength === 0) return;
+    const ext = sniffMediaExt(bytes);
     if (!ext) return;
+    // Files shrink on the device before upload, so they may start larger.
+    if (bytes.byteLength > MAX_DEVICE_MEDIA_BYTES) return;
     const file = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: MIME_BY_EXT[ext] });
     try {
       const stored = await withRetry(signal, () =>
-        armin.media.importImage({ file, fileName: name, signal }),
+        armin.media.upload({ file, fileName: name, signal }),
       );
       refs.set(name, stored.ref);
     } catch (error) {
       if (error instanceof MediaUploadError && error.status === 413) {
-        if (/storage is full/i.test(error.message)) {
+        if (error.message.includes(MEDIA_STORAGE_FULL_MESSAGE)) {
           throw new ImportError(
-            "Your image storage is full, so these images can't be added. Nothing was imported. Deselect decks with many images, or delete images you no longer need, and try again.",
+            "Your storage for images and audio is full, so these files can't be added. Nothing was imported. Deselect decks with many images or audio files, or delete ones you no longer need, and try again. Settings → Account shows how much you use.",
           );
         }
         return;
@@ -197,6 +224,7 @@ type PreparedCard = {
   archived: boolean;
   units: ImportPlan["flashcards"][number]["units"];
   unitCount: number;
+  frontierKey: number | undefined;
 };
 
 export async function runImport({
@@ -232,6 +260,7 @@ export async function runImport({
   const skippedImages = mediaNames.length - refs.size;
 
   // (b) Re-validate with the real references, then declare exact totals.
+  const orderKeys = frontierKeys(plan.flashcards);
   const prepared: PreparedCard[] = [];
   let skippedCards = 0;
   for (const card of plan.flashcards) {
@@ -256,6 +285,7 @@ export async function runImport({
       archived: card.archived,
       units: card.units.filter((unit) => subKeys.has(unit.subKey)),
       unitCount: subKeys.size,
+      frontierKey: orderKeys.get(card.key),
     });
   }
   const cardsPerDeck = new Map<string, number>();
@@ -286,7 +316,11 @@ export async function runImport({
     client.mutation(api.imports.start, {
       requestId: startRequestId,
       fileName,
-      decks: decks.map((deck, index) => ({ key: deck.key, name: names[index] })),
+      decks: decks.map((deck, index) => ({
+        key: deck.key,
+        name: names[index],
+        ...(deck.settings ? { settings: deck.settings } : {}),
+      })),
       totals,
     }),
   );
@@ -322,7 +356,12 @@ export async function runImport({
             content: card.content,
             tags: card.tags,
             archived: card.archived,
-            units: card.units.map((unit) => ({ subKey: unit.subKey, schedule: unit.schedule })),
+            ...(card.frontierKey !== undefined ? { frontierKey: card.frontierKey } : {}),
+            units: card.units.map((unit) => ({
+              subKey: unit.subKey,
+              schedule: unit.schedule,
+              ...(unit.buried ? { buried: true } : {}),
+            })),
           })),
         }),
       );
@@ -405,5 +444,6 @@ export async function runImport({
     reviewLogs: totals.reviewLogs,
     skippedCards,
     skippedImages,
+    decksWithSettings: decks.filter((deck) => deck.settings).length,
   };
 }

@@ -9,8 +9,8 @@ import { getSettingsRow } from "./model/study";
 
 /** Start building a ZIP export of the caller's library. */
 export const start = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { includeAudio: v.optional(v.boolean()) },
+  handler: async (ctx, { includeAudio = true }) => {
     const library = await writableLibrary(ctx);
     const recent = await ctx.db
       .query("exports")
@@ -25,6 +25,7 @@ export const start = mutation({
       libraryId: library._id,
       status: "pending",
       fileName: `armin-library-${date}.zip`,
+      includeAudio,
       createdAt: now,
       expiresAt: now + EXPORT_TTL_MS,
     });
@@ -96,7 +97,12 @@ export const jobLibrary = internalQuery({
     if (!row || row.status !== "pending") return null;
     const library = await ctx.db.get(row.libraryId);
     if (!library || library.status !== "active") return null;
-    return { libraryId: library._id, timeZone: library.timeZone, createdAt: library.createdAt };
+    return {
+      libraryId: library._id,
+      timeZone: library.timeZone,
+      createdAt: library.createdAt,
+      includeAudio: row.includeAudio ?? true,
+    };
   },
 });
 
