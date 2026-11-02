@@ -7,14 +7,12 @@ import {
   UNSUPPORTED_MEDIA_MESSAGE,
 } from "@armin/core/media";
 import { mediaRefFromFileName } from "@armin/core/media-ref";
-import { planLimits } from "@armin/core/plans";
 import { internal } from "./_generated/api";
 import { internalQuery, query } from "./_generated/server";
 import { internalMutation } from "./functions";
 import type { ActionCtx } from "./_generated/server";
 import { getViewer } from "./model/access";
 import { releaseMediaBytes, reserveMediaBytes } from "./model/mediaQuota";
-import { libraryPlan } from "./model/usage";
 
 export const uploaderLibrary = internalQuery({
   args: {},
@@ -291,33 +289,14 @@ export const variantSource = internalQuery({
 });
 
 export const attachVariant = internalMutation({
-  args: {
-    mediaId: v.id("media"),
-    width: v.number(),
-    height: v.number(),
-    thumbnailId: v.optional(v.id("_storage")),
-    thumbnailSize: v.number(),
-  },
-  returns: v.boolean(),
+  args: { mediaId: v.id("media"), width: v.number(), height: v.number() },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const media = await ctx.db.get(args.mediaId);
     const library = media ? await ctx.db.get(media.libraryId) : null;
-    if (!media || library?.status !== "active" || media.width != null) return false;
-    const counters = await ctx.db
-      .query("libraryCounters")
-      .withIndex("by_library", (q) => q.eq("libraryId", media.libraryId))
-      .unique();
-    const fits =
-      counters != null &&
-      counters.mediaBytes + args.thumbnailSize <= planLimits(libraryPlan(library)).mediaBytes;
-    await ctx.db.patch(media._id, {
-      width: args.width,
-      height: args.height,
-      ...(fits ? { thumbnailId: args.thumbnailId, thumbnailSize: args.thumbnailSize } : {}),
-    });
-    if (fits && args.thumbnailSize && counters)
-      await ctx.db.patch(counters._id, { mediaBytes: counters.mediaBytes + args.thumbnailSize });
-    return fits;
+    if (!media || library?.status !== "active" || media.width != null) return null;
+    await ctx.db.patch(media._id, { width: args.width, height: args.height });
+    return null;
   },
 });
 

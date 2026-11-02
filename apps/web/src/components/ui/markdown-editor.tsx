@@ -11,6 +11,7 @@ import { paragraphSchema } from "@milkdown/kit/preset/commonmark";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { AUDIO_MIME_BY_EXT, IMAGE_MIME_BY_EXT, MAX_MEDIA_FILE_BYTES } from "@armin/core/media";
+import { MAX_DEVICE_MEDIA_BYTES } from "@/lib/shrink-image";
 import { hasInlineMarks } from "@/lib/markdown-marks";
 import { hasMath, splitMath } from "@armin/core/math";
 import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
@@ -65,7 +66,6 @@ const AUDIO_ACCEPT = [
   ".flac",
   ".aac",
 ].join(",");
-const MAX_UPLOAD_MB = Math.round(MAX_MEDIA_FILE_BYTES / (1024 * 1024));
 const UNSUPPORTED_IMAGE_MESSAGE = "Use a PNG, JPG, GIF, WebP, BMP, or AVIF image.";
 const UNSUPPORTED_AUDIO_MESSAGE = "Use an MP3, OGG, M4A, WAV, FLAC, or AAC audio file.";
 const AUDIO_REF_RE = new RegExp(
@@ -205,9 +205,11 @@ export function MarkdownEditor({
         throw new Error(UNSUPPORTED_IMAGE_MESSAGE);
       if (kind === "audio" && file.type && !file.type.startsWith("audio/"))
         throw new Error(UNSUPPORTED_AUDIO_MESSAGE);
-      if (file.size > MAX_MEDIA_FILE_BYTES)
+      // Images are shrunk on the device before upload, so they may start larger.
+      const limit = kind === "image" ? MAX_DEVICE_MEDIA_BYTES : MAX_MEDIA_FILE_BYTES;
+      if (file.size > limit)
         throw new Error(
-          `That ${noun} is ${megabytes(file.size)} MB. Files must be ${MAX_UPLOAD_MB} MB or smaller.`,
+          `That ${noun} is ${megabytes(file.size)} MB. Files must be ${megabytes(limit)} MB or smaller.`,
         );
       const stored = await armin.media.upload({ file, fileName: file.name });
       if (!alive.current)

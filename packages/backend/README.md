@@ -381,14 +381,22 @@ calling the migration complete. Both backfills can be rerun after interruption;
 log generation markers prevent double counting. New libraries and timezone
 changes schedule their own activity rebuild.
 
-Private images optionally get a WebP preview bounded to 1280×1280, plus intrinsic
-dimensions. Zoom and exports always retain originals. Preview processing runs in
-a Node action using the pinned Sharp package, externalized in `convex.json`.
-Animated images keep their original display behavior. Images above the decoder's
-16-million-pixel bound or unsupported/corrupt inputs fall back to the original.
-Previews are retained only when smaller than the original and within the media
-quota; their bytes count toward that quota and their blobs follow the original's
-cleanup lifecycle. Both original and preview routes require the session.
+The web app shrinks images in the browser before upload
+(`apps/web/src/lib/shrink-image.ts`): the longest side is at most 1600 px,
+photos become WebP at quality 80, screenshots and diagrams lossless WebP, EXIF
+data is dropped, and GIF and SVG pass through unchanged. The library stores that
+one copy, and the quota counts only it. The web app accepts files up to 25 MB
+before shrinking; the server's 10 MiB per-file limit applies to what arrives.
+Uploads that don't come through the browser, such as assistant imports, are
+stored as sent.
+
+The server records each image's intrinsic dimensions in a Node action using the
+pinned Sharp package, externalized in `convex.json`. Images above the decoder's
+16-million-pixel bound or unsupported/corrupt inputs get no dimensions. New
+images get no server preview. Images uploaded before this change keep any WebP
+preview they already have, with its bytes still counted. Media files are named
+by their content hash, so the media routes let the browser cache them privately
+for a year. Every media route requires the session.
 
 Local launchers place temporary files under `.convex/tmp`, on the same
 filesystem as local storage, so installing external Node packages does not fail

@@ -37,7 +37,11 @@ export const Route = createFileRoute("/media/$")({
         }
         const preview =
           new URL(request.url).searchParams.get("preview") === "1" ? "?preview=1" : "";
-        return proxyAuthenticated(`/media/${fileName}${preview}`, "private, max-age=600");
+        // Files are named by a hash of their bytes and never change.
+        return proxyAuthenticated(
+          `/media/${fileName}${preview}`,
+          "private, max-age=31536000, immutable",
+        );
       },
     },
   },

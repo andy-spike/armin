@@ -55,7 +55,8 @@ http.route({
         "Content-Type": media.mime,
         "Content-Length": String(media.size),
         // Per-user content: never cache in shared caches.
-        "Cache-Control": "private, max-age=600",
+        // Files are named by a hash of their bytes and never change.
+        "Cache-Control": "private, max-age=31536000, immutable",
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
       },

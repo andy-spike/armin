@@ -15,6 +15,7 @@ import {
   sniffMediaExt,
 } from "@armin/core/media";
 import { rasterizeSvg } from "./rasterize-svg";
+import { MAX_DEVICE_MEDIA_BYTES } from "@/lib/shrink-image";
 import type { FsrsFieldsMs } from "@armin/core/scheduler";
 import {
   armin,
@@ -174,9 +175,12 @@ async function uploadMedia(
     if (!bytes || bytes.byteLength === 0) return;
     // SVG can carry script, so it's never stored: the browser draws it to a PNG instead.
     if (/\.svg$/i.test(name) && !sniffImageExt(bytes)) bytes = await rasterizeSvg(bytes);
-    if (!bytes || bytes.byteLength === 0 || bytes.byteLength > MAX_MEDIA_FILE_BYTES) return;
+    if (!bytes || bytes.byteLength === 0) return;
     const ext = sniffMediaExt(bytes);
     if (!ext) return;
+    // Images shrink on the device before upload, so they may start larger.
+    const limit = isAudioFile(ext) ? MAX_MEDIA_FILE_BYTES : MAX_DEVICE_MEDIA_BYTES;
+    if (bytes.byteLength > limit) return;
     const file = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: MIME_BY_EXT[ext] });
     try {
       const stored = await withRetry(signal, () =>
