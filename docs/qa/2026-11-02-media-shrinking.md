@@ -67,3 +67,21 @@ files including the QA uploads above).
 
 Not verified: a real save dialog, Firefox and Safari themselves, Cancel, and a
 library large enough to exceed the old 95 MiB limit.
+
+## 4. Higher image limits
+
+- Image limits are now 250 MiB (Free) and 2 GiB (Pro); audio is unchanged.
+- The pricing page lists "About 1,400 pictures" for Free and "About 11,700
+  pictures" for Pro (limit ÷ 180 KiB, a typical shrunk picture, rounded to
+  the nearest hundred).
+- The unused 80 MiB `MAX_LIBRARY_MEDIA_BYTES` constant is removed. The Anki
+  converter kit bundles that module, so the unreleased kit 1.1.0's manifest
+  checksum was regenerated.
+
+![Pricing page](2026-11-02-media-shrinking/04-pricing.png)
+
+## Validation
+
+`pnpm check`, `pnpm --filter @armin/web build`, and
+`pnpm --filter @armin/mobile check:bundle` pass. The mobile app itself is
+unchanged.

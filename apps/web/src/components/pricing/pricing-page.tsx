@@ -5,6 +5,14 @@ import { buttonVariants } from "@/components/ui/button";
 
 const number = new Intl.NumberFormat("en-US");
 
+/** A typical picture after Armin shrinks it on upload (1600 px WebP). */
+const TYPICAL_PICTURE_BYTES = 180 * 1024;
+
+/** The image quota as an approximate number of pictures, to the nearest hundred. */
+function pictures(bytes: number) {
+  return `About ${number.format(Math.round(bytes / TYPICAL_PICTURE_BYTES / 100) * 100)} pictures`;
+}
+
 const plans = [
   {
     name: "Free",
@@ -14,6 +22,7 @@ const plans = [
     features: [
       `${number.format(PLAN_LIMITS.free.flashcards)} cards`,
       `${PLAN_LIMITS.free.decks} decks`,
+      pictures(PLAN_LIMITS.free.mediaBytes),
       `${number.format(PLAN_LIMITS.free.agentCardsPerMonth)} AI assistant cards per month`,
       "Prerequisite graph and FSRS scheduling",
       "Web and mobile",
@@ -31,7 +40,7 @@ const plans = [
       `${number.format(PLAN_LIMITS.pro.agentCardsPerMonth)} AI assistant cards per month`,
       "Room for the largest Anki collections",
       "Everything in Free",
-      "More room for images",
+      pictures(PLAN_LIMITS.pro.mediaBytes),
     ],
     action: null,
   },

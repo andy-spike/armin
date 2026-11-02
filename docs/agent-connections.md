@@ -169,8 +169,8 @@ The import uses these tools:
 
 Media goes to `POST ${CONVEX_SITE_URL}/agent-imports/{importId}/media` with the
 scoped upload token, as raw bytes. The endpoint requires an active staging
-session, sniffs the actual image type, enforces the 10 MiB per-file and 80 MiB
-per-library limits, content-addresses the blob, and tracks it for that import.
+session, sniffs the actual image type, enforces the 10 MiB per-file limit and the
+plan's per-library image limit, content-addresses the blob, and tracks it for that import.
 It accepts no URL, filename, or arbitrary storage key. Responses contain an
 `armin-media:` reference that already appears in the kit's content. The upload
 token is separate from the MCP access token so a coding agent can use curl

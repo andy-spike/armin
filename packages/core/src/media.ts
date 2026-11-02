@@ -49,9 +49,6 @@ export const UNSUPPORTED_MEDIA_MESSAGE =
 
 /** Beta media limits. Adjust together with the backend quota copy. */
 export const MAX_MEDIA_FILE_BYTES = 10 * 1024 * 1024;
-// Every library's images must fit one export download (an HTTP response of at
-// most 100 MiB), alongside its structured data.
-export const MAX_LIBRARY_MEDIA_BYTES = 80 * 1024 * 1024;
 
 function ascii(bytes: Uint8Array, start: number, length: number) {
   let out = "";

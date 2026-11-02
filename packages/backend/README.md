@@ -170,7 +170,7 @@ plan limits that `model/usage.ts` (`checkCapacity`, `libraryLimits`) enforces:
 | Flashcards                      | 1,000   | 100,000 |
 | Review units                    | 5,000   | 250,000 |
 | Decks                           | 50      | 1,000   |
-| Images                          | 50 MiB  | 80 MiB  |
+| Images                          | 250 MiB | 2 GiB   |
 | Audio                           | 200 MiB | 2 GiB   |
 | Assistant-created cards / month | 300     | 10,000  |
 | Assistant writes / hour         | 60      | 600     |
