@@ -73,7 +73,12 @@ const SETTINGS_TABS = [
 
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 /** `checkout=success` marks the return from Polar checkout (Billing). */
-type SettingsSearch = { tab?: SettingsTab; checkout?: "success" };
+type SettingsSearch = {
+  tab?: SettingsTab;
+  checkout?: "success";
+  /** Billing period picked on the pricing page, preselected at checkout. */
+  interval?: "month" | "year";
+};
 
 function isSettingsTab(value: unknown): value is SettingsTab {
   return typeof value === "string" && (SETTINGS_TABS as readonly string[]).includes(value);
@@ -567,6 +572,8 @@ export const Route = createFileRoute("/_app/settings")({
   validateSearch: (search: Record<string, unknown>): SettingsSearch => ({
     tab: isSettingsTab(search.tab) ? search.tab : undefined,
     checkout: search.checkout === "success" ? "success" : undefined,
+    interval:
+      search.interval === "month" || search.interval === "year" ? search.interval : undefined,
   }),
   loader: ({ context }) => prefetchSettingsPage(context.queryClient),
   head: () => ({ meta: [{ title: "Settings · Armin" }] }),
