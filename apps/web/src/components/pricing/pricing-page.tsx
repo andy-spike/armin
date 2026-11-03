@@ -397,11 +397,14 @@ export function PricingPage() {
           <h2 id="questions" className="text-2xl text-ink">
             Questions
           </h2>
-          <Accordion multiple className="mt-4 max-w-3xl border-t border-border">
+          <p className="mt-2 text-sm text-muted">Billing, refunds, and limits.</p>
+          {/* Same frame as the comparison table: full width, strong top rule,
+              hairline rows, opaque paper over the notebook grid. */}
+          <Accordion multiple className="mt-6 border-t border-border-strong bg-bg">
             {questions.map(({ q, a }) => (
               <AccordionItem key={q} value={q}>
-                <AccordionTrigger>{q}</AccordionTrigger>
-                <AccordionContent className="max-w-prose leading-relaxed text-muted">
+                <AccordionTrigger className="py-3 font-sans text-sm">{q}</AccordionTrigger>
+                <AccordionContent className="max-w-prose pb-4 leading-relaxed text-muted">
                   {a}
                 </AccordionContent>
               </AccordionItem>

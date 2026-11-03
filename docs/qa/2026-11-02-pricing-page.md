@@ -27,7 +27,10 @@ viewport, not a real device).
   unchanged. AGENTS.md says `ui/` primitives follow shadcn's Base UI variants.
 - The questions are a collapsible list built from shadcn's Accordion on Base UI
   (`components/ui/accordion.tsx`, new). All start closed, and several can be open
-  at once.
+  at once. The list uses the comparison table's frame: the same full width
+  (both span x = 160–1120 at 1280 px), a strong top rule, hairline rows with
+  the same padding and text size, an opaque paper background, and a heading
+  with a one-line subtitle.
 
 ## Steps
 
