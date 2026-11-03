@@ -45,6 +45,30 @@ const STEPS = [
   },
 ] as const;
 
+/**
+ * A rule with a small label at its centre, between the page's sections. With
+ * `headingId` the label is the section's heading; otherwise it only marks the
+ * break and is hidden from assistive technology.
+ */
+function SectionRule({ headingId, children }: { headingId?: string; children: string }) {
+  const label = "font-mono text-xs tracking-[0.14em] text-muted uppercase";
+  return (
+    <div className="mx-auto flex max-w-[76rem] items-center gap-5 px-5 sm:px-8">
+      <span aria-hidden className="h-px flex-1 bg-ui-3" />
+      {headingId ? (
+        <h2 id={headingId} className={label}>
+          {children}
+        </h2>
+      ) : (
+        <span aria-hidden className={label}>
+          {children}
+        </span>
+      )}
+      <span aria-hidden className="h-px flex-1 bg-ui-3" />
+    </div>
+  );
+}
+
 /** Public landing page, shown at `/` to signed-out visitors. */
 export function LandingPage() {
   return (
@@ -88,17 +112,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* A titled rule between the hero and the steps. */}
-        <div className="mx-auto flex max-w-[76rem] items-center gap-5 px-5 sm:px-8">
-          <span aria-hidden className="h-px flex-1 bg-ui-3" />
-          <h2
-            id="landing-steps"
-            className="font-mono text-xs tracking-[0.14em] text-muted uppercase"
-          >
-            How it works
-          </h2>
-          <span aria-hidden className="h-px flex-1 bg-ui-3" />
-        </div>
+        <SectionRule headingId="landing-steps">How it works</SectionRule>
 
         <ol aria-labelledby="landing-steps" className="mx-auto max-w-[76rem] px-5 sm:px-8">
           {STEPS.map((step, i) => (
@@ -131,8 +145,10 @@ export function LandingPage() {
           ))}
         </ol>
 
+        <SectionRule>Get started</SectionRule>
+
         <section aria-labelledby="landing-close" className="mx-auto max-w-[76rem] px-5 sm:px-8">
-          <div className="border-t border-border-strong pt-20 pb-24 lg:pt-28 lg:pb-32">
+          <div className="flex flex-col items-center pt-16 pb-24 text-center lg:pt-20 lg:pb-32">
             <h2
               id="landing-close"
               className="max-w-[18ch] text-[clamp(2.25rem,4.8vw,3.75rem)] leading-[1.05] tracking-[-0.025em] text-balance text-ink"
@@ -143,7 +159,7 @@ export function LandingPage() {
               Make a deck, write the cards everything else depends on, and let the rest unlock as
               you learn.
             </p>
-            <div className="mt-9 flex flex-wrap items-center gap-3">
+            <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
               <Link
                 to="/sign-up"
                 className={cn(buttonVariants({ size: "lg" }), "h-12 px-7 text-base")}

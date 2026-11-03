@@ -92,8 +92,9 @@ privacy, decks, a deck, browse, stats, settings, review, and the graph.
   up on the right. It is translucent with a backdrop blur, so the paper shows
   through instead of a solid strip; the current page's link is highlighted.
   The landing and policy footers also drop their solid fill.
-- **Divider:** a titled rule, "How it works", now separates the hero from the
-  steps, drawn in the stronger `ui-3` line color.
+- **Dividers:** titled rules in the stronger `ui-3` line color separate the
+  sections: "How it works" between the hero and the steps, and "Get started"
+  before the closing call to action, which is now centered like the hero.
 - **Heatmap scrollbar:** the decks page's and Stats page's calendars showed a
   horizontal scrollbar on wide screens. The label for a month that had just
   begun ("Nov") sat over the last column and ran 0.77px past the calendar's
