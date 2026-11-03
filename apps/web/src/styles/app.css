@@ -965,6 +965,28 @@ html[data-scroll="document"] body {
 .story-ratings:has([data-chosen]) > :not([data-chosen]) {
   opacity: 0.4;
 }
+/* The review caption's progress: a bar per card, filled as it is reviewed. */
+.story-progress {
+  color: var(--color-muted);
+  transition: color 0.2s ease;
+}
+.story-progress[data-state="active"],
+.story-progress[data-state="done"] {
+  color: var(--color-ink);
+}
+.story-progress-bar {
+  display: block;
+  height: 3px;
+  overflow: hidden;
+  background-color: var(--color-ui-2);
+}
+.story-progress-fill {
+  display: block;
+  height: 100%;
+  background-color: var(--color-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+}
 /* Review faces share one place; the next card slides in as the last leaves. */
 .story-face {
   grid-area: 1 / 1;
@@ -995,15 +1017,17 @@ html[data-scroll="document"] body {
 .story-beat {
   padding-left: var(--beat-pad);
 }
-/* Held captions stay in the strip below the pinned stage on narrow screens,
-   and a third of the way down beside it on wide ones. */
-.story-beat-copy--held {
+/* A held caption stays a third of the way down beside the stage on wide
+   screens. Narrow screens hold only the review steps, in the strip below the
+   pinned stage; the caption above them scrolls on. */
+.story-steps--held {
   position: sticky;
-  top: calc(3.5rem + min(58svh, 34rem) + 1.5rem);
+  top: calc(3.5rem + min(58svh, 34rem) + 1.25rem);
 }
 @media (min-width: 1024px) {
   .story-beat-copy--held {
-    top: 30dvh;
+    position: sticky;
+    top: 24dvh;
   }
 }
 .story-spine::before,

@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { SOURCE_CODE_URL } from "@/lib/source-code";
 import { cn } from "@/lib/utils";
-import { HERO_SHOT, cameraTransform, createScene } from "./story-scene";
+import { HERO_SHOT, cameraTransform, createScene, settledReviewFrame } from "./story-scene";
 import {
   CARD_BACK,
   CARD_FRONT,
@@ -89,11 +89,8 @@ const BEATS: { title: string; body: ReactNode; long?: boolean }[] = [
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-/**
- * The frame reduced motion shows for each beat. The review beat holds its first
- * card graded, with the answer shown and the grade landing on the graph.
- */
-const SETTLED = [0, 1.9, 2.9, 3.32, 4.9, 5.9];
+/** The frame reduced motion shows for each beat; review has one per card. */
+const SETTLED = [0, 1.9, 2.9, null, 4.9, 5.9];
 
 /**
  * The landing page's story: captions scroll past one pinned example deck, and
@@ -108,7 +105,9 @@ export function ScrollStory() {
     const root = rootRef.current;
     if (!root) return;
     const stage = root.querySelector<HTMLElement>("[data-stage]")!;
-    const scene = createScene(stage);
+    const scene = createScene(stage, [
+      ...root.querySelectorAll<HTMLElement>("[data-review-steps]"),
+    ]);
     const beats = [...root.querySelectorAll<HTMLElement>("[data-beat]")];
     const spine = root.querySelector<HTMLElement>("[data-spine]")!;
     const spineFill = root.querySelector<HTMLElement>("[data-spine-fill]")!;
@@ -123,6 +122,7 @@ export function ScrollStory() {
     let target = 0;
     let shown = 0;
     let shownBeat = -1;
+    let shownFrame = -1;
     let last = 0;
     let frame = 0;
 
@@ -152,12 +152,15 @@ export function ScrollStory() {
 
     const render = () => {
       const beat = Math.min(beats.length - 1, Math.floor(shown + 1e-6));
-      // Reduced motion shows each beat's settled frame, crossfaded, not scrubbed.
+      // Reduced motion shows settled frames, crossfaded, not scrubbed: one per
+      // beat, and one per graded card in the review beat.
       if (reduce.matches) {
-        if (beat !== shownBeat && shownBeat !== -1) {
+        const settled = SETTLED[beat] ?? settledReviewFrame(shown);
+        if (settled !== shownFrame && shownFrame !== -1) {
           stage.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 220, easing: "ease" });
         }
-        scene.apply(SETTLED[beat]!);
+        shownFrame = settled;
+        scene.apply(settled);
       } else {
         scene.apply(shown);
       }
@@ -263,7 +266,7 @@ export function ScrollStory() {
             className={cn(
               "story-beat relative flex flex-col py-12",
               beat.long
-                ? "min-h-[150svh] justify-start lg:min-h-[180dvh]"
+                ? "min-h-[300svh] justify-start lg:min-h-[340dvh]"
                 : "min-h-[60svh] justify-center lg:min-h-[86dvh]",
             )}
           >
@@ -279,11 +282,49 @@ export function ScrollStory() {
               <div className="mt-5 max-w-[34rem] space-y-4 text-base leading-relaxed text-pretty text-muted lg:text-lg">
                 {beat.body}
               </div>
+              {beat.long && <ReviewSteps className="max-lg:hidden" />}
             </div>
+            {/* Narrow screens only have room below the stage for the steps. */}
+            {beat.long && <ReviewSteps className="story-steps--held lg:hidden" />}
           </li>
         ))}
       </ol>
     </section>
+  );
+}
+
+/**
+ * Where the review beat is: a bar per card that fills as it is reviewed, and a
+ * line naming the current step. The stage shows the same thing; this is the
+ * readable version beside it.
+ */
+function ReviewSteps({ className }: { className?: string }) {
+  return (
+    <div data-review-steps aria-hidden className={cn("mt-7 max-w-[34rem]", className)}>
+      <ol className="grid grid-cols-3 gap-3">
+        {REVIEWS.map((review, i) => (
+          <li
+            key={review.id}
+            data-review-progress={i}
+            data-state="upcoming"
+            className="story-progress"
+          >
+            <span className="story-progress-bar">
+              <span data-review-fill={i} className="story-progress-fill" />
+            </span>
+            <span className="mt-2 block truncate text-xs">
+              {DECK.find((n) => n.id === review.id)!.label}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p
+        data-review-step
+        className="mt-4 min-h-[3lh] text-base leading-snug font-medium text-ink lg:min-h-[2lh] lg:text-lg"
+      >
+        Recall the answer, then press Space.
+      </p>
+    </div>
   );
 }
 
