@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   deckQuery as deckQueryOptions,
   graphQuery as graphQueryOptions,
@@ -8,7 +8,7 @@ import { useStudyClock } from "@/lib/study-clock";
 import { armin } from "@/lib/armin-client";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, GitBranch, Layers } from "lucide-react";
+import { GitBranch } from "lucide-react";
 import type { Viewport, XYPosition } from "@xyflow/react";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { PrerequisiteGraph } from "@/components/prerequisite-graph/prerequisite-graph";
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { GraphSkeleton } from "@/components/page-skeletons";
 import { DeleteConsequencesList } from "@/components/delete-consequences-list";
 import { Dialog } from "@/components/ui/dialog";
+import { AllDecksLink, DeckNotFound } from "@/components/deck-not-found";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { useGraphCanvasEdits } from "@/lib/use-graph-canvas-edits";
@@ -200,23 +201,8 @@ function DeckGraphPage() {
     return (
       <div>
         <h1 className="sr-only">Deck not found</h1>
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1 rounded-sm text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          <ArrowLeft className="h-4 w-4" /> All decks
-        </Link>
-        <EmptyState
-          className="mt-8"
-          icon={Layers}
-          title="Deck not found"
-          description="This deck doesn't exist in your library. It may have been removed or the link is stale."
-          action={
-            <Link to="/">
-              <Button variant="outline">Back to decks</Button>
-            </Link>
-          }
-        />
+        <AllDecksLink />
+        <DeckNotFound />
       </div>
     );
   }

@@ -9,17 +9,7 @@ import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  Plus,
-  Play,
-  Layers,
-  AlertTriangle,
-  Share2,
-  Tag,
-  Settings,
-  Brain,
-} from "lucide-react";
+import { Plus, Play, Layers, AlertTriangle, Share2, Tag, Settings, Brain } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { CramDialog } from "@/components/cram-dialog";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
@@ -36,6 +26,7 @@ import {
   DeckHeaderSkeleton,
   FlashcardGridSkeleton,
 } from "@/components/page-skeletons";
+import { AllDecksLink, DeckNotFound } from "@/components/deck-not-found";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useFlashcardTileActions } from "@/components/use-flashcard-tile-actions";
 import { useToast } from "@/components/ui/toast";
@@ -151,7 +142,7 @@ function DeckPage() {
   if (isError) {
     return (
       <div>
-        <BackLink />
+        <AllDecksLink />
         <div className="mt-6">
           <div className="flex flex-col items-center rounded-xl border border-border bg-bg-2 px-6 py-14 text-center">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-relearning-bg text-relearning">
@@ -182,25 +173,15 @@ function DeckPage() {
   if (deckQuery.isSuccess && !deck) {
     return (
       <div>
-        <BackLink />
-        <EmptyState
-          className="mt-8"
-          icon={Layers}
-          title="Deck not found"
-          description="This deck doesn't exist in your library. It may have been removed or the link is stale."
-          action={
-            <Link to="/">
-              <Button variant="outline">Back to decks</Button>
-            </Link>
-          }
-        />
+        <AllDecksLink />
+        <DeckNotFound />
       </div>
     );
   }
 
   return (
     <div>
-      <BackLink />
+      <AllDecksLink />
 
       {deck ? (
         <DeckHeader
@@ -398,17 +379,6 @@ function DeckHeader({
         )}
       </div>
     </header>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link
-      to="/"
-      className="inline-flex items-center gap-1 rounded-sm text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-    >
-      <ArrowLeft className="h-4 w-4" /> All decks
-    </Link>
   );
 }
 
