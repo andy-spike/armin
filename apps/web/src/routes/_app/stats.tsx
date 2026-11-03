@@ -298,14 +298,7 @@ function DayBarChart({
     });
   }, [series, opacity, unit, forecast]);
 
-  const first = series.days[0]?.count ?? 0;
-  const average = series.days.length === 0 ? 0 : series.total / series.days.length;
-  const detail =
-    series.total === 0
-      ? empty
-      : forecast
-        ? `${first === 0 ? "Nothing" : first} due today · busiest day ${series.max}`
-        : `${average < 10 ? average.toFixed(1) : Math.round(average)} a day on average · best day ${series.max}`;
+  const detail = seriesDetail(series, forecast, empty);
 
   return (
     <div className="flex flex-col gap-4">
@@ -316,6 +309,22 @@ function DayBarChart({
       <Chart definition={definition} ariaLabel={ariaLabel} height={176} initialWidth={520} />
     </div>
   );
+}
+
+/** The line beside a series total: today's load for a forecast, the daily average otherwise. */
+function seriesDetail(
+  series: StatsOverview["daily"],
+  forecast: boolean | undefined,
+  empty: string,
+) {
+  if (series.total === 0) return empty;
+  if (forecast) {
+    const first = series.days[0]?.count ?? 0;
+    return `${first === 0 ? "Nothing" : first} due today · busiest day ${series.max}`;
+  }
+  const average = series.days.length === 0 ? 0 : series.total / series.days.length;
+  const rounded = average < 10 ? average.toFixed(1) : Math.round(average);
+  return `${rounded} a day on average · best day ${series.max}`;
 }
 
 function Retention({ retention }: { retention: StatsOverview["retention"] }) {

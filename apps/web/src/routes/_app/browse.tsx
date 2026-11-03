@@ -240,7 +240,7 @@ function BrowsePage() {
               value={sort}
               onChange={setSort}
               options={BROWSE_SORT_OPTIONS}
-              inlineIcon
+              layout="inline"
               className="sm:ml-auto"
               triggerClassName="min-w-0 w-44"
             />

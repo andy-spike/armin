@@ -20,12 +20,13 @@ type SortControlProps<T extends string> = {
   onChange: (value: T) => void;
   options: readonly SortOption<T>[];
   className?: string;
-  /** Stack a label above the select to match filter fields. */
-  fieldLayout?: boolean;
+  /**
+   * Where the sort icon goes: beside the select (default), above it with
+   * `label` to match filter fields, or inside the trigger.
+   */
+  layout?: "beside" | "field" | "inline";
   label?: ReactNode;
   triggerClassName?: string;
-  /** Puts the sort icon inside the trigger instead of beside it. */
-  inlineIcon?: boolean;
 };
 
 export function SortControl<T extends string>({
@@ -33,10 +34,9 @@ export function SortControl<T extends string>({
   onChange,
   options,
   className,
-  fieldLayout = false,
+  layout = "beside",
   label = "Sort",
   triggerClassName,
-  inlineIcon = false,
 }: SortControlProps<T>) {
   const items = options.map((opt) => ({ value: opt.value, label: opt.label }));
 
@@ -46,7 +46,7 @@ export function SortControl<T extends string>({
         className={cn("w-full min-w-[11rem] border-border-strong bg-surface", triggerClassName)}
         aria-label="Sort by"
       >
-        {inlineIcon && <ArrowUpDown className="size-3.5 text-muted" aria-hidden />}
+        {layout === "inline" && <ArrowUpDown className="size-3.5 text-muted" aria-hidden />}
         <SelectValue className="flex-1 text-left" />
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false}>
@@ -61,7 +61,7 @@ export function SortControl<T extends string>({
     </Select>
   );
 
-  if (fieldLayout) {
+  if (layout === "field") {
     return (
       <label className={cn("flex flex-col gap-1.5", className)}>
         <span className="inline-flex h-3.5 items-center gap-1.5 text-xs font-medium text-muted">
@@ -73,7 +73,7 @@ export function SortControl<T extends string>({
     );
   }
 
-  if (inlineIcon) return <div className={className}>{select}</div>;
+  if (layout === "inline") return <div className={className}>{select}</div>;
 
   return (
     <div className={cn("flex items-center gap-2", className)}>

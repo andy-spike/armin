@@ -7,7 +7,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { TruncatedLabel } from "@/components/ui/truncated-label";
 import { cardInfoQuery } from "@/lib/queries";
 import { stripMarkdownForPreview } from "@/lib/markdown-preview";
-import { cn } from "@/lib/utils";
+import { cn, formatTimestamp } from "@/lib/utils";
 
 const RATING_LABELS: Record<number, string> = {
   1: "Again",
@@ -15,13 +15,6 @@ const RATING_LABELS: Record<number, string> = {
   3: "Good",
   4: "Easy",
 };
-
-function formatWhen(ms: number) {
-  return new Date(ms).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
 
 /** Relative due time that fits a narrow stat column; the exact time is the tooltip. */
 function formatDue(due: number, now: number) {
@@ -112,7 +105,8 @@ export function CardInfoDialog({
                     )}
                     {unit.buried && (
                       <Badge className="bg-hard/15 text-hard">
-                        Buried until {unit.buriedUntil ? formatWhen(unit.buriedUntil) : "tomorrow"}
+                        Buried until{" "}
+                        {unit.buriedUntil ? formatTimestamp(unit.buriedUntil) : "tomorrow"}
                       </Badge>
                     )}
                     {data.units.length > 1 && (
@@ -126,7 +120,7 @@ export function CardInfoDialog({
                       <Stat
                         label="Due"
                         value={formatDue(unit.due, data.serverNow)}
-                        hint={formatWhen(unit.due)}
+                        hint={formatTimestamp(unit.due)}
                       />
                       <Stat
                         label="Recall chance"
@@ -167,7 +161,7 @@ export function CardInfoDialog({
                     className="grid grid-cols-[minmax(0,1fr)_4rem_5.5rem_3.5rem] items-baseline gap-x-3 px-3 py-2"
                   >
                     <span className="text-xs text-muted tabular-nums">
-                      {formatWhen(review.review)}
+                      {formatTimestamp(review.review)}
                     </span>
                     <span
                       className={cn("font-medium", review.rating === 1 ? "text-again" : "text-ink")}

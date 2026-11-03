@@ -226,7 +226,7 @@ function DeckPage() {
                 </FilterField>
               )}
               <SortControl
-                fieldLayout
+                layout="field"
                 value={sort}
                 onChange={setSort}
                 options={FLASHCARD_SORT_OPTIONS}
