@@ -1,4 +1,5 @@
 import { Link, type ErrorComponentProps } from "@tanstack/react-router";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function RouteError({ error, reset }: ErrorComponentProps) {
@@ -23,6 +24,24 @@ export function RouteNotFound() {
       <Link to="/" className="mt-6 inline-block">
         <Button variant="outline">Back to decks</Button>
       </Link>
+    </div>
+  );
+}
+
+/** A page's data failed to load; `onRetry` loads it again. */
+export function QueryError({ title, onRetry }: { title: string; onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center bg-relearning-bg text-relearning">
+        <AlertTriangle className="h-6 w-6" strokeWidth={1.5} />
+      </div>
+      <h3 className="text-base font-semibold text-ink">{title}</h3>
+      <p className="mt-1 max-w-[40ch] text-sm text-muted">
+        Check your connection and try again. Your saved data is safe.
+      </p>
+      <Button variant="outline" className="mt-5" onClick={onRetry}>
+        Try again
+      </Button>
     </div>
   );
 }

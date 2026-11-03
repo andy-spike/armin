@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Layers } from "lucide-react";
+import { Layers } from "lucide-react";
 import { barY, defineChart } from "@tanstack/charts";
 import { Chart } from "@tanstack/charts/react";
 import { scaleBand } from "@tanstack/charts/scales/band";
 import { scaleLinear } from "@tanstack/charts/scales/linear";
 import { tooltip } from "@tanstack/charts/tooltip";
 import type { StatsOverview } from "@armin/backend/types";
+import { QueryError } from "@/components/route-status";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -59,18 +60,7 @@ function StatsPage() {
       {(overviewQuery.isLoading || overview?.pending) && <StatsSkeleton />}
 
       {overviewQuery.isError && (
-        <div className="flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center bg-relearning-bg text-relearning">
-            <AlertTriangle className="h-6 w-6" strokeWidth={1.5} />
-          </div>
-          <h3 className="text-base font-semibold text-ink">Couldn&apos;t load your stats</h3>
-          <p className="mt-1 max-w-[40ch] text-sm text-muted">
-            Check your connection and try again. Your saved data is safe.
-          </p>
-          <Button variant="outline" className="mt-5" onClick={() => void overviewQuery.refetch()}>
-            Try again
-          </Button>
-        </div>
+        <QueryError title="Couldn’t load your stats" onRetry={() => void overviewQuery.refetch()} />
       )}
 
       {!overviewQuery.isLoading && !overviewQuery.isError && !overview && (
