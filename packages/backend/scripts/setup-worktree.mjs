@@ -1,3 +1,4 @@
+import { configureSandbox } from "./polar-sandbox.mjs";
 import { mkdirSync } from "node:fs";
 import { seedWorktree } from "./seed-worktree.mjs";
 import { spawn } from "node:child_process";
@@ -117,6 +118,7 @@ try {
       .join("\n"),
     stdio: ["pipe", "pipe", "inherit"],
   });
+  configureSandbox(state);
   run("node", [join(backend, "scripts/configure-clients.mjs")]);
   await seedWorktree();
   if (!names.has("JWKS")) {

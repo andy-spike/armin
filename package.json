@@ -14,6 +14,7 @@
   },
   "scripts": {
     "dev": "node packages/backend/scripts/start-dev.mjs all",
+    "dev:polar": "node packages/backend/scripts/polar-sandbox.mjs",
     "dev:setup": "pnpm --filter @armin/backend dev:setup",
     "dev:web": "node packages/backend/scripts/start-dev.mjs web",
     "dev:backend": "node packages/backend/scripts/start-dev.mjs backend",

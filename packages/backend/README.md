@@ -228,21 +228,11 @@ dunning, and pays out.
   reviewer account never see billing, and a deployment without the Polar
   variables below has billing off.
 
-Local testing uses a Polar **sandbox** organization. Polar can't reach a local
-backend, so forward events with the Polar CLI, then copy its signing secret
-into the deployment:
-
-```bash
-polar auth login --sandbox
-cd packages/backend
-pnpm exec convex env set POLAR_WEBHOOK_SECRET "$(polar webhook listen --print-secret)"
-polar webhook listen http://127.0.0.1:<convex-site-port>/polar/events
-```
-
-The Convex site port is `convexSitePort` in `.armin/dev.json`. Pay with
-Stripe's test card `4242 4242 4242 4242`. Polar rejects reserved email domains
-such as the seed account's `example.com`; checkout then asks the buyer for an
-email instead of prefilling it.
+Local testing uses a Polar **sandbox** organization shared across worktrees.
+Machine-local credentials are loaded by `pnpm worktree:setup`; `pnpm dev` starts
+or reuses a shared Polar CLI webhook relay automatically. See
+[Polar sandbox payments](../../docs/dev-worktrees.md#polar-sandbox-payments) for
+one-time setup, worktree overrides, relay lifecycle, and test buyer guidance.
 
 `convex/model/limits.ts` holds the technical bounds every plan sits under, so
 each query and mutation fits Convex's per-function limits (32,000 documents

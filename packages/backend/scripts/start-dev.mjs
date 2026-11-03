@@ -1,3 +1,4 @@
+import { ensureSandboxRelay } from "./polar-sandbox.mjs";
 import { spawn } from "node:child_process";
 import { assertTarget, readState, root } from "./dev-environment.mjs";
 
@@ -25,6 +26,7 @@ try {
     ],
   };
   if (!commands[mode]) throw new Error(`Unknown dev target: ${mode}`);
+  if (["all", "backend"].includes(mode)) await ensureSandboxRelay();
   const env = { ...process.env, ARMIN_WEB_PORT: String(state.webPort) };
   console.log(`Web: ${state.siteUrl}\nConvex: http://127.0.0.1:${state.convexPort} (local)`);
   // `vp run` doesn't pass a signal it receives on to its tasks; it relies on

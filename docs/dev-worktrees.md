@@ -178,6 +178,72 @@ when one is absent. It does not copy the main checkout's secrets or user data.
 Treat demo credentials and the local admin key as local credentials; report
 their file locations rather than pasting their contents into issues or PRs.
 
+## Polar sandbox payments
+
+All checkouts on this machine can share one Polar sandbox organization and its
+monthly/yearly Pro products. Each keeps its own customers and billing state in
+its local Convex deployment. Use distinct buyer email aliases for concurrent
+billing scenarios; do not copy a billing-enabled database between checkouts.
+
+One-time machine setup:
+
+1. Install the Polar CLI and run `polar auth login --sandbox`. Select the sandbox
+   organization. Keep this CLI session on sandbox while using local billing.
+2. Create `~/.config/armin/polar-sandbox.env` (directory mode 700, file mode 600)
+   with the following variables. Never commit this file or copy production tokens.
+
+   ```dotenv
+   POLAR_SERVER=sandbox
+   POLAR_SANDBOX_ORGANIZATION_ID=<sandbox organization UUID>
+   POLAR_ORGANIZATION_TOKEN=<sandbox organization token>
+   POLAR_PRODUCT_PRO_MONTHLY=<sandbox monthly product UUID>
+   POLAR_PRODUCT_PRO_YEARLY=<sandbox yearly product UUID>
+   POLAR_WEBHOOK_SECRET=<secret from polar webhook listen --print-secret --json>
+   # Optional: POLAR_RELAY_PORT=3219
+   ```
+
+   Read the `secret` field from that CLI response; the value itself goes in the
+   file. The organization token needs the billing scopes listed in the backend
+   README. Sandbox products and tokens are separate from production.
+
+3. Run `pnpm worktree:setup` in existing checkouts. New worktrees pick up the
+   configuration automatically once they contain these setup scripts.
+
+Setup validates the CLI sandbox organization and signing secret, installs the
+five billing variables into the checkout's local Convex deployment, and writes a
+private destination record under `~/.config/armin/polar-targets/`. Repeated setup
+updates these variables without resetting account or study data. Without the
+shared file, setup continues without changing billing configuration.
+
+`pnpm dev` and `pnpm dev:backend` automatically start or reuse one detached,
+loopback-only webhook relay on port 3219. The relay runs one Polar CLI listener,
+verifies signatures, and forwards the original bytes and signature headers to
+registered worktrees. Missing checkouts and stopped backends are skipped; HTTP
+errors from running backends request a retry. Duplicate deliveries are safe for
+billing's existing sync mechanism. The relay intentionally survives stopping one
+worktree so other agents retain webhook delivery. It starts again on the next
+backend launch after a reboot. It is a development forwarder, not a durable queue:
+use Billing's Retry action to refresh state after downtime, and keep the backend
+running when testing webhook-driven changes.
+
+Run `pnpm dev:polar` in a terminal for foreground startup diagnostics when the
+relay is stopped. A healthy relay occupies its configured port; do not start a
+second foreground relay on that port. To stop it, find its listener with
+`lsof -iTCP:3219 -sTCP:LISTEN` and send SIGTERM to that relay process. After rotating
+the CLI signing secret or changing the shared organization/port, stop the relay,
+update the shared file, rerun setup in each checkout, and restart development.
+The CLI banner includes its signing secret, so the relay suppresses CLI output.
+
+For a task that needs different sandbox products or an API token, put only those
+overrides in the ignored `.armin/polar-sandbox.env` in that checkout and rerun
+setup. Organization, signing secret, server, and relay port remain machine-wide.
+Use a separate machine configuration for a separate sandbox organization.
+
+Sandbox checkout accepts test card `4242 4242 4242 4242` with a future expiry and
+any CVC. The seed email `test@example.com` may be rejected by Polar; enter a real
+email alias you control when checkout asks. Sandbox customer emails are delivered
+only to organization members (including their sub-addressing aliases).
+
 ## References
 
 - [Convex local deployments](https://docs.convex.dev/cli/local-deployments)
