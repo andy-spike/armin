@@ -367,6 +367,16 @@ function translucent(hex: string, alpha: number) {
   return `rgb(${r} ${g} ${b} / ${alpha})`;
 }
 
+/**
+ * The page's paper grain: a fine static noise tile in `color`, as a CSS image.
+ * It matches the hand-tuned Flexoki grain in apps/web's flexoki-theme.css.
+ */
+function paperGrain(color: string, alpha: number) {
+  const [r, g, b] = toRgb(color).map((c) => (c / 255).toFixed(3));
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 ${r} 0 0 0 0 ${g} 0 0 0 0 ${b} 0 0 0 ${alpha} 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
 /** Text and controls must clear WCAG AA. */
 const AA = 4.5;
 
@@ -449,8 +459,13 @@ export function deriveThemeTokens(theme: Pick<ThemeDefinition, "seeds" | "highCo
       scheme === "light"
         ? "0 12px 40px -8px rgb(0 0 0 / 0.18)"
         : "0 12px 40px -8px rgb(0 0 0 / 0.45)",
-    "grid-h": translucent(borderStrong, scheme === "light" ? 0.42 : 0.38),
-    "grid-v": translucent(border, scheme === "light" ? 0.22 : 0.2),
+    // The page's paper: light from above, a faint dot grid, and grain.
+    "paper-light": scheme === "light" ? "rgb(255 255 255 / 0.5)" : translucent(ink, 0.035),
+    "paper-dot": translucent(
+      mixColors(ink, bg, scheme === "light" ? 0.7 : 0.6),
+      scheme === "light" ? 0.45 : 0.32,
+    ),
+    "paper-grain": paperGrain(ink, scheme === "light" ? 0.09 : 0.075),
   };
   return tokens;
 }

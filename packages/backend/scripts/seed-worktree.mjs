@@ -1,9 +1,8 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { hashPassword } from "better-auth/crypto";
-import { ConvexHttpClient } from "convex/browser";
 import { anyApi as api } from "convex/server";
-import { assertTarget, convex, readState, root, saveState } from "./dev-environment.mjs";
+import { ensureDemoAccount, signInDemoAccount } from "./demo-account.mjs";
+import { assertTarget, readState, root, saveState } from "./dev-environment.mjs";
 
 export async function seedWorktree() {
   const state = readState();
@@ -17,77 +16,11 @@ export async function seedWorktree() {
     mode: 0o600,
   });
 
-  // Operator-only component calls against this checkout's local deployment.
-  // No fixture endpoint or verification bypass is added to the application.
-  function adapter(name, args) {
-    return JSON.parse(
-      convex(["run", `adapter:${name}`, JSON.stringify(args), "--component", "betterAuth"], {
-        stdio: ["ignore", "pipe", "inherit"],
-      }) || "null",
-    );
-  }
-  const now = Date.now();
-  let user = adapter("findOne", {
-    model: "user",
-    where: [{ field: "email", operator: "eq", value: credentials.email }],
+  const { created: createdUser } = await ensureDemoAccount({
+    ...credentials,
+    name: "Agent demo",
   });
-  const createdUser = !user;
-  if (!user) {
-    user = adapter("create", {
-      input: {
-        model: "user",
-        data: {
-          name: "Agent demo",
-          email: credentials.email,
-          emailVerified: true,
-          createdAt: now,
-          updatedAt: now,
-        },
-      },
-    });
-  }
-  const userId = user._id;
-  const account = adapter("findOne", {
-    model: "account",
-    where: [
-      { field: "userId", operator: "eq", value: userId },
-      { field: "providerId", operator: "eq", value: "credential" },
-    ],
-  });
-  if (!account) {
-    adapter("create", {
-      input: {
-        model: "account",
-        data: {
-          userId,
-          accountId: userId,
-          providerId: "credential",
-          password: await hashPassword(credentials.password),
-          createdAt: now,
-          updatedAt: now,
-        },
-      },
-    });
-  }
-
-  const response = await fetch(`${values.CONVEX_SITE_URL}/api/auth/sign-in/email`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: state.siteUrl },
-    body: JSON.stringify(credentials),
-  });
-  if (!response.ok) throw new Error(`Demo sign-in failed with HTTP ${response.status}.`);
-  const cookie = response.headers
-    .getSetCookie()
-    .map((entry) => entry.split(";")[0])
-    .join("; ");
-  const tokenResponse = await fetch(`${values.CONVEX_SITE_URL}/api/auth/convex/token`, {
-    headers: { cookie, origin: state.siteUrl },
-  });
-  if (!tokenResponse.ok)
-    throw new Error(`Demo token request failed with HTTP ${tokenResponse.status}.`);
-  const { token } = await tokenResponse.json();
-  const client = new ConvexHttpClient(values.CONVEX_URL);
-  client.setAuth(token);
+  const { client, signOut } = await signInDemoAccount(values, state, credentials);
   try {
     await client.mutation(api.account.ensureLibrary, { timeZone: "UTC" });
     if (state.seeded && !createdUser) {
@@ -150,10 +83,7 @@ export async function seedWorktree() {
       `Created sample library with four cards and a prerequisite. Demo login: ${credentialsPath}`,
     );
   } finally {
-    await fetch(`${values.CONVEX_SITE_URL}/api/auth/sign-out`, {
-      method: "POST",
-      headers: { cookie, origin: state.siteUrl },
-    });
+    await signOut();
   }
 }
 

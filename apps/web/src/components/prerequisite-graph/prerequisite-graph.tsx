@@ -786,11 +786,12 @@ function PrerequisiteGraphCanvas({
         connectionLineStyle={connectionLineStyle}
         defaultEdgeOptions={defaultEdgeOptions}
       >
+        {/* The page's paper dots, drawn by the canvas so they move with it. */}
         <Background
-          variant={BackgroundVariant.Cross}
+          variant={BackgroundVariant.Dots}
           gap={24}
-          size={1}
-          color="var(--armin-grid-v)"
+          size={1.8}
+          color="var(--armin-paper-dot)"
         />
         <Panel position="bottom-right">
           <ZoomControl />

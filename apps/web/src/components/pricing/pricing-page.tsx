@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 import { MAX_FLASHCARDS_PER_DECK, PLAN_LIMITS, PLAN_PRICES } from "@armin/core/plans";
-import { ArminMark, ArminWordmark } from "@/components/brand";
+import { SiteHeader } from "@/components/site-header";
 import {
   Accordion,
   AccordionContent,
@@ -239,23 +239,7 @@ export function PricingPage() {
 
   return (
     <div className="legal notebook-bg flex min-h-dvh flex-col">
-      <header className="border-b border-border-strong bg-bg">
-        <nav
-          aria-label="Main"
-          className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-5 sm:px-8"
-        >
-          <Link
-            to="/"
-            className="mr-auto flex items-center gap-2 text-xl text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <ArminMark className="size-5" />
-            <ArminWordmark />
-          </Link>
-          <Link to="/sign-in" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-            Sign in
-          </Link>
-        </nav>
-      </header>
+      <SiteHeader />
       <main className="mx-auto w-full max-w-5xl flex-1 px-5 pt-10 pb-20 sm:px-8 sm:pt-16">
         <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>

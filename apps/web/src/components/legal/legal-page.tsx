@@ -5,7 +5,7 @@ import { SOURCE_CODE_URL } from "@/lib/source-code";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Link } from "@tanstack/react-router";
-import { ArminMark, ArminWordmark } from "@/components/brand";
+import { SiteHeader } from "@/components/site-header";
 
 const linkClass =
   "text-accent underline underline-offset-2 hover:text-accent-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
@@ -125,17 +125,7 @@ const components: Components = {
 export function LegalPage({ source }: { source: string }) {
   return (
     <div className="legal notebook-bg flex min-h-dvh flex-col">
-      <header className="border-b border-border-strong bg-bg">
-        <nav aria-label="Main" className="mx-auto flex h-14 max-w-3xl items-center px-5 sm:px-8">
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-xl text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <ArminMark className="size-5" />
-            <ArminWordmark />
-          </Link>
-        </nav>
-      </header>
+      <SiteHeader />
       <main className="mx-auto w-full max-w-3xl flex-1 px-5 pt-10 pb-16 sm:px-8 sm:pt-14">
         <article className="break-words">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
@@ -143,7 +133,7 @@ export function LegalPage({ source }: { source: string }) {
           </ReactMarkdown>
         </article>
       </main>
-      <footer className="border-t border-border-strong bg-bg">
+      <footer className="border-t border-border-strong">
         <nav
           aria-label="Documentation and policies"
           className="mx-auto flex max-w-3xl flex-wrap items-center gap-x-6 gap-y-2 px-5 py-6 text-sm text-muted sm:px-8"
