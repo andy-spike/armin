@@ -20,10 +20,7 @@ export async function markLibraryDeleting(ctx: GenericMutationCtx<DataModel>, ow
     .unique();
   if (!library) return;
   if (library.status !== "deleting") {
-    await ctx.db.patch(library._id, {
-      status: "deleting",
-      deletionRequestedAt: Date.now(),
-    });
+    await ctx.db.patch(library._id, { status: "deleting" });
   }
   await ctx.scheduler.runAfter(0, internal.deletion.cleanupLibrary, {
     libraryId: library._id,

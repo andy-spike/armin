@@ -21,9 +21,8 @@ generated API.
 - `convex/appearance.ts` — the account's color theme choice and custom themes
   (seed colors only, validated by `@armin/core/themes`), in its own table so
   theme changes never re-run scheduling reads.
-- `convex/account.ts` — viewer, idempotent library provisioning, account
-  timezone, and the library revision (kept for clients from before live
-  subscriptions; exports use the revision as a snapshot check).
+- `convex/account.ts` — viewer, idempotent library provisioning, and account
+  timezone.
 - `convex/decks.ts`, `flashcards.ts`, `graph.ts`, `settings.ts` — authoring,
   browse, prerequisite graph, and scheduling settings.
 - `convex/review.ts` — queue, rating previews, rate, bury/unbury, card info, and undo.
@@ -262,46 +261,7 @@ library revision, so another saved library change can require a graph reload.
 Deck web URLs use stable, library-scoped slugs. New decks receive one through
 `model/decks.ts`, including assistant-created and imported decks. Duplicate names
 receive numeric suffixes; renaming preserves the URL. ID links still resolve and
-redirect to the slug. After deploying this change to an existing deployment, run:
-
-```bash
-pnpm --filter @armin/backend exec convex run deckSlugs:backfill '{}'
-```
-
-The idempotent backfill processes 50 decks per transaction and schedules the next
-page. Monitor scheduled functions until it completes. Until backfilled, existing
-decks continue using their ID links. Add `--prod` only for the intended production
-deployment as part of the normal deployment workflow.
-
-When deploying the unlock-once policy to an existing deployment, run the bounded,
-idempotent backfill after pushing the new backend and before resuming study:
-
-```bash
-pnpm --filter @armin/backend exec convex run maintenance:grantLegacyPrerequisiteAccess '{}'
-```
-
-Each batch processes one flashcard and schedules the next batch. This also bounds
-read size when a cloze flashcard has many large review units.
-Check the scheduled functions in that deployment until the migration finishes.
-It preserves unlocked cards, restores locked cards with surviving review history,
-and leaves unreviewed locked cards gated. No lifetime review-log scan is needed.
-Run this only against the intended deployment; development checkouts target
-their own local deployment. New flashcards record their access state immediately.
-
-When moving an existing deployment from the retired Armin OAuth server to the
-MCP component, run this bounded, idempotent cleanup after pushing the new
-backend:
-
-```bash
-pnpm --filter @armin/backend exec convex run agents:retireLegacyConnections '{}'
-```
-
-It pages through pre-migration connections, marks them revoked, and clears their
-stored token hashes. Rows, created-content provenance, activity, and retry
-records are kept. Those connections must be reconnected; component grants
-created after the migration are unaffected. The hourly prune job removes the
-retired OAuth tables (`agentClients`, `agentAuthorizations`,
-`agentUsedRefreshTokens`) once their rows expire.
+redirect to the slug.
 
 Development uses a local Convex deployment per checkout, never a cloud dev
 deployment. Run `pnpm dev:setup` from the repository root (with Node 20, 22, or
@@ -405,8 +365,8 @@ Treat these links as secrets and use dedicated QA accounts.
 `model/performance.ts` maintains text-free `unitSummaries` and rolling daily
 activity in the same transaction as their source writes. Queue selection and
 statistics read these compact rows. Review content is a separate authenticated
-`review.items` subscription, limited to eight units; queue callers opt in to
-`metadataOnly` so older clients can still request complete items. Navigation
+`review.items` subscription, limited to eight units; queues return metadata
+only. Navigation
 uses counters plus `review.status`'s per-deck admission counts.
 
 Activity retains 400 days, longer than the displayed 52-week window. Per-card
@@ -417,35 +377,8 @@ aggregation generation and rebuilds it in bounded jobs. Stats reports `pending`
 until the generation is complete. Rebuild jobs use a fixed date bound for all
 pages; never recompute a paginated range's boundary between pages.
 
-After deploying this change to an existing deployment, run the operator-only
-migrations **on that same intended deployment**, before releasing the updated
-clients:
-
-```bash
-pnpm --filter @armin/backend exec convex run performance:backfill '{"cursor":null}'
-pnpm --filter @armin/backend exec convex run media:backfillVariants '{"cursor":null}'
-```
-
-The plan-limits change adds `frontierKey` to unit summaries. After deploying
-it, run the idempotent backfill so existing units take their place in the
-new-card order (units without a key are introduced first until then):
-
-```bash
-pnpm --filter @armin/backend exec convex run performance:backfillFrontierKeys '{"cursor":null}'
-```
-
 Deck counters (`deckUnitCounts`) build themselves on each deck's next write.
-
-Self-hosted instances run these backfills on every update and restore, from
-the `MIGRATIONS` list in `selfhost/lib.sh`. Add each new idempotent backfill
-that takes `{"cursor":null}` to that list.
-
-The commands above use the checkout's local deployment by default. Production
-requires the normal explicit production deployment workflow. Inspect scheduled
-functions for completion and confirm libraries have `statsReady: true` before
-calling the migration complete. Both backfills can be rerun after interruption;
-log generation markers prevent double counting. New libraries and timezone
-changes schedule their own activity rebuild.
+New libraries and timezone changes schedule their own activity rebuild.
 
 The web app shrinks images in the browser before upload
 (`apps/web/src/lib/shrink-image.ts`): the longest side is at most 1600 px,
@@ -462,9 +395,10 @@ stored as sent.
 
 The server records each image's intrinsic dimensions in a Node action using the
 pinned Sharp package, externalized in `convex.json`. Images above the decoder's
-16-million-pixel bound or unsupported/corrupt inputs get no dimensions. New
-images get no server preview. Images uploaded before this change keep any WebP
-preview they already have, with its bytes still counted. Media files are named
+16-million-pixel bound or unsupported/corrupt inputs get no dimensions. Images
+are served as stored; there are no server previews. A WebP preview an older
+image still has is no longer served, but its bytes stay counted and are deleted
+with the image. Media files are named
 by their content hash, so the media routes let the browser cache them privately
 for a year. Every media route requires the session.
 

@@ -157,7 +157,7 @@ export const build = internalAction({
             tags: flashcard.tags,
             archived: flashcard.archived,
             locked: flashcard.locked,
-            prerequisiteAccessGranted: flashcard.prerequisiteAccessGranted ?? !flashcard.locked,
+            prerequisiteAccessGranted: flashcard.prerequisiteAccessGranted,
             position:
               flashcard.posX == null || flashcard.posY == null
                 ? null

@@ -44,20 +44,11 @@ billing in production:
 
 Billing stays off until all of them are set.
 
-### One-time data backfills
+### Data backfills
 
-Some backend releases add derived data that existing rows need. Run the
-backfill right after the deploy that introduces it, before deploying the web
-app. Each one schedules itself in bounded batches and is safe to rerun.
-
-| Introduced with                    | Command                                                    |
-| ---------------------------------- | ---------------------------------------------------------- |
-| Browse summaries and deck counters | `npx convex run --prod maintenance:backfillSummaries '{}'` |
-
-Until the summaries backfill finishes, Browse lists only cards changed since
-the deploy, and a deck's totals count only those cards once one of them has
-changed, so start it immediately. The backfill adds each remaining card to its
-deck's counters.
+No backfill is pending. A release that adds derived data to existing rows ships
+its own bounded backfill and lists it here with the command to run right after
+the deploy that introduces it, before deploying the web app.
 
 ## Web app
 

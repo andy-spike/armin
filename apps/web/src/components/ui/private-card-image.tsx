@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@armin/backend/api";
 
-/** Display previews stay authenticated; zoom uses the caller's original URL. */
+/** An authenticated card image that reserves its layout space from stored dimensions. */
 export function PrivateCardImage({
   src,
   alt,
@@ -23,7 +23,7 @@ export function PrivateCardImage({
   const dimensions = metadata.data;
   return (
     <img
-      src={dimensions?.preview ? `${src}?preview=1` : src}
+      src={src}
       alt={alt}
       width={dimensions?.width}
       height={dimensions?.height}

@@ -84,25 +84,6 @@ deploy_backend() {
     say "Creating sign-in signing keys"
     convex run selfHost:signingKeys | node_json_string | convex env set JWKS >/dev/null
   fi
-  run_migrations
-}
-
-# Idempotent data migrations that bring data from an older version up to date.
-# Each returns at once and finishes in scheduled jobs; on current data they
-# change nothing. List every new operator backfill from
-# packages/backend/README.md here; setup, update, and restore run them.
-MIGRATIONS=(
-  performance:backfill
-  performance:backfillFrontierKeys
-  media:backfillVariants
-)
-
-run_migrations() {
-  say "Bringing existing data up to date"
-  local fn
-  for fn in "${MIGRATIONS[@]}"; do
-    convex run "$fn" '{"cursor":null}' >/dev/null
-  done
 }
 
 # Whether the owner account exists (setup.sh, create-owner.sh).

@@ -289,14 +289,6 @@ export async function deleteReviewUnit(ctx: MutationCtx, id: Id<"reviewUnits">) 
 
 // --- Prerequisite lock state ---
 
-/** Preserve access already earned, including currently unlocked legacy cards. */
-function hasPrerequisiteAccess(flashcard: Doc<"flashcards">) {
-  return (
-    flashcard.prerequisiteAccessGranted === true ||
-    (flashcard.prerequisiteAccessGranted === undefined && !flashcard.locked)
-  );
-}
-
 async function dependentsOf(ctx: QueryCtx, flashcardId: Id<"flashcards">) {
   const edges = await ctx.db
     .query("prereqs")
@@ -332,7 +324,7 @@ async function computeLocked(
   flashcard: Doc<"flashcards">,
   settings: SettingsCache,
 ): Promise<boolean> {
-  if (hasPrerequisiteAccess(flashcard)) return false;
+  if (flashcard.prerequisiteAccessGranted) return false;
   const edges = await ctx.db
     .query("prereqs")
     .withIndex("by_dependent", (q) => q.eq("dependentId", flashcard._id))
@@ -402,22 +394,6 @@ async function applyLockState(
  * Backfill old cards without reading unbounded review history. Existing
  * access and any surviving review history prove the card was accessible.
  */
-export async function migratePrerequisiteAccess(
-  ctx: MutationCtx,
-  flashcard: Doc<"flashcards">,
-  now: number,
-) {
-  if (flashcard.prerequisiteAccessGranted !== undefined) return false;
-  const units = await ctx.db
-    .query("reviewUnits")
-    .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcard._id))
-    .collect();
-  const granted =
-    !flashcard.locked || units.some((unit) => unit.reps > 0 || unit.lastReview != null);
-  await applyLockState(ctx, flashcard, !granted, now, units);
-  return true;
-}
-
 export async function refreshLockState(
   ctx: MutationCtx,
   flashcardIds: Id<"flashcards">[],
@@ -498,7 +474,7 @@ export async function refreshAllLocks(
     if (!dependent) continue;
     const floor = (await settings.forDeck(dependent.deckId)).prereqStabilityFloor;
     const locked =
-      !hasPrerequisiteAccess(dependent) &&
+      !dependent.prerequisiteAccessGranted &&
       prereqIds.some((prereqId) => {
         const prereq = cards.get(prereqId);
         if (!prereq || prereq.archived) return false;

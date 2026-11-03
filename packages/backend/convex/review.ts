@@ -41,11 +41,12 @@ const GRADES: Grade[] = [Rating.Again, Rating.Hard, Rating.Good, Rating.Easy];
  * first) followed by today's shared Frontier. `now` is a client clock tick so
  * the subscription re-evaluates as time passes even without writes. `deckId`
  * is a string so a malformed route id returns "not found" instead of failing
- * Convex argument validation.
+ * Convex argument validation. Items are metadata only; card content comes
+ * from `items`. Clients still send `metadataOnly: true`, which is accepted.
  */
 export const queue = query({
   args: { deckId: v.optional(v.string()), now: v.number(), metadataOnly: v.optional(v.boolean()) },
-  handler: async (ctx, { deckId: deckIdArg, now, metadataOnly }) => {
+  handler: async (ctx, { deckId: deckIdArg, now }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
     let deckId: Id<"decks"> | null = null;
@@ -57,9 +58,7 @@ export const queue = query({
     const { reviews, frontier } = await selectSession(ctx, library, deckId, now);
     const nextDue = await nextDueAfter(ctx, library, deckId, now);
     return {
-      items: metadataOnly
-        ? queueDescriptors([...reviews, ...frontier])
-        : await toQueueItems(ctx, [...reviews, ...frontier]),
+      items: queueDescriptors([...reviews, ...frontier]),
       reviewCount: reviews.length,
       newCount: frontier.length,
       nextDueAt: nextDue,
@@ -336,7 +335,7 @@ export const rate = mutation({
     // An accepted review proves this flashcard was accessible, including root
     // cards. Later prerequisite edits and Undo must not revoke that access.
     const flashcard = await ctx.db.get(unit.flashcardId);
-    if (flashcard && flashcard.prerequisiteAccessGranted !== true) {
+    if (flashcard && !flashcard.prerequisiteAccessGranted) {
       await ctx.db.patch(flashcard._id, { prerequisiteAccessGranted: true });
     }
     const reviewLogId = await ctx.db.insert("reviewLogs", {

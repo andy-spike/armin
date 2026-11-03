@@ -11,7 +11,7 @@ import {
   selectCramUnits,
   type CramSelection,
 } from "./model/cram";
-import { queueDescriptors, toQueueItems } from "./model/queue";
+import { queueDescriptors } from "./model/queue";
 import { findRequest, recordRequest } from "./model/study";
 
 /**
@@ -76,6 +76,7 @@ export const queue = query({
   args: {
     ...selectionArgs,
     max: v.optional(v.number()),
+    /** Accepted for clients that still send it; items are always metadata. */
     metadataOnly: v.optional(v.boolean()),
     seed: v.optional(v.number()),
   },
@@ -100,9 +101,7 @@ export const queue = query({
         ? shuffled.length
         : Math.max(1, Math.min(shuffled.length, Math.floor(args.max)));
     return {
-      items: args.metadataOnly
-        ? queueDescriptors(shuffled.slice(0, max))
-        : await toQueueItems(ctx, shuffled.slice(0, max)),
+      items: queueDescriptors(shuffled.slice(0, max)),
     };
   },
 });

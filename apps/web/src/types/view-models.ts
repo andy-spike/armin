@@ -18,7 +18,7 @@ import type { FlashcardContent, FlashcardType } from "@armin/core/flashcard-type
 
 export type Grade = 1 | 2 | 3 | 4;
 
-export type BrowseFlashcard = BrowsePage["flashcards"][number];
+export type BrowseFlashcard = BrowsePage["page"][number];
 export type PreviewOption = ReviewPreview["options"][number];
 export type Settings = AccountSettings;
 

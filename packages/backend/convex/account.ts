@@ -4,7 +4,7 @@ import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import { getViewer } from "./model/access";
 import { fail } from "./model/errors";
-import { bumpRevision, defaultSettingsRow, libraryRevision } from "./model/study";
+import { bumpRevision, defaultSettingsRow } from "./model/study";
 import { isReviewer, reviewerResetHours } from "./model/reviewer";
 import { isSelfHosted } from "./model/selfHost";
 import { libraryPlan } from "./model/usage";
@@ -104,18 +104,5 @@ export const setTimeZone = mutation({
     await ctx.db.patch(viewer.library._id, { timeZone });
     await bumpRevision(ctx, viewer.library._id);
     return timeZone;
-  },
-});
-
-/**
- * The library's write revision. Clients subscribe to it and refresh their
- * cached reads when any tab or device changes the library.
- */
-export const revision = query({
-  args: {},
-  handler: async (ctx) => {
-    const viewer = await getViewer(ctx);
-    if (!viewer?.library || viewer.library.status !== "active") return null;
-    return libraryRevision(ctx, viewer.library._id);
   },
 });
