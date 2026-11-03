@@ -175,8 +175,6 @@ function DeckGraphPage() {
     graph,
     setGraph,
     deckId,
-    createDeckId: deckId,
-    inheritedDeckId: deckId,
     pendingPlacement,
     pendingConnectFrom,
     editingId,

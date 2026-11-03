@@ -19,8 +19,6 @@ type UseGraphCanvasEditsInput = {
   graph: UiDeckGraph;
   setGraph: Dispatch<SetStateAction<UiDeckGraph>>;
   deckId: string;
-  createDeckId: string | null;
-  inheritedDeckId: string | null;
   pendingPlacement: XYPosition | null;
   pendingConnectFrom: string | null;
   editingId: string | null;
@@ -38,8 +36,6 @@ export function useGraphCanvasEdits({
   graph,
   setGraph,
   deckId,
-  createDeckId,
-  inheritedDeckId,
   pendingPlacement,
   pendingConnectFrom,
   editingId,
@@ -110,13 +106,7 @@ export function useGraphCanvasEdits({
   });
 
   const createCard = useMutation({
-    mutationFn: (values: CardFormValues) => {
-      const deckId = inheritedDeckId ?? createDeckId;
-      if (!deckId) {
-        return Promise.reject(new Error("Pick a deck for this card."));
-      }
-      return armin.flashcards.create({ deckId, ...values });
-    },
+    mutationFn: (values: CardFormValues) => armin.flashcards.create({ deckId, ...values }),
     onSuccess: async (card) => {
       // Creation also changes the graph revision. Read it before placing/linking.
       const fresh = await armin.graph.getDeck(deckId);
@@ -157,7 +147,7 @@ export function useGraphCanvasEdits({
   });
 
   const deleteCard = useMutation({
-    mutationFn: ({ id }: { id: string; deckId?: string }) => armin.flashcards.delete(id),
+    mutationFn: (id: string) => armin.flashcards.delete(id),
     onSuccess: () => {
       toast({ tone: "success", title: "Flashcard deleted" });
     },
@@ -192,8 +182,7 @@ export function useGraphCanvasEdits({
 
   const confirmGraphDelete = async (deleteId: string | null) => {
     if (!deleteId) return false;
-    const deckId = graph.nodes.find((node) => node.id === deleteId)?.deckId;
-    await deleteCard.mutateAsync({ id: deleteId, deckId });
+    await deleteCard.mutateAsync(deleteId);
     setGraph((current) => ({
       ...current,
       nodes: current.nodes.filter((node) => node.id !== deleteId),
