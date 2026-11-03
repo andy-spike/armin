@@ -55,13 +55,12 @@ export async function getSettingsRow(
     .query("settings")
     .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
     .unique();
-  if (row) return row;
-  return {
-    libraryId,
-    ...defaultSchedulingSettings(),
-    keybindings: null,
-    updatedAt: 0,
-  };
+  return row ?? defaultSettingsRow(libraryId, 0);
+}
+
+/** A new library's settings: default scheduling and factory keybindings. */
+export function defaultSettingsRow(libraryId: Id<"libraries">, updatedAt: number) {
+  return { libraryId, ...defaultSchedulingSettings(), keybindings: null, updatedAt };
 }
 
 export function overridesFrom(row: Doc<"deckSettings"> | null): DeckSettingsOverrides {

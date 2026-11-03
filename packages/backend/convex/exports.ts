@@ -5,7 +5,7 @@ import { internalMutation, mutation } from "./functions";
 import { getViewer, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
 import { EXPORT_TTL_MS } from "./model/limits";
-import { getSettingsRow } from "./model/study";
+import { getSettingsRow, libraryRevision } from "./model/study";
 
 /** Start building a ZIP export of the caller's library. */
 export const start = mutation({
@@ -108,13 +108,7 @@ export const jobLibrary = internalQuery({
 
 export const revision = internalQuery({
   args: { libraryId: v.id("libraries") },
-  handler: async (ctx, { libraryId }) => {
-    const counters = await ctx.db
-      .query("libraryCounters")
-      .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
-      .unique();
-    return counters?.revision ?? 0;
-  },
+  handler: (ctx, { libraryId }) => libraryRevision(ctx, libraryId),
 });
 
 /**
@@ -131,14 +125,11 @@ export const snapshotCore = internalQuery({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .withIndex("by_library" as never, (q: any) => q.eq("libraryId", libraryId))
         .collect();
-    const counters = await ctx.db
-      .query("libraryCounters")
-      .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
-      .unique();
+    const revision = await libraryRevision(ctx, libraryId);
     const decks = (await byLibrary("decks")).filter((deck) => !deck.staging);
     const ids = new Set(decks.map((deck) => deck._id));
     return {
-      revision: counters?.revision ?? 0,
+      revision,
       decks,
       deckSettings: (await byLibrary("deckSettings")).filter((row) => ids.has(row.deckId)),
       media: await byLibrary("media"),
