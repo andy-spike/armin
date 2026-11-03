@@ -75,45 +75,89 @@ const easeOut = cubicBezier(0.23, 1, 0.32, 1);
 const easeInOut = cubicBezier(0.77, 0, 0.175, 1);
 
 /*
- * Beat 3: each review card gets the same rhythm, one after another, with a
- * pause at every step: read the question and recall, Space, read the answer,
- * grade, see the grade land. The beat is the page's longest scroll.
+ * Beat 3 is a stepper, not a scrub. Each card has three resting stations:
+ *
+ *   recall   the question is up and Show answer waits for Space
+ *   prompt   Space was pressed, the answer is shown, the grades wait
+ *   graded   the grade key was pressed and the grade landed on the graph
+ *
+ * plus a final "caught up" station. Scroll picks the station (see
+ * reviewStation); the page then plays from one station to the next at a
+ * steady pace, so each key press and reveal runs in full and the caption's
+ * steps change only when a step is complete.
  */
 const REVIEW_START = 3.05;
 const REVIEW_STEP = 0.29;
-const REVIEW_END = [3.9, 3.96] as const;
+const REVIEW_END = [3.91, 3.97] as const;
+const CAUGHT_UP = 3.985;
 const REVIEW_TIMES = REVIEWS.map((_, i) => {
   const s = REVIEW_START + i * REVIEW_STEP;
   return {
     start: s,
+    recall: s + 0.06,
     space: [s + 0.08, s + 0.1] as const,
     answer: [s + 0.09, s + 0.15] as const,
-    flipped: s + 0.13,
-    grade: [s + 0.21, s + 0.24] as const,
-    learned: s + 0.24,
-    end: s + REVIEW_STEP,
+    flipped: s + 0.11,
+    prompt: s + 0.17,
+    grade: [s + 0.19, s + 0.22] as const,
+    learned: s + 0.22,
+    graded: s + 0.26,
   };
 });
+const reviewIndex = (t: number) =>
+  REVIEW_TIMES.reduce((active, r, i) => (t >= r.start - 0.015 ? i : active), 0);
+
+/**
+ * Every resting point of the review beat, with its share of the beat's scroll.
+ * The first card's question gets extra room while the caption scrolls in.
+ */
+const STATIONS = [
+  ...REVIEW_TIMES.flatMap((r, i) => [
+    { t: r.recall, share: i === 0 ? 1.6 : 1 },
+    { t: r.prompt, share: 1 },
+    { t: r.graded, share: 1 },
+  ]),
+  { t: CAUGHT_UP, share: 1 },
+];
+const STATION_TOTAL = STATIONS.reduce((sum, station) => sum + station.share, 0);
+
+/** Maps a scroll position inside the review beat to the station it rests on. */
+export function reviewStation(t: number) {
+  if (t < 3 || t >= 4) return t;
+  let edge = 0;
+  for (const station of STATIONS) {
+    edge += station.share / STATION_TOTAL;
+    if (t - 3 < edge) return station.t;
+  }
+  return CAUGHT_UP;
+}
+
+export const inReview = (t: number) => t >= 3 && t < 4;
 
 const RATING_NAMES = ["Again", "Hard", "Good", "Easy"];
 
-/** Reduced motion's frame for a point in the review beat: that card, graded. */
-export const settledReviewFrame = (t: number) => REVIEW_TIMES[reviewIndex(t)]!.learned + 0.025;
-
-/** The caption's step line for the card in review: what is happening right now. */
-function reviewStepAt(t: number) {
-  const i = reviewIndex(t);
-  const r = REVIEW_TIMES[i]!;
+/** The line under the caption's steps: each grade's result, then the wrap-up. */
+function reviewResultAt(t: number) {
+  if (t < 3) return "";
   if (t >= REVIEW_END[0]) return "All caught up. Each card comes back when it's due.";
-  if (t >= r.learned) {
-    const days = REVIEWS[i]!.chip.split(" · ")[1]!.replace("d", "");
-    return `${RATING_NAMES[REVIEWS[i]!.rating]}: back in ${days} days.`;
-  }
-  if (t >= r.flipped) return "Check the answer, then grade it from 1 to 4.";
-  return "Recall the answer, then press Space.";
+  const i = reviewIndex(t);
+  if (t < REVIEW_TIMES[i]!.learned) return "";
+  const days = REVIEWS[i]!.chip.split(" · ")[1]!.replace("d", "");
+  return `${RATING_NAMES[REVIEWS[i]!.rating]}: back in ${days} days.`;
 }
-const reviewIndex = (t: number) =>
-  REVIEW_TIMES.reduce((active, r, i) => (t >= r.start - 0.02 ? i : active), 0);
+
+type StepState = "upcoming" | "current" | "done";
+
+/** Where the card in review is among the three steps the caption lists. */
+function reviewSteps(t: number): [StepState, StepState, StepState] {
+  if (t < 3) return ["upcoming", "upcoming", "upcoming"];
+  if (t >= REVIEW_END[0]) return ["done", "done", "done"];
+  const r = REVIEW_TIMES[reviewIndex(t)]!;
+  if (t < r.space[0]) return ["current", "upcoming", "upcoming"];
+  if (t < r.flipped) return ["done", "current", "upcoming"];
+  if (t < r.learned) return ["done", "done", "current"];
+  return ["done", "done", "done"];
+}
 
 function deckState(id: NodeId, t: number): NodeState {
   const reviewed = REVIEWS.findIndex((r) => r.id === id);
@@ -225,7 +269,11 @@ function headerAt(t: number): [string, string] {
 /** Bottom-up reveal for an edge, which always runs from low to high. */
 const reveal = (p: number) => `inset(${((1 - p) * 100).toFixed(2)}% -4px -4px -4px)`;
 
-export function createScene(stage: HTMLElement, stepTrackers: HTMLElement[]) {
+export function createScene(
+  stage: HTMLElement,
+  stepTrackers: HTMLElement[],
+  options: { reducedMotion: () => boolean },
+) {
   const one = <T extends Element = HTMLElement>(selector: string) =>
     stage.querySelector<T>(selector)!;
 
@@ -261,13 +309,19 @@ export function createScene(stage: HTMLElement, stepTrackers: HTMLElement[]) {
   }));
   const status = one("[data-status]");
   const meta = one("[data-meta]");
-  const trackers = stepTrackers.map((tracker) => ({
-    line: tracker.querySelector<HTMLElement>("[data-review-step]")!,
-    items: REVIEWS.map((_, i) => ({
-      item: tracker.querySelector<HTMLElement>(`[data-review-progress="${i}"]`)!,
-      fill: tracker.querySelector<HTMLElement>(`[data-review-fill="${i}"]`)!,
-    })),
-  }));
+  const trackers = stepTrackers.map((tracker) => {
+    const all = (selector: string) => [...tracker.querySelectorAll<HTMLElement>(selector)];
+    return {
+      result: tracker.querySelector<HTMLElement>("[data-review-result]")!,
+      steps: all("[data-review-step]"),
+      space: all("[data-key-hint=space]"),
+      ratings: [0, 1, 2, 3].map((i) => all(`[data-key-hint="r${i}"]`)),
+      cards: REVIEWS.map((_, i) => ({
+        item: tracker.querySelector<HTMLElement>(`[data-review-progress="${i}"]`)!,
+        fill: tracker.querySelector<HTMLElement>(`[data-review-fill="${i}"]`)!,
+      })),
+    };
+  });
 
   // Last written value per element and key; a frame only touches what changed.
   const written = new WeakMap<Element, Map<string, string>>();
@@ -289,6 +343,21 @@ export function createScene(stage: HTMLElement, stepTrackers: HTMLElement[]) {
   };
   const text = (el: Element, value: string) => {
     if (changed(el, "#text", value)) el.textContent = value;
+  };
+  /** Text that eases in when it changes, so a new line reads as new. */
+  const fadeText = (el: HTMLElement, value: string) => {
+    if (!changed(el, "#text", value)) return;
+    el.textContent = value;
+    if (!value) return;
+    el.animate(
+      options.reducedMotion()
+        ? [{ opacity: 0 }, { opacity: 1 }]
+        : [
+            { opacity: 0, transform: "translateY(4px)" },
+            { opacity: 1, transform: "none" },
+          ],
+      { duration: 240, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
+    );
   };
 
   let box = { w: 1, h: 1 };
@@ -446,15 +515,28 @@ export function createScene(stage: HTMLElement, stepTrackers: HTMLElement[]) {
     text(status, left);
     text(meta, right);
 
-    // The review caption's progress: one bar per card, and the current step.
-    const step = reviewStepAt(t);
+    // The review caption: a bar per card, the three steps for the card in
+    // review, the keys it uses lighting up as the stage presses them, and the
+    // result of each grade.
+    const steps = reviewSteps(t);
+    const result = reviewResultAt(t);
+    const pressingSpace = within(t, times.space[0], times.space[1]) && t < REVIEW_END[0];
     for (const tracker of trackers) {
-      text(tracker.line, step);
+      fadeText(tracker.result, result);
+      tracker.steps.forEach((el, i) => attr(el, "data-state", steps[i]!));
+      tracker.space.forEach((el) => attr(el, "data-pressed", pressingSpace));
+      tracker.ratings.forEach((keys, i) => {
+        const mine = i === rating && t >= 3 && t < REVIEW_END[0];
+        for (const el of keys) {
+          attr(el, "data-pressed", mine && within(t, times.grade[0], times.grade[1]));
+          attr(el, "data-chosen", mine && t >= times.grade[0]);
+        }
+      });
       REVIEW_TIMES.forEach((r, i) => {
         const progress = seg(t, r.start, r.learned);
-        style(tracker.items[i]!.fill, "transform", `scaleX(${progress.toFixed(4)})`);
+        style(tracker.cards[i]!.fill, "transform", `scaleX(${progress.toFixed(4)})`);
         const state = t >= r.learned ? "done" : i === active && t >= 3 ? "active" : "upcoming";
-        attr(tracker.items[i]!.item, "data-state", state);
+        attr(tracker.cards[i]!.item, "data-state", state);
       });
     }
   };

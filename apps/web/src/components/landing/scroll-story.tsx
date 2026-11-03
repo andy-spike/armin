@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { SOURCE_CODE_URL } from "@/lib/source-code";
 import { cn } from "@/lib/utils";
-import { HERO_SHOT, cameraTransform, createScene, settledReviewFrame } from "./story-scene";
+import { HERO_SHOT, cameraTransform, createScene, inReview, reviewStation } from "./story-scene";
 import {
   CARD_BACK,
   CARD_FRONT,
@@ -48,12 +48,8 @@ const BEATS: { title: string; body: ReactNode; long?: boolean }[] = [
     body: (
       <>
         <p>
-          Armin puts the cards that are due in front of you. Space shows the answer, and 1 to 4
-          grades how well you knew it.
-        </p>
-        <p>
-          FSRS turns each grade into the next due date, so shaky cards come back soon and solid ones
-          rarely.
+          Armin shows you the cards that are due, one at a time. FSRS turns each grade into the next
+          due date, so shaky cards come back soon and solid ones rarely.
         </p>
       </>
     ),
@@ -89,7 +85,13 @@ const BEATS: { title: string; body: ReactNode; long?: boolean }[] = [
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-/** The frame reduced motion shows for each beat; review has one per card. */
+/** Timeline units per second between review stations: about 0.9 s per step. */
+const REVIEW_PACE = 0.12;
+
+/**
+ * The frame reduced motion shows for each beat. The review beat already rests
+ * on discrete stations, so it shows each of them.
+ */
 const SETTLED = [0, 1.9, 2.9, null, 4.9, 5.9];
 
 /**
@@ -105,13 +107,17 @@ export function ScrollStory() {
     const root = rootRef.current;
     if (!root) return;
     const stage = root.querySelector<HTMLElement>("[data-stage]")!;
-    const scene = createScene(stage, [
-      ...root.querySelectorAll<HTMLElement>("[data-review-steps]"),
-    ]);
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const scene = createScene(
+      stage,
+      [...root.querySelectorAll<HTMLElement>("[data-review-steps]")],
+      {
+        reducedMotion: () => reduce.matches,
+      },
+    );
     const beats = [...root.querySelectorAll<HTMLElement>("[data-beat]")];
     const spine = root.querySelector<HTMLElement>("[data-spine]")!;
     const spineFill = root.querySelector<HTMLElement>("[data-spine-fill]")!;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
     const wide = window.matchMedia("(min-width: 1024px)");
 
     let tops: number[] = [];
@@ -147,7 +153,8 @@ export function ScrollStory() {
       // The hero beat runs from the top of the page until the first caption is read.
       let t = clamp01(y / Math.max(1, tops[1]! - a));
       for (let i = 1; i < beats.length; i++) t += clamp01((y + a - tops[i]!) / heights[i]!);
-      return t;
+      // The review beat rests on stations rather than following every pixel.
+      return reviewStation(t);
     };
 
     const render = () => {
@@ -155,7 +162,7 @@ export function ScrollStory() {
       // Reduced motion shows settled frames, crossfaded, not scrubbed: one per
       // beat, and one per graded card in the review beat.
       if (reduce.matches) {
-        const settled = SETTLED[beat] ?? settledReviewFrame(shown);
+        const settled = SETTLED[beat] ?? shown;
         if (settled !== shownFrame && shownFrame !== -1) {
           stage.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 220, easing: "ease" });
         }
@@ -176,7 +183,15 @@ export function ScrollStory() {
       const dt = Math.min(64, now - last);
       last = now;
       if (reduce.matches) shown = target;
-      else {
+      else if (inReview(shown)) {
+        // Between review stations, play at a steady pace so every press and
+        // reveal runs in full; a long jump still finishes within 1.2 s. Arriving
+        // from another beat glides in as usual, then takes up the pace.
+        const distance = target - shown;
+        const rate = Math.max(REVIEW_PACE, Math.abs(distance) / 1.2);
+        const step = (rate * dt) / 1000;
+        shown = Math.abs(distance) <= step ? target : shown + Math.sign(distance) * step;
+      } else {
         shown += (target - shown) * (1 - Math.exp(-dt / 90));
         if (Math.abs(target - shown) < 0.0005) shown = target;
       }
@@ -298,6 +313,34 @@ export function ScrollStory() {
  * line naming the current step. The stage shows the same thing; this is the
  * readable version beside it.
  */
+/** The three things a review asks of you, as the caption lists them. */
+const STEP_HINT = "border-border-strong bg-surface text-ink";
+const REVIEW_STEP_ROWS: ReactNode[] = [
+  "Recall the answer",
+  <>
+    Press{" "}
+    <Kbd data-key-hint="space" className={cn("story-key", STEP_HINT)}>
+      Space
+    </Kbd>{" "}
+    to check it
+  </>,
+  <>
+    Grade it
+    <span className="ml-2 inline-flex gap-1">
+      {["1", "2", "3", "4"].map((key, i) => (
+        <Kbd key={key} data-key-hint={`r${i}`} className={cn("story-key", STEP_HINT)}>
+          {key}
+        </Kbd>
+      ))}
+    </span>
+  </>,
+];
+
+/**
+ * The review beat's caption tracker: a bar per card that fills as it is
+ * reviewed, the three steps of the card in review, and each grade's result.
+ * The keys light up as the stage presses them.
+ */
 function ReviewSteps({ className }: { className?: string }) {
   return (
     <div data-review-steps aria-hidden className={cn("mt-7 max-w-[34rem]", className)}>
@@ -318,12 +361,21 @@ function ReviewSteps({ className }: { className?: string }) {
           </li>
         ))}
       </ol>
+      <ol className="mt-5 space-y-2.5">
+        {REVIEW_STEP_ROWS.map((row, i) => (
+          <li key={i} data-review-step data-state="upcoming" className="story-step">
+            <span className="story-step-marker">
+              <span className="story-step-number font-mono text-[0.6875rem]">{i + 1}</span>
+              <Check className="story-step-check size-3" strokeWidth={2.75} />
+            </span>
+            <span className="flex flex-wrap items-center gap-y-1">{row}</span>
+          </li>
+        ))}
+      </ol>
       <p
-        data-review-step
-        className="mt-4 min-h-[3lh] text-base leading-snug font-medium text-ink lg:min-h-[2lh] lg:text-lg"
-      >
-        Recall the answer, then press Space.
-      </p>
+        data-review-result
+        className="mt-4 min-h-[1lh] text-base leading-snug font-medium text-ink lg:text-lg"
+      />
     </div>
   );
 }

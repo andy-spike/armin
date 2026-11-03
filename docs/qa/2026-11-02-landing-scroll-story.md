@@ -22,15 +22,16 @@ through six beats:
    Each link settles into the graph's dashed style, and the header ends on
    "Memoization locked: needs 2".
 4. **Review:** the page's longest scroll, about three and a half screens on
-   desktop. The caption holds in place beside the stage, with a progress bar
-   per card and a line naming the current step. The review card rises out of
-   Function calls and works through all three due cards, pausing at each step:
-   recall ("Recall the answer, then press Space"), Space, the answer ("Check the
-   answer, then grade it from 1 to 4"), the grade (3, 4, and 3: Good, Easy,
-   Good), and the result ("Good: back in 3 days"). Each grade lands on the graph
-   below as the card turns learned with its interval chip. On narrow screens
-   the caption scrolls on and only the progress bars and step line hold below
-   the stage.
+   desktop, built as a stepper rather than a scrub. Each card has three resting
+   points (question up; answer shown; grade landed), plus a final "All caught
+   up". Scroll chooses the resting point, and the page then plays to it at a
+   steady pace (about 0.9 s per step), so the Space press, the answer reveal,
+   the grade press, and the grade landing on the graph each run in full, and
+   nothing changes while you hold still. The caption holds a progress bar per
+   card, the three steps for the card in review (Recall the answer; Press
+   Space to check it; Grade it 1–4), whose keys light up as the stage presses
+   them, and a result line ("Good: back in 3 days.") that eases in. On narrow
+   screens only the bars, steps, and result hold below the stage.
 5. **Unlock:** days pass in the header (Day 1 to Day 9) while accent edges
    ink upwards, and each layer unlocks once its foundations are learned.
 6. **Whole subject:** the camera pulls back until the deck is one branch of a
@@ -46,17 +47,21 @@ review demo (`review-demo.tsx`) were removed; the story replaces both.
 
 ## The review beat
 
-Captured mid-scroll (dark, desktop): recalling the first card, its answer with
-the step line asking for a grade, Good landing on Function calls, and the
-second card waiting for recall.
+The four resting points of the first card and the wrap-up (dark, desktop):
+question up with "Recall the answer" current; answer shown with "Grade it"
+current; Good pressed, its key lit, and the result line; then all three cards
+graded.
 
 ![Review sequence](2026-11-02-landing-scroll-story/03-review-sequence.png)
 
-The same beat at 390×844 (light): the steps hold in the strip below the stage.
+The same resting points at 390×844 (light).
 
 ![Review on a narrow screen](2026-11-02-landing-scroll-story/06-mobile-review.png)
 
-- A scripted 10-second scroll through the whole story recorded 602 frames, none
+- Sampled in the page while moving from the question to the answer: Space shows
+  as pressed for about 150 ms, the answer is fully revealed by about 700 ms, and
+  the step marks advance once, in order.
+- A scripted 12-second scroll through the whole story recorded 721 frames, none
   over 20 ms, on this development machine. Not measured on a mid-range phone.
 - No console errors or warnings during the walkthrough.
 
@@ -71,8 +76,8 @@ scroll beneath it.
 
 With `prefers-reduced-motion: reduce` emulated, the deck shows one settled
 frame per beat and crossfades between them; nothing scrubs, zooms, or types.
-The review beat steps through one frame per card, each graded with its answer
-shown and the grade on the graph, and the step line names the result.
+The review beat shows each of its resting points directly (question, answer,
+graded) with the caption steps matching, and nothing plays between them.
 
 ![Reduced motion, review beat](2026-11-02-landing-scroll-story/05-reduced-motion-review.png)
 
