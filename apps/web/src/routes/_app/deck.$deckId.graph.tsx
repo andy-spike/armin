@@ -14,8 +14,7 @@ import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { PrerequisiteGraph } from "@/components/prerequisite-graph/prerequisite-graph";
 import { Button } from "@/components/ui/button";
 import { GraphSkeleton } from "@/components/page-skeletons";
-import { DeleteConsequencesList } from "@/components/delete-consequences-list";
-import { Dialog } from "@/components/ui/dialog";
+import { DeleteFlashcardDialog } from "@/components/delete-consequences-list";
 import { AllDecksLink, DeckNotFound } from "@/components/deck-not-found";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
@@ -284,37 +283,15 @@ function DeckGraphPage() {
         onSubmit={graphEdits.saveCard}
         deckId={deckId}
       />
-      <Dialog
+      <DeleteFlashcardDialog
         open={Boolean(deleteId)}
+        consequences={deleteConsequences}
+        consequencesUnavailable={deleteConsequencesError}
+        waitForConsequences
+        pending={graphEdits.deletePending}
         onClose={() => setDeleteId(null)}
-        title="Delete flashcard?"
-        description="This flashcard will be permanently hard-deleted."
-      >
-        <div className="space-y-3 text-sm text-muted">
-          <p>
-            Archive from the deck or browse view if you want a reversible way to set this aside.
-            Delete removes the flashcard, its review units, and its review history permanently.
-          </p>
-          <DeleteConsequencesList
-            consequences={deleteConsequences}
-            unavailable={deleteConsequencesError}
-          />
-        </div>
-        <div className="mt-5 flex flex-wrap justify-end gap-2 pt-1">
-          {/* Focus the safe action when the dialog opens from a key press. */}
-          <Button variant="ghost" autoFocus onClick={() => setDeleteId(null)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={!deleteConsequences}
-            busy={graphEdits.deletePending}
-            onClick={() => void confirmGraphDelete()}
-          >
-            Delete flashcard
-          </Button>
-        </div>
-      </Dialog>
+        onConfirm={() => void confirmGraphDelete()}
+      />
     </div>
   );
 }

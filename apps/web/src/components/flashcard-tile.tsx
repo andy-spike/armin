@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/context-menu";
 import { StateBadge, Badge } from "@/components/ui/badge";
 import { FlashcardTypeBadge } from "@/components/flashcard-type-badge";
-import { Dialog } from "@/components/ui/dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { FlashcardDeleteConsequences, UiFlashcard } from "@/types/view-models";
 import {
@@ -38,7 +37,7 @@ import {
 import { stripMarkdownForPreview } from "@/lib/markdown-preview";
 import { hasMath } from "@armin/core/math";
 import { MarkdownContent } from "@/components/ui/markdown-content";
-import { DeleteConsequencesList } from "@/components/delete-consequences-list";
+import { DeleteFlashcardDialog } from "@/components/delete-consequences-list";
 import { cn } from "@/lib/utils";
 
 export type FlashcardDeleteRequest = {
@@ -65,47 +64,19 @@ export function FlashcardDeleteDialog({
   onConfirm: () => void;
   onArchiveInstead: () => void;
 }) {
-  const cardPreview = request?.preview ?? "";
-
   return (
-    <Dialog
+    <DeleteFlashcardDialog
       open={Boolean(request)}
+      preview={request?.preview}
+      consequences={consequences}
+      consequencesUnavailable={consequencesError || !request?.loadDeleteConsequences}
+      waitForConsequences={Boolean(request?.loadDeleteConsequences)}
       onClose={onClose}
-      title="Delete flashcard?"
-      description={
-        cardPreview
-          ? `“${
-              cardPreview.length > 100 ? `${cardPreview.slice(0, 100)}…` : cardPreview
-            }” will be permanently hard-deleted.`
-          : "This flashcard will be permanently hard-deleted."
+      onConfirm={onConfirm}
+      onArchiveInstead={
+        request?.canArchive && !request.card.archived ? onArchiveInstead : undefined
       }
-    >
-      <div className="space-y-3 text-sm text-muted">
-        <p>
-          Archive is the reversible way to set this aside. Delete removes the flashcard, its review
-          units, and its review history permanently.
-        </p>
-        <DeleteConsequencesList
-          consequences={consequences}
-          unavailable={consequencesError || !request?.loadDeleteConsequences}
-        />
-      </div>
-      <div className="mt-5 flex flex-wrap justify-end gap-2 pt-1">
-        <Button variant="ghost" onClick={onClose}>
-          Cancel
-        </Button>
-        {request?.canArchive && !request.card.archived && (
-          <Button onClick={onArchiveInstead}>Archive instead</Button>
-        )}
-        <Button
-          variant="destructive"
-          disabled={Boolean(request?.loadDeleteConsequences && !consequences)}
-          onClick={onConfirm}
-        >
-          Delete flashcard
-        </Button>
-      </div>
-    </Dialog>
+    />
   );
 }
 

@@ -30,7 +30,6 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { useIsTruncated } from "@/components/ui/truncated-label";
 import { Progress } from "@/components/ui/progress";
 import { ReviewCardSkeleton } from "@/components/page-skeletons";
-import { Dialog } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,7 +63,7 @@ import type {
   SessionUndoResult,
 } from "@armin/core/review-session";
 import { useReviewSession } from "@/lib/use-review-session";
-import { DeleteConsequencesList } from "@/components/delete-consequences-list";
+import { DeleteFlashcardDialog } from "@/components/delete-consequences-list";
 import { cn } from "@/lib/utils";
 import { replayCardAudio } from "@/lib/card-audio";
 import { settingsQuery } from "@/lib/queries";
@@ -1012,42 +1011,16 @@ export function ReviewSession({
         />
       )}
 
-      <Dialog
+      <DeleteFlashcardDialog
         open={deleteConfirmOpen}
+        consequences={deleteConsequences}
+        consequencesUnavailable={deleteConsequencesError || !loadDeleteConsequences}
+        waitForConsequences={Boolean(loadDeleteConsequences)}
+        pending={flashcardActionPending}
         onClose={() => setDeleteConfirmOpen(false)}
-        title="Delete flashcard?"
-        description="This flashcard will be permanently hard-deleted."
-      >
-        <div className="space-y-3 text-sm text-muted">
-          <p>
-            Archive is the reversible way to set this aside. Delete removes the flashcard, its
-            review units, and its review history permanently.
-          </p>
-          <DeleteConsequencesList
-            consequences={deleteConsequences}
-            unavailable={deleteConsequencesError || !loadDeleteConsequences}
-          />
-        </div>
-        <div className="mt-5 flex flex-wrap justify-end gap-2 pt-1">
-          <Button variant="ghost" onClick={() => setDeleteConfirmOpen(false)}>
-            Cancel
-          </Button>
-          {onArchiveFlashcard && card && (
-            <Button disabled={flashcardActionPending} onClick={() => void handleArchive()}>
-              Archive instead
-            </Button>
-          )}
-          <Button
-            variant="destructive"
-            disabled={
-              flashcardActionPending || Boolean(loadDeleteConsequences && !deleteConsequences)
-            }
-            onClick={() => void handleDelete()}
-          >
-            Delete flashcard
-          </Button>
-        </div>
-      </Dialog>
+        onConfirm={() => void handleDelete()}
+        onArchiveInstead={onArchiveFlashcard && card ? () => void handleArchive() : undefined}
+      />
 
       <CardInfoDialog
         flashcardId={infoCardId}

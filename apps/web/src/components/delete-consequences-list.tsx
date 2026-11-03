@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { plural } from "@/lib/utils";
 import type { FlashcardDeleteConsequences } from "@/types/view-models";
 
@@ -38,5 +40,74 @@ export function DeleteConsequencesList({
             : "Loading review history…"}
       </li>
     </ul>
+  );
+}
+
+/**
+ * The confirmation every surface shows before hard-deleting a flashcard.
+ * `waitForConsequences` keeps Delete disabled until the counts arrive.
+ */
+export function DeleteFlashcardDialog({
+  open,
+  preview = "",
+  consequences,
+  consequencesUnavailable,
+  waitForConsequences,
+  pending = false,
+  onClose,
+  onConfirm,
+  onArchiveInstead,
+}: {
+  open: boolean;
+  preview?: string;
+  consequences: FlashcardDeleteConsequences | null;
+  consequencesUnavailable: boolean;
+  waitForConsequences: boolean;
+  pending?: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  /** Offers "Archive instead"; omit where archiving isn't available. */
+  onArchiveInstead?: () => void;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Delete flashcard?"
+      description={
+        preview
+          ? `“${preview.length > 100 ? `${preview.slice(0, 100)}…` : preview}” will be permanently hard-deleted.`
+          : "This flashcard will be permanently hard-deleted."
+      }
+    >
+      <div className="space-y-3 text-sm text-muted">
+        <p>
+          {onArchiveInstead
+            ? "Archive is the reversible way to set this aside."
+            : "Archive from the deck or browse view if you want a reversible way to set this aside."}{" "}
+          Delete removes the flashcard, its review units, and its review history permanently.
+        </p>
+        <DeleteConsequencesList consequences={consequences} unavailable={consequencesUnavailable} />
+      </div>
+      <div className="mt-5 flex flex-wrap justify-end gap-2 pt-1">
+        {/* Focus the safe action when the dialog opens from a key press. */}
+        <Button variant="ghost" autoFocus onClick={onClose}>
+          Cancel
+        </Button>
+        {onArchiveInstead && (
+          <Button disabled={pending} onClick={onArchiveInstead}>
+            Archive instead
+          </Button>
+        )}
+        <Button
+          variant="destructive"
+          disabled={waitForConsequences && !consequences}
+          busy={pending}
+          onClick={onConfirm}
+        >
+          Delete flashcard
+        </Button>
+      </div>
+    </Dialog>
   );
 }
