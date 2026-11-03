@@ -15,6 +15,7 @@
     "./review-session": "./src/review-session.ts",
     "./media": "./src/media.ts",
     "./plans": "./src/plans.ts",
+    "./limits": "./src/limits.ts",
     "./themes": "./src/themes.ts",
     "./media-ref": "./src/media-ref.ts",
     "./math": "./src/math.ts",

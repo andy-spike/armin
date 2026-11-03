@@ -12,7 +12,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { fail } from "./errors";
-import { MAX_CONTENT_CHARS, MAX_TAGS_PER_FLASHCARD } from "./limits";
+import { MAX_CONTENT_CHARS, MAX_TAG_CHARS, MAX_TAGS_PER_FLASHCARD } from "./limits";
 import {
   adjustReviewUnitCount,
   canonicalTags,
@@ -63,8 +63,8 @@ export async function prepareTags(
   if (normalized.length > MAX_TAGS_PER_FLASHCARD) {
     fail("INVALID", `A flashcard can have at most ${MAX_TAGS_PER_FLASHCARD} tags.`);
   }
-  if (normalized.some((tag) => tag.length > 60)) {
-    fail("INVALID", "Tags are limited to 60 characters.");
+  if (normalized.some((tag) => tag.length > MAX_TAG_CHARS)) {
+    fail("INVALID", `Tags are limited to ${MAX_TAG_CHARS} characters.`);
   }
   return canonicalTags(ctx, libraryId, normalized, cache);
 }
