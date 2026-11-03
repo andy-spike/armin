@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Id } from "./_generated/dataModel";
-import { owned, readableLibrary, writableLibrary } from "./model/access";
+import { owned, readableDeck, readableLibrary, writableLibrary } from "./model/access";
 import {
   cleanCramStates,
   cleanCramTag,
@@ -37,14 +37,11 @@ type SelectionArgs = {
 };
 
 /** Resolve the deck and library for a cram read; null means "not found". */
-async function readableDeck(ctx: Parameters<typeof readableLibrary>[0], deckIdArg: string) {
+async function cramDeck(ctx: Parameters<typeof readableLibrary>[0], deckIdArg: string) {
   const library = await readableLibrary(ctx);
   if (!library) return null;
-  const deckId = ctx.db.normalizeId("decks", deckIdArg);
-  if (!deckId) return null;
-  const deck = await ctx.db.get(deckId);
-  if (!deck || deck.libraryId !== library._id || deck.staging) return null;
-  return { library, deckId };
+  const deck = await readableDeck(ctx, library, deckIdArg);
+  return deck ? { library, deckId: deck._id } : null;
 }
 
 function selectionFrom(args: SelectionArgs, deckId: Id<"decks">): CramSelection {
@@ -61,7 +58,7 @@ function selectionFrom(args: SelectionArgs, deckId: Id<"decks">): CramSelection 
 export const count = query({
   args: selectionArgs,
   handler: async (ctx, args) => {
-    const found = await readableDeck(ctx, args.deckId);
+    const found = await cramDeck(ctx, args.deckId);
     if (!found) return null;
     const units = await selectCramUnits(
       ctx,
@@ -82,7 +79,7 @@ export const queue = query({
     seed: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const found = await readableDeck(ctx, args.deckId);
+    const found = await cramDeck(ctx, args.deckId);
     if (!found) return null;
     const units = await selectCramUnits(
       ctx,

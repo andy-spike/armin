@@ -16,7 +16,7 @@ import {
 import { statsGeneration } from "./model/performance";
 import { query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { activeDeckIds, readableLibrary } from "./model/access";
+import { activeDeckIds, readableDeck, readableLibrary } from "./model/access";
 import { MAX_REVIEW_UNITS_PER_DECK } from "./model/limits";
 import { sumSizes } from "./model/deckSizes";
 import { State } from "@armin/core/scheduler";
@@ -29,11 +29,8 @@ async function resolveDeckScope(
   deckIdArg: string | undefined,
 ) {
   if (deckIdArg === undefined) return { ok: true as const, deckId: null };
-  const deckId = ctx.db.normalizeId("decks", deckIdArg);
-  if (!deckId) return { ok: false as const };
-  const deck = await ctx.db.get(deckId);
-  if (!deck || deck.libraryId !== library._id || deck.staging) return { ok: false as const };
-  return { ok: true as const, deckId };
+  const deck = await readableDeck(ctx, library, deckIdArg);
+  return deck ? { ok: true as const, deckId: deck._id } : { ok: false as const };
 }
 
 async function readActivity(

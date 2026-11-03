@@ -73,6 +73,12 @@ export async function owned<
   return doc;
 }
 
+/** A client's deck id string, resolved to a deck of the library; null if foreign or missing. */
+export async function readableDeck(ctx: QueryCtx, library: Doc<"libraries">, deckId: string) {
+  const id = ctx.db.normalizeId("decks", deckId);
+  return id ? owned(ctx, library, id) : null;
+}
+
 export async function ownedOrFail<
   T extends "decks" | "flashcards" | "reviewUnits" | "reviewLogs" | "exports",
 >(ctx: QueryCtx, library: Doc<"libraries">, id: Id<T>, label: string): Promise<Doc<T>> {

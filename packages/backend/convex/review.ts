@@ -12,7 +12,7 @@ import { formatInterval, startOfNextStudyDayMs } from "@armin/core/study";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
-import { owned, readableLibrary, writableLibrary } from "./model/access";
+import { owned, readableDeck, readableLibrary, writableLibrary } from "./model/access";
 import {
   checkEligible,
   isBuried,
@@ -50,10 +50,9 @@ export const queue = query({
     if (!library) return null;
     let deckId: Id<"decks"> | null = null;
     if (deckIdArg !== undefined) {
-      deckId = ctx.db.normalizeId("decks", deckIdArg);
-      if (!deckId) return null;
-      const deck = await ctx.db.get(deckId);
-      if (!deck || deck.libraryId !== library._id || deck.staging) return null;
+      const deck = await readableDeck(ctx, library, deckIdArg);
+      if (!deck) return null;
+      deckId = deck._id;
     }
     const { reviews, frontier } = await selectSession(ctx, library, deckId, now);
     const nextDue = await nextDueAfter(ctx, library, deckId, now);

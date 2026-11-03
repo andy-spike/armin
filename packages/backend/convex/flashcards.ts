@@ -11,6 +11,7 @@ import {
   rowsInDecks,
   owned,
   ownedOrFail,
+  readableDeck,
   readableLibrary,
   writableLibrary,
 } from "./model/access";
@@ -36,9 +37,8 @@ export const listByDeck = query({
   handler: async (ctx, { deckId }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const id = ctx.db.normalizeId("decks", deckId);
-    const deck = id ? await ctx.db.get(id) : null;
-    if (!deck || deck.libraryId !== library._id || deck.staging) return null;
+    const deck = await readableDeck(ctx, library, deckId);
+    if (!deck) return null;
     const flashcards = await ctx.db
       .query("flashcards")
       .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
@@ -279,11 +279,9 @@ function summaryMatcher({ state, tags, search }: BrowseFilters) {
 }
 
 /** The deck a Browse view is limited to: null for the library, false if not found. */
-async function browseScope(ctx: QueryCtx, libraryId: Id<"libraries">, deckId?: string) {
+async function browseScope(ctx: QueryCtx, library: Doc<"libraries">, deckId?: string) {
   if (deckId === undefined) return null;
-  const id = ctx.db.normalizeId("decks", deckId);
-  const deck = id ? await ctx.db.get(id) : null;
-  return deck && deck.libraryId === libraryId && !deck.staging ? deck._id : false;
+  return (await readableDeck(ctx, library, deckId))?._id ?? false;
 }
 
 type BrowsePageArgs = BrowseFilters & {
@@ -298,7 +296,7 @@ export async function loadBrowsePage(
   library: Doc<"libraries">,
   args: BrowsePageArgs,
 ) {
-  const scope = await browseScope(ctx, library._id, args.deckId);
+  const scope = await browseScope(ctx, library, args.deckId);
   if (scope === false) return { page: [] as HydratedFlashcard[], isDone: true, continueCursor: "" };
   const deckIds = scope ? [scope] : [...(await activeDeckIds(ctx, library._id))];
   if (!deckIds.length) return { page: [] as HydratedFlashcard[], isDone: true, continueCursor: "" };
@@ -378,7 +376,7 @@ export const browseCounts = query({
   args: browseFilters,
   handler: async (ctx, args) => {
     const library = await readableLibrary(ctx);
-    const scope = library ? await browseScope(ctx, library._id, args.deckId) : false;
+    const scope = library ? await browseScope(ctx, library, args.deckId) : false;
     if (!library || scope === false) return null;
     const counters = await ctx.db
       .query("deckCounters")
@@ -456,9 +454,8 @@ export const listDeckTags = query({
   handler: async (ctx, { deckId }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const id = ctx.db.normalizeId("decks", deckId);
-    const deck = id ? await ctx.db.get(id) : null;
-    if (!deck || deck.libraryId !== library._id || deck.staging) return null;
+    const deck = await readableDeck(ctx, library, deckId);
+    if (!deck) return null;
     const flashcards = await ctx.db
       .query("flashcards")
       .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
