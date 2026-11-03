@@ -1056,6 +1056,62 @@ html[data-scroll="document"] body {
 .story-key[data-pressed] {
   scale: 0.9;
 }
+/* The coach bar on the review card: the current step and the action it
+   expects. Lines share one place and ease in as the step changes. */
+.story-coach {
+  display: grid;
+  border-bottom: 1px solid color-mix(in oklch, var(--color-accent) 30%, transparent);
+  background-color: var(--color-accent-tint);
+  padding: 0.625rem 1rem;
+  color: var(--color-accent-deep);
+}
+@media (min-width: 640px) {
+  .story-coach {
+    padding: 0.75rem 1.5rem;
+  }
+}
+.story-coach-line {
+  display: flex;
+  grid-area: 1 / 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 0;
+  translate: 0 4px;
+  transition:
+    opacity 0.2s var(--ease-out),
+    translate 0.25s var(--ease-out);
+}
+.story-coach-line[data-active] {
+  opacity: 1;
+  translate: 0 0;
+}
+.story-coach-step {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* The control the coach asks for is ringed until it is used. */
+.story-hint {
+  position: relative;
+}
+.story-hint::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--color-accent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.story-hint[data-hint]::after {
+  opacity: 1;
+}
 /* Review faces share one place; the next card slides in as the last leaves. */
 .story-face {
   grid-area: 1 / 1;

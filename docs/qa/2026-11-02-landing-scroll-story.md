@@ -21,17 +21,21 @@ through six beats:
    to it, and the card locks; it then drags a second link from Lookup tables.
    Each link settles into the graph's dashed style, and the header ends on
    "Memoization locked: needs 2".
-4. **Review:** the page's longest scroll, about three and a half screens on
-   desktop, built as a stepper rather than a scrub. Each card has three resting
-   points (question up; answer shown; grade landed), plus a final "All caught
-   up". Scroll chooses the resting point, and the page then plays to it at a
-   steady pace (about 0.9 s per step), so the Space press, the answer reveal,
-   the grade press, and the grade landing on the graph each run in full, and
-   nothing changes while you hold still. The caption holds a progress bar per
-   card, the three steps for the card in review (Recall the answer; Press
-   Space to check it; Grade it 1–4), whose keys light up as the stage presses
-   them, and a result line ("Good: back in 3 days.") that eases in. On narrow
-   screens only the bars, steps, and result hold below the stage.
+4. **Review:** the page's longest scroll, about five screens on desktop,
+   built as a stepper rather than a scrub. A coach bar at the top of the review
+   card names the step and the action it expects, and rings the control it
+   means. The first card teaches the loop over four stops: "Step 1 of 3: Read
+   the question and recall the answer"; "Step 2 of 3: Press Space to show the
+   answer" with Show answer ringed; "Step 3 of 3: How well did you know it?
+   1 2 3 4" with the grades ringed; then "Graded: Good. It comes back in 3
+   days." The next two cards take two stops each ("Card 2 of 3: Same keys:
+   Space, then a grade", then the result), and "All caught up" closes the beat.
+   Scroll picks the stop and the page plays to it at a steady pace (about 1 s
+   per step), so the presses and reveals run in full and nothing changes while
+   you hold still. The caption beside the stage holds a bar per card, the same
+   three steps with keys that light up as the stage presses them, and the
+   result line. On narrow screens only the bars, steps, and result hold below
+   the stage.
 5. **Unlock:** days pass in the header (Day 1 to Day 9) while accent edges
    ink upwards, and each layer unlocks once its foundations are learned.
 6. **Whole subject:** the camera pulls back until the deck is one branch of a
@@ -47,21 +51,19 @@ review demo (`review-demo.tsx`) were removed; the story replaces both.
 
 ## The review beat
 
-The four resting points of the first card and the wrap-up (dark, desktop):
-question up with "Recall the answer" current; answer shown with "Grade it"
-current; Good pressed, its key lit, and the result line; then all three cards
-graded.
+Every stop in order (light, desktop): the first card's four teaching stops,
+the second card's grade and result, and "All caught up".
 
 ![Review sequence](2026-11-02-landing-scroll-story/03-review-sequence.png)
 
-The same resting points at 390×844 (light).
+The first card's Space, grade, and result stops, then the second card, at
+390×844 (dark).
 
 ![Review on a narrow screen](2026-11-02-landing-scroll-story/06-mobile-review.png)
 
-- Sampled in the page while moving from the question to the answer: Space shows
-  as pressed for about 150 ms, the answer is fully revealed by about 700 ms, and
-  the step marks advance once, in order.
-- A scripted 12-second scroll through the whole story recorded 721 frames, none
+- Sampled in the page while moving between stops: the active coach line and
+  caption steps change once per stop, in order.
+- A scripted 14-second scroll through the whole story recorded 842 frames, none
   over 20 ms, on this development machine. Not measured on a mid-range phone.
 - No console errors or warnings during the walkthrough.
 
@@ -76,8 +78,8 @@ scroll beneath it.
 
 With `prefers-reduced-motion: reduce` emulated, the deck shows one settled
 frame per beat and crossfades between them; nothing scrubs, zooms, or types.
-The review beat shows each of its resting points directly (question, answer,
-graded) with the caption steps matching, and nothing plays between them.
+The review beat shows each of its stops directly, coach bar and caption steps
+included, and nothing plays between them.
 
 ![Reduced motion, review beat](2026-11-02-landing-scroll-story/05-reduced-motion-review.png)
 

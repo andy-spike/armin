@@ -85,8 +85,8 @@ const BEATS: { title: string; body: ReactNode; long?: boolean }[] = [
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-/** Timeline units per second between review stations: about 0.9 s per step. */
-const REVIEW_PACE = 0.12;
+/** Timeline units per second between review stations: about 1 s per step. */
+const REVIEW_PACE = 0.1;
 
 /**
  * The frame reduced motion shows for each beat. The review beat already rests
@@ -281,7 +281,7 @@ export function ScrollStory() {
             className={cn(
               "story-beat relative flex flex-col py-12",
               beat.long
-                ? "min-h-[300svh] justify-start lg:min-h-[340dvh]"
+                ? "min-h-[420svh] justify-start lg:min-h-[480dvh]"
                 : "min-h-[60svh] justify-center lg:min-h-[86dvh]",
             )}
           >
@@ -624,6 +624,69 @@ const RATINGS = [
   { label: "Easy", key: "4", interval: "8d", bg: "bg-easy" },
 ] as const;
 
+const COACH_KEY = "border-accent/30 bg-surface text-accent-deep shadow-none";
+const GRADE_KEYS = (
+  <span className="inline-flex gap-1">
+    {["1", "2", "3", "4"].map((key) => (
+      <Kbd key={key} className={COACH_KEY}>
+        {key}
+      </Kbd>
+    ))}
+  </span>
+);
+const DAYS = (chip: string) => chip.split(" · ")[1]!.replace("d", "");
+
+/** Every line the coach bar can show, keyed as story-scene's coachAt names them. */
+const COACH_LINES: { id: string; step: string; text: ReactNode }[] = [
+  { id: "recall", step: "Step 1 of 3", text: "Read the question and recall the answer." },
+  {
+    id: "space",
+    step: "Step 2 of 3",
+    text: (
+      <>
+        Press <Kbd className={COACH_KEY}>Space</Kbd> to show the answer.
+      </>
+    ),
+  },
+  {
+    id: "grade",
+    step: "Step 3 of 3",
+    text: <>How well did you know it? {GRADE_KEYS}</>,
+  },
+  ...REVIEWS.slice(1).map((_, i) => ({
+    id: `repeat-${i + 1}`,
+    step: `Card ${i + 2} of ${REVIEWS.length}`,
+    text: (
+      <>
+        Same keys: <Kbd className={COACH_KEY}>Space</Kbd>, then a grade.
+      </>
+    ),
+  })),
+  ...REVIEWS.map((review, i) => ({
+    id: `result-${i}`,
+    step: "Graded",
+    text: `${RATINGS[review.rating]!.label}. It comes back in ${DAYS(review.chip)} days.`,
+  })),
+];
+
+/**
+ * The review card's coach: the step the review is on and the action it
+ * expects, so the demo reads as a walkthrough. Lines share one place and the
+ * scene marks the active one.
+ */
+function CoachBar() {
+  return (
+    <div className="story-coach">
+      {COACH_LINES.map((line) => (
+        <p key={line.id} data-coach={line.id} className="story-coach-line">
+          <span className="story-coach-step">{line.step}</span>
+          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">{line.text}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
 /**
  * The review screen in miniature, working through the three due cards. Each
  * card is a face stacked in the same place; the rating row is shared.
@@ -631,18 +694,19 @@ const RATINGS = [
 function ReviewPanel() {
   return (
     <div data-review className="story-panel w-[min(33rem,calc(100cqw-1.5rem))]">
-      <div className="grid px-4 pt-4 pb-4 sm:px-6 sm:pt-5 sm:pb-5">
+      <CoachBar />
+      <div className="grid px-4 pt-3 pb-4 sm:px-6 sm:pt-4 sm:pb-5">
         {REVIEWS.map((card, i) => {
           const node = DECK.find((n) => n.id === card.id)!;
           return (
             <div key={card.id} data-face={i} className="story-face">
-              <div className="flex items-center justify-between font-mono text-xs text-muted tabular-nums">
+              <div className="flex items-center justify-between font-mono text-xs text-muted tabular-nums max-sm:hidden">
                 <span>
                   {i + 1} / {REVIEWS.length}
                 </span>
                 <span>{node.label}</span>
               </div>
-              <p className="mt-3 text-base leading-snug font-medium text-pretty text-ink sm:mt-4 sm:text-xl">
+              <p className="text-base sm:mt-3 leading-snug font-medium text-pretty text-ink sm:text-xl">
                 {card.front}
               </p>
               <div
@@ -658,12 +722,12 @@ function ReviewPanel() {
       <div className="story-actions grid h-14 px-2 pb-2 sm:h-16">
         <span
           data-key="space"
-          className="story-show story-press flex items-center justify-center gap-2 bg-accent text-sm font-medium text-on-accent"
+          className="story-show story-press story-hint flex items-center justify-center gap-2 bg-accent text-sm font-medium text-on-accent"
         >
           Show answer
           <Kbd className="border-on-accent/25 bg-ink/10 text-on-accent shadow-none">Space</Kbd>
         </span>
-        <span className="story-ratings grid grid-cols-4 gap-1.5">
+        <span data-ratings className="story-ratings story-hint grid grid-cols-4 gap-1.5">
           {RATINGS.map((rating, i) => (
             <span
               key={rating.label}

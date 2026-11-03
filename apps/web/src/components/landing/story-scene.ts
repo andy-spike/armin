@@ -75,33 +75,38 @@ const easeOut = cubicBezier(0.23, 1, 0.32, 1);
 const easeInOut = cubicBezier(0.77, 0, 0.175, 1);
 
 /*
- * Beat 3 is a stepper, not a scrub. Each card has three resting stations:
+ * Beat 3 is a stepper, not a scrub. The first card teaches the loop with four
+ * resting stations, each named by the coach bar on the review card:
  *
- *   recall   the question is up and Show answer waits for Space
- *   prompt   Space was pressed, the answer is shown, the grades wait
+ *   recall   the question is up: read it and recall the answer
+ *   ask      the coach asks for Space and rings Show answer
+ *   prompt   Space was pressed and the answer is shown; the coach asks for a grade
  *   graded   the grade key was pressed and the grade landed on the graph
  *
- * plus a final "caught up" station. Scroll picks the station (see
+ * The next two cards repeat the loop with two stations each (prompt, graded),
+ * and a final "caught up" station closes the beat. Scroll picks the station (see
  * reviewStation); the page then plays from one station to the next at a
  * steady pace, so each key press and reveal runs in full and the caption's
  * steps change only when a step is complete.
  */
-const REVIEW_START = 3.05;
-const REVIEW_STEP = 0.29;
-const REVIEW_END = [3.91, 3.97] as const;
-const CAUGHT_UP = 3.985;
+const REVIEW_START = 3.04;
+const REVIEW_STEP = 0.3;
+const REVIEW_END = [3.935, 3.975] as const;
+const CAUGHT_UP = 3.988;
 const REVIEW_TIMES = REVIEWS.map((_, i) => {
   const s = REVIEW_START + i * REVIEW_STEP;
   return {
     start: s,
     recall: s + 0.06,
-    space: [s + 0.08, s + 0.1] as const,
-    answer: [s + 0.09, s + 0.15] as const,
-    flipped: s + 0.11,
-    prompt: s + 0.17,
-    grade: [s + 0.19, s + 0.22] as const,
-    learned: s + 0.22,
-    graded: s + 0.26,
+    hint: s + 0.075,
+    ask: s + 0.09,
+    space: [s + 0.1, s + 0.12] as const,
+    answer: [s + 0.11, s + 0.17] as const,
+    flipped: s + 0.13,
+    prompt: s + 0.19,
+    grade: [s + 0.21, s + 0.24] as const,
+    learned: s + 0.24,
+    graded: s + 0.28,
   };
 });
 const reviewIndex = (t: number) =>
@@ -112,11 +117,19 @@ const reviewIndex = (t: number) =>
  * The first card's question gets extra room while the caption scrolls in.
  */
 const STATIONS = [
-  ...REVIEW_TIMES.flatMap((r, i) => [
-    { t: r.recall, share: i === 0 ? 1.6 : 1 },
-    { t: r.prompt, share: 1 },
-    { t: r.graded, share: 1 },
-  ]),
+  ...REVIEW_TIMES.flatMap((r, i) =>
+    i === 0
+      ? [
+          { t: r.recall, share: 1.6 },
+          { t: r.ask, share: 1 },
+          { t: r.prompt, share: 1 },
+          { t: r.graded, share: 1 },
+        ]
+      : [
+          { t: r.prompt, share: 1 },
+          { t: r.graded, share: 1 },
+        ],
+  ),
   { t: CAUGHT_UP, share: 1 },
 ];
 const STATION_TOTAL = STATIONS.reduce((sum, station) => sum + station.share, 0);
@@ -153,10 +166,24 @@ function reviewSteps(t: number): [StepState, StepState, StepState] {
   if (t < 3) return ["upcoming", "upcoming", "upcoming"];
   if (t >= REVIEW_END[0]) return ["done", "done", "done"];
   const r = REVIEW_TIMES[reviewIndex(t)]!;
-  if (t < r.space[0]) return ["current", "upcoming", "upcoming"];
+  if (t < r.hint) return ["current", "upcoming", "upcoming"];
   if (t < r.flipped) return ["done", "current", "upcoming"];
   if (t < r.learned) return ["done", "done", "current"];
   return ["done", "done", "done"];
+}
+
+/**
+ * The coach bar on the review card: which step the first card is on and what it
+ * expects next, a reminder on the later cards, and each grade's result.
+ */
+function coachAt(t: number) {
+  const i = reviewIndex(t);
+  const r = REVIEW_TIMES[i]!;
+  if (t >= r.learned) return `result-${i}`;
+  if (i > 0) return `repeat-${i}`;
+  if (t < r.hint) return "recall";
+  if (t < r.flipped) return "space";
+  return "grade";
 }
 
 function deckState(id: NodeId, t: number): NodeState {
@@ -297,6 +324,8 @@ export function createScene(
   const faces = REVIEWS.map((_, i) => one<HTMLElement>(`[data-face="${i}"]`));
   const answers = REVIEWS.map((_, i) => one<HTMLElement>(`[data-answer="${i}"]`));
   const spaceKey = one("[data-key=space]");
+  const ratingRow = one("[data-ratings]");
+  const coachLines = [...stage.querySelectorAll<HTMLElement>("[data-coach]")];
   const ratingKeys = [0, 1, 2, 3].map((i) => one<HTMLElement>(`[data-key="r${i}"]`));
   const field = one("[data-field]");
   const fieldEdgeGroup = one<SVGGElement>("[data-field-edges]");
@@ -490,6 +519,11 @@ export function createScene(
       style(answers[i]!, "clip-path", `inset(0 0 ${((1 - shownAnswer) * 100).toFixed(2)}% 0)`);
     });
     attr(reviewPanel, "data-flipped", t >= times.flipped);
+    // The coach names the step; the control it asks for is ringed.
+    const coach = coachAt(t);
+    for (const line of coachLines) attr(line, "data-active", line.dataset.coach === coach);
+    attr(spaceKey, "data-hint", coach === "space");
+    attr(ratingRow, "data-hint", t >= times.flipped && t < times.learned);
     attr(spaceKey, "data-pressed", within(t, times.space[0], times.space[1]));
     const rating = REVIEWS[active]!.rating;
     ratingKeys.forEach((key, i) => {
