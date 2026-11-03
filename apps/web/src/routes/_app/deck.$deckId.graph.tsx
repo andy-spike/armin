@@ -180,7 +180,9 @@ function DeckGraphPage() {
     editingId,
     editingVersion,
     closeDialog,
-    refetchGraph: () => void graphQuery.refetch(),
+    resetGraph: () => {
+      if (persistedGraph) setGraph(persistedGraph);
+    },
     toast,
   });
 
@@ -190,7 +192,7 @@ function DeckGraphPage() {
         setDeleteId(null);
       }
     } catch {
-      // The mutation already reported the failure and refetched the graph.
+      // The mutation already reported the failure and reset the graph.
     }
   };
 
