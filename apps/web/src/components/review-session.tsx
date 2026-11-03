@@ -2,7 +2,15 @@ import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@armin/backend/api";
 import type { Id } from "@armin/backend/types";
 import { toUiReviewUnit } from "@/types/view-models";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import type { BuryResult } from "@armin/backend/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -159,6 +167,33 @@ function DeckLink({ deckId, name }: { deckId: string; name: string }) {
   );
 }
 
+/** Undo the last answer, with its shortcut in the tooltip. */
+function UndoButton({
+  binding,
+  ...button
+}: { binding: string | undefined } & Pick<
+  ComponentProps<typeof Button>,
+  "variant" | "size" | "className" | "busy" | "disabled" | "onClick"
+>) {
+  return (
+    <Tooltip content={<ShortcutLabel label="Undo last answer" binding={binding} />}>
+      <Button {...button} aria-label="Undo last review">
+        <Undo2 className="h-4 w-4" />
+        Undo
+      </Button>
+    </Tooltip>
+  );
+}
+
+/** Whether the card asks for a typed answer, and whether `typed` matches it. */
+function typeAnswerCheck(card: UiReviewUnit | undefined, typed: string) {
+  if (card?.type !== "type_answer") return { isTypeAnswer: false, isCorrect: false };
+  return {
+    isTypeAnswer: true,
+    isCorrect: matchesTypeAnswer(typed, card.content as TypeAnswerContent),
+  };
+}
+
 /**
  * The prompt and revealed answer, shared by review and cram sessions so a
  * practice session renders cards exactly like the real reviewer.
@@ -176,16 +211,13 @@ function ReviewCardPrompt({
   onTypedChange: (value: string) => void;
   onReveal: () => void;
 }) {
-  const isTypeAnswer = card.type === "type_answer";
-  const typeAnswerContent =
-    card.type === "type_answer" ? (card.content as TypeAnswerContent) : null;
+  const { isTypeAnswer, isCorrect } = typeAnswerCheck(card, typed);
   const imageOcclusionContent =
     card.type === "image_occlusion" ? (card.content as ImageOcclusionContent) : null;
   // The generated back joins the revealed text and the extra; show the extra
   // apart from it, as secondary content.
   const clozeContent = card.type === "cloze" ? (card.content as ClozeContent) : null;
   const clozeExtra = clozeContent?.extra;
-  const isCorrect = typeAnswerContent ? matchesTypeAnswer(typed, typeAnswerContent) : false;
   const autoplay = useQuery(settingsQuery()).data?.autoplayAudio ?? true;
   const audio = autoplay ? "autoplay" : "manual";
 
@@ -431,10 +463,7 @@ export function ReviewSession({
   const done = !isLoading && !isError && index >= cards.length && cards.length > 0;
   const empty = !isLoading && !isError && cards.length === 0;
 
-  const isTypeAnswer = card?.type === "type_answer";
-  const typeAnswerContent =
-    card?.type === "type_answer" ? (card.content as TypeAnswerContent) : null;
-  const isCorrect = typeAnswerContent ? matchesTypeAnswer(typed, typeAnswerContent) : false;
+  const { isTypeAnswer, isCorrect } = typeAnswerCheck(card, typed);
 
   const preview = useQuery({
     queryKey: card ? previewKey(card.id, card.version) : ["review-preview", "none"],
@@ -728,21 +757,14 @@ export function ReviewSession({
             </p>
           )}
           {onUndo && (history.length > 0 || saving > 0) && (
-            <Tooltip
-              content={<ShortcutLabel label="Undo last answer" binding={keymap["review.undo"]} />}
-            >
-              <Button
-                variant="outline"
-                className="mt-5"
-                busy={undoing}
-                disabled={undoing || !online}
-                onClick={() => void undoLast()}
-                aria-label="Undo last review"
-              >
-                <Undo2 className="h-4 w-4" />
-                Undo
-              </Button>
-            </Tooltip>
+            <UndoButton
+              binding={keymap["review.undo"]}
+              variant="outline"
+              className="mt-5"
+              busy={undoing}
+              disabled={undoing || !online}
+              onClick={() => void undoLast()}
+            />
           )}
           <div className="mt-6">{doneAction}</div>
         </ReviewStatePanel>
@@ -762,21 +784,14 @@ export function ReviewSession({
               {index + 1} / {cards.length}
             </span>
             {onUndo && (
-              <Tooltip
-                content={<ShortcutLabel label="Undo last answer" binding={keymap["review.undo"]} />}
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="-mr-2"
-                  disabled={(history.length === 0 && saving === 0) || undoing || !online}
-                  onClick={() => void undoLast()}
-                  aria-label="Undo last review"
-                >
-                  <Undo2 className="h-4 w-4" />
-                  Undo
-                </Button>
-              </Tooltip>
+              <UndoButton
+                binding={keymap["review.undo"]}
+                variant="ghost"
+                size="sm"
+                className="-mr-2"
+                disabled={(history.length === 0 && saving === 0) || undoing || !online}
+                onClick={() => void undoLast()}
+              />
             )}
           </div>
 
