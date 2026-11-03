@@ -1,5 +1,7 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { authClient } from "@/lib/auth-client";
 import { ArminMark, ArminWordmark } from "@/components/brand";
 import { SelfHostedBadge } from "@/components/self-hosted-badge";
 
@@ -123,4 +125,46 @@ export function authErrorMessage(
   if (error.code === "EMAIL_UNAVAILABLE") return EMAIL_UNAVAILABLE_MESSAGE;
   if (error.code === "INVALID_EMAIL_OR_PASSWORD") return "Email or password is incorrect.";
   return error.message || "Something went wrong. Try again.";
+}
+
+/**
+ * "Continue with Google" and the divider above the email form. Busy until
+ * Google redirects; a failure to start goes to `onError`.
+ */
+export function GoogleSignIn({
+  callbackURL,
+  errorCallbackURL,
+  onError,
+}: {
+  callbackURL: string;
+  errorCallbackURL: string;
+  onError: (message: string | null) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const start = async () => {
+    setBusy(true);
+    onError(null);
+    const { error } = await authClient.signIn.social({
+      provider: "google",
+      callbackURL,
+      errorCallbackURL,
+    });
+    if (error) {
+      onError(authErrorMessage(error));
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <Button type="button" variant="outline" className="w-full" onClick={start} busy={busy}>
+        <GoogleIcon />
+        Continue with Google
+      </Button>
+      <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-faint">
+        <span className="h-px flex-1 bg-border" />
+        or
+        <span className="h-px flex-1 bg-border" />
+      </div>
+    </>
+  );
 }

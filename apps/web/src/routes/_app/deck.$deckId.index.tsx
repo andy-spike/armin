@@ -10,7 +10,7 @@ import { notifySaveError } from "@/lib/notify";
 import { useUpdateFlashcard } from "@/lib/use-update-flashcard";
 import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Play, Layers, AlertTriangle, Share2, Tag, Settings, Brain } from "lucide-react";
+import { Plus, Play, Layers, Share2, Tag, Settings, Brain } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { CramDialog } from "@/components/cram-dialog";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
@@ -28,6 +28,7 @@ import {
   FlashcardGridSkeleton,
 } from "@/components/page-skeletons";
 import { AllDecksLink, DeckNotFound } from "@/components/deck-not-found";
+import { QueryError } from "@/components/route-status";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useFlashcardTileActions } from "@/components/use-flashcard-tile-actions";
 import { useToast } from "@/components/ui/toast";
@@ -137,27 +138,13 @@ function DeckPage() {
       <div>
         <AllDecksLink />
         <div className="mt-6">
-          <div className="flex flex-col items-center rounded-xl border border-border bg-bg-2 px-6 py-14 text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-relearning-bg text-relearning">
-              <AlertTriangle className="h-6 w-6" strokeWidth={1.5} />
-            </div>
-            <h3 className="text-base font-semibold text-ink">
-              Couldn&apos;t load these flashcards
-            </h3>
-            <p className="mt-1 max-w-[40ch] text-sm text-muted">
-              Check your connection and try again. Your saved data is safe.
-            </p>
-            <Button
-              variant="outline"
-              className="mt-5"
-              onClick={() => {
-                void deckQuery.refetch();
-                cardsQuery.refetch();
-              }}
-            >
-              Try again
-            </Button>
-          </div>
+          <QueryError
+            title="Couldn’t load these flashcards"
+            onRetry={() => {
+              void deckQuery.refetch();
+              cardsQuery.refetch();
+            }}
+          />
         </div>
       </div>
     );

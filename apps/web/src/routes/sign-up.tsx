@@ -9,7 +9,7 @@ import {
   Field,
   FormError,
   FormNotice,
-  GoogleIcon,
+  GoogleSignIn,
 } from "@/components/auth/auth-layout";
 import { authClient, safeRedirectPath } from "@/lib/auth-client";
 import { useAuthFeatures } from "@/lib/session";
@@ -135,28 +135,7 @@ function SignUpPage() {
     >
       <div className="space-y-4">
         {features.data?.google && (
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() =>
-                void authClient.signIn.social({
-                  provider: "google",
-                  callbackURL: redirectTo,
-                  errorCallbackURL: "/sign-up",
-                })
-              }
-            >
-              <GoogleIcon />
-              Continue with Google
-            </Button>
-            <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-faint">
-              <span className="h-px flex-1 bg-border" />
-              or
-              <span className="h-px flex-1 bg-border" />
-            </div>
-          </>
+          <GoogleSignIn callbackURL={redirectTo} errorCallbackURL="/sign-up" onError={setError} />
         )}
         {emailUnavailable && (
           <FormNotice>
