@@ -35,6 +35,9 @@ export function Row({
   children,
   last,
   onReset,
+  resetTo = "preset default",
+  hintClassName,
+  controlClassName,
 }: {
   label: string;
   hint?: string;
@@ -45,7 +48,11 @@ export function Row({
    */
   children: ReactNode | ((labelId: string) => ReactNode);
   last?: boolean;
+  /** Shows a reset button that restores `resetTo`. */
   onReset?: () => void;
+  resetTo?: string;
+  hintClassName?: string;
+  controlClassName?: string;
 }) {
   const labelId = useId();
   return (
@@ -59,15 +66,20 @@ export function Row({
         <p id={labelId} className="text-sm font-medium text-ink">
           {label}
         </p>
-        {hint && <p className="mt-0.5 text-[0.8125rem] text-muted">{hint}</p>}
+        {hint && <p className={cn("mt-0.5 text-[0.8125rem] text-muted", hintClassName)}>{hint}</p>}
       </div>
-      <div className="flex shrink-0 items-center justify-end gap-1.5 pt-0.5 max-sm:justify-start max-sm:pt-0">
+      <div
+        className={cn(
+          "flex shrink-0 items-center justify-end gap-1.5 pt-0.5 max-sm:justify-start max-sm:pt-0",
+          controlClassName,
+        )}
+      >
         {onReset && (
-          <Tooltip content="Reset to preset default" className="px-2.5 py-1.5">
+          <Tooltip content={`Reset to ${resetTo}`} className="px-2.5 py-1.5">
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label={`Reset ${label} to preset default`}
+              aria-label={`Reset ${label} to ${resetTo}`}
               onClick={onReset}
             >
               <RotateCcw className="h-4 w-4" />
