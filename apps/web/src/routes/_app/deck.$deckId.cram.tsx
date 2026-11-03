@@ -22,7 +22,7 @@ function CramPage() {
   const [seed] = useState(() => Math.floor(Math.random() * 4294967296));
   const queueQuery = useQuery(cramQueueQuery(deckId, filters, search.max, seed));
 
-  // Shuffle and apply the session cap before hydrating any card content.
+  // The server already shuffled and capped the queue.
   const queue = useMemo(
     () => (queueQuery.data?.items ?? []).map(toUiReviewUnit),
     [queueQuery.data],

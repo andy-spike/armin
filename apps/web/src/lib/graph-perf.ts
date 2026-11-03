@@ -26,8 +26,8 @@ export function scheduleGraphWork(work: () => void) {
   return () => globalThis.clearTimeout(id);
 }
 
-/** Run work after the canvas has painted, with a 250 ms fallback. */
-export function afterCanvasPaint(work: () => void) {
+/** Run work after the canvas has painted, or after `fallbackMs` if it never does. */
+export function afterCanvasPaint(work: () => void, fallbackMs = 250) {
   let done = false;
   let inner = 0;
   const run = () => {
@@ -38,7 +38,7 @@ export function afterCanvasPaint(work: () => void) {
   const outer = requestAnimationFrame(() => {
     inner = requestAnimationFrame(run);
   });
-  const timeout = window.setTimeout(run, 250);
+  const timeout = window.setTimeout(run, fallbackMs);
   return () => {
     done = true;
     cancelAnimationFrame(outer);

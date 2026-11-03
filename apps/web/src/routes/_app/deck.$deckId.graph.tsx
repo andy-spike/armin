@@ -27,27 +27,7 @@ import {
   type UiDeckGraph,
 } from "@/types/view-models";
 import { cn } from "@/lib/utils";
-import { markGraphPerf, measureGraphPerf } from "@/lib/graph-perf";
-
-function afterRoutePaint(work: () => void) {
-  let done = false;
-  let inner = 0;
-  const run = () => {
-    if (done) return;
-    done = true;
-    work();
-  };
-  const outer = requestAnimationFrame(() => {
-    inner = requestAnimationFrame(run);
-  });
-  const timeout = window.setTimeout(run, 100);
-  return () => {
-    done = true;
-    cancelAnimationFrame(outer);
-    cancelAnimationFrame(inner);
-    window.clearTimeout(timeout);
-  };
-}
+import { afterCanvasPaint, markGraphPerf, measureGraphPerf } from "@/lib/graph-perf";
 
 function readSavedViewport(storageKey: string): Viewport | undefined {
   try {
@@ -145,10 +125,10 @@ function DeckGraphPage() {
   // page.
   useEffect(() => {
     if (!graphReady || canvasMounted) return;
-    return afterRoutePaint(() => {
+    return afterCanvasPaint(() => {
       markGraphPerf("reactFlow:mount");
       setCanvasMounted(true);
-    });
+    }, 100);
   }, [graphReady, canvasMounted]);
 
   const closeDialog = () => setOpen(false);

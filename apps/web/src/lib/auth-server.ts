@@ -3,21 +3,20 @@ import { convexBetterAuthReactStart } from "@convex-dev/better-auth/react-start"
 export const convexSiteUrl = (import.meta.env.VITE_CONVEX_SITE_URL ??
   process.env.VITE_CONVEX_SITE_URL) as string;
 
-export const { handler, getToken, fetchAuthQuery, fetchAuthMutation, fetchAuthAction } =
-  convexBetterAuthReactStart({
-    convexUrl: (import.meta.env.VITE_CONVEX_URL ?? process.env.VITE_CONVEX_URL) as string,
-    convexSiteUrl,
-    // The app's auth check (one per page load) reuses the Convex JWT that
-    // sign-in already stored in the `convex_jwt` cookie instead of asking
-    // Convex to mint one, saving a 150-250ms round trip. Convex still verifies
-    // the token; a negative tolerance treats it as expired a minute early so
-    // the client never starts from a token that is about to be rejected.
-    jwtCache: {
-      enabled: true,
-      expirationToleranceSeconds: -60,
-      isAuthError: (error) => /unauthenticated|unauthorized|jwt|token/i.test(String(error)),
-    },
-  });
+export const { handler, getToken } = convexBetterAuthReactStart({
+  convexUrl: (import.meta.env.VITE_CONVEX_URL ?? process.env.VITE_CONVEX_URL) as string,
+  convexSiteUrl,
+  // The app's auth check (one per page load) reuses the Convex JWT that
+  // sign-in already stored in the `convex_jwt` cookie instead of asking
+  // Convex to mint one, saving a 150-250ms round trip. Convex still verifies
+  // the token; a negative tolerance treats it as expired a minute early so
+  // the client never starts from a token that is about to be rejected.
+  jwtCache: {
+    enabled: true,
+    expirationToleranceSeconds: -60,
+    isAuthError: (error) => /unauthenticated|unauthorized|jwt|token/i.test(String(error)),
+  },
+});
 
 /**
  * Forward a GET to an authenticated Convex HTTP route with the caller's

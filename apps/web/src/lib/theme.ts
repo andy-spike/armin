@@ -96,10 +96,3 @@ export function applyTheme(theme: ResolvedTheme) {
     root.style.setProperty(`--armin-${name}`, value);
   }
 }
-
-/** Inline token declarations that scope a theme to one element (previews). */
-export function themeStyle(theme: ResolvedTheme) {
-  return Object.fromEntries(
-    Object.entries(theme.tokens ?? {}).map(([name, value]) => [`--armin-${name}`, value]),
-  ) as Record<string, string>;
-}

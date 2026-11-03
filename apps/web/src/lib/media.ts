@@ -16,11 +16,6 @@ export function mediaDisplayUrl(ref: string): string {
   return url;
 }
 
-export function mediaRefFromDisplayUrl(url: string): string | null {
-  const match = new RegExp(MEDIA_PATH_RE.source).exec(url);
-  return match ? mediaRefFromFileName(match[1]) : null;
-}
-
 export function resolveMediaRefsInMarkdown(markdown: string): string {
   return replaceMediaRefs(markdown, (_ref, fileName) => `/media/${fileName}`);
 }
