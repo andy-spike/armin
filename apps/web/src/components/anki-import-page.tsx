@@ -11,6 +11,7 @@ import {
   type ImportWarning,
   type ImportWarningCode,
   type NotetypeMapping,
+  uniqueDeckNames,
 } from "@armin/core/anki";
 import { isAudioFile } from "@armin/core/media";
 import { mappingComplete, NotetypeMappingSection } from "@/components/anki-notetype-mapping";
@@ -28,7 +29,6 @@ import {
   ImportCancelledError,
   importErrorMessage,
   runImport,
-  uniqueDeckNames,
   type ImportProgress,
   type ImportSummary,
 } from "@/lib/anki/import-runner";

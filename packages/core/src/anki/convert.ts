@@ -6,7 +6,7 @@ import {
 } from "../flashcard-types";
 import { normalizeTags } from "../study";
 import { convertAnkiCloze, dropEmptyClozes, limitClozeClusters } from "./cloze";
-import { decodeEntities, htmlToMarkdown, inspectImage } from "./html";
+import { decodeEntities, decodeMediaName, htmlToMarkdown, inspectImage } from "./html";
 import { classifyNotetype, type NotetypeKind } from "./notetype";
 import { parseOcclusion } from "./occlusion";
 import { scheduleCard } from "./schedule";
@@ -51,6 +51,22 @@ function cut(text: string, length: number) {
 }
 
 /** The Armin deck name for an Anki deck path. */
+/** Deck names must be unique within one import: "Spanish", "Spanish (2)". */
+export function uniqueDeckNames(decks: readonly { name: string }[]) {
+  const used = new Set<string>();
+  return decks.map((deck) => {
+    let name = deck.name;
+    for (let n = 2; used.has(name.toLowerCase()); n++) {
+      const suffix = ` (${n})`;
+      let base = deck.name.slice(0, MAX_NAME_CHARS - suffix.length);
+      if (/[\ud800-\udbff]$/.test(base)) base = base.slice(0, -1);
+      name = `${base.trimEnd()}${suffix}`;
+    }
+    used.add(name.toLowerCase());
+    return name;
+  });
+}
+
 export function armDeckName(ankiPath: string) {
   const parts = ankiPath
     .split("::")
@@ -174,13 +190,8 @@ type Content = { type: FlashcardType; content: FlashcardContent };
 
 function mediaIn(content: FlashcardContent) {
   const names = new Set<string>();
-  for (const match of JSON.stringify(content).matchAll(PLACEHOLDER_RE)) {
-    try {
-      names.add(decodeURIComponent(match[1]));
-    } catch {
-      names.add(match[1]);
-    }
-  }
+  for (const match of JSON.stringify(content).matchAll(PLACEHOLDER_RE))
+    names.add(decodeMediaName(match[1]));
   return [...names];
 }
 
