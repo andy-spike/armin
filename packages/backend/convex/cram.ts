@@ -131,7 +131,7 @@ export const rate = mutation({
 
     const now = Date.now();
     const unit = await owned(ctx, library, args.reviewUnitId);
-    if (!unit || unit.libraryId !== library._id) {
+    if (!unit) {
       return { status: "stale", message: "This review unit no longer exists." };
     }
     const cramLogId = await ctx.db.insert("cramLogs", {

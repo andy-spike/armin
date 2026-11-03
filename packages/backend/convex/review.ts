@@ -140,7 +140,7 @@ export const preview = query({
     const library = await readableLibrary(ctx);
     if (!library) return null;
     const unit = await owned(ctx, library, reviewUnitId);
-    if (!unit || unit.libraryId !== library._id) return null;
+    if (!unit) return null;
     const settings = new SettingsCache(ctx, library._id);
     const scheduler = schedulerFor(await settings.forDeck(unit.deckId));
     const now = Date.now();
@@ -306,7 +306,7 @@ export const rate = mutation({
 
     const now = Date.now();
     const unit = await owned(ctx, library, args.reviewUnitId);
-    if (!unit || unit.libraryId !== library._id) {
+    if (!unit) {
       return { status: "stale", message: "This review unit no longer exists." };
     }
     if (unit.version !== args.expectedVersion) {

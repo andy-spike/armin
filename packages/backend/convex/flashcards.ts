@@ -66,7 +66,7 @@ export const get = query({
     if (!library) return null;
     const id = ctx.db.normalizeId("flashcards", flashcardId);
     const flashcard = id ? await owned(ctx, library, id) : null;
-    if (!flashcard || flashcard.libraryId !== library._id) return null;
+    if (!flashcard) return null;
     const deck = await ctx.db.get(flashcard.deckId);
     return hydrateFlashcard(ctx, flashcard, deck?.name);
   },
@@ -547,7 +547,7 @@ export const remove = mutation({
     const library = await writableLibrary(ctx);
     const flashcard = await owned(ctx, library, flashcardId);
     // Deleting something already gone is a no-op, so retries are safe.
-    if (!flashcard || flashcard.libraryId !== library._id) return { ok: true as const };
+    if (!flashcard) return { ok: true as const };
     await deleteFlashcardCascade(ctx, flashcard, { refreshDependents: true });
     await bumpRevision(ctx, library._id);
     return { ok: true as const };
@@ -573,7 +573,7 @@ export const deleteConsequences = query({
     const library = await readableLibrary(ctx);
     if (!library) return null;
     const flashcard = await owned(ctx, library, flashcardId);
-    if (!flashcard || flashcard.libraryId !== library._id) return null;
+    if (!flashcard) return null;
     const dependents = await ctx.db
       .query("prereqs")
       .withIndex("by_prereq", (q) => q.eq("prereqId", flashcard._id))
@@ -610,7 +610,7 @@ export const moveConsequences = query({
     const library = await readableLibrary(ctx);
     if (!library) return null;
     const flashcard = await owned(ctx, library, flashcardId);
-    if (!flashcard || flashcard.libraryId !== library._id) return null;
+    if (!flashcard) return null;
     const prereqs = await ctx.db
       .query("prereqs")
       .withIndex("by_dependent", (q) => q.eq("dependentId", flashcard._id))
