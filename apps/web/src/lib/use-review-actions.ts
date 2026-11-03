@@ -43,7 +43,7 @@ export function useReviewActions() {
   const deleteCard = useMutation({
     mutationFn: (flashcardId: string) => armin.flashcards.delete(flashcardId),
     onSuccess: () => {
-      toast({ tone: "error", title: "Flashcard deleted" });
+      toast({ tone: "success", title: "Flashcard deleted" });
     },
     onError: (error) =>
       toast({

@@ -84,15 +84,15 @@ function throwIfAborted(signal: AbortSignal) {
 
 function sleep(ms: number, signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timer);
-        reject(new ImportCancelledError());
-      },
-      { once: true },
-    );
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new ImportCancelledError());
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
   });
 }
 
