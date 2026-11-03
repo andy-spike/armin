@@ -57,6 +57,7 @@ import type * as model_selfHost from "../model/selfHost.js";
 import type * as model_settingsChecks from "../model/settingsChecks.js";
 import type * as model_study from "../model/study.js";
 import type * as model_summaries from "../model/summaries.js";
+import type * as model_uploadBody from "../model/uploadBody.js";
 import type * as model_usage from "../model/usage.js";
 import type * as performance from "../performance.js";
 import type * as review from "../review.js";
@@ -121,6 +122,7 @@ declare const fullApi: ApiFromModules<{
   "model/settingsChecks": typeof model_settingsChecks;
   "model/study": typeof model_study;
   "model/summaries": typeof model_summaries;
+  "model/uploadBody": typeof model_uploadBody;
   "model/usage": typeof model_usage;
   performance: typeof performance;
   review: typeof review;
