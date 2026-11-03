@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/command";
 import { KeybindingHint } from "@/components/keybinding-hint";
 import { useKeybindings, useScope } from "@/keybindings/keybindings-provider";
-import { COMMANDS, COMMAND_BY_ID, type CommandDef } from "@/lib/keybindings/registry";
+import { COMMANDS, COMMAND_BY_ID, COMMAND_GROUPS } from "@/lib/keybindings/registry";
 
 /**
  * Mounts the discoverability surfaces and the global Commands that open them:
@@ -97,20 +97,10 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
 function Cheatsheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { keymap, activeScopes } = useKeybindings();
 
-  const groups = useMemo(() => {
-    const byGroup = new Map<string, CommandDef[]>();
-    for (const cmd of COMMANDS) {
-      const list = byGroup.get(cmd.group) ?? [];
-      list.push(cmd);
-      byGroup.set(cmd.group, list);
-    }
-    return [...byGroup.entries()];
-  }, []);
-
   return (
     <Dialog open={open} onClose={onClose} title="Keyboard shortcuts" className="max-w-2xl">
       <div className="grid gap-x-10 gap-y-6 sm:grid-cols-2">
-        {groups.map(([group, cmds]) => {
+        {COMMAND_GROUPS.map(({ group, commands: cmds }) => {
           const active = activeScopes.has(cmds[0].scope);
           return (
             <section key={group}>

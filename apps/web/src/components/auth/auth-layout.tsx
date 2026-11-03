@@ -103,7 +103,7 @@ export function GoogleIcon() {
   );
 }
 
-export const EMAIL_UNAVAILABLE_MESSAGE = "Email isn't available right now. Contact support.";
+const EMAIL_UNAVAILABLE_MESSAGE = "Email isn't available right now. Contact support.";
 
 /**
  * Better Auth client errors carry a message; fall back to a plain sentence.

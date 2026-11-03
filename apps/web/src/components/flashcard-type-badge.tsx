@@ -1,7 +1,7 @@
 import type { FlashcardType } from "@armin/core/flashcard-types";
 import { cn } from "@/lib/utils";
 
-export const CARD_TYPE_LABELS: Record<FlashcardType, string> = {
+const CARD_TYPE_LABELS: Record<FlashcardType, string> = {
   basic: "Basic",
   basic_reversed: "Reversed",
   cloze: "Cloze",

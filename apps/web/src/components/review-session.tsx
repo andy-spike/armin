@@ -164,7 +164,7 @@ function DeckLink({ deckId, name }: { deckId: string; name: string }) {
  * The prompt and revealed answer, shared by review and cram sessions so a
  * practice session renders cards exactly like the real reviewer.
  */
-export function ReviewCardPrompt({
+function ReviewCardPrompt({
   card,
   flipped,
   typed,
@@ -269,7 +269,7 @@ export function ReviewCardPrompt({
  * The part of a rating outcome a session needs. Normal review and cram return
  * different log tables, so the session only names the log id and new version.
  */
-export type ReviewSessionProps = {
+type ReviewSessionProps = {
   /** Cards due for this session. Tag cards with `deck` to show the source. */
   queue: UiReviewUnit[];
   /** Top-of-page content — a back link or a page title. */

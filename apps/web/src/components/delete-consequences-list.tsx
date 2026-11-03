@@ -1,8 +1,5 @@
+import { plural } from "@/lib/utils";
 import type { FlashcardDeleteConsequences } from "@/types/view-models";
-
-function plural(count: number, singular: string) {
-  return `${count} ${count === 1 ? singular : `${singular}s`}`;
-}
 
 function reviewHistoryLine(consequences: FlashcardDeleteConsequences) {
   const units = plural(consequences.reviewUnitCount, "review unit");

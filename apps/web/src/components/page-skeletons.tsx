@@ -52,7 +52,7 @@ function BrowseFilterBarSkeleton() {
 
 /* ----------------------------------------------------------------- Decks */
 
-export function DeckTileSkeleton() {
+function DeckTileSkeleton() {
   return (
     <li className="border border-border bg-surface p-5">
       <Line box="h-7" className="h-5 w-2/3" />
@@ -104,7 +104,7 @@ function DecksPageSkeleton() {
 /* ------------------------------------------------------------ Flashcards */
 
 /** Mirrors FlashcardTile; `showDeck` adds Browse's deck-name line. */
-export function FlashcardTileSkeleton({ showDeck = false }: { showDeck?: boolean }) {
+function FlashcardTileSkeleton({ showDeck = false }: { showDeck?: boolean }) {
   const badges = (
     <div className="flex items-center gap-1.5">
       <Skeleton className="h-5 w-14 rounded-sm" />

@@ -6,7 +6,7 @@ import { linkProblem, type GraphCycleIndex } from "@armin/core/prereq-graph";
 import { graphNodePreview } from "@/lib/graph-flow";
 import type { UiDeckGraph } from "@/types/view-models";
 
-export type GraphLinkOption = { id: string; label: string };
+type GraphLinkOption = { id: string; label: string };
 
 /** Which picker is open, and for which card. */
 export type LinkPickerRequest = {
@@ -15,7 +15,7 @@ export type LinkPickerRequest = {
 };
 
 /** The link a picked card stands for. */
-export type PickedLink = {
+type PickedLink = {
   action: "add" | "remove";
   prereqId: string;
   dependentId: string;

@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
  */
 export type NodeEmphasis = "active" | "connected" | "dimmed" | null;
 
-export type CardNodeData = {
+type CardNodeData = {
   front: string;
   back: string;
   type: FlashcardType;

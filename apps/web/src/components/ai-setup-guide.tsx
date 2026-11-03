@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { selfHosted } from "@/lib/self-host";
 
 /** The Convex HTTP site serves the MCP endpoint, not the app origin. */
-export const MCP_ENDPOINT = `${String(import.meta.env.VITE_CONVEX_SITE_URL ?? "").replace(/\/$/, "")}/mcp`;
+const MCP_ENDPOINT = `${String(import.meta.env.VITE_CONVEX_SITE_URL ?? "").replace(/\/$/, "")}/mcp`;
 
 /** Hosted assistants need a public HTTPS address; development servers aren't one. */
 const MCP_IS_PUBLIC = (() => {

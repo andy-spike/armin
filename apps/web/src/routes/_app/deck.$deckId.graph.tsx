@@ -14,6 +14,7 @@ import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { PrerequisiteGraph } from "@/components/prerequisite-graph/prerequisite-graph";
 import { Button } from "@/components/ui/button";
 import { GraphSkeleton } from "@/components/page-skeletons";
+import { DeleteConsequencesList } from "@/components/delete-consequences-list";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
@@ -46,22 +47,6 @@ function afterRoutePaint(work: () => void) {
     cancelAnimationFrame(inner);
     window.clearTimeout(timeout);
   };
-}
-
-function plural(count: number, singular: string, pluralForm = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : pluralForm}`;
-}
-
-function formatReviewHistory(consequences: FlashcardDeleteConsequences | null) {
-  if (!consequences) return "Loading review history…";
-  if (consequences.reviewLogCount === 0) {
-    return `No review history will be destroyed across ${plural(consequences.reviewUnitCount, "review unit")}.`;
-  }
-
-  const first = consequences.firstReviewAt?.toLocaleDateString();
-  const last = consequences.lastReviewAt?.toLocaleDateString();
-  const span = first && last ? ` from ${first} to ${last}` : "";
-  return `${plural(consequences.reviewLogCount, "review log")} across ${plural(consequences.reviewUnitCount, "review unit")} will be destroyed${span}.`;
 }
 
 function readSavedViewport(storageKey: string): Viewport | undefined {
@@ -346,20 +331,10 @@ function DeckGraphPage() {
             Archive from the deck or browse view if you want a reversible way to set this aside.
             Delete removes the flashcard, its review units, and its review history permanently.
           </p>
-          <ul className="space-y-1 rounded-md border border-border bg-surface-sunken p-3">
-            <li>
-              {deleteConsequencesError
-                ? "Dependent count could not be loaded."
-                : deleteConsequences
-                  ? `${plural(deleteConsequences.dependentCount, "dependent")} will be unlocked or recomputed.`
-                  : "Loading dependent count…"}
-            </li>
-            <li>
-              {deleteConsequencesError
-                ? "Review history could not be loaded."
-                : formatReviewHistory(deleteConsequences)}
-            </li>
-          </ul>
+          <DeleteConsequencesList
+            consequences={deleteConsequences}
+            unavailable={deleteConsequencesError}
+          />
         </div>
         <div className="mt-5 flex flex-wrap justify-end gap-2 pt-1">
           {/* Focus the safe action when the dialog opens from a key press. */}

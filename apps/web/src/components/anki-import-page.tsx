@@ -917,7 +917,7 @@ function DoneStep({
 }
 
 /** A prompt an AI assistant connected to Armin can act on with its linking tools. */
-export function prerequisitePrompt(decks: string[]) {
+function prerequisitePrompt(decks: string[]) {
   const list = decks.map((deck) => `"${deck}"`).join(", ");
   return `In Armin, look through the cards in ${decks.length === 1 ? "my deck" : "my decks"} ${list}, which I just imported from Anki. Suggest prerequisite links where one card is clearly needed to understand another, and explain each suggestion. Show me the list first and only link the ones I approve.`;
 }
