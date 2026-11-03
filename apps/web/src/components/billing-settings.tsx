@@ -48,7 +48,7 @@ export function BillingSettings() {
   const navigate = useNavigate();
   const search = useSearch({ strict: false }) as { checkout?: string; interval?: Interval };
   const status = useBillingStatus();
-  const [interval, setInterval] = useState<Interval>(search.interval ?? "year");
+  const [interval, setInterval] = useState<Interval>(search.interval ?? "month");
 
   const refresh = useMutation({
     mutationFn: () => armin.billing.refresh(),

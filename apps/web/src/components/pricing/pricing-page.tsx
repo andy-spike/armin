@@ -16,11 +16,8 @@ const n = (value: number) => number.format(value);
 const free = PLAN_LIMITS.free;
 const pro = PLAN_LIMITS.pro;
 const { monthlyUsd, yearlyUsd } = PLAN_PRICES.pro;
-const yearlyPerMonth = yearlyUsd / 12;
 const yearlySavingUsd = monthlyUsd * 12 - yearlyUsd;
 const yearlySavingPercent = Math.round((yearlySavingUsd / (monthlyUsd * 12)) * 100);
-
-const usd = (value: number) => `$${Number.isInteger(value) ? value : value.toFixed(2)}`;
 
 /** The shared image and audio pool, with roughly how many pictures it holds. */
 function storage(bytes: number) {
@@ -231,7 +228,7 @@ function CellValue({ value }: { value: Cell }) {
 }
 
 export function PricingPage() {
-  const [interval, setInterval] = useState<Interval>("year");
+  const [interval, setInterval] = useState<Interval>("month");
   const yearly = interval === "year";
 
   return (
@@ -307,14 +304,14 @@ export function PricingPage() {
             </p>
             <div className="mt-6 flex items-baseline gap-2">
               <span className="text-5xl text-ink tabular-nums">
-                {usd(yearly ? yearlyPerMonth : monthlyUsd)}
+                ${yearly ? yearlyUsd : monthlyUsd}
               </span>
-              <span className="text-sm text-muted">per month</span>
+              <span className="text-sm text-muted">{yearly ? "per year" : "per month"}</span>
             </div>
             <p className="mt-1 min-h-5 text-sm text-muted" aria-live="polite">
               {yearly
-                ? `${usd(yearlyUsd)} billed once a year, saving ${usd(yearlySavingUsd)}.`
-                : "Billed monthly. Cancel anytime."}
+                ? "Billed once a year. Cancel anytime."
+                : "Billed every month. Cancel anytime."}
             </p>
             {/* Settings → Billing opens checkout; signed-out visitors sign in
                 first and return there with the chosen period. */}

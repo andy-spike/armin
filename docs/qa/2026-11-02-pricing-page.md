@@ -9,10 +9,12 @@ viewport, not a real device).
 
 ## Change
 
-- A Monthly / Yearly switch sits at the top beside the title, defaulting to
-  Yearly with a "Save 33%" note. Pro shows $6 per month billed monthly, or
-  $4 per month as $48 billed once a year (saving $24). Prices come from
-  `PLAN_PRICES`; limits from `PLAN_LIMITS`.
+- A Monthly / Yearly switch sits at the top beside the title. It starts on
+  Monthly; nothing preselects the longer commitment. Pro shows the price you
+  actually pay for the period: $6 per month, or $48 per year. The yearly price
+  is never broken down into a per-month figure. A "Save 33%" note states the
+  difference from twelve monthly payments. Settings → Billing also defaults to
+  Monthly. Prices come from `PLAN_PRICES`; limits from `PLAN_LIMITS`.
 - Each plan card lists its headline allowances with exact numbers.
 - A "Compare plans" table lists every limit and feature for both plans:
   library (cards, review items, decks, cards per deck, image and audio
@@ -26,16 +28,15 @@ viewport, not a real device).
 
 ## Steps
 
-1. Light, desktop, Yearly by default: Pro shows $4 per month, "$48 billed once
-   a year, saving $24", and the link is `/settings?tab=billing&interval=year`
-   (`desktop-yearly-light.png`).
-2. Clicking the switch shows $6 per month, "Billed monthly. Cancel anytime.",
-   and the link changes to `interval=month`. Space on the focused switch toggles
-   it back, and clicking either label picks that period. The focus ring is
-   visible (`desktop-monthly-focus-light.png`).
+1. Light, desktop, Monthly by default: Pro shows "$6 per month", "Billed every
+   month. Cancel anytime.", and the link is `/settings?tab=billing&interval=month`
+   (`desktop-monthly-light.png`).
+2. Clicking the switch shows "$48 per year", "Billed once a year. Cancel
+   anytime.", and the link changes to `interval=year` (`desktop-yearly-light.png`).
+   Space on the focused switch toggles it, and clicking either label picks that
+   period.
 3. Dark, 390 px: the title, switch, cards, and table stack without horizontal
-   scrolling (`scrollWidth` 390) (`mobile-yearly.png`). Dark desktop:
-   `desktop-yearly.png`.
+   scrolling (`scrollWidth` 390) (`mobile-monthly.png`).
 
 ## Validation
 
