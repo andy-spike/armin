@@ -176,6 +176,20 @@ export async function setFlashcardArchived(
   return version;
 }
 
+/** Delete every prerequisite link into or out of a flashcard; returns its former dependents. */
+async function deletePrereqEdges(ctx: MutationCtx, flashcardId: Id<"flashcards">) {
+  const outgoing = await ctx.db
+    .query("prereqs")
+    .withIndex("by_prereq", (q) => q.eq("prereqId", flashcardId))
+    .collect();
+  const incoming = await ctx.db
+    .query("prereqs")
+    .withIndex("by_dependent", (q) => q.eq("dependentId", flashcardId))
+    .collect();
+  for (const edge of [...outgoing, ...incoming]) await ctx.db.delete(edge._id);
+  return outgoing.map((edge) => edge.dependentId);
+}
+
 /**
  * Move a flashcard to another deck of the same library. Prerequisite links
  * cannot cross decks, so its links are removed, its units follow it, its
@@ -189,15 +203,7 @@ export async function moveFlashcard(
   now: number,
 ) {
   if (flashcard.deckId === targetDeckId) return flashcard.version;
-  const outgoing = await ctx.db
-    .query("prereqs")
-    .withIndex("by_prereq", (q) => q.eq("prereqId", flashcard._id))
-    .collect();
-  const incoming = await ctx.db
-    .query("prereqs")
-    .withIndex("by_dependent", (q) => q.eq("dependentId", flashcard._id))
-    .collect();
-  for (const edge of [...outgoing, ...incoming]) await ctx.db.delete(edge._id);
+  const dependents = await deletePrereqEdges(ctx, flashcard._id);
   const version = flashcard.version + 1;
   await ctx.db.patch(flashcard._id, {
     deckId: targetDeckId,
@@ -214,12 +220,7 @@ export async function moveFlashcard(
     });
   }
   const settings = new SettingsCache(ctx, flashcard.libraryId);
-  await refreshDependentSubgraph(
-    ctx,
-    [flashcard._id, ...outgoing.map((edge) => edge.dependentId)],
-    settings,
-    now,
-  );
+  await refreshDependentSubgraph(ctx, [flashcard._id, ...dependents], settings, now);
   return version;
 }
 
@@ -285,15 +286,7 @@ export async function deleteFlashcardCascade(
   flashcard: Doc<"flashcards">,
   opts: { refreshDependents: boolean },
 ) {
-  const outgoing = await ctx.db
-    .query("prereqs")
-    .withIndex("by_prereq", (q) => q.eq("prereqId", flashcard._id))
-    .collect();
-  const incoming = await ctx.db
-    .query("prereqs")
-    .withIndex("by_dependent", (q) => q.eq("dependentId", flashcard._id))
-    .collect();
-  for (const edge of [...outgoing, ...incoming]) await ctx.db.delete(edge._id);
+  const dependents = await deletePrereqEdges(ctx, flashcard._id);
 
   const units = await ctx.db
     .query("reviewUnits")
@@ -304,14 +297,9 @@ export async function deleteFlashcardCascade(
   await syncFlashcardMedia(ctx, flashcard, []);
   await ctx.db.delete(flashcard._id);
 
-  if (opts.refreshDependents && outgoing.length > 0) {
+  if (opts.refreshDependents && dependents.length > 0) {
     const settings = new SettingsCache(ctx, flashcard.libraryId);
-    await refreshDependentSubgraph(
-      ctx,
-      outgoing.map((edge) => edge.dependentId),
-      settings,
-      Date.now(),
-    );
+    await refreshDependentSubgraph(ctx, dependents, settings, Date.now());
   }
 }
 
