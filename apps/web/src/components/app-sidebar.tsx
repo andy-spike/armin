@@ -69,10 +69,11 @@ import { useStudyClock } from "@/lib/study-clock";
 import { signOutToSignIn } from "@/lib/auth-client";
 import { SOURCE_CODE_URL } from "@/lib/source-code";
 import { useViewer } from "@/lib/session";
-import { TITLEBAR_THEME_OPTIONS } from "@/lib/theme";
+import { MODE_OPTIONS } from "@/lib/theme";
 import { DECK_SORT_OPTIONS, sortDecks, type DeckSortKey } from "@/lib/sort-decks";
 import { cn, plural } from "@/lib/utils";
 import { useTheme } from "@/theme/theme-provider";
+import type { ThemeMode } from "@armin/core/themes";
 
 /**
  * Rows sit muted on the sunken panel; the current page is a paper slip with an
@@ -586,16 +587,21 @@ function useDeckListSort() {
   return [sort, update] as const;
 }
 
-/** Click flips light/dark; right-click picks a specific theme or System. */
 const showInLight = "[[data-theme=dark]_&]:hidden";
 const showInDark = "hidden [[data-theme=dark]_&]:inline";
 
-/** Click flips light/dark; right-click picks a specific theme or System. */
+/**
+ * Click flips between the light and dark theme slots; right-click picks Light,
+ * Dark, or System. The themes in each slot are chosen in Settings.
+ */
 function ThemeItem() {
-  const { preference, resolved, setPreference } = useTheme();
+  const { appearance, resolved, setAppearance } = useTheme();
+  const setMode = (mode: ThemeMode) => {
+    setAppearance({ ...appearance, mode }).catch(() => {});
+  };
   const [menuOpen, setMenuOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const label = resolved === "light" ? "Dark mode" : "Light mode";
+  const label = resolved.scheme === "light" ? "Dark mode" : "Light mode";
 
   return (
     <SidebarMenuItem>
@@ -604,7 +610,7 @@ function ThemeItem() {
           tooltip={label}
           className={navButton}
           aria-haspopup="menu"
-          onClick={() => setPreference(resolved === "light" ? "flexoki-dark" : "flexoki-light")}
+          onClick={() => setMode(resolved.scheme === "light" ? "dark" : "light")}
           onContextMenu={(event) => {
             event.preventDefault();
             setMenuOpen(true);
@@ -623,17 +629,17 @@ function ThemeItem() {
           </span>
         </SidebarMenuButton>
         <DropdownMenuContent anchor={buttonRef} side="right" align="end" className="min-w-36">
-          {TITLEBAR_THEME_OPTIONS.map((option) => (
+          {MODE_OPTIONS.map((option) => (
             <DropdownMenuItem
               key={option.value}
               className="justify-between"
               onClick={() => {
-                setPreference(option.value);
+                setMode(option.value);
                 setMenuOpen(false);
               }}
             >
               <span>{option.label}</span>
-              {preference === option.value && <Check aria-hidden />}
+              {appearance.mode === option.value && <Check aria-hidden />}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>

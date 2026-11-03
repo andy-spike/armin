@@ -33,6 +33,17 @@
   --armin-easy: var(--flexoki-blue-600);
   --armin-easy-deep: var(--flexoki-blue-600);
 
+  /* Rating buttons. Their labels must clear AA; light Good uses a deeper
+     shade than the shared token for that reason. */
+  --armin-rate-again: var(--armin-again);
+  --armin-rate-again-hover: var(--armin-again-deep);
+  --armin-rate-hard: var(--armin-hard);
+  --armin-rate-hard-hover: var(--armin-hard-deep);
+  --armin-rate-good: #637b0a;
+  --armin-rate-good-hover: #5f770a;
+  --armin-rate-easy: var(--armin-easy);
+  --armin-rate-easy-hover: var(--armin-easy-deep);
+
   --armin-new: var(--flexoki-blue-600);
   --armin-new-bg: var(--flexoki-blue-50);
   /* The 600 accents are below AA as 12px state-badge text on their 50 tint
@@ -78,6 +89,17 @@
   --armin-good-deep: var(--flexoki-green-600);
   --armin-easy: var(--flexoki-blue-400);
   --armin-easy-deep: var(--flexoki-blue-600);
+
+  /* Dark hovers are lighter: a darker hover would drop the black label
+     below AA. Dark Again uses a lighter shade for the same reason. */
+  --armin-rate-again: #d35347;
+  --armin-rate-again-hover: #e0655a;
+  --armin-rate-hard: var(--armin-hard);
+  --armin-rate-hard-hover: #e58a4f;
+  --armin-rate-good: var(--armin-good);
+  --armin-rate-good-hover: #9aac4a;
+  --armin-rate-easy: var(--armin-easy);
+  --armin-rate-easy-hover: #639fd0;
 
   --armin-new: #4a8ac2; /* blue-400 on blue-950 is 4.46:1; this is 4.77:1. */
   --armin-new-bg: var(--flexoki-blue-950);

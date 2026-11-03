@@ -71,10 +71,9 @@ import { settingsQuery } from "@/lib/queries";
 
 /*
  * Rating colours. Every label, interval, and shortcut chip inside these
- * buttons must clear WCAG AA (4.5:1) in both themes. Light "Good" and dark
- * "Again" are local per-theme shades; the dark hover shades are lighter than
- * the resting colours because a darker hover would drop black text below AA.
- * Global theme tokens are shared and owned elsewhere.
+ * buttons must clear WCAG AA (4.5:1) in every theme. The `rate-*` tokens are
+ * tuned per theme for that (flexoki-theme.css, and `deriveThemeTokens` in
+ * @armin/core/themes for every other theme).
  */
 const RATINGS: {
   grade: Grade;
@@ -84,22 +83,22 @@ const RATINGS: {
   {
     grade: 1,
     label: "Again",
-    bg: "bg-again hover:bg-again-deep [[data-theme=dark]_&]:bg-[#d35347] [[data-theme=dark]_&]:hover:bg-[#e0655a]",
+    bg: "bg-rate-again hover:bg-rate-again-hover",
   },
   {
     grade: 2,
     label: "Hard",
-    bg: "bg-hard hover:bg-hard-deep [[data-theme=dark]_&]:hover:bg-[#e58a4f]",
+    bg: "bg-rate-hard hover:bg-rate-hard-hover",
   },
   {
     grade: 3,
     label: "Good",
-    bg: "bg-good hover:bg-good-deep [[data-theme=light]_&]:bg-[#637b0a] [[data-theme=light]_&]:hover:bg-[#5f770a] [[data-theme=dark]_&]:hover:bg-[#9aac4a]",
+    bg: "bg-rate-good hover:bg-rate-good-hover",
   },
   {
     grade: 4,
     label: "Easy",
-    bg: "bg-easy hover:bg-easy-deep [[data-theme=dark]_&]:hover:bg-[#639fd0]",
+    bg: "bg-rate-easy hover:bg-rate-easy-hover",
   },
 ];
 

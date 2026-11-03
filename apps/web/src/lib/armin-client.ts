@@ -15,6 +15,7 @@ import type {
 } from "@armin/backend/types";
 import type { FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
 import { MAX_MEDIA_FILE_BYTES } from "@armin/core/media";
+import type { Appearance } from "@armin/core/themes";
 import type { Grade } from "@/types/view-models";
 import { shrinkMedia } from "@/lib/shrink-media";
 
@@ -99,6 +100,9 @@ export class MediaUploadError extends Error {
 export type ImportedMedia = { ref: string; fileName: string; mime: string; bytes: number };
 
 export const armin = {
+  appearance: {
+    set: (appearance: Appearance) => q().mutation(api.appearance.set, appearance),
+  },
   decks: {
     create: ({
       requestId,

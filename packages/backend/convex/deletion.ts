@@ -186,6 +186,7 @@ const LIBRARY_TABLES: [TableNames, string][] = [
   ["tags", "by_library_key"],
   ["requests", "by_library_request"],
   ["settings", "by_library"],
+  ["appearance", "by_library"],
   ["libraryCounters", "by_library"],
 ];
 

@@ -39,8 +39,7 @@ import {
   type PresetValues,
   type SchedulingPreset,
 } from "@armin/core/scheduling-presets";
-import { THEME_OPTIONS, type ThemePreference } from "@/lib/theme";
-import { useTheme } from "@/theme/theme-provider";
+import { ThemeSection } from "@/components/theme-settings";
 import { useEffect, useRef, useState } from "react";
 import type { Settings } from "@/types/view-models";
 
@@ -536,34 +535,10 @@ function AudioSection() {
 }
 
 function AppearanceTab() {
-  const { preference: themePreference, setPreference: setThemePreference } = useTheme();
   return (
     <>
+      <ThemeSection />
       <AudioSection />
-      <Section title="Appearance" description="How Armin looks on this device.">
-        <Row label="Theme" hint="Flexoki light, Flexoki dark, or match your system setting." last>
-          {(labelId) => (
-            <Select
-              value={themePreference}
-              items={THEME_OPTIONS}
-              onValueChange={(value) => setThemePreference(value as ThemePreference)}
-            >
-              <SelectTrigger className="w-44" aria-labelledby={labelId}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
-                <SelectGroup>
-                  {THEME_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          )}
-        </Row>
-      </Section>
     </>
   );
 }

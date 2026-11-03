@@ -18,6 +18,9 @@ generated API.
   hosted MCP server (OAuth, tokens, and protocol through `@convex-dev/mcp`),
   app-side connection records, and atomic agent authoring. See
   [AI assistant connections](../../docs/agent-connections.md).
+- `convex/appearance.ts` — the account's color theme choice and custom themes
+  (seed colors only, validated by `@armin/core/themes`), in its own table so
+  theme changes never re-run scheduling reads.
 - `convex/account.ts` — viewer, idempotent library provisioning, account
   timezone, and the library revision (kept for clients from before live
   subscriptions; exports use the revision as a snapshot check).

@@ -252,6 +252,34 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_library", ["libraryId"]),
 
+  /**
+   * The account's color theme choice and custom themes. Kept apart from
+   * `settings` so a theme change doesn't re-run queries that read scheduling
+   * settings. Absent means the default (Flexoki, following the system).
+   */
+  appearance: defineTable({
+    libraryId: v.id("libraries"),
+    mode: v.union(v.literal("light"), v.literal("dark"), v.literal("system")),
+    lightTheme: v.string(),
+    darkTheme: v.string(),
+    customThemes: v.array(
+      v.object({
+        id: v.string(),
+        name: v.string(),
+        seeds: v.object({
+          background: v.string(),
+          text: v.string(),
+          accent: v.string(),
+          again: v.string(),
+          hard: v.string(),
+          good: v.string(),
+          easy: v.string(),
+        }),
+      }),
+    ),
+    updatedAt: v.number(),
+  }).index("by_library", ["libraryId"]),
+
   deckSettings: defineTable({
     libraryId: v.id("libraries"),
     deckId: v.id("decks"),

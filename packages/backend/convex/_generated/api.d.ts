@@ -14,6 +14,7 @@ import type * as agentHttp from "../agentHttp.js";
 import type * as agentImportHttp from "../agentImportHttp.js";
 import type * as agentImports from "../agentImports.js";
 import type * as agents from "../agents.js";
+import type * as appearance from "../appearance.js";
 import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
 import type * as cram from "../cram.js";
@@ -77,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   agentImportHttp: typeof agentImportHttp;
   agentImports: typeof agentImports;
   agents: typeof agents;
+  appearance: typeof appearance;
   auth: typeof auth;
   billing: typeof billing;
   cram: typeof cram;
