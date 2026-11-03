@@ -7,6 +7,7 @@ import {
 } from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
+import { useUpdateFlashcard } from "@/lib/use-update-flashcard";
 import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Play, Layers, AlertTriangle, Share2, Tag, Settings, Brain } from "lucide-react";
@@ -114,15 +115,7 @@ function DeckPage() {
     onError: (error) => notifySaveError(toast, "Couldn’t add flashcard", error),
   });
 
-  const updateCard = useMutation({
-    mutationFn: (values: CardFormValues & { id: string; version: number }) =>
-      armin.flashcards.update(values),
-    onSuccess: () => {
-      toast({ tone: "success", title: "Flashcard updated" });
-      closeDialog();
-    },
-    onError: (error) => notifySaveError(toast, "Couldn’t update flashcard", error),
-  });
+  const updateCard = useUpdateFlashcard(closeDialog);
 
   const saveCard = async (values: CardFormValues) => {
     if (editing) {

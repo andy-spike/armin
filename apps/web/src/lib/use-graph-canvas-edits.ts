@@ -1,5 +1,6 @@
 import { armin, errorMessage } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
+import { useUpdateFlashcard } from "@/lib/use-update-flashcard";
 import { useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useMutation } from "@tanstack/react-query";
 import type { XYPosition } from "@xyflow/react";
@@ -136,15 +137,7 @@ export function useGraphCanvasEdits({
     onError: (error) => notifySaveError(toast, "Couldn’t add flashcard", error),
   });
 
-  const updateCard = useMutation({
-    mutationFn: (values: CardFormValues & { id: string; version: number }) =>
-      armin.flashcards.update(values),
-    onSuccess: () => {
-      toast({ tone: "success", title: "Flashcard updated" });
-      closeDialog();
-    },
-    onError: (error) => notifySaveError(toast, "Couldn’t update flashcard", error),
-  });
+  const updateCard = useUpdateFlashcard(closeDialog);
 
   const deleteCard = useMutation({
     mutationFn: (id: string) => armin.flashcards.delete(id),

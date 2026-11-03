@@ -5,10 +5,9 @@ import {
   prefetchBrowsePage,
   tagsQuery as tagsQueryOptions,
 } from "@/lib/queries";
-import { armin } from "@/lib/armin-client";
-import { notifySaveError } from "@/lib/notify";
+import { useUpdateFlashcard } from "@/lib/use-update-flashcard";
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { CircleDot, Layers, Library, Search, Tag } from "lucide-react";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { FlashcardTile } from "@/components/flashcard-tile";
@@ -29,7 +28,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useFlashcardTileActions } from "@/components/use-flashcard-tile-actions";
-import { useToast } from "@/components/ui/toast";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
 import type { BrowseQueryFilters } from "@/lib/armin-query";
 import { useBrowse } from "@/lib/use-browse";
@@ -47,7 +45,6 @@ const SEARCH_DEBOUNCE_MS = 250;
 
 function BrowsePage() {
   const navigate = useNavigate();
-  const toast = useToast();
 
   const [sort, setSort] = useState<BrowseSortKey>(BROWSE_PAGE_SORT);
   const [stateFilter, setStateFilter] = useState<string>(ALL_STATES);
@@ -108,15 +105,7 @@ function BrowsePage() {
 
   const tileActions = useFlashcardTileActions();
 
-  const updateCard = useMutation({
-    mutationFn: (values: CardFormValues & { id: string; version: number }) =>
-      armin.flashcards.update(values),
-    onSuccess: () => {
-      toast({ tone: "success", title: "Flashcard updated" });
-      closeDialog();
-    },
-    onError: (error) => notifySaveError(toast, "Couldn’t update flashcard", error),
-  });
+  const updateCard = useUpdateFlashcard(closeDialog);
 
   // Awaited, so the dialog shows its save as busy until the server answers.
   const saveCard = async (values: CardFormValues) => {
