@@ -13,6 +13,7 @@ import {
   Library,
   LogOut,
   Moon,
+  Palette,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
@@ -191,7 +192,7 @@ export function AppSidebar({
             active={isActive("/ai-setup")}
             linkProps={linkProps("/ai-setup")}
           />
-          <ThemeItem />
+          <ThemeItem onThemeSettings={() => onNavigate("/settings")} />
         </SidebarMenu>
         <SidebarMenu className="border-t border-sidebar-border p-2">
           <AccountItem onSettings={() => onNavigate("/settings")} />
@@ -592,10 +593,18 @@ const showInDark = "hidden [[data-theme=dark]_&]:inline";
 
 /**
  * Click flips between the light and dark theme slots; right-click picks Light,
- * Dark, or System. The themes in each slot are chosen in Settings.
+ * Dark, or System, or opens the theme settings that choose each slot's theme.
  */
-function ThemeItem() {
+function ThemeItem({ onThemeSettings: beforeNavigate }: { onThemeSettings: () => void }) {
   const { appearance, resolved, setAppearance } = useTheme();
+  const navigate = useNavigate();
+  const { isMobile, setOpenMobile } = useSidebar();
+  const onThemeSettings = () => {
+    setMenuOpen(false);
+    beforeNavigate();
+    if (isMobile) setOpenMobile(false);
+    void navigate({ to: "/settings", search: { tab: "appearance" } });
+  };
   const setMode = (mode: ThemeMode) => {
     setAppearance({ ...appearance, mode }).catch(() => {});
   };
@@ -628,20 +637,28 @@ function ThemeItem() {
             <span className={showInDark}>Light mode</span>
           </span>
         </SidebarMenuButton>
-        <DropdownMenuContent anchor={buttonRef} side="right" align="end" className="min-w-36">
-          {MODE_OPTIONS.map((option) => (
-            <DropdownMenuItem
-              key={option.value}
-              className="justify-between"
-              onClick={() => {
-                setMode(option.value);
+        <DropdownMenuContent anchor={buttonRef} side="right" align="end" className="min-w-44">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Mode</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={appearance.mode}
+              onValueChange={(value) => {
+                setMode(value as ThemeMode);
                 setMenuOpen(false);
               }}
             >
-              <span>{option.label}</span>
-              {appearance.mode === option.value && <Check aria-hidden />}
-            </DropdownMenuItem>
-          ))}
+              {MODE_OPTIONS.map((option) => (
+                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  {option.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onThemeSettings}>
+            <Palette strokeWidth={1.5} />
+            Theme settings
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </SidebarMenuItem>
