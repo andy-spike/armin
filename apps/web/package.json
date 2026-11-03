@@ -15,7 +15,8 @@
     "start:node": "node node-server.mjs",
     "build:cloudflare": "node ../../scripts/build-anki-kit.mjs && vp build --mode cloudflare",
     "preview:cloudflare": "pnpm build:cloudflare && vp preview --mode cloudflare",
-    "deploy": "pnpm build:cloudflare && wrangler deploy"
+    "deploy": "pnpm build:cloudflare && wrangler deploy",
+    "landing:clips": "node scripts/record-landing-clips.mjs"
   },
   "dependencies": {
     "@armin/backend": "workspace:*",

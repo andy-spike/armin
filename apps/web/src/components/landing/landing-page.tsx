@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { ArminMark, ArminWordmark } from "@/components/brand";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ScrollStory } from "./scroll-story";
+import { LandingClip } from "./landing-clip";
 
 const GITHUB_URL = SOURCE_CODE_URL;
 
@@ -17,10 +17,42 @@ function GitHubMark({ className }: { className?: string }) {
 }
 
 /**
- * Public landing page, shown at `/` to signed-out visitors. One example deck
- * stays pinned while the story scrolls past it: write a card, link it, review,
- * watch the next layer unlock, then see a whole subject built the same way.
+ * The steps of using Armin, each with a clip of the real app working through
+ * one example deck, "Fundamentals of LLMs". The clips are recorded by
+ * apps/web/scripts/record-landing-clips.mjs.
  */
+const STEPS = [
+  {
+    clip: "write",
+    title: "Write a card for one idea.",
+    body: "Front and back in Markdown, with code, images, and equations. Write cards yourself, import an Anki deck, or have an AI assistant draft them.",
+    label:
+      "The Add card dialog: a card asking what self-attention lets each token do is typed and saved to the Fundamentals of LLMs deck.",
+  },
+  {
+    clip: "link",
+    title: "Link what it builds on.",
+    body: "In the deck's graph, drag a link to the new card from each card it depends on. It stays locked until those are learned, so it only comes up once you're ready for it.",
+    label:
+      "The deck's graph: links are dragged from Tokens and from Embeddings to the new Self-attention card, which becomes locked.",
+  },
+  {
+    clip: "review",
+    title: "Review what's due.",
+    body: "Recall the answer, show it with Space, then grade how well you knew it. FSRS turns each grade into the next due date.",
+    label:
+      "A review session: the Tokens card and then the Embeddings card are answered and graded Easy.",
+  },
+  {
+    clip: "unlock",
+    title: "Watch the next layer open.",
+    body: "Learning Tokens and Embeddings unlocked Self-attention and Context window, and they join your reviews. A card stays unlocked even if a foundation slips later; FSRS brings that foundation back for practice.",
+    label:
+      "The deck's graph after review: Tokens and Embeddings are in review, Self-attention and Context window are unlocked, and the cards above them are still locked.",
+  },
+] as const;
+
+/** Public landing page, shown at `/` to signed-out visitors. */
 export function LandingPage() {
   return (
     <div className="landing notebook-bg min-h-dvh overflow-x-clip">
@@ -53,7 +85,69 @@ export function LandingPage() {
       </header>
 
       <main>
-        <ScrollStory />
+        <section
+          aria-labelledby="landing-title"
+          className="mx-auto max-w-[76rem] px-5 pt-16 pb-14 sm:px-8 lg:pt-24 lg:pb-20"
+        >
+          <h1
+            id="landing-title"
+            className="landing-rise max-w-[16ch] text-[clamp(2.75rem,6.4vw,4.75rem)] leading-[1.02] tracking-[-0.03em] text-balance text-ink"
+          >
+            Study in the order knowledge is built.
+          </h1>
+          <p
+            className="landing-rise mt-6 max-w-[34rem] text-xl leading-snug text-pretty text-muted"
+            style={{ animationDelay: "80ms" }}
+          >
+            Spaced-repetition flashcards that unlock as their foundations are learned.
+          </p>
+          <div
+            className="landing-rise mt-8 flex flex-wrap items-center gap-x-5 gap-y-3 lg:mt-9"
+            style={{ animationDelay: "160ms" }}
+          >
+            <Link
+              to="/sign-up"
+              className={cn(buttonVariants({ size: "lg" }), "h-12 px-7 text-base")}
+            >
+              Create a free account
+              <ArrowRight className="size-4" aria-hidden />
+            </Link>
+            <Link
+              to="/sign-in"
+              className="text-sm font-medium text-ink underline decoration-ui-3 underline-offset-4 transition-colors hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              I already have an account
+            </Link>
+          </div>
+        </section>
+
+        <ol aria-label="How Armin works" className="mx-auto max-w-[76rem] px-5 sm:px-8">
+          {STEPS.map((step, i) => (
+            <li
+              key={step.clip}
+              className="border-t border-border-strong py-14 lg:py-20"
+              aria-labelledby={`landing-step-${step.clip}`}
+            >
+              <div className="grid gap-x-12 gap-y-4 lg:grid-cols-12">
+                <h2
+                  id={`landing-step-${step.clip}`}
+                  className="text-[clamp(1.875rem,3.2vw,2.625rem)] leading-[1.1] tracking-[-0.02em] text-balance text-ink lg:col-span-5"
+                >
+                  <span className="mb-3 block font-mono text-sm tracking-normal text-accent">
+                    Step {i + 1}
+                  </span>
+                  {step.title}
+                </h2>
+                <p className="max-w-[38rem] text-base leading-relaxed text-pretty text-muted lg:col-span-7 lg:self-end lg:text-lg">
+                  {step.body}
+                </p>
+              </div>
+              <div className="mt-8 lg:mt-10">
+                <LandingClip name={step.clip} label={step.label} />
+              </div>
+            </li>
+          ))}
+        </ol>
 
         <section aria-labelledby="landing-close" className="mx-auto max-w-[76rem] px-5 sm:px-8">
           <div className="border-t border-border-strong pt-20 pb-24 lg:pt-28 lg:pb-32">
