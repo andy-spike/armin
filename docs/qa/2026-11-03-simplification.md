@@ -102,6 +102,50 @@ cheatsheet lists the same groups in the same order (shared `COMMAND_GROUPS`).
 
 ![Import complete](2026-11-03-simplification/22-anki-imported.png)
 
+## 8. Second pass: decisions, legacy removal, and web bugs
+
+Commits `7ebcd32` through `35a277e`, on the same deployment after a dev-server
+restart (Vite had cached `@armin/core`'s export map before `./limits` existed).
+
+- **Schema behavior (local probe).** Dropping a table that still has rows
+  pushes; dropping a field that rows still carry fails with "Object contains
+  extra field". So the retired OAuth tables were removed, and legacy fields
+  existing rows may hold stay declared and unused. The local push accepted the
+  required `prerequisiteAccessGranted`, ten dropped indexes, and the removed
+  tables.
+- **Export.** The library was exported through Settings → Data before and after
+  the export-builder split. Every file in the two archives (data JSON, README,
+  21 media files) was byte-identical; the manifest differed only in
+  `exportedAt`. Counts: 2 decks, 304 flashcards, 304 review units, 300 logs,
+  1 prerequisite, 21 media.
+- **Converter.** After moving limits into `@armin/core/limits` and the media
+  and occlusion helpers, the browser plan digest (`ac5263cc…`) and every kit
+  output file stayed identical on the fixture, which has no occlusion notes.
+- **Review delete.** The review screen's confirmation is the shared dialog
+  (Archive instead offered, Cancel focused). Deleting shows **Flashcard
+  deleted** in the success tone. Before the fix, it also showed "This card was
+  deleted in another tab" because the live queue dropped the card first; after
+  it, no such notice appears.
+- **Daily limits.** Reviews per day `1000` now saves and survives a reload (the
+  web capped it at 999 while the server allowed 1000); `1001` is rejected.
+- **Deck settings.** An override row (retention 85) shows its reset button,
+  named "Reset Desired retention to inherited", with the earlier layout.
+- **Graph.** Search for "FSRS" dims the non-matching node (opacity 0.35).
+  Adding a card on the canvas and deleting it again updated the nodes through
+  the extracted sync hook. The graph's delete dialog keeps its own reversible
+  sentence, since it offers no Archive button.
+- **Other pages.** Stats detail lines, all three sort layouts, card images
+  (served without the retired preview path), and signed-out sign-in and
+  sign-up render. Google sign-in isn't configured locally, so its shared
+  button wasn't shown.
+
+![Review delete dialog](2026-11-03-simplification/23-review-delete-dialog.png)
+![Deleted from review](2026-11-03-simplification/24-review-deleted-toast.png)
+![Deck override row](2026-11-03-simplification/25-deck-override.png)
+![Graph delete dialog](2026-11-03-simplification/27-graph-delete-dialog.png)
+
 Not covered: the mobile app on a device (only the bundle check ran), the
-assistant MCP import upload route (shares the reader but was not exercised),
-exports, and the load-error panel (no failure was induced).
+assistant MCP import routes (they share the upload reader and auth predicates
+but were not exercised), Google sign-in, a reused request ID across operations
+(the check is in `findRequest`; no client sends one), and the load-error panel
+(no failure was induced).
