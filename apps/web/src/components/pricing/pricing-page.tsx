@@ -398,11 +398,15 @@ export function PricingPage() {
             Questions
           </h2>
           <p className="mt-2 text-sm text-muted">Billing, refunds, and limits.</p>
-          {/* Same frame as the comparison table: full width, strong top rule,
-              hairline rows, transparent over the notebook grid. */}
-          <Accordion multiple className="mt-6 border-t border-border-strong">
+          {/* Two columns from md, each item ruled on top like the table rows;
+              the first row takes the table's strong rule. */}
+          <Accordion multiple className="mt-6 grid items-start gap-x-10 md:grid-cols-2">
             {questions.map(({ q, a }) => (
-              <AccordionItem key={q} value={q}>
+              <AccordionItem
+                key={q}
+                value={q}
+                className="border-t border-b-0 first:border-border-strong md:nth-2:border-border-strong"
+              >
                 <AccordionTrigger className="py-3 font-sans text-sm">{q}</AccordionTrigger>
                 <AccordionContent className="max-w-prose pb-4 leading-relaxed text-muted">
                   {a}
