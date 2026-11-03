@@ -18,6 +18,13 @@ import { MAX_MEDIA_FILE_BYTES } from "@armin/core/media";
 import type { Appearance } from "@armin/core/themes";
 import type { Grade } from "@/types/view-models";
 import { shrinkMedia } from "@/lib/shrink-media";
+import {
+  createDeckOptimistically,
+  deleteDeckOptimistically,
+  pinDeckOptimistically,
+  renameDeckOptimistically,
+  updateSettingsOptimistically,
+} from "@/lib/optimistic";
 
 /**
  * Imperative calls to the Convex backend: writes, plus a few reads a page
@@ -25,7 +32,8 @@ import { shrinkMedia } from "@/lib/shrink-media";
  * editing). Pages read everything else through the live subscriptions in
  * `queries.ts`. This layer turns the UI's string ids into Convex ids, gives
  * each create, rating, and undo a request id so retries apply once, and turns
- * an edit conflict into a `StaleError` the UI can offer to reload.
+ * an edit conflict into a `StaleError` the UI can offer to reload. Writes the
+ * user should see at once carry a Convex optimistic update (`optimistic.ts`).
  */
 
 let client: ConvexReactClient | null = null;
@@ -103,27 +111,45 @@ export const armin = {
       name: string;
       description?: string | null;
       requestId?: string;
-    }) => q().mutation(api.decks.create, { ...input, requestId: requestId ?? newRequestId() }),
+    }) =>
+      q().mutation(
+        api.decks.create,
+        { ...input, requestId: requestId ?? newRequestId() },
+        { optimisticUpdate: createDeckOptimistically },
+      ),
     update: async (input: {
       id: string;
       version: number;
       name?: string;
       description?: string | null;
     }) => {
-      const result = await q().mutation(api.decks.update, {
-        deckId: input.id as Id<"decks">,
-        expectedVersion: input.version,
-        name: input.name,
-        description: input.description,
-      });
+      const result = await q().mutation(
+        api.decks.update,
+        {
+          deckId: input.id as Id<"decks">,
+          expectedVersion: input.version,
+          name: input.name,
+          description: input.description,
+        },
+        { optimisticUpdate: renameDeckOptimistically },
+      );
       if (result.status === "conflict") {
         throw new StaleError("This deck was changed elsewhere. Reopen it to edit.");
       }
       return result;
     },
-    delete: (id: string) => q().mutation(api.decks.remove, { deckId: id as Id<"decks"> }),
+    delete: (id: string) =>
+      q().mutation(
+        api.decks.remove,
+        { deckId: id as Id<"decks"> },
+        { optimisticUpdate: deleteDeckOptimistically },
+      ),
     setPinned: (id: string, pinned: boolean) =>
-      q().mutation(api.decks.setPinned, { deckId: id as Id<"decks">, pinned }),
+      q().mutation(
+        api.decks.setPinned,
+        { deckId: id as Id<"decks">, pinned },
+        { optimisticUpdate: pinDeckOptimistically },
+      ),
   },
   flashcards: {
     get: async (id: string) => (await q().query(api.flashcards.get, { flashcardId: id })) ?? null,
@@ -271,7 +297,8 @@ export const armin = {
       }),
   },
   settings: {
-    update: (patch: SettingsUpdate) => q().mutation(api.settings.update, patch),
+    update: (patch: SettingsUpdate) =>
+      q().mutation(api.settings.update, patch, { optimisticUpdate: updateSettingsOptimistically }),
     getDeck: async (deckId: string) => {
       const result = await q().query(api.settings.getDeck, { deckId: deckId as Id<"decks"> });
       if (!result) throw new Error("Deck settings are not available.");

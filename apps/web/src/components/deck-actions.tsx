@@ -8,8 +8,6 @@ import type { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dr
 import { useToast } from "@/components/ui/toast";
 import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
-import { editSaved, forgetEdit, requestDelete, requestRename } from "@/lib/pending-deck-edits";
-import { forgetPin, pinSaved, requestPin } from "@/lib/pending-pins";
 import type { UiDeck } from "@/types/view-models";
 
 /** Pin, rename, and delete, shared by a deck's dropdown and right-click menus. */
@@ -61,52 +59,37 @@ export function useDeckActions({ onDeleted }: { onDeleted?: (deck: UiDeck) => vo
   const [deletingDeck, setDeletingDeck] = useState<UiDeck | null>(null);
   const [closingAfterDelete, setClosingAfterDelete] = useState(false);
 
-  // Renames and deletes show at once and close their dialog; the live deck
-  // list takes a couple of seconds to catch up. A failure puts things back.
+  // Renames, deletes, and pins show at once through Convex optimistic updates
+  // (lib/optimistic.ts), so the dialogs close right away. A failure puts
+  // things back.
   const updateDeck = useMutation({
     mutationFn: (input: { id: string; version: number; name: string }) => armin.decks.update(input),
-    onMutate: (deck) => {
-      requestRename(deck.id, deck.name);
+    onMutate: () => {
       setClosingAfterRename(true);
       setRenameOpen(false);
     },
     onSuccess: (_result, deck) => {
-      editSaved("rename", deck.id);
       toast({ tone: "success", title: "Deck renamed", description: deck.name });
     },
-    onError: (error, deck) => {
-      forgetEdit("rename", deck.id);
-      notifySaveError(toast, "Couldn’t rename deck", error);
-    },
+    onError: (error) => notifySaveError(toast, "Couldn’t rename deck", error),
   });
 
   const deleteDeck = useMutation({
     mutationFn: (deck: UiDeck) => armin.decks.delete(deck.id),
     onMutate: (deck) => {
-      requestDelete(deck.id);
       setClosingAfterDelete(true);
       setDeleteOpen(false);
       onDeleted?.(deck);
     },
-    onSuccess: (_result, deck) => {
-      editSaved("delete", deck.id);
-      toast({ tone: "success", title: "Deck deleted" });
-    },
-    onError: (_error, deck) => {
-      forgetEdit("delete", deck.id);
-      toast({ tone: "error", title: "Couldn’t delete deck" });
-    },
+    onSuccess: () => toast({ tone: "success", title: "Deck deleted" }),
+    onError: () => toast({ tone: "error", title: "Couldn’t delete deck" }),
   });
 
   const setPinned = useMutation({
     mutationFn: (input: { deck: UiDeck; pinned: boolean }) =>
       armin.decks.setPinned(input.deck.id, input.pinned),
-    onMutate: ({ deck, pinned }) => requestPin(deck.id, pinned),
-    onSuccess: (_result, { deck, pinned }) => pinSaved(deck.id, pinned),
-    onError: (_error, { deck, pinned }) => {
-      forgetPin(deck.id);
-      toast({ tone: "error", title: pinned ? "Couldn’t pin deck" : "Couldn’t unpin deck" });
-    },
+    onError: (_error, { pinned }) =>
+      toast({ tone: "error", title: pinned ? "Couldn’t pin deck" : "Couldn’t unpin deck" }),
   });
 
   const submitRename = () => {

@@ -58,8 +58,8 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { DeckActionItems, useDeckActions } from "@/components/deck-actions";
-import { useShownDecks, type ShownDeck } from "@/lib/pending-deck-edits";
-import { usePinnedAt } from "@/lib/pending-pins";
+import { isPendingDeck } from "@/lib/optimistic";
+import type { UiDeck } from "@/types/view-models";
 import { ArminMark, ArminWordmark } from "@/components/brand";
 import { SelfHostedBadge } from "@/components/self-hosted-badge";
 import { Kbd } from "@/components/ui/kbd";
@@ -441,10 +441,11 @@ function DeckList({
   const decksQuery = useQuery({ ...convexQuery(api.decks.navigation, {}), enabled: ready });
   const due = useQuery({ ...reviewStatusQuery(useStudyClock()), enabled: ready });
   const [sort, setSort] = useDeckListSort();
-  const shownDecks = useShownDecks(
-    decksQuery.data?.map((deck) => ({ ...deck, due: due.data?.perDeck[deck.id] ?? 0 })),
-  );
-  const decks = sortDecks(shownDecks ?? [], sort);
+  const shownDecks = (decksQuery.data ?? []).map((deck) => ({
+    ...deck,
+    due: due.data?.perDeck[deck.id] ?? 0,
+  }));
+  const decks = sortDecks(shownDecks, sort);
   const navigate = useNavigate();
   // Deleting the open deck leaves its page behind, so return to Decks.
   const deckActions = useDeckActions({
@@ -453,14 +454,13 @@ function DeckList({
     },
   });
 
-  const pinnedAt = usePinnedAt(shownDecks);
-  const pinned = (shownDecks ?? [])
-    .filter((deck) => pinnedAt(deck) != null)
-    .sort((a, b) => (pinnedAt(a) ?? 0) - (pinnedAt(b) ?? 0));
+  const pinned = shownDecks
+    .filter((deck) => deck.pinnedAt != null)
+    .sort((a, b) => (a.pinnedAt ?? 0) - (b.pinnedAt ?? 0));
 
   if (decksQuery.isSuccess && decks.length === 0) return null;
 
-  const deckRow = (deck: ShownDeck) => {
+  const deckRow = (deck: UiDeck) => {
     const path = `/deck/${deck.slug}`;
     return (
       <ContextMenu key={deck.id}>
@@ -471,10 +471,10 @@ function DeckList({
           // created can't be opened or edited yet.
           render={
             <SidebarMenuItem
-              inert={deck.pending}
+              inert={isPendingDeck(deck)}
               className={cn(
                 "[contain-intrinsic-size:auto_2rem] [content-visibility:auto] [overflow-clip-margin:4px]",
-                deck.pending && "opacity-60",
+                isPendingDeck(deck) && "opacity-60",
               )}
             />
           }
@@ -497,8 +497,8 @@ function DeckList({
         </ContextMenuTrigger>
         <ContextMenuContent className="min-w-40">
           <DeckActionItems
-            pinned={pinnedAt(deck) != null}
-            onTogglePin={() => deckActions.togglePin(deck, pinnedAt(deck) != null)}
+            pinned={deck.pinnedAt != null}
+            onTogglePin={() => deckActions.togglePin(deck, deck.pinnedAt != null)}
             onRename={() => deckActions.rename(deck)}
             onDelete={() => deckActions.remove(deck)}
             Item={ContextMenuItem}
