@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BackToDeckLink, SessionDeckNotFound } from "@/components/deck-not-found";
 import { Button } from "@/components/ui/button";
-import { ReviewSession } from "@/components/review-session";
+import { ReviewSession } from "@/components/review-session/review-session";
 import { armin } from "@/lib/armin-client";
 import { cramFiltersFromSearch, cramSessionKey, validateCramSearch } from "@/lib/cram";
 import { cramQueueQuery, deckQuery as deckQueryOptions, prefetchCramPage } from "@/lib/queries";

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BackToDeckLink, SessionDeckNotFound } from "@/components/deck-not-found";
 import { Button } from "@/components/ui/button";
-import { ReviewSession } from "@/components/review-session";
+import { ReviewSession } from "@/components/review-session/review-session";
 import { useReviewActions } from "@/lib/use-review-actions";
 import { useStudyClock } from "@/lib/study-clock";
 import { toUiReviewUnit } from "@/types/view-models";
