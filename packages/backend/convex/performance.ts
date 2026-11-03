@@ -37,7 +37,6 @@ export const backfill = internalMutation({
   },
 });
 
-/** New log writes are marked in their own transaction; backfill skips those. */
 /** Give existing unit summaries their fixed new-card order. Idempotent. */
 export const backfillFrontierKeys = internalMutation({
   args: { cursor: v.union(v.string(), v.null()) },

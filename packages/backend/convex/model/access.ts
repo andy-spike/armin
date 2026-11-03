@@ -81,15 +81,6 @@ export async function ownedOrFail<
   return doc;
 }
 
-/** Normalize a possibly-foreign id string to a table id, or null. */
-export function normalizeId<T extends "decks" | "flashcards" | "reviewUnits">(
-  ctx: QueryCtx,
-  table: T,
-  id: string,
-): Id<T> | null {
-  return ctx.db.normalizeId(table, id);
-}
-
 /** One deck-range read, shared by library-wide queries during bounded cleanup. */
 export async function activeDeckIds(ctx: QueryCtx, libraryId: Id<"libraries">) {
   return new Set(

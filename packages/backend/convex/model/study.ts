@@ -115,7 +115,6 @@ export class SettingsCache {
     const cached = this.byDeck.get(deckId);
     if (cached) return cached;
     if (this.preloaded) return this.globalSettings();
-    if (cached) return cached;
     const global = await this.globalSettings();
     const row = await this.ctx.db
       .query("deckSettings")
