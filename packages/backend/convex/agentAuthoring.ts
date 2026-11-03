@@ -20,16 +20,23 @@ import { linkPrerequisites, unlinkPrerequisite } from "./model/prereqs";
 import { bumpRevision, libraryRevision, type TagCache } from "./model/study";
 import { checkCapacity } from "./model/usage";
 
+/** A card in the connection's library, in a deck it may use. */
+async function cardForAccess(ctx: QueryCtx, connection: Doc<"agentConnections">, id: string) {
+  const cardId = ctx.db.normalizeId("flashcards", id);
+  const card = cardId ? await ctx.db.get(cardId) : null;
+  if (!card || card.libraryId !== connection.libraryId) fail("NOT_FOUND", "Card not found.");
+  await requireDeck(ctx, connection, card.deckId);
+  return card;
+}
+
+/** `cardForAccess`, for an edit that started from `expectedVersion`. */
 async function cardForEdit(
   ctx: QueryCtx,
   connection: Doc<"agentConnections">,
   id: string,
   expectedVersion: number,
 ) {
-  const cardId = ctx.db.normalizeId("flashcards", id);
-  const card = cardId ? await ctx.db.get(cardId) : null;
-  if (!card || card.libraryId !== connection.libraryId) fail("NOT_FOUND", "Card not found.");
-  await requireDeck(ctx, connection, card.deckId);
+  const card = await cardForAccess(ctx, connection, id);
   if (card.version !== expectedVersion)
     fail(
       "CONFLICT",
@@ -233,18 +240,8 @@ async function setPrerequisite(
   const deck = await requireDeck(ctx, connection, deckId);
   if ((await libraryRevision(ctx, connection.libraryId)) !== args.expectedRevision)
     fail("CONFLICT", "The library changed. Read the graph again before changing prerequisites.");
-  const prereq = await cardForEdit(
-    ctx,
-    connection,
-    args.prerequisiteId,
-    (await getCard(ctx, args.prerequisiteId)).version,
-  );
-  const dependent = await cardForEdit(
-    ctx,
-    connection,
-    args.dependentId,
-    (await getCard(ctx, args.dependentId)).version,
-  );
+  const prereq = await cardForAccess(ctx, connection, args.prerequisiteId);
+  const dependent = await cardForAccess(ctx, connection, args.dependentId);
   if (prereq.deckId !== deckId || dependent.deckId !== deckId)
     fail("INVALID", "Prerequisites must stay in the same authorized deck.");
   const now = Date.now();
@@ -262,13 +259,6 @@ async function setPrerequisite(
     revision: args.expectedRevision + 1,
     summary: args.present ? "Added a prerequisite" : "Removed a prerequisite",
   };
-}
-
-async function getCard(ctx: QueryCtx, id: string) {
-  const normalized = ctx.db.normalizeId("flashcards", id);
-  const card = normalized ? await ctx.db.get(normalized) : null;
-  if (!card) fail("NOT_FOUND", "Card not found.");
-  return card;
 }
 
 /**

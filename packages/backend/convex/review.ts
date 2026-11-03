@@ -135,6 +135,7 @@ async function nextDueAfter(
 
 /** The four possible outcomes for a review unit, without committing. */
 export const preview = query({
+  // Clients still send `now`; previews always use server time.
   args: { reviewUnitId: v.id("reviewUnits"), now: v.number() },
   handler: async (ctx, { reviewUnitId }) => {
     const library = await readableLibrary(ctx);
