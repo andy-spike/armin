@@ -2,19 +2,12 @@ import { SOURCE_CODE_URL } from "@/lib/source-code";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { ArminMark, ArminWordmark } from "@/components/brand";
+import { SiteHeader } from "@/components/site-header";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LandingClip } from "./landing-clip";
 
 const GITHUB_URL = SOURCE_CODE_URL;
-
-function GitHubMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="currentColor" className={className} aria-hidden>
-      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-    </svg>
-  );
-}
 
 /**
  * The steps of using Armin, each with a clip of the real app working through
@@ -56,33 +49,7 @@ const STEPS = [
 export function LandingPage() {
   return (
     <div className="landing notebook-bg min-h-dvh overflow-x-clip">
-      <header className="sticky top-0 z-20 border-b border-border-strong bg-bg">
-        <nav
-          aria-label="Main"
-          className="mx-auto flex h-14 max-w-[76rem] items-center gap-2 px-5 sm:px-8"
-        >
-          <Link
-            to="/"
-            className="mr-auto flex items-center gap-2 text-xl text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <ArminMark className="size-5" />
-            <ArminWordmark />
-          </Link>
-          <a
-            href={GITHUB_URL}
-            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "max-sm:hidden")}
-          >
-            <GitHubMark className="size-4" />
-            GitHub
-          </a>
-          <Link to="/sign-in" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-            Sign in
-          </Link>
-          <Link to="/sign-up" className={buttonVariants({ size: "sm" })}>
-            Sign up
-          </Link>
-        </nav>
-      </header>
+      <SiteHeader />
 
       <main>
         <section
@@ -121,17 +88,29 @@ export function LandingPage() {
           </div>
         </section>
 
-        <ol aria-label="How Armin works" className="mx-auto max-w-[76rem] px-5 sm:px-8">
+        {/* A titled rule between the hero and the steps. */}
+        <div className="mx-auto flex max-w-[76rem] items-center gap-5 px-5 sm:px-8">
+          <span aria-hidden className="h-px flex-1 bg-ui-3" />
+          <h2
+            id="landing-steps"
+            className="font-mono text-xs tracking-[0.14em] text-muted uppercase"
+          >
+            How it works
+          </h2>
+          <span aria-hidden className="h-px flex-1 bg-ui-3" />
+        </div>
+
+        <ol aria-labelledby="landing-steps" className="mx-auto max-w-[76rem] px-5 sm:px-8">
           {STEPS.map((step, i) => (
             <li
               key={step.clip}
-              className="border-t border-border-strong py-14 lg:py-20"
+              className="border-t border-border-strong py-14 first:border-t-0 first:pt-12 lg:py-20 lg:first:pt-16"
               aria-labelledby={`landing-step-${step.clip}`}
             >
               {/* Text beside its clip on wide screens, so both stay in view. */}
               <div className="grid items-center gap-x-14 gap-y-8 lg:grid-cols-12">
                 <div className="lg:col-span-5">
-                  <h2
+                  <h3
                     id={`landing-step-${step.clip}`}
                     className="text-[clamp(1.875rem,3.2vw,2.625rem)] leading-[1.1] tracking-[-0.02em] text-balance text-ink"
                   >
@@ -139,7 +118,7 @@ export function LandingPage() {
                       Step {i + 1}
                     </span>
                     {step.title}
-                  </h2>
+                  </h3>
                   <p className="mt-5 max-w-[34rem] text-base leading-relaxed text-pretty text-muted lg:text-lg">
                     {step.body}
                   </p>
@@ -186,7 +165,7 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border-strong bg-bg">
+      <footer className="border-t border-border-strong">
         <div className="mx-auto flex max-w-[76rem] flex-wrap items-center gap-x-6 gap-y-2 px-5 py-6 text-sm text-muted sm:px-8">
           <span className="mr-auto flex items-center gap-2 text-base text-ink">
             <ArminMark className="size-4.5" />

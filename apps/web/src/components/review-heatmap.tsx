@@ -76,9 +76,11 @@ function levelFor(count: number, peak: number) {
 
 /**
  * Month labels sit over the first week column whose days start that month.
- * A label too close to the left edge to fit before the next one is dropped.
+ * A label needs three columns of room before the next label or the calendar's
+ * end, or it is dropped: a label for a month that has only just begun would
+ * run past the last column and make the calendar scroll.
  */
-function monthLabels(days: readonly HeatmapDay[], offset: number) {
+function monthLabels(days: readonly HeatmapDay[], offset: number, weeks: number) {
   const labels: { week: number; text: string }[] = [];
   let lastMonth = "";
   days.forEach((day, index) => {
@@ -90,10 +92,7 @@ function monthLabels(days: readonly HeatmapDay[], offset: number) {
     const column = day.weekday === 0 || index === 0 ? week : week + 1;
     labels.push({ week: column, text: MONTH_FORMAT.format(dateFromKey(day.key)) });
   });
-  return labels.filter((label, index) => {
-    const next = labels[index + 1];
-    return !next || next.week - label.week >= 3;
-  });
+  return labels.filter((label, index) => (labels[index + 1]?.week ?? weeks) - label.week >= 3);
 }
 
 /**
@@ -122,7 +121,7 @@ export function ReviewHeatmap({
       ? `No reviews in the last ${days.length} days.`
       : `Review activity: ${plural(total, "review")} across ${days.length} days.`;
 
-  const months = useMemo(() => monthLabels(days, offset), [days, offset]);
+  const months = useMemo(() => monthLabels(days, offset, weeks), [days, offset, weeks]);
 
   const definition = useMemo(() => {
     const peak = Math.max(1, ...days.map((day) => day.count));

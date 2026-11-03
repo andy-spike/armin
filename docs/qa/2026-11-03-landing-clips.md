@@ -84,6 +84,29 @@ privacy, decks, a deck, browse, stats, settings, review, and the graph.
 
 ![Graph canvas, dark and light](2026-11-03-landing-clips/10-background-graph.png)
 
+## Header, divider, and heatmap
+
+- **Header:** the landing page, pricing, MCP documentation, and policy pages
+  share one header (`site-header.tsx`): Pricing, MCP docs, and GitHub beside
+  the logo (hidden below 640px, where the footer lists them), Sign in and Sign
+  up on the right. It is translucent with a backdrop blur, so the paper shows
+  through instead of a solid strip; the current page's link is highlighted.
+  The landing and policy footers also drop their solid fill.
+- **Divider:** a titled rule, "How it works", now separates the hero from the
+  steps, drawn in the stronger `ui-3` line color.
+- **Heatmap scrollbar:** the decks page's and Stats page's calendars showed a
+  horizontal scrollbar on wide screens. The label for a month that had just
+  begun ("Nov") sat over the last column and ran 0.77px past the calendar's
+  edge, so the scroll width was 743px against 742px visible. A month label now
+  needs three columns of room before the calendar's end, the same rule as
+  between labels. Measured after the fix at 1280, 1440, and 1920 wide: scroll
+  width equals the visible width on both pages. Narrow screens still scroll on
+  purpose, starting at the current week.
+
+![Header and divider, dark and light](2026-11-03-landing-clips/11-header-and-divider.png)
+
+![Header on pricing (dark) and MCP docs (light)](2026-11-03-landing-clips/12-header-on-pricing-and-docs.png)
+
 ## Re-recording
 
 `pnpm --filter @armin/web landing:clips` re-records all four clips with
