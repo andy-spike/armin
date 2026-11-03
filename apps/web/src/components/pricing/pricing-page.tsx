@@ -270,7 +270,7 @@ export function PricingPage() {
         <div className="mt-10 grid gap-4 md:grid-cols-2">
           <section
             aria-labelledby="plan-free"
-            className="flex flex-col border border-border-strong bg-bg p-6 sm:p-8"
+            className="flex flex-col border border-border-strong p-6 sm:p-8"
           >
             <h2 id="plan-free" className="text-2xl text-ink">
               Free
@@ -300,7 +300,7 @@ export function PricingPage() {
 
           <section
             aria-labelledby="plan-pro"
-            className="flex flex-col border border-accent bg-bg p-6 ring-1 ring-accent sm:p-8"
+            className="flex flex-col border border-accent p-6 ring-1 ring-accent sm:p-8"
           >
             <h2 id="plan-pro" className="text-2xl text-ink">
               Pro
@@ -341,7 +341,7 @@ export function PricingPage() {
           <p className="mt-2 text-sm text-muted">
             Every feature is on both plans. Pro raises the limits.
           </p>
-          <table className="mt-6 w-full border-collapse bg-bg text-sm">
+          <table className="mt-6 w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-border-strong text-left">
                 <th scope="col" className="w-[40%] py-3 pr-4 font-medium text-muted sm:w-1/2">
@@ -399,8 +399,8 @@ export function PricingPage() {
           </h2>
           <p className="mt-2 text-sm text-muted">Billing, refunds, and limits.</p>
           {/* Same frame as the comparison table: full width, strong top rule,
-              hairline rows, opaque paper over the notebook grid. */}
-          <Accordion multiple className="mt-6 border-t border-border-strong bg-bg">
+              hairline rows, transparent over the notebook grid. */}
+          <Accordion multiple className="mt-6 border-t border-border-strong">
             {questions.map(({ q, a }) => (
               <AccordionItem key={q} value={q}>
                 <AccordionTrigger className="py-3 font-sans text-sm">{q}</AccordionTrigger>

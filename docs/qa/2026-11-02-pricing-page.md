@@ -15,7 +15,9 @@ viewport, not a real device).
   is never broken down into a per-month figure. A "Save 33%" note states the
   difference from twelve monthly payments. Settings → Billing also defaults to
   Monthly. Prices come from `PLAN_PRICES`; limits from `PLAN_LIMITS`.
-- Each plan card lists its headline allowances with exact numbers.
+- Each plan card lists its headline allowances with exact numbers. Plan cards,
+  the table, and the questions have no fill of their own; the notebook paper
+  shows through, framed only by their borders.
 - A "Compare plans" table lists every limit and feature for both plans:
   library (cards, review items, decks, cards per deck, image and audio
   storage), AI assistants (clients, monthly cards, hourly changes, assistant
@@ -29,7 +31,7 @@ viewport, not a real device).
   (`components/ui/accordion.tsx`, new). All start closed, and several can be open
   at once. The list uses the comparison table's frame: the same full width
   (both span x = 160–1120 at 1280 px), a strong top rule, hairline rows with
-  the same padding and text size, an opaque paper background, and a heading
+  the same padding and text size, and a heading
   with a one-line subtitle.
 
 ## Steps
