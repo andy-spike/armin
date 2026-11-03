@@ -18,6 +18,7 @@ Never use npm or yarn, and don't commit `package-lock.json`.
 - Never push directly to `master`. A PR must be up to date and pass the required `Verify` check before merging through GitHub.
 - After a successful merge into `master`, follow the cleanup steps in @docs/dev-worktrees.md before reporting completion. Keep unmerged worktrees unless the user requests their removal. Report deployment only when it is verified.
 - In a worktree, read @docs/dev-worktrees.md before starting servers, pushing Convex code, or seeding data, and use `pnpm worktree:setup` plus the root `pnpm dev*` launchers.
+- Whenever you start a dev server, include its web URL, exactly as the launcher prints it, in your reply to the user, and confirm it responds first.
 
 ## Validate
 
@@ -28,7 +29,7 @@ Never use npm or yarn, and don't commit `package-lock.json`.
 ## Code rules
 
 - Put code in `packages/core/` only when it is free of Electron, Node, and database-driver APIs.
-- Components use Base UI, never Radix UI, unless the user explicitly asks for the Radix API.
+- Components use Base UI, never Radix UI, unless the user explicitly asks for the Radix API. Primitives in `apps/web/src/components/ui/` are shadcn components in their Base UI form (`@base-ui/react`); add or update one from shadcn's Base UI variant, never as a hand-rolled element or a Radix port.
 - Tooltips use `Tooltip` from `apps/web/src/components/ui/tooltip.tsx` (or `TruncatedLabel` for clipped text), never the native `title` attribute. Icon-only buttons get one naming the action.
 - Dialog actions keep a static label; show progress with the `busy` prop on `Button`, never a busy verb like "Deleting…". See @packages/core/docs/adr/0016-dialog-action-labels-stay-static.md.
 - Don't use return types unless a shared library needs them.

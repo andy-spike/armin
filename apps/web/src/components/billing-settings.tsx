@@ -46,9 +46,9 @@ export function BillingSettings() {
   const toast = useToast();
   const { online } = useConnection();
   const navigate = useNavigate();
-  const search = useSearch({ strict: false }) as { checkout?: string };
+  const search = useSearch({ strict: false }) as { checkout?: string; interval?: Interval };
   const status = useBillingStatus();
-  const [interval, setInterval] = useState<Interval>("year");
+  const [interval, setInterval] = useState<Interval>(search.interval ?? "month");
 
   const refresh = useMutation({
     mutationFn: () => armin.billing.refresh(),

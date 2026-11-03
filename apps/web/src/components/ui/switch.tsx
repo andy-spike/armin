@@ -1,46 +1,23 @@
-import * as React from "react";
+import { Switch as SwitchPrimitive } from "@base-ui/react/switch";
 import { cn } from "@/lib/utils";
 
-export function Switch({
-  checked,
-  onCheckedChange,
-  disabled,
-  id,
-  className,
-  "aria-label": ariaLabel,
-  "aria-labelledby": ariaLabelledBy,
-}: {
-  checked: boolean;
-  onCheckedChange: (next: boolean) => void;
-  disabled?: boolean;
-  id?: string;
-  className?: string;
-  "aria-label"?: string;
-  "aria-labelledby"?: string;
-}) {
+/** shadcn's Switch on Base UI: a track with a sliding thumb, accent when on. */
+function Switch({ className, ...props }: SwitchPrimitive.Root.Props) {
   return (
-    <button
-      type="button"
-      role="switch"
-      id={id}
-      aria-checked={checked}
-      aria-label={ariaLabel}
-      aria-labelledby={ariaLabelledBy}
-      disabled={disabled}
-      onClick={() => onCheckedChange(!checked)}
+    <SwitchPrimitive.Root
+      data-slot="switch"
       className={cn(
-        "relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors duration-200 ease-[var(--ease-out-quart)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-50",
-        checked ? "bg-accent" : "bg-border-strong",
+        "relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full bg-border-strong p-0.5 transition-colors duration-200 ease-[var(--ease-out-quart)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg data-checked:bg-accent data-disabled:cursor-not-allowed data-disabled:opacity-50",
         className,
       )}
+      {...props}
     >
-      <span
-        className={cn(
-          "inline-block h-4.5 w-4.5 translate-x-0.5 rounded-full bg-surface shadow-sm transition-transform duration-200 ease-[var(--ease-out-quart)]",
-          checked && "translate-x-[1.125rem]",
-        )}
-        style={{ height: "1.125rem", width: "1.125rem" }}
+      <SwitchPrimitive.Thumb
+        data-slot="switch-thumb"
+        className="pointer-events-none block size-[1.125rem] rounded-full bg-surface shadow-sm transition-transform duration-200 ease-[var(--ease-out-quart)] data-checked:translate-x-4"
       />
-    </button>
+    </SwitchPrimitive.Root>
   );
 }
+
+export { Switch };
