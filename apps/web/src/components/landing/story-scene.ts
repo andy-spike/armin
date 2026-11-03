@@ -83,8 +83,9 @@ const easeInOut = cubicBezier(0.77, 0, 0.175, 1);
  *   prompt   Space was pressed and the answer is shown; the coach asks for a grade
  *   graded   the grade key was pressed and the grade landed on the graph
  *
- * The next two cards repeat the loop with two stations each (prompt, graded),
- * and a final "caught up" station closes the beat. Scroll picks the station (see
+ * The next two cards repeat the loop with one station each (graded), playing
+ * their steps on the way in, and a final "caught up" station closes the beat.
+ * The coach bar is the beat's only running commentary. Scroll picks the station (see
  * reviewStation); the page then plays from one station to the next at a
  * steady pace, so each key press and reveal runs in full and the caption's
  * steps change only when a step is complete.
@@ -125,10 +126,7 @@ const STATIONS = [
           { t: r.prompt, share: 1 },
           { t: r.graded, share: 1 },
         ]
-      : [
-          { t: r.prompt, share: 1 },
-          { t: r.graded, share: 1 },
-        ],
+      : [{ t: r.graded, share: 1.2 }],
   ),
   { t: CAUGHT_UP, share: 1 },
 ];
@@ -146,31 +144,6 @@ export function reviewStation(t: number) {
 }
 
 export const inReview = (t: number) => t >= 3 && t < 4;
-
-const RATING_NAMES = ["Again", "Hard", "Good", "Easy"];
-
-/** The line under the caption's steps: each grade's result, then the wrap-up. */
-function reviewResultAt(t: number) {
-  if (t < 3) return "";
-  if (t >= REVIEW_END[0]) return "All caught up. Each card comes back when it's due.";
-  const i = reviewIndex(t);
-  if (t < REVIEW_TIMES[i]!.learned) return "";
-  const days = REVIEWS[i]!.chip.split(" · ")[1]!.replace("d", "");
-  return `${RATING_NAMES[REVIEWS[i]!.rating]}: back in ${days} days.`;
-}
-
-type StepState = "upcoming" | "current" | "done";
-
-/** Where the card in review is among the three steps the caption lists. */
-function reviewSteps(t: number): [StepState, StepState, StepState] {
-  if (t < 3) return ["upcoming", "upcoming", "upcoming"];
-  if (t >= REVIEW_END[0]) return ["done", "done", "done"];
-  const r = REVIEW_TIMES[reviewIndex(t)]!;
-  if (t < r.hint) return ["current", "upcoming", "upcoming"];
-  if (t < r.flipped) return ["done", "current", "upcoming"];
-  if (t < r.learned) return ["done", "done", "current"];
-  return ["done", "done", "done"];
-}
 
 /**
  * The coach bar on the review card: which step the first card is on and what it
@@ -296,11 +269,7 @@ function headerAt(t: number): [string, string] {
 /** Bottom-up reveal for an edge, which always runs from low to high. */
 const reveal = (p: number) => `inset(${((1 - p) * 100).toFixed(2)}% -4px -4px -4px)`;
 
-export function createScene(
-  stage: HTMLElement,
-  stepTrackers: HTMLElement[],
-  options: { reducedMotion: () => boolean },
-) {
+export function createScene(stage: HTMLElement) {
   const one = <T extends Element = HTMLElement>(selector: string) =>
     stage.querySelector<T>(selector)!;
 
@@ -338,20 +307,6 @@ export function createScene(
   }));
   const status = one("[data-status]");
   const meta = one("[data-meta]");
-  const trackers = stepTrackers.map((tracker) => {
-    const all = (selector: string) => [...tracker.querySelectorAll<HTMLElement>(selector)];
-    return {
-      result: tracker.querySelector<HTMLElement>("[data-review-result]")!,
-      steps: all("[data-review-step]"),
-      space: all("[data-key-hint=space]"),
-      ratings: [0, 1, 2, 3].map((i) => all(`[data-key-hint="r${i}"]`)),
-      cards: REVIEWS.map((_, i) => ({
-        item: tracker.querySelector<HTMLElement>(`[data-review-progress="${i}"]`)!,
-        fill: tracker.querySelector<HTMLElement>(`[data-review-fill="${i}"]`)!,
-      })),
-    };
-  });
-
   // Last written value per element and key; a frame only touches what changed.
   const written = new WeakMap<Element, Map<string, string>>();
   const changed = (el: Element, key: string, value: string) => {
@@ -373,22 +328,6 @@ export function createScene(
   const text = (el: Element, value: string) => {
     if (changed(el, "#text", value)) el.textContent = value;
   };
-  /** Text that eases in when it changes, so a new line reads as new. */
-  const fadeText = (el: HTMLElement, value: string) => {
-    if (!changed(el, "#text", value)) return;
-    el.textContent = value;
-    if (!value) return;
-    el.animate(
-      options.reducedMotion()
-        ? [{ opacity: 0 }, { opacity: 1 }]
-        : [
-            { opacity: 0, transform: "translateY(4px)" },
-            { opacity: 1, transform: "none" },
-          ],
-      { duration: 240, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
-    );
-  };
-
   let box = { w: 1, h: 1 };
   let nodeW = 1;
   let editorW = 1;
@@ -548,31 +487,6 @@ export function createScene(
     const [left, right] = headerAt(t);
     text(status, left);
     text(meta, right);
-
-    // The review caption: a bar per card, the three steps for the card in
-    // review, the keys it uses lighting up as the stage presses them, and the
-    // result of each grade.
-    const steps = reviewSteps(t);
-    const result = reviewResultAt(t);
-    const pressingSpace = within(t, times.space[0], times.space[1]) && t < REVIEW_END[0];
-    for (const tracker of trackers) {
-      fadeText(tracker.result, result);
-      tracker.steps.forEach((el, i) => attr(el, "data-state", steps[i]!));
-      tracker.space.forEach((el) => attr(el, "data-pressed", pressingSpace));
-      tracker.ratings.forEach((keys, i) => {
-        const mine = i === rating && t >= 3 && t < REVIEW_END[0];
-        for (const el of keys) {
-          attr(el, "data-pressed", mine && within(t, times.grade[0], times.grade[1]));
-          attr(el, "data-chosen", mine && t >= times.grade[0]);
-        }
-      });
-      REVIEW_TIMES.forEach((r, i) => {
-        const progress = seg(t, r.start, r.learned);
-        style(tracker.cards[i]!.fill, "transform", `scaleX(${progress.toFixed(4)})`);
-        const state = t >= r.learned ? "done" : i === active && t >= 3 ? "active" : "upcoming";
-        attr(tracker.cards[i]!.item, "data-state", state);
-      });
-    }
   };
 
   return { measure, apply };

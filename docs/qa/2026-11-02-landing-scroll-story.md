@@ -21,21 +21,17 @@ through six beats:
    to it, and the card locks; it then drags a second link from Lookup tables.
    Each link settles into the graph's dashed style, and the header ends on
    "Memoization locked: needs 2".
-4. **Review:** the page's longest scroll, about five screens on desktop,
-   built as a stepper rather than a scrub. A coach bar at the top of the review
-   card names the step and the action it expects, and rings the control it
-   means. The first card teaches the loop over four stops: "Step 1 of 3: Read
-   the question and recall the answer"; "Step 2 of 3: Press Space to show the
-   answer" with Show answer ringed; "Step 3 of 3: How well did you know it?
-   1 2 3 4" with the grades ringed; then "Graded: Good. It comes back in 3
-   days." The next two cards take two stops each ("Card 2 of 3: Same keys:
-   Space, then a grade", then the result), and "All caught up" closes the beat.
-   Scroll picks the stop and the page plays to it at a steady pace (about 1 s
-   per step), so the presses and reveals run in full and nothing changes while
-   you hold still. The caption beside the stage holds a bar per card, the same
-   three steps with keys that light up as the stage presses them, and the
-   result line. On narrow screens only the bars, steps, and result hold below
-   the stage.
+4. **Review:** the page's longest scroll, about four screens on desktop. The
+   caption states the loop once in prose and holds still beside the stage. The
+   only running commentary is a coach bar at the top of the review card, which
+   names the step and the action it expects and rings the control it means.
+   The first card teaches the loop over four stops: "Step 1 of 3: Read the
+   question and recall the answer"; "Step 2 of 3: Press Space to show the
+   answer"; "Step 3 of 3: How well did you know it? 1 2 3 4"; "Graded: Good. It
+   comes back in 3 days." The next two cards take one stop each and play their
+   steps on the way in, ending on their result; "All caught up" closes the
+   beat. Scroll picks the stop and the page plays to it at a steady pace (about
+   1 s per step), so nothing changes while you hold still.
 5. **Unlock:** days pass in the header (Day 1 to Day 9) while accent edges
    ink upwards, and each layer unlocks once its foundations are learned.
 6. **Whole subject:** the camera pulls back until the deck is one branch of a
@@ -52,19 +48,18 @@ review demo (`review-demo.tsx`) were removed; the story replaces both.
 ## The review beat
 
 Every stop in order (light, desktop): the first card's four teaching stops,
-the second card's grade and result, and "All caught up".
+the second and third cards' results, and "All caught up".
 
 ![Review sequence](2026-11-02-landing-scroll-story/03-review-sequence.png)
 
-The first card's Space, grade, and result stops, then the second card, at
-390×844 (dark).
+The first card's Space, grade, and result stops, then the second card's
+result, at 390×844 (dark).
 
 ![Review on a narrow screen](2026-11-02-landing-scroll-story/06-mobile-review.png)
 
-- Sampled in the page while moving between stops: the active coach line and
-  caption steps change once per stop, in order.
-- A scripted 14-second scroll through the whole story recorded 842 frames, none
-  over 20 ms, on this development machine. Not measured on a mid-range phone.
+- A scripted 12-second scroll through the whole story recorded frames with
+  none over 20 ms on this development machine. Not measured on a mid-range
+  phone.
 - No console errors or warnings during the walkthrough.
 
 ## Narrow screens
@@ -78,8 +73,8 @@ scroll beneath it.
 
 With `prefers-reduced-motion: reduce` emulated, the deck shows one settled
 frame per beat and crossfades between them; nothing scrubs, zooms, or types.
-The review beat shows each of its stops directly, coach bar and caption steps
-included, and nothing plays between them.
+The review beat shows each of its stops directly, coach bar included, and
+nothing plays between them.
 
 ![Reduced motion, review beat](2026-11-02-landing-scroll-story/05-reduced-motion-review.png)
 

@@ -48,8 +48,8 @@ const BEATS: { title: string; body: ReactNode; long?: boolean }[] = [
     body: (
       <>
         <p>
-          Armin shows you the cards that are due, one at a time. FSRS turns each grade into the next
-          due date, so shaky cards come back soon and solid ones rarely.
+          Recall the answer, press Space to check it, then grade how well you knew it from 1 to 4.
+          FSRS turns each grade into the next due date.
         </p>
       </>
     ),
@@ -108,13 +108,7 @@ export function ScrollStory() {
     if (!root) return;
     const stage = root.querySelector<HTMLElement>("[data-stage]")!;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const scene = createScene(
-      stage,
-      [...root.querySelectorAll<HTMLElement>("[data-review-steps]")],
-      {
-        reducedMotion: () => reduce.matches,
-      },
-    );
+    const scene = createScene(stage);
     const beats = [...root.querySelectorAll<HTMLElement>("[data-beat]")];
     const spine = root.querySelector<HTMLElement>("[data-spine]")!;
     const spineFill = root.querySelector<HTMLElement>("[data-spine-fill]")!;
@@ -281,7 +275,7 @@ export function ScrollStory() {
             className={cn(
               "story-beat relative flex flex-col py-12",
               beat.long
-                ? "min-h-[420svh] justify-start lg:min-h-[480dvh]"
+                ? "min-h-[330svh] justify-start lg:min-h-[380dvh]"
                 : "min-h-[60svh] justify-center lg:min-h-[86dvh]",
             )}
           >
@@ -297,86 +291,11 @@ export function ScrollStory() {
               <div className="mt-5 max-w-[34rem] space-y-4 text-base leading-relaxed text-pretty text-muted lg:text-lg">
                 {beat.body}
               </div>
-              {beat.long && <ReviewSteps className="max-lg:hidden" />}
             </div>
-            {/* Narrow screens only have room below the stage for the steps. */}
-            {beat.long && <ReviewSteps className="story-steps--held lg:hidden" />}
           </li>
         ))}
       </ol>
     </section>
-  );
-}
-
-/**
- * Where the review beat is: a bar per card that fills as it is reviewed, and a
- * line naming the current step. The stage shows the same thing; this is the
- * readable version beside it.
- */
-/** The three things a review asks of you, as the caption lists them. */
-const STEP_HINT = "border-border-strong bg-surface text-ink";
-const REVIEW_STEP_ROWS: ReactNode[] = [
-  "Recall the answer",
-  <>
-    Press{" "}
-    <Kbd data-key-hint="space" className={cn("story-key", STEP_HINT)}>
-      Space
-    </Kbd>{" "}
-    to check it
-  </>,
-  <>
-    Grade it
-    <span className="ml-2 inline-flex gap-1">
-      {["1", "2", "3", "4"].map((key, i) => (
-        <Kbd key={key} data-key-hint={`r${i}`} className={cn("story-key", STEP_HINT)}>
-          {key}
-        </Kbd>
-      ))}
-    </span>
-  </>,
-];
-
-/**
- * The review beat's caption tracker: a bar per card that fills as it is
- * reviewed, the three steps of the card in review, and each grade's result.
- * The keys light up as the stage presses them.
- */
-function ReviewSteps({ className }: { className?: string }) {
-  return (
-    <div data-review-steps aria-hidden className={cn("mt-7 max-w-[34rem]", className)}>
-      <ol className="grid grid-cols-3 gap-3">
-        {REVIEWS.map((review, i) => (
-          <li
-            key={review.id}
-            data-review-progress={i}
-            data-state="upcoming"
-            className="story-progress"
-          >
-            <span className="story-progress-bar">
-              <span data-review-fill={i} className="story-progress-fill" />
-            </span>
-            <span className="mt-2 block truncate text-xs">
-              {DECK.find((n) => n.id === review.id)!.label}
-            </span>
-          </li>
-        ))}
-      </ol>
-      <ol className="mt-5 space-y-2.5">
-        {REVIEW_STEP_ROWS.map((row, i) => (
-          <li key={i} data-review-step data-state="upcoming" className="story-step">
-            <span className="story-step-marker">
-              <span className="story-step-number font-mono text-[0.6875rem]">{i + 1}</span>
-              <Check className="story-step-check size-3" strokeWidth={2.75} />
-            </span>
-            <span className="flex flex-wrap items-center gap-y-1">{row}</span>
-          </li>
-        ))}
-      </ol>
-      <p
-        data-review-result
-        className="mt-4 min-h-[1lh] text-base leading-snug font-medium text-ink lg:text-lg"
-      />
-    </div>
   );
 }
 
@@ -697,16 +616,9 @@ function ReviewPanel() {
       <CoachBar />
       <div className="grid px-4 pt-3 pb-4 sm:px-6 sm:pt-4 sm:pb-5">
         {REVIEWS.map((card, i) => {
-          const node = DECK.find((n) => n.id === card.id)!;
           return (
             <div key={card.id} data-face={i} className="story-face">
-              <div className="flex items-center justify-between font-mono text-xs text-muted tabular-nums max-sm:hidden">
-                <span>
-                  {i + 1} / {REVIEWS.length}
-                </span>
-                <span>{node.label}</span>
-              </div>
-              <p className="text-base sm:mt-3 leading-snug font-medium text-pretty text-ink sm:text-xl">
+              <p className="text-base leading-snug font-medium text-pretty text-ink sm:text-xl">
                 {card.front}
               </p>
               <div
