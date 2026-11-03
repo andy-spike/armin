@@ -483,7 +483,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "flashcards.create");
     if (previous) return previous.result as { id: Id<"flashcards"> };
     const deck = await ownedOrFail(ctx, library, args.deckId, "Deck");
     await checkCapacity(ctx, library._id, { flashcards: 1 });

@@ -142,7 +142,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "decks.create");
     if (previous) return previous.result as { id: string };
     await checkCapacity(ctx, library._id, { decks: 1 });
     const now = Date.now();

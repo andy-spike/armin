@@ -529,16 +529,26 @@ export function fsrsSnapshot(unit: FsrsFieldsMs): FsrsFieldsMs {
 
 // --- Request de-duplication ---
 
+/**
+ * The stored outcome of an earlier call with this request ID, so a retry
+ * returns it instead of applying twice. A request ID belongs to one operation:
+ * reusing it for another `kind` is rejected rather than replaying a result of
+ * the wrong shape.
+ */
 export async function findRequest(
   ctx: QueryCtx,
   libraryId: Id<"libraries">,
   requestId: string | undefined,
+  kind: string,
 ) {
   if (!requestId) return null;
-  return ctx.db
+  const previous = await ctx.db
     .query("requests")
     .withIndex("by_library_request", (q) => q.eq("libraryId", libraryId).eq("requestId", requestId))
     .unique();
+  if (previous && previous.kind !== kind)
+    fail("INVALID", "This request ID was already used for a different operation.");
+  return previous;
 }
 
 export async function recordRequest(

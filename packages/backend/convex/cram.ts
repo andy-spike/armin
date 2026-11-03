@@ -126,7 +126,7 @@ export const rate = mutation({
   },
   handler: async (ctx, args): Promise<CramRateResult> => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "cram.rate");
     if (previous) return previous.result as CramRateResult;
 
     const now = Date.now();
@@ -163,7 +163,7 @@ export const undo = mutation({
   args: { cramLogId: v.id("cramLogs"), requestId: v.string() },
   handler: async (ctx, args): Promise<CramUndoResult> => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "cram.undo");
     if (previous) return previous.result as CramUndoResult;
 
     const now = Date.now();

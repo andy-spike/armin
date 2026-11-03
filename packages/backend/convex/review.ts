@@ -301,7 +301,7 @@ export const rate = mutation({
   },
   handler: async (ctx, args): Promise<RateResult> => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "review.rate");
     if (previous) return previous.result as RateResult;
 
     const now = Date.now();
@@ -397,7 +397,7 @@ export const undo = mutation({
   },
   handler: async (ctx, args): Promise<UndoResult> => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "review.undo");
     if (previous) return previous.result as UndoResult;
 
     const now = Date.now();
@@ -463,7 +463,7 @@ export const bury = mutation({
   args: { flashcardId: v.id("flashcards"), requestId: v.string() },
   handler: async (ctx, args): Promise<BuryResult> => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "review.bury");
     if (previous) return previous.result as BuryResult;
 
     const now = Date.now();
@@ -523,7 +523,7 @@ export const unbury = mutation({
   },
   handler: async (ctx, args): Promise<UnburyResult> => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "review.unbury");
     if (previous) return previous.result as UnburyResult;
 
     const flashcard = await owned(ctx, library, args.flashcardId);

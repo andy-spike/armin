@@ -75,11 +75,7 @@ async function replay(
   requestId: string,
   kind: string,
 ) {
-  const previous = await findRequest(ctx, libraryId, requestId);
-  if (!previous) return null;
-  if (previous.kind !== kind)
-    fail("INVALID", "This request ID was already used for a different operation.");
-  return previous.result;
+  return (await findRequest(ctx, libraryId, requestId, kind))?.result ?? null;
 }
 
 async function runningImport(ctx: MutationCtx, library: Doc<"libraries">, importId: Id<"imports">) {
