@@ -290,8 +290,15 @@ export function decodeMediaName(encoded: string) {
   }
 }
 
-function packageName(rawSrc: string) {
-  return decodeMediaName(rawSrc.trim());
+/**
+ * The package file a media reference names, with its lowercase extension.
+ * Remote and inline sources aren't part of the package, so they give null and
+ * count as missing.
+ */
+function packageFile(rawSrc: string) {
+  if (/^(?:https?:|data:|\/\/)/i.test(rawSrc.trim())) return null;
+  const name = decodeMediaName(rawSrc.trim());
+  return { name, ext: fileExtension(name) };
 }
 
 /** Whether a package file name has an audio extension Armin plays. */
@@ -305,10 +312,9 @@ export function inspectImage(
   mediaNames: ReadonlySet<string>,
   svg = false,
 ): ImageCheck {
-  // Remote images aren't part of the package, so they count as missing.
-  if (/^(?:https?:|data:|\/\/)/i.test(rawSrc.trim())) return { ok: false, reason: "missing_media" };
-  const name = packageName(rawSrc);
-  const ext = fileExtension(name);
+  const file = packageFile(rawSrc);
+  if (!file) return { ok: false, reason: "missing_media" };
+  const { name, ext } = file;
   if (!SUPPORTED_IMAGE_EXTENSIONS.has(ext) && !(svg && ext === "svg")) {
     return { ok: false, reason: "unsupported_image_removed" };
   }
@@ -322,9 +328,9 @@ export type AudioCheck =
 
 /** Check a `[sound:…]` or `<audio src>` file against the package media and Armin's formats. */
 export function inspectAudio(rawSrc: string, mediaNames: ReadonlySet<string>): AudioCheck {
-  if (/^(?:https?:|data:|\/\/)/i.test(rawSrc.trim())) return { ok: false, reason: "missing_media" };
-  const name = packageName(rawSrc);
-  const ext = fileExtension(name);
+  const file = packageFile(rawSrc);
+  if (!file) return { ok: false, reason: "missing_media" };
+  const { name, ext } = file;
   if (VIDEO_EXTENSIONS.has(ext)) return { ok: false, reason: "video_removed" };
   if (!SUPPORTED_AUDIO_EXTENSIONS.has(ext)) return { ok: false, reason: "audio_removed" };
   if (!mediaNames.has(name)) return { ok: false, reason: "missing_media" };

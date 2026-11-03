@@ -56,8 +56,13 @@ function rotatedBox(box: OcclusionBox, degrees: number): OcclusionBox {
     [0, box.h],
     [box.w, box.h],
   ].map(([dx, dy]) => [box.x + dx * cos - dy * sin, box.y + dx * sin + dy * cos]);
-  const xs = corners.map(([x]) => x);
-  const ys = corners.map(([, y]) => y);
+  return boundsOf(corners);
+}
+
+/** The smallest box holding every `[x, y]` point. */
+function boundsOf(points: number[][]): OcclusionBox {
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
   const x = Math.min(...xs);
   const y = Math.min(...ys);
   return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
@@ -82,11 +87,7 @@ function shapeBox(kind: string, values: Record<string, string>) {
     .map((pair) => pair.split(",").map(Number))
     .filter((pair) => pair.length === 2 && pair.every(Number.isFinite));
   if (points.length === 0) return null;
-  const xs = points.map(([x]) => x);
-  const ys = points.map(([, y]) => y);
-  const x = Math.min(...xs);
-  const y = Math.min(...ys);
-  return { box: { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }, approximated: true };
+  return { box: boundsOf(points), approximated: true };
 }
 
 function union(a: OcclusionBox, b: OcclusionBox): OcclusionBox {
