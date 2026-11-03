@@ -18,6 +18,7 @@ Never use npm or yarn, and don't commit `package-lock.json`.
 - Never push directly to `master`. A PR must be up to date and pass the required `Verify` check before merging through GitHub.
 - After a successful merge into `master`, follow the cleanup steps in @docs/dev-worktrees.md before reporting completion. Keep unmerged worktrees unless the user requests their removal. Report deployment only when it is verified.
 - In a worktree, read @docs/dev-worktrees.md before starting servers, pushing Convex code, or seeding data, and use `pnpm worktree:setup` plus the root `pnpm dev*` launchers.
+- Whenever you start a dev server, include its web URL, exactly as the launcher prints it, in your reply to the user, and confirm it responds first.
 
 ## Validate
 
