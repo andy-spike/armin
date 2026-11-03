@@ -3,6 +3,12 @@ import { Link } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 import { MAX_FLASHCARDS_PER_DECK, PLAN_LIMITS, PLAN_PRICES } from "@armin/core/plans";
 import { ArminMark, ArminWordmark } from "@/components/brand";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { buttonVariants } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { formatStorage, picturesIn } from "@/lib/storage-size";
@@ -391,14 +397,16 @@ export function PricingPage() {
           <h2 id="questions" className="text-2xl text-ink">
             Questions
           </h2>
-          <dl className="mt-6 grid gap-x-10 gap-y-6 md:grid-cols-2">
+          <Accordion multiple className="mt-4 max-w-3xl border-t border-border">
             {questions.map(({ q, a }) => (
-              <div key={q}>
-                <dt className="font-medium text-ink">{q}</dt>
-                <dd className="mt-1.5 text-sm leading-relaxed text-muted">{a}</dd>
-              </div>
+              <AccordionItem key={q} value={q}>
+                <AccordionTrigger>{q}</AccordionTrigger>
+                <AccordionContent className="max-w-prose leading-relaxed text-muted">
+                  {a}
+                </AccordionContent>
+              </AccordionItem>
             ))}
-          </dl>
+          </Accordion>
         </section>
       </main>
     </div>

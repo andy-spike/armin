@@ -25,6 +25,9 @@ viewport, not a real device).
 - `components/ui/switch.tsx` is now shadcn's Switch on Base UI
   (`@base-ui/react/switch`), with the same props, so existing callers are
   unchanged. AGENTS.md says `ui/` primitives follow shadcn's Base UI variants.
+- The questions are a collapsible list built from shadcn's Accordion on Base UI
+  (`components/ui/accordion.tsx`, new). All start closed, and several can be open
+  at once.
 
 ## Steps
 
@@ -37,6 +40,10 @@ viewport, not a real device).
    period.
 3. Dark, 390 px: the title, switch, cards, and table stack without horizontal
    scrolling (`scrollWidth` 390) (`mobile-monthly.png`).
+4. Questions: five triggers, all collapsed on load. Clicking "What happens if Pro
+   ends?" opens it (`aria-expanded="true"`) and the chevron flips
+   (`desktop-questions-light.png`). With "Can I get a refund?" focused, Enter
+   opens it and Space closes it.
 
 ## Validation
 
