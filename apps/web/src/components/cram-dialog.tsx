@@ -30,6 +30,13 @@ function clampDays(raw: string) {
  * Cram setup for one deck: which states, tag, recent lapses, and locks are in
  * scope. The server counts matches live; Start opens the practice session.
  */
+function matchCountLabel(loading: boolean, failed: boolean, count: number) {
+  if (loading) return "Counting matching cards…";
+  if (failed) return "Couldn’t count matching cards.";
+  if (count === 0) return "No cards match these filters.";
+  return `${plural(count, "review unit")} ${count === 1 ? "matches" : "match"}`;
+}
+
 export function CramDialog({
   deckId,
   tags,
@@ -115,13 +122,7 @@ export function CramDialog({
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p aria-live="polite" className="text-sm text-muted">
-            {countQuery.isLoading
-              ? "Counting matching cards…"
-              : countQuery.isError
-                ? "Couldn’t count matching cards."
-                : count > 0
-                  ? `${plural(count, "review unit")} ${count === 1 ? "matches" : "match"}`
-                  : "No cards match these filters."}
+            {matchCountLabel(countQuery.isLoading, countQuery.isError, count)}
           </p>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>
