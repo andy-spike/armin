@@ -44,9 +44,8 @@ caught up" with the three interval chips.
 
 ![Review sequence](2026-11-02-landing-scroll-story/03-review-sequence.png)
 
-- A scripted 6-second scroll through the earlier version of the story recorded
-  362 frames, none over 20 ms, on this development machine. Not re-measured
-  after the review beat was lengthened, and not measured on a mid-range phone.
+- A scripted 8-second scroll through the whole story recorded 481 frames, none
+  over 20 ms, on this development machine. Not measured on a mid-range phone.
 - No console errors or warnings during the walkthrough.
 
 ## Narrow screens
