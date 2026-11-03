@@ -13,6 +13,7 @@ import {
   Library,
   LogOut,
   Moon,
+  Palette,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
@@ -69,10 +70,11 @@ import { useStudyClock } from "@/lib/study-clock";
 import { signOutToSignIn } from "@/lib/auth-client";
 import { SOURCE_CODE_URL } from "@/lib/source-code";
 import { useViewer } from "@/lib/session";
-import { TITLEBAR_THEME_OPTIONS } from "@/lib/theme";
+import { MODE_OPTIONS } from "@/lib/theme";
 import { DECK_SORT_OPTIONS, sortDecks, type DeckSortKey } from "@/lib/sort-decks";
 import { cn, plural } from "@/lib/utils";
 import { useTheme } from "@/theme/theme-provider";
+import type { ThemeMode } from "@armin/core/themes";
 
 /**
  * Rows sit muted on the sunken panel; the current page is a paper slip with an
@@ -190,7 +192,7 @@ export function AppSidebar({
             active={isActive("/ai-setup")}
             linkProps={linkProps("/ai-setup")}
           />
-          <ThemeItem />
+          <ThemeItem onThemeSettings={() => onNavigate("/settings")} />
         </SidebarMenu>
         <SidebarMenu className="border-t border-sidebar-border p-2">
           <AccountItem onSettings={() => onNavigate("/settings")} />
@@ -586,16 +588,29 @@ function useDeckListSort() {
   return [sort, update] as const;
 }
 
-/** Click flips light/dark; right-click picks a specific theme or System. */
 const showInLight = "[[data-theme=dark]_&]:hidden";
 const showInDark = "hidden [[data-theme=dark]_&]:inline";
 
-/** Click flips light/dark; right-click picks a specific theme or System. */
-function ThemeItem() {
-  const { preference, resolved, setPreference } = useTheme();
+/**
+ * Click flips between the light and dark theme slots; right-click picks Light,
+ * Dark, or System, or opens the theme settings that choose each slot's theme.
+ */
+function ThemeItem({ onThemeSettings: beforeNavigate }: { onThemeSettings: () => void }) {
+  const { appearance, resolved, setAppearance } = useTheme();
+  const navigate = useNavigate();
+  const { isMobile, setOpenMobile } = useSidebar();
+  const onThemeSettings = () => {
+    setMenuOpen(false);
+    beforeNavigate();
+    if (isMobile) setOpenMobile(false);
+    void navigate({ to: "/settings", search: { tab: "appearance" } });
+  };
+  const setMode = (mode: ThemeMode) => {
+    setAppearance({ ...appearance, mode }).catch(() => {});
+  };
   const [menuOpen, setMenuOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const label = resolved === "light" ? "Dark mode" : "Light mode";
+  const label = resolved.scheme === "light" ? "Dark mode" : "Light mode";
 
   return (
     <SidebarMenuItem>
@@ -604,7 +619,7 @@ function ThemeItem() {
           tooltip={label}
           className={navButton}
           aria-haspopup="menu"
-          onClick={() => setPreference(resolved === "light" ? "flexoki-dark" : "flexoki-light")}
+          onClick={() => setMode(resolved.scheme === "light" ? "dark" : "light")}
           onContextMenu={(event) => {
             event.preventDefault();
             setMenuOpen(true);
@@ -622,20 +637,28 @@ function ThemeItem() {
             <span className={showInDark}>Light mode</span>
           </span>
         </SidebarMenuButton>
-        <DropdownMenuContent anchor={buttonRef} side="right" align="end" className="min-w-36">
-          {TITLEBAR_THEME_OPTIONS.map((option) => (
-            <DropdownMenuItem
-              key={option.value}
-              className="justify-between"
-              onClick={() => {
-                setPreference(option.value);
+        <DropdownMenuContent anchor={buttonRef} side="right" align="end" className="min-w-44">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Mode</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={appearance.mode}
+              onValueChange={(value) => {
+                setMode(value as ThemeMode);
                 setMenuOpen(false);
               }}
             >
-              <span>{option.label}</span>
-              {preference === option.value && <Check aria-hidden />}
-            </DropdownMenuItem>
-          ))}
+              {MODE_OPTIONS.map((option) => (
+                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  {option.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onThemeSettings}>
+            <Palette strokeWidth={1.5} />
+            Theme settings
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </SidebarMenuItem>

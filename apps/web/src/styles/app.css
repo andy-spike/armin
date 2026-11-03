@@ -40,6 +40,14 @@
   --color-good-deep: var(--armin-good-deep);
   --color-easy: var(--armin-easy);
   --color-easy-deep: var(--armin-easy-deep);
+  --color-rate-again: var(--armin-rate-again);
+  --color-rate-again-hover: var(--armin-rate-again-hover);
+  --color-rate-hard: var(--armin-rate-hard);
+  --color-rate-hard-hover: var(--armin-rate-hard-hover);
+  --color-rate-good: var(--armin-rate-good);
+  --color-rate-good-hover: var(--armin-rate-good-hover);
+  --color-rate-easy: var(--armin-rate-easy);
+  --color-rate-easy-hover: var(--armin-rate-easy-hover);
 
   --color-new: var(--armin-new);
   --color-new-bg: var(--armin-new-bg);
