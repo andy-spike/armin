@@ -289,6 +289,14 @@ export async function deleteReviewUnit(ctx: MutationCtx, id: Id<"reviewUnits">) 
 
 // --- Prerequisite lock state ---
 
+/** Preserve access already earned, including currently unlocked pre-policy cards. */
+function hasPrerequisiteAccess(flashcard: Doc<"flashcards">) {
+  return (
+    flashcard.prerequisiteAccessGranted === true ||
+    (flashcard.prerequisiteAccessGranted === undefined && !flashcard.locked)
+  );
+}
+
 async function dependentsOf(ctx: QueryCtx, flashcardId: Id<"flashcards">) {
   const edges = await ctx.db
     .query("prereqs")
@@ -324,7 +332,7 @@ async function computeLocked(
   flashcard: Doc<"flashcards">,
   settings: SettingsCache,
 ): Promise<boolean> {
-  if (flashcard.prerequisiteAccessGranted) return false;
+  if (hasPrerequisiteAccess(flashcard)) return false;
   const edges = await ctx.db
     .query("prereqs")
     .withIndex("by_dependent", (q) => q.eq("dependentId", flashcard._id))
@@ -474,7 +482,7 @@ export async function refreshAllLocks(
     if (!dependent) continue;
     const floor = (await settings.forDeck(dependent.deckId)).prereqStabilityFloor;
     const locked =
-      !dependent.prerequisiteAccessGranted &&
+      !hasPrerequisiteAccess(dependent) &&
       prereqIds.some((prereqId) => {
         const prereq = cards.get(prereqId);
         if (!prereq || prereq.archived) return false;

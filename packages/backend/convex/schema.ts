@@ -286,8 +286,12 @@ export default defineSchema({
     posX: v.union(v.number(), v.null()),
     posY: v.union(v.number(), v.null()),
     locked: v.boolean(),
-    /** Permanent access milestone: once a card unlocks, it stays accessible. */
-    prerequisiteAccessGranted: v.boolean(),
+    /**
+     * Permanent access milestone: once a card unlocks, it stays accessible.
+     * Absent only on pre-policy cards (older self-hosted data or backups);
+     * `hasPrerequisiteAccess` treats those as accessible while unlocked.
+     */
+    prerequisiteAccessGranted: v.optional(v.boolean()),
     archived: v.boolean(),
     /** Incremented on every authored change; edits must name the version they started from. */
     version: v.number(),
