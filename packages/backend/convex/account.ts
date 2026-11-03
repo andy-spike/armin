@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { isValidTimeZone } from "@armin/core/study";
+import { DEFAULT_TIME_ZONE, isValidTimeZone } from "@armin/core/study";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import { getViewer } from "./model/access";
@@ -77,7 +77,7 @@ export const ensureLibrary = mutation({
     const libraryId = await ctx.db.insert("libraries", {
       ownerId: viewer.userId,
       status: "active",
-      timeZone: isValidTimeZone(timeZone) ? timeZone : "UTC",
+      timeZone: isValidTimeZone(timeZone) ? timeZone : DEFAULT_TIME_ZONE,
       createdAt: now,
     });
     await ctx.db.insert("settings", defaultSettingsRow(libraryId, now));

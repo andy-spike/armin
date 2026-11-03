@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { shuffle } from "@armin/core/study";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Id } from "./_generated/dataModel";
@@ -70,7 +71,7 @@ export const count = query({
   },
 });
 
-/** Every review unit matching a cram setup; the client shuffles and limits it. */
+/** The review units matching a cram setup, shuffled by `seed` and limited to `max`. */
 export const queue = query({
   args: {
     ...selectionArgs,
@@ -87,13 +88,13 @@ export const queue = query({
       selectionFrom(args, found.deckId),
       Date.now(),
     );
+    // A seeded generator keeps one session's order stable across reactive re-runs.
     let random = (args.seed ?? 1) | 0;
-    const shuffled = [...units];
-    for (let i = shuffled.length - 1; i > 0; i--) {
+    const nextRandom = () => {
       random = (Math.imul(random, 1664525) + 1013904223) | 0;
-      const j = Math.floor(((random >>> 0) / 4294967296) * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
-    }
+      return (random >>> 0) / 4294967296;
+    };
+    const shuffled = shuffle([...units], nextRandom);
     const max =
       args.max == null
         ? shuffled.length

@@ -40,10 +40,6 @@ export function isAudioFile(fileNameOrExt: string) {
   return AUDIO_EXTS.has(fileNameOrExt.slice(fileNameOrExt.lastIndexOf(".") + 1).toLowerCase());
 }
 
-export function isAudioMime(mime: string) {
-  return mime.startsWith("audio/");
-}
-
 export const UNSUPPORTED_MEDIA_MESSAGE =
   "Use a PNG, JPG, GIF, WebP, BMP, or AVIF image, or an MP3, OGG, M4A, WAV, FLAC, or AAC audio file.";
 

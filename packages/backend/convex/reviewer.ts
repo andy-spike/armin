@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { DEFAULT_TIME_ZONE } from "@armin/core/study";
 import { internalMutation } from "./functions";
 import { components, internal } from "./_generated/api";
 import { cleanupLibraryData } from "./deletion";
@@ -116,6 +117,10 @@ export const finishReset = internalMutation({
     await ctx.db.insert("tags", { libraryId, name: "demo", key: "demo" });
     // Selected grants still contain only removed deck IDs. Do not expand them
     // to the new sample deck or otherwise broaden an existing consent.
-    await ctx.db.patch(libraryId, { status: "active", timeZone: "UTC", reviewerResetAt: now });
+    await ctx.db.patch(libraryId, {
+      status: "active",
+      timeZone: DEFAULT_TIME_ZONE,
+      reviewerResetAt: now,
+    });
   },
 });
