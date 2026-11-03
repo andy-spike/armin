@@ -599,31 +599,39 @@ export const write = internalMutation({
   },
 });
 
+/** A staging import's upload token: this hash, not expired, and the import still open. */
+function uploadTokenValid(row: Doc<"agentImports">, tokenHash: string) {
+  const now = Date.now();
+  return (
+    row.uploadTokenHash === tokenHash &&
+    (row.uploadTokenExpiresAt ?? 0) > now &&
+    row.status === "staging" &&
+    row.expiresAt > now
+  );
+}
+
+/** The library is active and the import's connection is unrevoked, in that library, and active. */
+async function importStillAuthorized(ctx: QueryCtx, row: Doc<"agentImports">) {
+  const library = await ctx.db.get(row.libraryId);
+  const connection = await ctx.db.get(row.connectionId);
+  return Boolean(
+    library &&
+    library.status === "active" &&
+    connection &&
+    !connection.revokedAt &&
+    connection.libraryId === row.libraryId &&
+    (await activeImportConnection(ctx, connection, library)),
+  );
+}
+
 /** Authenticate a scoped upload token before reading its bytes. */
 export const mediaTarget = internalQuery({
   args: { importId: v.string(), tokenHash: v.string() },
   handler: async (ctx, args) => {
     const id = ctx.db.normalizeId("agentImports", args.importId);
     const row = id ? await ctx.db.get(id) : null;
-    if (
-      !row ||
-      row.uploadTokenHash !== args.tokenHash ||
-      (row.uploadTokenExpiresAt ?? 0) <= Date.now() ||
-      row.status !== "staging" ||
-      row.expiresAt <= Date.now()
-    )
-      return null;
-    const library = await ctx.db.get(row.libraryId);
-    const connection = await ctx.db.get(row.connectionId);
-    if (
-      !library ||
-      library.status !== "active" ||
-      !connection ||
-      connection.revokedAt ||
-      connection.libraryId !== row.libraryId ||
-      !(await activeImportConnection(ctx, connection, library))
-    )
-      return null;
+    if (!row || !uploadTokenValid(row, args.tokenHash)) return null;
+    if (!(await importStillAuthorized(ctx, row))) return null;
     return { importId: row._id, libraryId: row.libraryId, connectionId: row.connectionId };
   },
 });
@@ -640,24 +648,9 @@ export const recordMedia = internalMutation({
   },
   handler: async (ctx, args) => {
     const row = await ctx.db.get(args.importId);
-    if (
-      !row ||
-      row.uploadTokenHash !== args.tokenHash ||
-      (row.uploadTokenExpiresAt ?? 0) <= Date.now() ||
-      row.status !== "staging" ||
-      row.expiresAt <= Date.now()
-    )
+    if (!row || !uploadTokenValid(row, args.tokenHash))
       return { ok: false as const, reason: "cancelled" as const };
-    const library = await ctx.db.get(row.libraryId);
-    const connection = await ctx.db.get(row.connectionId);
-    if (
-      !library ||
-      library.status !== "active" ||
-      !connection ||
-      connection.revokedAt ||
-      connection.libraryId !== row.libraryId ||
-      !(await activeImportConnection(ctx, connection, library))
-    )
+    if (!(await importStillAuthorized(ctx, row)))
       return { ok: false as const, reason: "cancelled" as const };
     if (!isSafeMediaFileName(args.fileName) || args.fileName.endsWith(".svg"))
       return { ok: false as const, reason: "invalid" as const };
@@ -742,16 +735,7 @@ export const materializeNext = internalMutation({
 
 /** The library and the assistant's connection must still allow this import. */
 async function assertStillAuthorized(ctx: MutationCtx, row: Doc<"agentImports">) {
-  const library = await ctx.db.get(row.libraryId);
-  const connection = await ctx.db.get(row.connectionId);
-  if (
-    !library ||
-    library.status !== "active" ||
-    !connection ||
-    connection.revokedAt ||
-    connection.libraryId !== row.libraryId ||
-    !(await activeImportConnection(ctx, connection, library))
-  )
+  if (!(await importStillAuthorized(ctx, row)))
     throw new Error("The import authorization is no longer active.");
 }
 
