@@ -44,7 +44,6 @@ import { cn } from "@/lib/utils";
 export type FlashcardDeleteRequest = {
   card: UiFlashcard;
   preview: string;
-  exiting: boolean;
   canArchive: boolean;
   loadDeleteConsequences?: (flashcardId: string) => Promise<FlashcardDeleteConsequences>;
   archiveInstead: () => Promise<void>;
@@ -96,13 +95,11 @@ export function FlashcardDeleteDialog({
           Cancel
         </Button>
         {request?.canArchive && !request.card.archived && (
-          <Button onClick={onArchiveInstead} disabled={request.exiting}>
-            Archive instead
-          </Button>
+          <Button onClick={onArchiveInstead}>Archive instead</Button>
         )}
         <Button
           variant="destructive"
-          disabled={request?.exiting || Boolean(request?.loadDeleteConsequences && !consequences)}
+          disabled={Boolean(request?.loadDeleteConsequences && !consequences)}
           onClick={onConfirm}
         >
           Delete flashcard
@@ -448,7 +445,6 @@ export const FlashcardTile = memo(function FlashcardTile({
     onDeleteRequest({
       card,
       preview: cardPreview,
-      exiting,
       canArchive: Boolean(onArchiveToggle),
       loadDeleteConsequences,
       archiveInstead,
