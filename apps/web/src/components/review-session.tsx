@@ -534,9 +534,8 @@ export function ReviewSession({
     if (!card || !onArchiveFlashcard || flashcardActionPending) return;
     setCardActionPending(true);
     try {
-      await onArchiveFlashcard(card.flashcardId);
+      await session.removeFlashcard(card.flashcardId, () => onArchiveFlashcard(card.flashcardId));
       setDeleteConfirmOpen(false);
-      session.remove(card.id);
     } finally {
       setCardActionPending(false);
     }
@@ -563,9 +562,8 @@ export function ReviewSession({
     if (!card || !onDeleteFlashcard || flashcardActionPending) return;
     setCardActionPending(true);
     try {
-      await onDeleteFlashcard(card.flashcardId);
+      await session.removeFlashcard(card.flashcardId, () => onDeleteFlashcard(card.flashcardId));
       setDeleteConfirmOpen(false);
-      session.remove(card.id);
     } finally {
       setCardActionPending(false);
     }
