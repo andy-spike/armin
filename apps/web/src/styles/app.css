@@ -357,17 +357,22 @@
     -webkit-app-region: no-drag;
   }
 
-  /* Ruled notebook paper — horizontal lines with a lighter vertical grid. */
+  /* Paper on a desk: soft light from above, a faint dot grid like a
+     bullet-journal page, and a fine static grain. Texture without lines, so it
+     never reads as one more border behind the interface. */
   .notebook-bg {
     --notebook-cell: 1.5rem;
 
     background-color: var(--color-bg);
     background-image:
-      linear-gradient(var(--armin-grid-h) 1px, transparent 1px),
-      linear-gradient(90deg, var(--armin-grid-v) 1px, transparent 1px);
+      radial-gradient(ellipse 90% 40rem at 50% 0, var(--armin-paper-light), transparent),
+      radial-gradient(circle, var(--armin-paper-dot) 0.8px, transparent 1.1px),
+      var(--armin-paper-grain);
     background-size:
-      100% var(--notebook-cell),
-      var(--notebook-cell) 100%;
+      100% 100%,
+      var(--notebook-cell) var(--notebook-cell),
+      180px 180px;
+    background-repeat: no-repeat, repeat, repeat;
   }
 
   /* A full-bleed route (e.g. the prerequisite graph) opts out of the centered
@@ -375,6 +380,17 @@
      matched route's `staticData.fullbleed`. */
   .route-scroll[data-fullbleed] {
     overflow: hidden;
+  }
+  /* A full-bleed canvas draws its own dots, which pan and zoom with it, so the
+     page keeps only its light and grain there. */
+  .route-scroll[data-fullbleed].notebook-bg {
+    background-image:
+      radial-gradient(ellipse 90% 40rem at 50% 0, var(--armin-paper-light), transparent),
+      var(--armin-paper-grain);
+    background-size:
+      100% 100%,
+      180px 180px;
+    background-repeat: no-repeat, repeat;
   }
   .route-pad[data-fullbleed] {
     height: 100%;

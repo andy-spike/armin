@@ -36,7 +36,7 @@ is about:
 
 ## Playback
 
-- Each clip is an H.264 MP4 (no audio, 130–210 KB) played 1.2× faster than it
+- Each clip is an H.264 MP4 (no audio, 200–290 KB) played 1.2× faster than it
   was recorded, with a JPEG poster of its last frame, in
   `apps/web/public/landing/`. Their sizes are in
   `apps/web/src/components/landing/clips.json`.
@@ -60,6 +60,29 @@ With `prefers-reduced-motion: reduce` emulated, no clip autoplays: each shows
 its poster with video controls, so it plays only on request.
 
 ![Reduced motion, step 4](2026-11-03-landing-clips/05-reduced-motion.png)
+
+## Page background
+
+The ruled grid behind every page (`notebook-bg`) is replaced by a paper
+texture: soft light from above, a faint 24px dot grid, and a fine static grain.
+Cards, panels, and inputs keep their smooth fill on top of it. The prerequisite
+graph's canvas now draws the same dots instead of crosses, so they pan and zoom
+with the cards; on that full-bleed page the static page dots are dropped and
+only the light and grain remain. The clips above were re-recorded on the new
+background.
+
+Checked in dark and light at 1440×900: the landing page, sign-in, pricing,
+privacy, decks, a deck, browse, stats, settings, review, and the graph.
+
+![Public pages, dark and light](2026-11-03-landing-clips/06-background-public-pages.png)
+
+![App pages, dark](2026-11-03-landing-clips/07-background-app-dark.png)
+
+![App pages, light](2026-11-03-landing-clips/08-background-app-light.png)
+
+![Detail at 100%: decks (dark) and a deck (light)](2026-11-03-landing-clips/09-background-detail.png)
+
+![Graph canvas, dark and light](2026-11-03-landing-clips/10-background-graph.png)
 
 ## Re-recording
 

@@ -58,8 +58,11 @@
 
   --armin-shadow-overlay: 0 12px 40px -8px rgb(16 15 15 / 0.18);
 
-  --armin-grid-h: color-mix(in srgb, var(--flexoki-150) 42%, transparent);
-  --armin-grid-v: color-mix(in srgb, var(--flexoki-100) 22%, transparent);
+  /* The page's paper (notebook-bg in app.css): light from above, a faint dot
+     grid, and a fine static grain tinted toward warm ink. */
+  --armin-paper-light: rgb(255 255 255 / 0.5);
+  --armin-paper-dot: color-mix(in srgb, var(--flexoki-300) 45%, transparent);
+  --armin-paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .3 0 0 0 0 .2 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 [data-theme="dark"] {
@@ -112,6 +115,7 @@
 
   --armin-shadow-overlay: 0 12px 40px -8px rgb(0 0 0 / 0.45);
 
-  --armin-grid-h: color-mix(in srgb, var(--flexoki-800) 38%, transparent);
-  --armin-grid-v: color-mix(in srgb, var(--flexoki-900) 20%, transparent);
+  --armin-paper-light: rgb(255 252 240 / 0.035);
+  --armin-paper-dot: color-mix(in srgb, var(--flexoki-700) 32%, transparent);
+  --armin-paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .97 0 0 0 0 .9 0 0 0 .075 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }

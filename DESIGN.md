@@ -138,6 +138,7 @@ This system rejects generic SaaS dashboards (no white-card grids, no cool-gray p
 **Key Characteristics:**
 
 - Warm Flexoki paper field; surfaces are tonal steps, not pure white cards on gray.
+- The field is textured, never ruled: soft light from above, a faint 24px dot grid, and a fine static grain (`notebook-bg`). Surfaces stay smooth on top of it, and the graph canvas draws the same dots so they move with it.
 - One accent (cyan) for primary actions, focus, active nav; FSRS hues are reserved semantics.
 - Flat by default: hairline borders, shadows only on dialogs and popovers.
 - Source Serif 4 for display headings; Inter for UI and card prose; mono for code and keys.
