@@ -190,7 +190,21 @@ export function ThemeSection() {
       : [...appearance.customThemes, theme];
     // A new theme takes over the slot for its scheme, so saving shows it.
     const slot = themeScheme(theme.seeds) === "light" ? "lightTheme" : "darkTheme";
-    const next = { ...appearance, customThemes, ...(exists ? {} : { [slot]: theme.id }) };
+    const next = {
+      ...appearance,
+      customThemes,
+      lightTheme:
+        slot === "darkTheme" && appearance.lightTheme === theme.id
+          ? "flexoki-light"
+          : appearance.lightTheme,
+      darkTheme:
+        slot === "lightTheme" && appearance.darkTheme === theme.id
+          ? "flexoki-dark"
+          : appearance.darkTheme,
+      ...(!exists || appearance.lightTheme === theme.id || appearance.darkTheme === theme.id
+        ? { [slot]: theme.id }
+        : {}),
+    };
     setBusy(true);
     const ok = await save(next);
     setBusy(false);
