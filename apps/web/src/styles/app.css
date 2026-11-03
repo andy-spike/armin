@@ -937,17 +937,46 @@ html[data-scroll="document"] body {
 .story-ratings:has([data-chosen]) > :not([data-chosen]) {
   opacity: 0.4;
 }
-.story-day {
+/* Review faces share one place; the next card slides in as the last leaves. */
+.story-face {
+  grid-area: 1 / 1;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  translate: 16px 0;
+  transition:
+    opacity 0.2s var(--ease-out),
+    translate 0.3s var(--ease-out);
 }
-.story-day[data-on] {
+.story-face[data-past] {
+  translate: -16px 0;
+}
+.story-face[data-active] {
   opacity: 1;
+  translate: 0 0;
 }
 
 /* The caption spine: dashed until read, inked in up to the caption in view. */
 .story-spine {
   --spine-x: 10px;
+  --beat-pad: 2.5rem;
+}
+@media (min-width: 640px) {
+  .story-spine {
+    --beat-pad: 3rem;
+  }
+}
+.story-beat {
+  padding-left: var(--beat-pad);
+}
+/* Held captions stay in the strip below the pinned stage on narrow screens,
+   and a third of the way down beside it on wide ones. */
+.story-beat-copy--held {
+  position: sticky;
+  top: calc(3.5rem + min(58svh, 34rem) + 1.5rem);
+}
+@media (min-width: 1024px) {
+  .story-beat-copy--held {
+    top: 30dvh;
+  }
 }
 .story-spine::before,
 .story-spine-fill {
@@ -970,13 +999,12 @@ html[data-scroll="document"] body {
 .story-beat-node {
   position: absolute;
   z-index: 1;
-  left: calc(var(--spine-x) - 10px);
+  top: 0.55rem;
+  left: calc(var(--spine-x) - 10px - var(--beat-pad));
   display: grid;
   width: 21px;
   height: 21px;
-  margin-top: 0.55rem;
   place-items: center;
-  align-self: flex-start;
   border: 1px dashed var(--color-ui-3);
   background-color: var(--color-surface-sunken);
   color: var(--color-muted);

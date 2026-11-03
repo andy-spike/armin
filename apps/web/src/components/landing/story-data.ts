@@ -24,11 +24,47 @@ export const DECK_EDGES = DECK.flatMap((node) =>
   node.needs.map((from) => ({ from, to: node.id, key: `${from}-${node.id}` })),
 );
 
-/** The cards the review beat grades, with the chip each one shows afterwards. */
-export const GRADED: { id: NodeId; grade: "good" | "easy"; label: string }[] = [
-  { id: "calls", grade: "good", label: "Good · 3d" },
-  { id: "stack", grade: "easy", label: "Easy · 8d" },
-  { id: "arrays", grade: "good", label: "Good · 3d" },
+/**
+ * Before Memoization is written, Dynamic programming rests on Recursion and
+ * Lookup tables directly; linking the new card slots it in between.
+ */
+export const HERO_EDGES = [
+  { from: "recursion", to: "dp", key: "recursion-dp" },
+  { from: "tables", to: "dp", key: "tables-dp" },
+] as const;
+
+export const DECK_NAME = "Algorithms";
+
+/** The three due cards the review beat works through, and how each is graded. */
+export const REVIEWS: {
+  id: NodeId;
+  front: string;
+  back: string;
+  /** Index into the rating row: 0 Again, 1 Hard, 2 Good, 3 Easy. */
+  rating: number;
+  chip: string;
+}[] = [
+  {
+    id: "calls",
+    front: "What does a function call push onto the stack?",
+    back: "A frame holding its arguments, its local variables, and the address to return to.",
+    rating: 2,
+    chip: "Good · 3d",
+  },
+  {
+    id: "stack",
+    front: "What happens to the call stack when a function returns?",
+    back: "Its frame is popped, and execution resumes at the saved return address.",
+    rating: 3,
+    chip: "Easy · 8d",
+  },
+  {
+    id: "arrays",
+    front: "Why is reading arr[i] constant time?",
+    back: "Elements sit side by side in memory, so the address is the start plus i times the element size.",
+    rating: 2,
+    chip: "Good · 3d",
+  },
 ];
 
 export type FieldNode = { id: string; label: string; x: number; y: number; needs: string[] };

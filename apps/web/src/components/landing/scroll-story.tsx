@@ -14,13 +14,15 @@ import {
   FIELD,
   FIELD_EDGES,
   FIELD_WAVE_START,
-  GRADED,
+  DECK_NAME,
+  HERO_EDGES,
+  REVIEWS,
   edgePath,
   fieldStates,
   type NodeState,
 } from "./story-data";
 
-const BEATS: { title: string; body: ReactNode }[] = [
+const BEATS: { title: string; body: ReactNode; long?: boolean }[] = [
   {
     title: "Write a card for one idea.",
     body: (
@@ -37,27 +39,33 @@ const BEATS: { title: string; body: ReactNode }[] = [
     title: "Say what it builds on.",
     body: (
       <p>
-        Link a card to its prerequisites and it waits, locked, until each of them is learned. The
-        deck's graph shows what rests on what, and you can rewire it any time.
+        Link the new card to the cards it rests on, and under the ones that rest on it. It stays
+        locked until each prerequisite is learned, and so does everything above it.
       </p>
     ),
   },
   {
     title: "Review what's due in a few keys.",
     body: (
-      <p>
-        Space shows the answer and 1 to 4 grades it. FSRS turns each grade into the next due date,
-        so shaky cards come back soon and solid ones rarely.
-      </p>
+      <>
+        <p>
+          Armin puts the cards that are due in front of you. Space shows the answer, and 1 to 4
+          grades how well you knew it.
+        </p>
+        <p>
+          FSRS turns each grade into the next due date, so shaky cards come back soon and solid ones
+          rarely.
+        </p>
+      </>
     ),
+    long: true,
   },
   {
     title: "Watch the next layer open.",
     body: (
       <p>
-        Once a card's foundations are learned, it unlocks and stays unlocked. New material always
-        lands on what you already know. If a foundation slips later, FSRS brings it back for
-        practice.
+        Once a card's foundations are learned it unlocks, and you review it like any other. It stays
+        unlocked even if a foundation slips later; FSRS brings that foundation back for practice.
       </p>
     ),
   },
@@ -65,15 +73,16 @@ const BEATS: { title: string; body: ReactNode }[] = [
     title: "Build a whole subject this way.",
     body: (
       <p>
-        Your library lives in your account, on the web and the mobile app. Export it as a ZIP
-        whenever you like, and{" "}
+        Card by card, your decks grow into a map of what you know, foundations at the bottom. Your
+        library lives in your account, on the web and the mobile app, and exports as a ZIP any time.
+        Armin is open source:{" "}
         <a
           href={SOURCE_CODE_URL}
           className="text-ink underline decoration-ui-3 underline-offset-4 hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           read the code
         </a>
-        : Armin is open source.
+        .
       </p>
     ),
   },
@@ -81,8 +90,11 @@ const BEATS: { title: string; body: ReactNode }[] = [
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-/** The frame reduced motion shows for each beat: the review beat keeps its card open. */
-const SETTLED = [0, 1.9, 2.9, 3.45, 4.9, 5.9];
+/**
+ * The frame reduced motion shows for each beat. The review beat holds its first
+ * card graded, with the answer shown and the grade landing on the graph.
+ */
+const SETTLED = [0, 1.9, 2.9, 3.32, 4.9, 5.9];
 
 /**
  * The landing page's story: captions scroll past one pinned example deck, and
@@ -249,17 +261,25 @@ export function ScrollStory() {
           <li
             key={beat.title}
             data-beat
-            className="story-beat relative flex min-h-[60svh] flex-col justify-center py-12 pl-10 sm:pl-12 lg:min-h-[86dvh]"
+            className={cn(
+              "story-beat relative flex flex-col py-12",
+              beat.long
+                ? "min-h-[150svh] justify-start lg:min-h-[180dvh]"
+                : "min-h-[60svh] justify-center lg:min-h-[86dvh]",
+            )}
           >
-            <span className="story-beat-node" aria-hidden>
-              <Lock className="story-beat-locked size-2.5" strokeWidth={2.25} />
-              <Check className="story-beat-learned size-3" strokeWidth={2.75} />
-            </span>
-            <h2 className="text-[clamp(1.875rem,3.2vw,2.625rem)] leading-[1.1] tracking-[-0.02em] text-balance text-ink">
-              {beat.title}
-            </h2>
-            <div className="mt-5 max-w-[34rem] space-y-4 text-base leading-relaxed text-pretty text-muted lg:text-lg">
-              {beat.body}
+            {/* A long beat keeps its caption in view while the stage works through it. */}
+            <div className={cn("story-beat-copy relative", beat.long && "story-beat-copy--held")}>
+              <span className="story-beat-node" aria-hidden>
+                <Lock className="story-beat-locked size-2.5" strokeWidth={2.25} />
+                <Check className="story-beat-learned size-3" strokeWidth={2.75} />
+              </span>
+              <h2 className="text-[clamp(1.875rem,3.2vw,2.625rem)] leading-[1.1] tracking-[-0.02em] text-balance text-ink">
+                {beat.title}
+              </h2>
+              <div className="mt-5 max-w-[34rem] space-y-4 text-base leading-relaxed text-pretty text-muted lg:text-lg">
+                {beat.body}
+              </div>
             </div>
           </li>
         ))}
@@ -281,10 +301,10 @@ function Stage() {
       <div className="story-rise flex h-full flex-col border border-border-strong bg-surface">
         <div className="flex h-10 shrink-0 items-center justify-between gap-4 border-b border-border px-4 font-mono text-[0.6875rem] text-muted">
           <span data-status className="truncate">
-            Example deck
+            {DECK_NAME}
           </span>
-          <span data-day className="story-day tabular-nums">
-            Day 1
+          <span data-meta className="shrink-0 tabular-nums">
+            {DECK.length - 1} cards
           </span>
         </div>
         <div className="story-body relative min-h-0 flex-1 overflow-hidden">
@@ -311,12 +331,18 @@ function Stage() {
                     />
                   ))}
                 </g>
-                {DECK_EDGES.map((edge) => (
+                {[...DECK_EDGES, ...HERO_EDGES].map((edge) => (
                   <path
                     key={edge.key}
                     data-edge={edge.key}
                     d={edgePath(edge.from, edge.to)}
                     className="story-edge"
+                    // Memoization's edges don't exist until the card is linked.
+                    style={
+                      edge.from === "memo" || edge.to === "memo"
+                        ? { clipPath: "inset(100% -4px -4px -4px)" }
+                        : undefined
+                    }
                   />
                 ))}
                 {DECK_EDGES.map((edge) => (
@@ -343,27 +369,30 @@ function Stage() {
               </div>
 
               {DECK.map((node, i) => {
-                const graded = GRADED.find((g) => g.id === node.id);
+                const reviewed = REVIEWS.find((r) => r.id === node.id);
+                const isNew = node.id === "memo";
                 return (
                   <GraphNode
                     key={node.id}
                     data={{ "data-node": node.id }}
                     label={node.label}
-                    state={node.needs.length === 0 ? "due" : "locked"}
+                    state={isNew ? "new" : node.needs.length === 0 ? "due" : "locked"}
                     x={node.x}
                     y={node.y}
+                    // Memoization is the card the story writes, so it starts absent.
+                    hidden={isNew}
                     // Foundations arrive first, then each layer above them.
-                    introDelay={200 + (i < 3 ? i : i + 1) * 60}
+                    introDelay={isNew ? undefined : 200 + (i < 3 ? i : i + 1) * 60}
                   >
-                    {graded && (
+                    {reviewed && (
                       <span
-                        data-chip={graded.id}
+                        data-chip={reviewed.id}
                         className={cn(
                           "story-chip",
-                          graded.grade === "good" ? "bg-good" : "bg-easy",
+                          RATINGS[reviewed.rating]!.label === "Easy" ? "bg-easy" : "bg-good",
                         )}
                       >
-                        {graded.label}
+                        {reviewed.chip}
                       </span>
                     )}
                   </GraphNode>
@@ -389,6 +418,7 @@ function GraphNode({
   x,
   y,
   introDelay,
+  hidden,
   children,
 }: {
   data: Record<string, string>;
@@ -397,6 +427,7 @@ function GraphNode({
   x: number;
   y: number;
   introDelay?: number;
+  hidden?: boolean;
   children?: ReactNode;
 }) {
   return (
@@ -408,6 +439,7 @@ function GraphNode({
         left: `${x}%`,
         top: `${y}%`,
         animationDelay: introDelay !== undefined ? `${introDelay}ms` : undefined,
+        opacity: hidden ? 0 : undefined,
       }}
     >
       <span className="story-node-tag">
@@ -454,7 +486,7 @@ function EditorPanel() {
     <div data-editor className="story-panel w-[min(25rem,calc(100cqw-2rem))]">
       <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5 sm:px-5 sm:py-3">
         <span className="font-serif text-base font-semibold text-ink">New card</span>
-        <span className="truncate text-xs text-muted">Dynamic programming</span>
+        <span className="truncate text-xs text-muted">{DECK_NAME}</span>
       </div>
       <div className="space-y-3 px-4 py-3 sm:space-y-4 sm:px-5 sm:py-4">
         <TypedField which="front" label="Front" text={CARD_FRONT} />
@@ -486,25 +518,38 @@ const RATINGS = [
   { label: "Easy", key: "4", interval: "8d", bg: "bg-easy" },
 ] as const;
 
+/**
+ * The review screen in miniature, working through the three due cards. Each
+ * card is a face stacked in the same place; the rating row is shared.
+ */
 function ReviewPanel() {
   return (
-    <div data-review className="story-panel w-[min(26rem,calc(100cqw-2rem))]">
-      <div className="px-4 pt-3.5 pb-4 sm:px-6 sm:pt-5 sm:pb-5">
-        <div className="flex items-center justify-between font-mono text-xs text-muted tabular-nums">
-          <span>1 / 3</span>
-          <span>Function calls</span>
-        </div>
-        <p className="mt-3 text-base leading-snug font-medium text-pretty text-ink sm:mt-4 sm:text-lg">
-          What does a function call push onto the stack?
-        </p>
-        <div
-          data-answer
-          className="story-answer mt-3 border-t border-border pt-3 text-[0.8125rem] leading-relaxed text-pretty text-ink/90 sm:mt-4 sm:pt-4 sm:text-[0.9375rem]"
-        >
-          A frame holding its arguments, its local variables, and the address to return to.
-        </div>
+    <div data-review className="story-panel w-[min(33rem,calc(100cqw-1.5rem))]">
+      <div className="grid px-4 pt-4 pb-4 sm:px-6 sm:pt-5 sm:pb-5">
+        {REVIEWS.map((card, i) => {
+          const node = DECK.find((n) => n.id === card.id)!;
+          return (
+            <div key={card.id} data-face={i} className="story-face">
+              <div className="flex items-center justify-between font-mono text-xs text-muted tabular-nums">
+                <span>
+                  {i + 1} / {REVIEWS.length}
+                </span>
+                <span>{node.label}</span>
+              </div>
+              <p className="mt-3 text-base leading-snug font-medium text-pretty text-ink sm:mt-4 sm:text-xl">
+                {card.front}
+              </p>
+              <div
+                data-answer={i}
+                className="story-answer mt-3 border-t border-border pt-3 text-sm leading-relaxed text-pretty text-ink/90 sm:mt-4 sm:pt-4 sm:text-base"
+              >
+                {card.back}
+              </div>
+            </div>
+          );
+        })}
       </div>
-      <div className="story-actions grid h-14 px-2 pb-2">
+      <div className="story-actions grid h-14 px-2 pb-2 sm:h-16">
         <span
           data-key="space"
           className="story-show story-press flex items-center justify-center gap-2 bg-accent text-sm font-medium text-on-accent"
@@ -513,10 +558,10 @@ function ReviewPanel() {
           <Kbd className="border-on-accent/25 bg-ink/10 text-on-accent shadow-none">Space</Kbd>
         </span>
         <span className="story-ratings grid grid-cols-4 gap-1.5">
-          {RATINGS.map((rating) => (
+          {RATINGS.map((rating, i) => (
             <span
               key={rating.label}
-              data-key={rating.label === "Good" ? "good" : undefined}
+              data-key={`r${i}`}
               className={cn(
                 "story-press flex min-w-0 flex-col items-center justify-center gap-0.5 text-xs font-medium text-on-accent sm:text-sm",
                 rating.bg,
