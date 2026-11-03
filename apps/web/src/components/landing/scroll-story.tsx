@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { SOURCE_CODE_URL } from "@/lib/source-code";
 import { cn } from "@/lib/utils";
-import { createScene } from "./story-scene";
+import { HERO_SHOT, cameraTransform, createScene } from "./story-scene";
 import {
   CARD_BACK,
   CARD_FRONT,
@@ -15,7 +15,6 @@ import {
   FIELD_EDGES,
   FIELD_WAVE_START,
   DECK_NAME,
-  HERO_EDGES,
   REVIEWS,
   edgePath,
   fieldStates,
@@ -36,11 +35,11 @@ const BEATS: { title: string; body: ReactNode; long?: boolean }[] = [
     ),
   },
   {
-    title: "Say what it builds on.",
+    title: "Then link what it builds on.",
     body: (
       <p>
-        Link the new card to the cards it rests on, and under the ones that rest on it. It stays
-        locked until each prerequisite is learned, and so does everything above it.
+        In the deck's graph, drag a link to the new card from each card it depends on. It stays
+        locked until all of them are learned, so it only comes up once you're ready for it.
       </p>
     ),
   },
@@ -309,7 +308,11 @@ function Stage() {
         </div>
         <div className="story-body relative min-h-0 flex-1 overflow-hidden">
           <div className="absolute inset-0 grid place-items-center">
-            <div data-camera className="story-box relative">
+            <div
+              data-camera
+              className="story-box relative"
+              style={{ transform: cameraTransform(HERO_SHOT) }}
+            >
               <svg
                 className="absolute inset-0 h-full w-full overflow-visible"
                 viewBox="0 0 100 100"
@@ -331,7 +334,7 @@ function Stage() {
                     />
                   ))}
                 </g>
-                {[...DECK_EDGES, ...HERO_EDGES].map((edge) => (
+                {DECK_EDGES.map((edge) => (
                   <path
                     key={edge.key}
                     data-edge={edge.key}
@@ -339,9 +342,7 @@ function Stage() {
                     className="story-edge"
                     // Memoization's edges don't exist until the card is linked.
                     style={
-                      edge.from === "memo" || edge.to === "memo"
-                        ? { clipPath: "inset(100% -4px -4px -4px)" }
-                        : undefined
+                      edge.to === "memo" ? { clipPath: "inset(100% -4px -4px -4px)" } : undefined
                     }
                   />
                 ))}
@@ -398,6 +399,18 @@ function Stage() {
                   </GraphNode>
                 );
               })}
+
+              {/* The pointer that drags each link in the linking beat. */}
+              <span data-cursor className="story-cursor">
+                <svg viewBox="0 0 16 22" className="story-pointer">
+                  <path
+                    d="M1 1v17.5l4.6-4.4 3 6.9 3-1.3-3-6.8h6.2L1 1z"
+                    className="fill-ink stroke-surface"
+                    strokeWidth={1.5}
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
             </div>
           </div>
 

@@ -8,7 +8,6 @@ import {
   FIELD_EDGES,
   FIELD_WAVE_END,
   FIELD_WAVE_START,
-  HERO_EDGES,
   REVIEWS,
   fieldStates,
   type NodeId,
@@ -18,10 +17,10 @@ import {
 /**
  * The scroll story's timeline. `t` runs from 0 to 6: one unit per beat.
  *
- *   0  hero: the deck before Memoization, foundations due, the rest locked
+ *   0  hero: the deck with an empty slot at the top, foundations due
  *   1  write a card: the camera moves in and the editor opens in the empty slot
- *   2  link it: the editor folds into a new card, its prerequisite edges draw
- *      in, and Dynamic programming moves to rest on it
+ *   2  link it: the editor folds into a new, unlinked card; a cursor drags a
+ *      link up to it from Recursion, then from Lookup tables, and it locks
  *   3  review: the three due cards are answered and graded, one by one
  *   4  unlock: days pass, edges ink upwards, each layer opens in turn
  *   5  pull back: the deck becomes one branch of a whole subject
@@ -98,13 +97,11 @@ function deckState(id: NodeId, t: number): NodeState {
   switch (id) {
     case "recursion":
     case "tables":
-      return t >= 4.3 ? "learned" : t >= 4.14 ? "due" : "locked";
+      return t >= 4.35 ? "learned" : t >= 4.14 ? "due" : "locked";
     case "memo":
-      if (t >= 4.56) return "learned";
-      if (t >= 4.46) return "due";
-      return t < 2.44 ? "new" : "locked";
-    case "dp":
-      return t >= 4.8 ? "learned" : t >= 4.7 ? "due" : "locked";
+      if (t >= 4.7) return "learned";
+      if (t >= 4.52) return "due";
+      return t < LINKS[0].release ? "new" : "locked";
     default:
       return "due";
   }
@@ -112,25 +109,74 @@ function deckState(id: NodeId, t: number): NodeState {
 
 /** How far each lit (accent) edge has drawn: learned cards light their way up. */
 function litProgress(key: string, t: number) {
-  if (key === "memo-dp") return easeOut(seg(t, 4.58, 4.7));
-  if (key.endsWith("-memo")) return easeOut(seg(t, 4.32, 4.46));
+  if (key.endsWith("-memo")) return easeOut(seg(t, 4.38, 4.52));
   return easeOut(seg(t, 4.0, 4.14));
 }
 
-/** Linking Memoization: its prerequisites first, then what builds on it. */
-function linkProgress(key: string, t: number) {
-  switch (key) {
-    case "recursion-memo":
-      return easeOut(seg(t, 2.3, 2.44));
-    case "tables-memo":
-      return easeOut(seg(t, 2.42, 2.56));
-    case "memo-dp":
-      return easeOut(seg(t, 2.66, 2.8));
-    default:
-      // The hero's direct edges into Dynamic programming give way to Memoization.
-      return 1 - easeOut(seg(t, 2.6, 2.72));
-  }
+/* Beat 2: one drag per prerequisite, from that card up to Memoization. */
+const LINKS = [
+  { from: "recursion", key: "recursion-memo", press: 2.3, drag: [2.31, 2.45], release: 2.45 },
+  { from: "tables", key: "tables-memo", press: 2.54, drag: [2.55, 2.69], release: 2.69 },
+] as const;
+type Link = (typeof LINKS)[number];
+const CURSOR_IN = [2.26, 2.3] as const;
+const CURSOR_HOP = [2.47, 2.53] as const;
+const CURSOR_OUT = [2.72, 2.76] as const;
+// The drag runs between the cards' edges, not their centres, so the cursor
+// picks the link up on the source card's top and lets go on Memoization's bottom.
+const GRAB = 0.15;
+const DROP = 0.85;
+
+const POINTS = new Map(DECK.map((n) => [n.id, n]));
+
+/** A point on the S-curve edge from `from` up to `to` (the same curve as edgePath). */
+function curvePoint(from: NodeId, to: NodeId, p: number) {
+  const a = POINTS.get(from)!;
+  const b = POINTS.get(to)!;
+  const mid = (a.y + b.y) / 2;
+  const u = 1 - p;
+  return {
+    x: u * u * u * a.x + 3 * u * u * p * a.x + 3 * u * p * p * b.x + p * p * p * b.x,
+    y: u * u * u * a.y + 3 * u * u * p * mid + 3 * u * p * p * mid + p * p * p * b.y,
+  };
 }
+
+const dragPoint = (link: Link, t: number) =>
+  curvePoint(link.from, "memo", lerp(GRAB, DROP, easeInOut(seg(t, link.drag[0], link.drag[1]))));
+
+/** How much of a link's edge shows: its tip follows the cursor, then completes. */
+function linkProgress(link: Link, t: number) {
+  if (t >= link.release) return 1;
+  if (t < link.drag[0]) return 0;
+  const a = POINTS.get(link.from)!;
+  const b = POINTS.get("memo")!;
+  return (a.y - dragPoint(link, t).y) / (a.y - b.y);
+}
+
+function cursorAt(t: number) {
+  const [first, second] = LINKS;
+  let point: { x: number; y: number };
+  if (t < CURSOR_HOP[0]) point = dragPoint(first, t);
+  else if (t < second.drag[0]) {
+    // Between links the cursor travels to the next card without dragging.
+    const a = curvePoint(first.from, "memo", DROP);
+    const b = curvePoint(second.from, "memo", GRAB);
+    const m = easeInOut(seg(t, CURSOR_HOP[0], CURSOR_HOP[1]));
+    point = { x: lerp(a.x, b.x, m), y: lerp(a.y, b.y, m) };
+  } else point = dragPoint(second, t);
+  const opacity = seg(t, CURSOR_IN[0], CURSOR_IN[1]) * (1 - seg(t, CURSOR_OUT[0], CURSOR_OUT[1]));
+  const pressed = LINKS.some((link) => within(t, link.press, link.release));
+  return { ...point, opacity, pressed };
+}
+
+type Camera = { k: number; fx: number; fy: number };
+export const HERO_SHOT: Camera = { k: 1.08, fx: 50, fy: 62 };
+
+/** The camera transform for a shot; the hero's is also rendered on the server. */
+export const cameraTransform = (cam: Camera) =>
+  `translate(${(-(cam.fx - 50) * cam.k).toFixed(3)}%, ${(-(cam.fy - 50) * cam.k).toFixed(3)}%) scale(${cam.k.toFixed(4)})`;
+const EDITOR_SHOT: Camera = { k: 1.22, fx: 55, fy: 32 };
+const GRAPH_SHOT: Camera = { k: 1, fx: 50, fy: 50 };
 
 const LIBRARY_COUNT = DECK.length + FIELD.length;
 
@@ -139,17 +185,16 @@ function headerAt(t: number): [string, string] {
   const cards = `${t >= 1.94 ? DECK.length : DECK.length - 1} cards`;
   if (t < 1) return [DECK_NAME, cards];
   if (t < 2.24) return [`${DECK_NAME} › New card`, cards];
-  if (t < 2.6) return ["Memoization: linking prerequisites", cards];
-  if (t < 2.82) return ["Dynamic programming now needs it", cards];
-  if (t < 3) return ["Memoization: locked, needs 2", cards];
+  if (t < CURSOR_IN[0]) return ["Memoization added", cards];
+  if (t < CURSOR_HOP[0]) return ["Linking Recursion → Memoization", cards];
+  if (t < CURSOR_OUT[0]) return ["Linking Lookup tables → Memoization", cards];
+  if (t < 3) return ["Memoization locked: needs 2", cards];
   if (t < 3.86) return [`Reviewing ${reviewIndex(t) + 1} of ${REVIEWS.length}`, "Day 1"];
   if (t < 4.14) return ["All caught up", "Day 1"];
-  if (t < 4.3) return ["2 cards unlocked", "Day 1"];
-  if (t < 4.46) return ["Reviewed as they came due", "Day 4"];
-  if (t < 4.56) return ["Memoization unlocked", "Day 4"];
-  if (t < 4.7) return ["Reviewed as it came due", "Day 9"];
-  if (t < 4.8) return ["Dynamic programming unlocked", "Day 9"];
-  if (t < 5.1) return [`${DECK_NAME}: every card learned`, "Day 16"];
+  if (t < 4.35) return ["2 cards unlocked", "Day 1"];
+  if (t < 4.52) return ["Reviewed as they came due", "Day 4"];
+  if (t < 4.7) return ["Memoization unlocked", "Day 4"];
+  if (t < 5.1) return [`${DECK_NAME}: every card learned`, "Day 9"];
   return [DECK_NAME, `${LIBRARY_COUNT} cards`];
 }
 
@@ -162,12 +207,8 @@ export function createScene(stage: HTMLElement) {
 
   const camera = one("[data-camera]");
   const nodes = new Map(DECK.map((n) => [n.id, one<HTMLElement>(`[data-node="${n.id}"]`)]));
-  const linkEdges = new Map(
-    [...DECK_EDGES.filter((e) => e.from === "memo" || e.to === "memo"), ...HERO_EDGES].map((e) => [
-      e.key,
-      one<SVGPathElement>(`[data-edge="${e.key}"]`),
-    ]),
-  );
+  const linkEdges = LINKS.map((link) => one<SVGPathElement>(`[data-edge="${link.key}"]`));
+  const cursor = one("[data-cursor]");
   const litEdges = new Map(
     DECK_EDGES.map((e) => [e.key, one<SVGPathElement>(`[data-lit-edge="${e.key}"]`)]),
   );
@@ -233,8 +274,6 @@ export function createScene(stage: HTMLElement) {
     reviewH = reviewPanel.offsetHeight || 1;
   };
 
-  type Camera = { k: number; fx: number; fy: number };
-
   /**
    * Places a panel between a card on the graph (m = 0) and its resting place
    * near the stage centre (m = 1), so it reads as that card opening up.
@@ -264,22 +303,22 @@ export function createScene(stage: HTMLElement) {
 
   const apply = (t: number) => {
     // Camera: in towards the new card's slot for the editor, out for the library.
-    const zoom = easeInOut(seg(t, 1, 1.3)) * (1 - easeInOut(seg(t, 2, 2.3)));
+    // Camera: the hero frames the cards that exist; writing moves in on the
+    // empty slot above them; linking pulls back so the new card and both of
+    // its prerequisites are in view; the library pulls back further.
+    const toEditor = easeInOut(seg(t, 1, 1.3));
+    const toGraph = easeInOut(seg(t, 2, 2.3));
     const pull = easeInOut(seg(t, 5, 5.55));
-    const cam: Camera = {
-      k: lerp(1, 1.22, zoom) * lerp(1, 0.36, pull),
-      fx: lerp(50, 55, zoom),
-      fy: lerp(50, 40, zoom),
-    };
+    const shot = (key: keyof Camera) =>
+      lerp(lerp(HERO_SHOT[key], EDITOR_SHOT[key], toEditor), GRAPH_SHOT[key], toGraph);
+    const cam: Camera = { k: shot("k") * lerp(1, 0.36, pull), fx: shot("fx"), fy: shot("fy") };
 
     const editorM = easeInOut(seg(t, 1.02, 1.28)) * (1 - easeInOut(seg(t, 2.0, 2.24)));
     const reviewM = easeInOut(seg(t, 3.0, 3.07)) * (1 - easeInOut(seg(t, 3.86, 3.94)));
     const active = reviewIndex(t);
     const times = REVIEW_TIMES[active]!;
 
-    const tx = (-(cam.fx - 50) * cam.k).toFixed(3);
-    const ty = (-(cam.fy - 50) * cam.k).toFixed(3);
-    style(camera, "transform", `translate(${tx}%, ${ty}%) scale(${cam.k.toFixed(4)})`);
+    style(camera, "transform", cameraTransform(cam));
     // The graph stays readable behind the review card, so grades visibly land on it.
     style(camera, "opacity", (1 - 0.65 * editorM - 0.4 * reviewM).toFixed(3));
 
@@ -295,9 +334,10 @@ export function createScene(stage: HTMLElement) {
       }
       style(el, "opacity", opacity.toFixed(3));
     }
-    attr(nodes.get("recursion")!, "data-pulse", within(t, 2.28, 2.46));
-    attr(nodes.get("tables")!, "data-pulse", within(t, 2.4, 2.58));
-    attr(nodes.get("dp")!, "data-pulse", within(t, 2.62, 2.82));
+    // The card a link is dragged from is ringed until the link lands.
+    for (const link of LINKS) {
+      attr(nodes.get(link.from)!, "data-pulse", within(t, link.press, link.release));
+    }
     // The card under review is ringed on the graph behind the review card.
     REVIEWS.forEach((r, i) => {
       const slot = REVIEW_TIMES[i]!;
@@ -305,7 +345,14 @@ export function createScene(stage: HTMLElement) {
       attr(nodes.get(r.id)!, "data-pulse", ringed);
     });
 
-    for (const [key, el] of linkEdges) style(el, "clip-path", reveal(linkProgress(key, t)));
+    LINKS.forEach((link, i) => {
+      style(linkEdges[i]!, "clip-path", reveal(linkProgress(link, t)));
+      attr(linkEdges[i]!, "data-linking", within(t, link.drag[0], link.release));
+    });
+    const pointer = cursorAt(t);
+    style(cursor, "transform", `translate(${pointer.x.toFixed(2)}%, ${pointer.y.toFixed(2)}%)`);
+    style(cursor, "opacity", pointer.opacity.toFixed(3));
+    attr(cursor, "data-pressed", pointer.pressed);
     for (const [key, el] of litEdges) style(el, "clip-path", reveal(litProgress(key, t)));
 
     REVIEW_TIMES.forEach((r, i) => {

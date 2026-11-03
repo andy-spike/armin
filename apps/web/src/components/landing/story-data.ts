@@ -5,33 +5,24 @@
  * of the subject, revealed when the camera pulls back.
  */
 
-export type NodeId = "calls" | "stack" | "arrays" | "recursion" | "tables" | "memo" | "dp";
+export type NodeId = "calls" | "stack" | "arrays" | "recursion" | "tables" | "memo";
 export type NodeState = "learned" | "due" | "locked" | "new";
 
 export type DeckNode = { id: NodeId; label: string; x: number; y: number; needs: NodeId[] };
 
 export const DECK: DeckNode[] = [
-  { id: "calls", label: "Function calls", x: 17, y: 88, needs: [] },
-  { id: "stack", label: "The call stack", x: 49, y: 88, needs: [] },
-  { id: "arrays", label: "Arrays", x: 82, y: 88, needs: [] },
-  { id: "recursion", label: "Recursion", x: 31, y: 62, needs: ["calls", "stack"] },
-  { id: "tables", label: "Lookup tables", x: 79, y: 62, needs: ["arrays"] },
-  { id: "memo", label: "Memoization", x: 55, y: 37, needs: ["recursion", "tables"] },
-  { id: "dp", label: "Dynamic programming", x: 55, y: 12, needs: ["memo"] },
+  { id: "calls", label: "Function calls", x: 17, y: 80, needs: [] },
+  { id: "stack", label: "The call stack", x: 49, y: 80, needs: [] },
+  { id: "arrays", label: "Arrays", x: 82, y: 80, needs: [] },
+  { id: "recursion", label: "Recursion", x: 31, y: 50, needs: ["calls", "stack"] },
+  { id: "tables", label: "Lookup tables", x: 79, y: 50, needs: ["arrays"] },
+  // The card the story writes and links; the hero leaves its slot empty.
+  { id: "memo", label: "Memoization", x: 55, y: 20, needs: ["recursion", "tables"] },
 ];
 
 export const DECK_EDGES = DECK.flatMap((node) =>
   node.needs.map((from) => ({ from, to: node.id, key: `${from}-${node.id}` })),
 );
-
-/**
- * Before Memoization is written, Dynamic programming rests on Recursion and
- * Lookup tables directly; linking the new card slots it in between.
- */
-export const HERO_EDGES = [
-  { from: "recursion", to: "dp", key: "recursion-dp" },
-  { from: "tables", to: "dp", key: "tables-dp" },
-] as const;
 
 export const DECK_NAME = "Algorithms";
 
@@ -107,16 +98,21 @@ const ROWS: { y: number; xs: number[]; labels: string[] }[] = [
   },
 ];
 
-type Point = { id: string; x: number; y: number };
+type Point = { id: string; x: number; y: number; label: string };
 
-const fieldPoints: Point[] = ROWS.flatMap((row, r) =>
-  row.xs.map((x, i) => ({
-    id: `f${r}-${i}`,
-    // A small fixed jitter, so the field reads as a graph rather than a table.
-    x: x + (((i * 5 + r * 3) % 5) - 2) * 1.5,
-    y: row.y + (((i * 7 + r) % 5) - 2) * 1.2,
-  })),
-);
+const fieldPoints: Point[] = [
+  ...ROWS.flatMap((row, r) =>
+    row.xs.map((x, i) => ({
+      id: `f${r}-${i}`,
+      // A small fixed jitter, so the field reads as a graph rather than a table.
+      x: x + (((i * 5 + r * 3) % 5) - 2) * 1.5,
+      y: row.y + (((i * 7 + r) % 5) - 2) * 1.2,
+      label: row.labels[i]!,
+    })),
+  ),
+  // What the deck builds towards, revealed above Memoization in the pull-back.
+  { id: "f-dp", x: 55, y: -12, label: "Dynamic programming" },
+];
 
 /** Each card rests on the one or two nearest cards in the band below it. */
 function needsOf(point: Point, candidates: Point[], index: number) {
@@ -129,11 +125,10 @@ function needsOf(point: Point, candidates: Point[], index: number) {
 
 const allPoints: Point[] = [...fieldPoints, ...DECK];
 
-export const FIELD: FieldNode[] = fieldPoints.map((point, i) => {
-  const row = ROWS[Number(point.id.slice(1).split("-")[0])]!;
-  const col = Number(point.id.split("-")[1]);
-  return { ...point, label: row.labels[col]!, needs: needsOf(point, allPoints, i) };
-});
+export const FIELD: FieldNode[] = fieldPoints.map((point, i) => ({
+  ...point,
+  needs: needsOf(point, allPoints, i),
+}));
 
 /** The deck's foundations rest on field cards too; only the pull-back shows it. */
 const foundationEdges = DECK.filter((node) => node.needs.length === 0).flatMap((node, i) =>

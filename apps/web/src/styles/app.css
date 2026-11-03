@@ -759,6 +759,12 @@ html[data-scroll="document"] body {
   stroke-width: 1;
   stroke-dasharray: 3 4;
 }
+/* A link being dragged reads as solid ink, then settles into the graph's dashes. */
+.story-edge[data-linking] {
+  stroke: var(--color-ink);
+  stroke-width: 1.5;
+  stroke-dasharray: none;
+}
 .story-lit-edge {
   fill: none;
   stroke: var(--color-accent);
@@ -865,6 +871,28 @@ html[data-scroll="document"] body {
   transform: translate(-50%, 6px);
 }
 
+/* The cursor spans the graph box, so translating it by a percentage moves its
+   tip by that share of the graph. */
+.story-cursor {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+}
+.story-pointer {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: clamp(0.875rem, 3.2cqw, 1.25rem);
+  overflow: visible;
+  transform-origin: 1px 1px;
+  transition: scale 0.12s var(--ease-out);
+  filter: drop-shadow(0 1px 1.5px color-mix(in oklch, var(--color-ink) 25%, transparent));
+}
+.story-cursor[data-pressed] .story-pointer {
+  scale: 0.86;
+}
 .story-panel {
   grid-area: 1 / 1;
   border: 1px solid var(--color-border-strong);
