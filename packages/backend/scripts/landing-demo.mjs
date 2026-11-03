@@ -10,9 +10,9 @@ import { assertTarget, readState } from "./dev-environment.mjs";
  * the same state. See apps/web/scripts/record-landing-clips.mjs.
  */
 export const LANDING_ACCOUNT = {
-  email: "sam@example.com",
+  email: "armin.arlert@example.com",
   password: "armin-landing-1234",
-  name: "Sam Rivera",
+  name: "Armin Arlert",
 };
 
 export const LANDING_DECK = "Fundamentals of LLMs";
@@ -170,6 +170,18 @@ export async function prepareLandingDemo() {
       ids.set(WRITTEN_CARD.key, written.id);
       await link(WRITTEN_LINKS);
       await place();
+    },
+    /**
+     * Buries "What does a language model predict" until tomorrow, so the review
+     * clip's queue holds only Tokens and Embeddings, whatever their order. The
+     * graph does not show burying, so the card still reads as New there.
+     */
+    async beforeReview() {
+      const result = await client.mutation(api.review.bury, {
+        flashcardId: ids.get("next"),
+        requestId: request("bury-next"),
+      });
+      if (result.status !== "ok") throw new Error(`Burying the next-token card failed.`);
     },
   };
 }

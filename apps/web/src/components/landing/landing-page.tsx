@@ -87,7 +87,7 @@ export function LandingPage() {
       <main>
         <section
           aria-labelledby="landing-title"
-          className="mx-auto max-w-[76rem] px-5 pt-16 pb-14 sm:px-8 lg:pt-24 lg:pb-20"
+          className="mx-auto flex max-w-[76rem] flex-col items-center px-5 pt-16 pb-14 text-center sm:px-8 lg:pt-28 lg:pb-24"
         >
           <h1
             id="landing-title"
@@ -102,7 +102,7 @@ export function LandingPage() {
             Spaced-repetition flashcards that unlock as their foundations are learned.
           </p>
           <div
-            className="landing-rise mt-8 flex flex-wrap items-center gap-x-5 gap-y-3 lg:mt-9"
+            className="landing-rise mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 lg:mt-9"
             style={{ animationDelay: "160ms" }}
           >
             <Link
@@ -128,22 +128,25 @@ export function LandingPage() {
               className="border-t border-border-strong py-14 lg:py-20"
               aria-labelledby={`landing-step-${step.clip}`}
             >
-              <div className="grid gap-x-12 gap-y-4 lg:grid-cols-12">
-                <h2
-                  id={`landing-step-${step.clip}`}
-                  className="text-[clamp(1.875rem,3.2vw,2.625rem)] leading-[1.1] tracking-[-0.02em] text-balance text-ink lg:col-span-5"
-                >
-                  <span className="mb-3 block font-mono text-sm tracking-normal text-accent">
-                    Step {i + 1}
-                  </span>
-                  {step.title}
-                </h2>
-                <p className="max-w-[38rem] text-base leading-relaxed text-pretty text-muted lg:col-span-7 lg:self-end lg:text-lg">
-                  {step.body}
-                </p>
-              </div>
-              <div className="mt-8 lg:mt-10">
-                <LandingClip name={step.clip} label={step.label} />
+              {/* Text beside its clip on wide screens, so both stay in view. */}
+              <div className="grid items-center gap-x-14 gap-y-8 lg:grid-cols-12">
+                <div className="lg:col-span-5">
+                  <h2
+                    id={`landing-step-${step.clip}`}
+                    className="text-[clamp(1.875rem,3.2vw,2.625rem)] leading-[1.1] tracking-[-0.02em] text-balance text-ink"
+                  >
+                    <span className="mb-3 block font-mono text-sm tracking-normal text-accent">
+                      Step {i + 1}
+                    </span>
+                    {step.title}
+                  </h2>
+                  <p className="mt-5 max-w-[34rem] text-base leading-relaxed text-pretty text-muted lg:text-lg">
+                    {step.body}
+                  </p>
+                </div>
+                <div className="lg:col-span-7">
+                  <LandingClip name={step.clip} label={step.label} />
+                </div>
               </div>
             </li>
           ))}

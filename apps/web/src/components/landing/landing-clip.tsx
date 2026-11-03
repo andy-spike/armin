@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import clips from "./clips.json";
 
 /**
  * A short, silent clip of the real app, recorded by
@@ -6,7 +7,8 @@ import { useEffect, useRef } from "react";
  * when it scrolls into view and pauses when it leaves. With reduced motion it
  * shows its last frame and plays only from its controls.
  */
-export function LandingClip({ name, label }: { name: string; label: string }) {
+export function LandingClip({ name, label }: { name: keyof typeof clips; label: string }) {
+  const { width, height } = clips[name];
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -36,12 +38,16 @@ export function LandingClip({ name, label }: { name: string; label: string }) {
   }, []);
 
   return (
-    <div className="overflow-hidden border border-border-strong bg-surface shadow-overlay">
+    // Never taller than the screen, so the whole clip is in view beside its text.
+    <div
+      className="mx-auto overflow-hidden border border-border-strong bg-surface shadow-overlay"
+      style={{ maxWidth: `calc((100dvh - 9rem) * ${(width / height).toFixed(4)})` }}
+    >
       <video
         ref={ref}
-        className="block aspect-[8/5] h-auto w-full bg-bg"
-        width={1920}
-        height={1200}
+        className="block h-auto w-full bg-bg"
+        width={width}
+        height={height}
         poster={`/landing/${name}.jpg`}
         aria-label={label}
         muted
