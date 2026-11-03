@@ -5,8 +5,9 @@ import { v } from "convex/values";
 import { parseStoredContent } from "@armin/core/flashcard-types";
 import { isAudioFile } from "@armin/core/media";
 import { internal } from "./_generated/api";
-import { internalAction } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+import type { FunctionReturnType } from "convex/server";
+import { internalAction, type ActionCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
 import { MAX_EXPORT_BYTES } from "./model/limits";
 
 const FORMAT = "armin-library-export";
@@ -61,14 +62,201 @@ function fsrs(row: Doc<"reviewUnits">) {
   };
 }
 
+type Page<T> = { page: T[]; isDone: boolean; continueCursor: string };
+type ExportJob = NonNullable<FunctionReturnType<typeof internal.exports.jobLibrary>>;
+
+/** Every row a paginated internal query returns, page by page. */
+async function collectPages<T>(load: (cursor: string | null) => Promise<Page<T>>) {
+  const rows: T[] = [];
+  let cursor: string | null = null;
+  for (;;) {
+    const page = await load(cursor);
+    rows.push(...page.page);
+    if (page.isDone) return rows;
+    cursor = page.continueCursor;
+  }
+}
+
+const json = (value: unknown) => strToU8(JSON.stringify(value, null, 2));
+
+async function sha256Hex(bytes: Uint8Array) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Read the library in pages and keep the result only if its revision didn't
+ * change meanwhile, so the archive is internally consistent. Null after
+ * `MAX_ATTEMPTS` changed reads.
+ */
+async function collectSnapshot(ctx: ActionCtx, libraryId: Id<"libraries">) {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const meta = await ctx.runQuery(internal.exports.snapshotCore, { libraryId });
+    const core: Snapshot = {
+      ...(meta as Omit<Snapshot, "flashcards" | "reviewUnits" | "prereqs">),
+      flashcards: [],
+      reviewUnits: [],
+      prereqs: [],
+    };
+    for (const deck of meta.decks) {
+      for (const table of ["flashcards", "reviewUnits", "prereqs"] as const) {
+        const rows = await collectPages(
+          (cursor) =>
+            ctx.runQuery(internal.exports.deckPage, {
+              deckId: deck._id,
+              table,
+              cursor,
+            }) as Promise<Page<unknown>>,
+        );
+        (core[table] as unknown[]).push(...rows);
+      }
+    }
+    const pages = await collectPages(
+      (cursor) =>
+        ctx.runQuery(internal.exports.logPage, { libraryId, cursor }) as Promise<
+          Page<Doc<"reviewLogs">>
+        >,
+    );
+    const after = await ctx.runQuery(internal.exports.revision, { libraryId });
+    if (after !== core.revision) continue;
+    // History of a just-deleted deck may still be awaiting cleanup.
+    const unitIds = new Set<string>(core.reviewUnits.map((unit) => unit._id));
+    const currentDeck = new Map(core.reviewUnits.map((unit) => [unit._id, unit.deckId]));
+    const logs = pages
+      .filter((log) => unitIds.has(log.reviewUnitId))
+      .map((log) => ({ ...log, deckId: currentDeck.get(log.reviewUnitId)! }));
+    return { snapshot: core, logs };
+  }
+  return null;
+}
+
+/** The archive's JSON data files and README, keyed by path. */
+function dataFiles(snapshot: Snapshot, logs: Doc<"reviewLogs">[], timeZone: string) {
+  const files: Record<string, Uint8Array> = {};
+
+  files["data/decks.json"] = json(
+    snapshot.decks.map((deck) => ({
+      id: deck._id,
+      name: deck.name,
+      description: deck.description,
+      createdAt: iso(deck.createdAt),
+      updatedAt: iso(deck.updatedAt),
+    })),
+  );
+  files["data/flashcards.json"] = json(
+    snapshot.flashcards.map((flashcard) => {
+      const { type, content } = parseStoredContent(flashcard.type, flashcard.content);
+      return {
+        id: flashcard._id,
+        deckId: flashcard.deckId,
+        type,
+        content,
+        tags: flashcard.tags,
+        archived: flashcard.archived,
+        locked: flashcard.locked,
+        prerequisiteAccessGranted: flashcard.prerequisiteAccessGranted,
+        position:
+          flashcard.posX == null || flashcard.posY == null
+            ? null
+            : { x: flashcard.posX, y: flashcard.posY },
+        createdAt: iso(flashcard.createdAt),
+        updatedAt: iso(flashcard.updatedAt),
+      };
+    }),
+  );
+  files["data/review-units.json"] = json(
+    snapshot.reviewUnits.map((unit) => ({
+      id: unit._id,
+      flashcardId: unit.flashcardId,
+      deckId: unit.deckId,
+      subKey: unit.subKey,
+      front: unit.front,
+      back: unit.back,
+      locked: unit.locked,
+      archived: unit.archived,
+      schedule: fsrs(unit),
+    })),
+  );
+  files["data/review-logs.json"] = json(
+    logs.map((log) => ({
+      id: log._id,
+      reviewUnitId: log.reviewUnitId,
+      flashcardId: log.flashcardId,
+      deckId: log.deckId,
+      rating: log.rating,
+      state: log.state,
+      due: iso(log.due),
+      stability: log.stability,
+      difficulty: log.difficulty,
+      elapsedDays: log.elapsedDays,
+      lastElapsedDays: log.lastElapsedDays,
+      scheduledDays: log.scheduledDays,
+      learningSteps: log.learningSteps,
+      review: iso(log.review),
+    })),
+  );
+  files["data/prerequisites.json"] = json(
+    snapshot.prereqs.map((edge) => ({
+      deckId: edge.deckId,
+      prerequisiteId: edge.prereqId,
+      dependentId: edge.dependentId,
+    })),
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { libraryId, updatedAt, _id, _creationTime, ...settings } =
+    snapshot.settings as Snapshot["settings"] & { _id?: string; _creationTime?: number };
+  files["data/settings.json"] = json({
+    timeZone,
+    study: { ...settings, updatedAt: iso(updatedAt) },
+    deckOverrides: snapshot.deckSettings.map(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      ({ _id, _creationTime, libraryId, updatedAt: deckUpdated, ...rest }) => ({
+        ...rest,
+        updatedAt: iso(deckUpdated),
+      }),
+    ),
+  });
+  files["README.md"] = strToU8(README);
+  return files;
+}
+
+/** The manifest: format, counts, and a checksum for every file, media included. */
+async function buildManifest(
+  job: ExportJob,
+  snapshot: Snapshot,
+  logs: Doc<"reviewLogs">[],
+  files: Record<string, Uint8Array>,
+  media: Doc<"media">[],
+) {
+  const checksums: Record<string, string> = {};
+  for (const [path, bytes] of Object.entries(files)) checksums[path] = await sha256Hex(bytes);
+  // Media files are named by the SHA-256 of their bytes. The browser
+  // downloads each one, checks it against this checksum, and adds it to
+  // the final ZIP, so the server never holds every file at once.
+  for (const row of media) checksums[`media/${row.fileName}`] = row.fileName.split(".")[0];
+  return {
+    format: FORMAT,
+    version: FORMAT_VERSION,
+    exportedAt: new Date().toISOString(),
+    libraryRevision: snapshot.revision,
+    libraryCreatedAt: iso(job.createdAt),
+    counts: {
+      decks: snapshot.decks.length,
+      flashcards: snapshot.flashcards.length,
+      reviewUnits: snapshot.reviewUnits.length,
+      reviewLogs: logs.length,
+      prerequisites: snapshot.prereqs.length,
+      media: media.length,
+    },
+    checksums,
+  };
+}
+
 /**
  * Build the data part of a versioned library export: the manifest (with a
  * checksum for every file, media included) and the JSON data. The web app
  * downloads it, then adds each media file in the browser, so the finished
- * ZIP has no server-side size ceiling. Library rows, each deck's contents,
- * and review history are read in pages. The library revision is checked
- * before and after collection and the export retries if the library changed
- * meanwhile, so the archive is internally consistent.
+ * ZIP has no server-side size ceiling.
  */
 export const build = internalAction({
   args: { exportId: v.id("exports") },
@@ -76,179 +264,12 @@ export const build = internalAction({
     try {
       const job = await ctx.runQuery(internal.exports.jobLibrary, { exportId });
       if (!job) return;
-
-      let snapshot: Snapshot | null = null;
-      let logs: Doc<"reviewLogs">[] = [];
-      for (let attempt = 0; attempt < MAX_ATTEMPTS && !snapshot; attempt++) {
-        const meta = await ctx.runQuery(internal.exports.snapshotCore, {
-          libraryId: job.libraryId,
-        });
-        const core: Snapshot = {
-          ...(meta as Omit<Snapshot, "flashcards" | "reviewUnits" | "prereqs">),
-          flashcards: [],
-          reviewUnits: [],
-          prereqs: [],
-        };
-        for (const deck of meta.decks) {
-          for (const table of ["flashcards", "reviewUnits", "prereqs"] as const) {
-            let deckCursor: string | null = null;
-            for (;;) {
-              const page: { page: unknown[]; isDone: boolean; continueCursor: string } =
-                await ctx.runQuery(internal.exports.deckPage, {
-                  deckId: deck._id,
-                  table,
-                  cursor: deckCursor,
-                });
-              (core[table] as unknown[]).push(...page.page);
-              if (page.isDone) break;
-              deckCursor = page.continueCursor;
-            }
-          }
-        }
-        const pages: Doc<"reviewLogs">[] = [];
-        let cursor: string | null = null;
-        for (;;) {
-          const page: { page: Doc<"reviewLogs">[]; isDone: boolean; continueCursor: string } =
-            await ctx.runQuery(internal.exports.logPage, {
-              libraryId: job.libraryId,
-              cursor,
-            });
-          pages.push(...page.page);
-          if (page.isDone) break;
-          cursor = page.continueCursor;
-        }
-        const after = await ctx.runQuery(internal.exports.revision, {
-          libraryId: job.libraryId,
-        });
-        if (after === core.revision) {
-          snapshot = core;
-          // History of a just-deleted deck may still be awaiting cleanup.
-          const unitIds = new Set<string>(core.reviewUnits.map((unit) => unit._id));
-          const currentDeck = new Map(core.reviewUnits.map((unit) => [unit._id, unit.deckId]));
-          logs = pages
-            .filter((log) => unitIds.has(log.reviewUnitId))
-            .map((log) => ({ ...log, deckId: currentDeck.get(log.reviewUnitId)! }));
-        }
-      }
-      if (!snapshot) {
-        throw new Error("The library kept changing during export. Try again.");
-      }
-
-      const files: Record<string, Uint8Array> = {};
-      const json = (value: unknown) => strToU8(JSON.stringify(value, null, 2));
-
-      files["data/decks.json"] = json(
-        snapshot.decks.map((deck) => ({
-          id: deck._id,
-          name: deck.name,
-          description: deck.description,
-          createdAt: iso(deck.createdAt),
-          updatedAt: iso(deck.updatedAt),
-        })),
-      );
-      files["data/flashcards.json"] = json(
-        snapshot.flashcards.map((flashcard) => {
-          const { type, content } = parseStoredContent(flashcard.type, flashcard.content);
-          return {
-            id: flashcard._id,
-            deckId: flashcard.deckId,
-            type,
-            content,
-            tags: flashcard.tags,
-            archived: flashcard.archived,
-            locked: flashcard.locked,
-            prerequisiteAccessGranted: flashcard.prerequisiteAccessGranted,
-            position:
-              flashcard.posX == null || flashcard.posY == null
-                ? null
-                : { x: flashcard.posX, y: flashcard.posY },
-            createdAt: iso(flashcard.createdAt),
-            updatedAt: iso(flashcard.updatedAt),
-          };
-        }),
-      );
-      files["data/review-units.json"] = json(
-        snapshot.reviewUnits.map((unit) => ({
-          id: unit._id,
-          flashcardId: unit.flashcardId,
-          deckId: unit.deckId,
-          subKey: unit.subKey,
-          front: unit.front,
-          back: unit.back,
-          locked: unit.locked,
-          archived: unit.archived,
-          schedule: fsrs(unit),
-        })),
-      );
-      files["data/review-logs.json"] = json(
-        logs.map((log) => ({
-          id: log._id,
-          reviewUnitId: log.reviewUnitId,
-          flashcardId: log.flashcardId,
-          deckId: log.deckId,
-          rating: log.rating,
-          state: log.state,
-          due: iso(log.due),
-          stability: log.stability,
-          difficulty: log.difficulty,
-          elapsedDays: log.elapsedDays,
-          lastElapsedDays: log.lastElapsedDays,
-          scheduledDays: log.scheduledDays,
-          learningSteps: log.learningSteps,
-          review: iso(log.review),
-        })),
-      );
-      files["data/prerequisites.json"] = json(
-        snapshot.prereqs.map((edge) => ({
-          deckId: edge.deckId,
-          prerequisiteId: edge.prereqId,
-          dependentId: edge.dependentId,
-        })),
-      );
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { libraryId, updatedAt, _id, _creationTime, ...settings } =
-        snapshot.settings as Snapshot["settings"] & { _id?: string; _creationTime?: number };
-      files["data/settings.json"] = json({
-        timeZone: job.timeZone,
-        study: { ...settings, updatedAt: iso(updatedAt) },
-        deckOverrides: snapshot.deckSettings.map(
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          ({ _id, _creationTime, libraryId, updatedAt: deckUpdated, ...rest }) => ({
-            ...rest,
-            updatedAt: iso(deckUpdated),
-          }),
-        ),
-      });
+      const collected = await collectSnapshot(ctx, job.libraryId);
+      if (!collected) throw new Error("The library kept changing during export. Try again.");
+      const { snapshot, logs } = collected;
+      const files = dataFiles(snapshot, logs, job.timeZone);
       const media = snapshot.media.filter((row) => job.includeAudio || !isAudioFile(row.fileName));
-      files["README.md"] = strToU8(README);
-
-      const checksums: Record<string, string> = {};
-      for (const [path, bytes] of Object.entries(files)) {
-        const digest = await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>);
-        checksums[path] = [...new Uint8Array(digest)]
-          .map((byte) => byte.toString(16).padStart(2, "0"))
-          .join("");
-      }
-      // Media files are named by the SHA-256 of their bytes. The browser
-      // downloads each one, checks it against this checksum, and adds it to
-      // the final ZIP, so the server never holds every file at once.
-      for (const row of media) checksums[`media/${row.fileName}`] = row.fileName.split(".")[0];
-      const manifest = {
-        format: FORMAT,
-        version: FORMAT_VERSION,
-        exportedAt: new Date().toISOString(),
-        libraryRevision: snapshot.revision,
-        libraryCreatedAt: iso(job.createdAt),
-        counts: {
-          decks: snapshot.decks.length,
-          flashcards: snapshot.flashcards.length,
-          reviewUnits: snapshot.reviewUnits.length,
-          reviewLogs: logs.length,
-          prerequisites: snapshot.prereqs.length,
-          media: media.length,
-        },
-        checksums,
-      };
+      const manifest = await buildManifest(job, snapshot, logs, files, media);
 
       // The stored ZIP holds the manifest and data; the browser adds media.
       const zippable: Zippable = { "manifest.json": json(manifest), ...files };
