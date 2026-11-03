@@ -22,16 +22,18 @@ through six beats:
    Each link settles into the graph's dashed style, and the header ends on
    "Memoization locked: needs 2".
 4. **Review:** the page's longest scroll, about four screens on desktop. The
-   caption states the loop once in prose and holds still beside the stage. The
-   only running commentary is a coach bar at the top of the review card, which
-   names the step and the action it expects and rings the control it means.
-   The first card teaches the loop over four stops: "Step 1 of 3: Read the
-   question and recall the answer"; "Step 2 of 3: Press Space to show the
-   answer"; "Step 3 of 3: How well did you know it? 1 2 3 4"; "Graded: Good. It
-   comes back in 3 days." The next two cards take one stop each and play their
-   steps on the way in, ending on their result; "All caught up" closes the
-   beat. Scroll picks the stop and the page plays to it at a steady pace (about
-   1 s per step), so nothing changes while you hold still.
+   caption states the loop once in prose and holds still beside the stage.
+   One card, Function calls, rises out of the graph and walks through the loop
+   over four stops, each about two-thirds of a screen of scroll. A coach bar at
+   the top of the review card is the only running commentary: "Step 1 of 3:
+   Read the question and recall the answer"; "Step 2 of 3: Press Space to show
+   the answer"; "Step 3 of 3: How well did you know it? 1 2 3 4"; "Graded: Good.
+   It comes back in 3 days." The review card then folds back into Function
+   calls, and the other two due cards turn learned on the graph one after the
+   other while the header counts "Reviewed 1 of 3", "2 of 3", then "All caught
+   up". Scroll picks the stop and the page plays to it at a steady pace (1–2 s
+   per step), so nothing changes while you hold still. No rings or outlines
+   mark the active control or card.
 5. **Unlock:** days pass in the header (Day 1 to Day 9) while accent edges
    ink upwards, and each layer unlocks once its foundations are learned.
 6. **Whole subject:** the camera pulls back until the deck is one branch of a
@@ -47,15 +49,19 @@ review demo (`review-demo.tsx`) were removed; the story replaces both.
 
 ## The review beat
 
-Every stop in order (light, desktop): the first card's four teaching stops,
-the second and third cards' results, and "All caught up".
+Every stop in order (dark, desktop): the four teaching stops, then "All
+caught up" after the other two cards turn learned.
 
 ![Review sequence](2026-11-02-landing-scroll-story/03-review-sequence.png)
 
-The first card's Space, grade, and result stops, then the second card's
-result, at 390×844 (dark).
+Step 3, the graded stop, and "All caught up" at 390×844
+(dark).
 
 ![Review on a narrow screen](2026-11-02-landing-scroll-story/06-mobile-review.png)
+
+Between the graded stop and "All caught up", sampled frames show the review
+card folding into Function calls, then The call stack and Arrays turning
+learned in order. No overlapping card faces appear.
 
 - A scripted 12-second scroll through the whole story recorded frames with
   none over 20 ms on this development machine. Not measured on a mid-range
@@ -74,7 +80,7 @@ scroll beneath it.
 With `prefers-reduced-motion: reduce` emulated, the deck shows one settled
 frame per beat and crossfades between them; nothing scrubs, zooms, or types.
 The review beat shows each of its stops directly, coach bar included, and
-nothing plays between them.
+nothing plays between them (Step 2, Graded, and All caught up shown, dark).
 
 ![Reduced motion, review beat](2026-11-02-landing-scroll-story/05-reduced-motion-review.png)
 

@@ -49,7 +49,8 @@ const BEATS: { title: string; body: ReactNode; long?: boolean }[] = [
       <>
         <p>
           Recall the answer, press Space to check it, then grade how well you knew it from 1 to 4.
-          FSRS turns each grade into the next due date.
+          FSRS turns each grade into the next due date, and the rest of what's due goes the same
+          way.
         </p>
       </>
     ),
@@ -85,8 +86,8 @@ const BEATS: { title: string; body: ReactNode; long?: boolean }[] = [
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-/** Timeline units per second between review stations: about 1 s per step. */
-const REVIEW_PACE = 0.1;
+/** Timeline units per second between review stations: each step plays over 1–2 s. */
+const REVIEW_PACE = 0.08;
 
 /**
  * The frame reduced motion shows for each beat. The review beat already rests
@@ -179,10 +180,10 @@ export function ScrollStory() {
       if (reduce.matches) shown = target;
       else if (inReview(shown)) {
         // Between review stations, play at a steady pace so every press and
-        // reveal runs in full; a long jump still finishes within 1.2 s. Arriving
+        // reveal runs in full; a long jump still finishes within 2 s. Arriving
         // from another beat glides in as usual, then takes up the pace.
         const distance = target - shown;
-        const rate = Math.max(REVIEW_PACE, Math.abs(distance) / 1.2);
+        const rate = Math.max(REVIEW_PACE, Math.abs(distance) / 2);
         const step = (rate * dt) / 1000;
         shown = Math.abs(distance) <= step ? target : shown + Math.sign(distance) * step;
       } else {
@@ -555,6 +556,8 @@ const GRADE_KEYS = (
 );
 const DAYS = (chip: string) => chip.split(" · ")[1]!.replace("d", "");
 
+const FIRST = REVIEWS[0]!;
+
 /** Every line the coach bar can show, keyed as story-scene's coachAt names them. */
 const COACH_LINES: { id: string; step: string; text: ReactNode }[] = [
   { id: "recall", step: "Step 1 of 3", text: "Read the question and recall the answer." },
@@ -572,20 +575,11 @@ const COACH_LINES: { id: string; step: string; text: ReactNode }[] = [
     step: "Step 3 of 3",
     text: <>How well did you know it? {GRADE_KEYS}</>,
   },
-  ...REVIEWS.slice(1).map((_, i) => ({
-    id: `repeat-${i + 1}`,
-    step: `Card ${i + 2} of ${REVIEWS.length}`,
-    text: (
-      <>
-        Same keys: <Kbd className={COACH_KEY}>Space</Kbd>, then a grade.
-      </>
-    ),
-  })),
-  ...REVIEWS.map((review, i) => ({
-    id: `result-${i}`,
+  {
+    id: "result",
     step: "Graded",
-    text: `${RATINGS[review.rating]!.label}. It comes back in ${DAYS(review.chip)} days.`,
-  })),
+    text: `${RATINGS[FIRST.rating]!.label}. It comes back in ${DAYS(FIRST.chip)} days.`,
+  },
 ];
 
 /**
@@ -606,40 +600,31 @@ function CoachBar() {
   );
 }
 
-/**
- * The review screen in miniature, working through the three due cards. Each
- * card is a face stacked in the same place; the rating row is shared.
- */
+/** The review screen in miniature, walking through one due card. */
 function ReviewPanel() {
   return (
     <div data-review className="story-panel w-[min(33rem,calc(100cqw-1.5rem))]">
       <CoachBar />
-      <div className="grid px-4 pt-3 pb-4 sm:px-6 sm:pt-4 sm:pb-5">
-        {REVIEWS.map((card, i) => {
-          return (
-            <div key={card.id} data-face={i} className="story-face">
-              <p className="text-base leading-snug font-medium text-pretty text-ink sm:text-xl">
-                {card.front}
-              </p>
-              <div
-                data-answer={i}
-                className="story-answer mt-3 border-t border-border pt-3 text-sm leading-relaxed text-pretty text-ink/90 sm:mt-4 sm:pt-4 sm:text-base"
-              >
-                {card.back}
-              </div>
-            </div>
-          );
-        })}
+      <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-4 sm:pb-5">
+        <p className="text-base leading-snug font-medium text-pretty text-ink sm:text-xl">
+          {FIRST.front}
+        </p>
+        <div
+          data-answer
+          className="story-answer mt-3 border-t border-border pt-3 text-sm leading-relaxed text-pretty text-ink/90 sm:mt-4 sm:pt-4 sm:text-base"
+        >
+          {FIRST.back}
+        </div>
       </div>
       <div className="story-actions grid h-14 px-2 pb-2 sm:h-16">
         <span
           data-key="space"
-          className="story-show story-press story-hint flex items-center justify-center gap-2 bg-accent text-sm font-medium text-on-accent"
+          className="story-show story-press flex items-center justify-center gap-2 bg-accent text-sm font-medium text-on-accent"
         >
           Show answer
           <Kbd className="border-on-accent/25 bg-ink/10 text-on-accent shadow-none">Space</Kbd>
         </span>
-        <span data-ratings className="story-ratings story-hint grid grid-cols-4 gap-1.5">
+        <span data-ratings className="story-ratings grid grid-cols-4 gap-1.5">
           {RATINGS.map((rating, i) => (
             <span
               key={rating.label}

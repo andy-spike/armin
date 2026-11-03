@@ -21,7 +21,8 @@ import {
  *   1  write a card: the camera moves in and the editor opens in the empty slot
  *   2  link it: the editor folds into a new, unlinked card; a cursor drags a
  *      link up to it from Recursion, then from Lookup tables, and it locks
- *   3  review: the three due cards are answered and graded, one by one
+ *   3  review: one due card is answered and graded step by step, then the
+ *      other two turn learned on the graph
  *   4  unlock: days pass, edges ink upwards, each layer opens in turn
  *   5  pull back: the deck becomes one branch of a whole subject
  *
@@ -75,60 +76,44 @@ const easeOut = cubicBezier(0.23, 1, 0.32, 1);
 const easeInOut = cubicBezier(0.77, 0, 0.175, 1);
 
 /*
- * Beat 3 is a stepper, not a scrub. The first card teaches the loop with four
- * resting stations, each named by the coach bar on the review card:
+ * Beat 3 is a stepper, not a scrub. One card, Function calls, teaches the loop
+ * over four resting stations, each named by the coach bar on the review card:
  *
  *   recall   the question is up: read it and recall the answer
- *   ask      the coach asks for Space and rings Show answer
+ *   ask      the coach asks for Space
  *   prompt   Space was pressed and the answer is shown; the coach asks for a grade
  *   graded   the grade key was pressed and the grade landed on the graph
  *
- * The next two cards repeat the loop with one station each (graded), playing
- * their steps on the way in, and a final "caught up" station closes the beat.
- * The coach bar is the beat's only running commentary. Scroll picks the station (see
- * reviewStation); the page then plays from one station to the next at a
- * steady pace, so each key press and reveal runs in full and the caption's
- * steps change only when a step is complete.
+ * The review card then folds back into Function calls, the other two due
+ * cards turn learned on the graph one after the other, and a final "caught up"
+ * station closes the beat. Scroll picks the station (see reviewStation); the
+ * page then plays from one station to the next at a steady pace, so each key
+ * press and reveal runs in full.
  */
-const REVIEW_START = 3.04;
-const REVIEW_STEP = 0.3;
-const REVIEW_END = [3.935, 3.975] as const;
-const CAUGHT_UP = 3.988;
-const REVIEW_TIMES = REVIEWS.map((_, i) => {
-  const s = REVIEW_START + i * REVIEW_STEP;
-  return {
-    start: s,
-    recall: s + 0.06,
-    hint: s + 0.075,
-    ask: s + 0.09,
-    space: [s + 0.1, s + 0.12] as const,
-    answer: [s + 0.11, s + 0.17] as const,
-    flipped: s + 0.13,
-    prompt: s + 0.19,
-    grade: [s + 0.21, s + 0.24] as const,
-    learned: s + 0.24,
-    graded: s + 0.28,
-  };
-});
-const reviewIndex = (t: number) =>
-  REVIEW_TIMES.reduce((active, r, i) => (t >= r.start - 0.015 ? i : active), 0);
+const REVIEW = {
+  open: [3.0, 3.06] as const,
+  recall: 3.1,
+  hint: 3.16,
+  ask: 3.18,
+  space: [3.2, 3.23] as const,
+  answer: [3.21, 3.3] as const,
+  flipped: 3.24,
+  prompt: 3.32,
+  grade: [3.36, 3.4] as const,
+  graded: 3.46,
+  close: [3.5, 3.57] as const,
+  caughtUp: 3.74,
+};
+/** When each due card turns learned: the reviewed one, then the other two. */
+const LEARNED_AT = [REVIEW.grade[1], 3.62, 3.68];
 
-/**
- * Every resting point of the review beat, with its share of the beat's scroll.
- * The first card's question gets extra room while the caption scrolls in.
- */
+/** Every resting point of the review beat, with its share of the beat's scroll. */
 const STATIONS = [
-  ...REVIEW_TIMES.flatMap((r, i) =>
-    i === 0
-      ? [
-          { t: r.recall, share: 1.6 },
-          { t: r.ask, share: 1 },
-          { t: r.prompt, share: 1 },
-          { t: r.graded, share: 1 },
-        ]
-      : [{ t: r.graded, share: 1.2 }],
-  ),
-  { t: CAUGHT_UP, share: 1 },
+  { t: REVIEW.recall, share: 1.6 },
+  { t: REVIEW.ask, share: 1 },
+  { t: REVIEW.prompt, share: 1 },
+  { t: REVIEW.graded, share: 1.2 },
+  { t: REVIEW.caughtUp, share: 1.2 },
 ];
 const STATION_TOTAL = STATIONS.reduce((sum, station) => sum + station.share, 0);
 
@@ -140,28 +125,22 @@ export function reviewStation(t: number) {
     edge += station.share / STATION_TOTAL;
     if (t - 3 < edge) return station.t;
   }
-  return CAUGHT_UP;
+  return REVIEW.caughtUp;
 }
 
 export const inReview = (t: number) => t >= 3 && t < 4;
 
-/**
- * The coach bar on the review card: which step the first card is on and what it
- * expects next, a reminder on the later cards, and each grade's result.
- */
+/** The coach bar on the review card: the step it is on, then the grade's result. */
 function coachAt(t: number) {
-  const i = reviewIndex(t);
-  const r = REVIEW_TIMES[i]!;
-  if (t >= r.learned) return `result-${i}`;
-  if (i > 0) return `repeat-${i}`;
-  if (t < r.hint) return "recall";
-  if (t < r.flipped) return "space";
+  if (t >= REVIEW.grade[1]) return "result";
+  if (t < REVIEW.hint) return "recall";
+  if (t < REVIEW.flipped) return "space";
   return "grade";
 }
 
 function deckState(id: NodeId, t: number): NodeState {
   const reviewed = REVIEWS.findIndex((r) => r.id === id);
-  if (reviewed !== -1) return t >= REVIEW_TIMES[reviewed]!.learned ? "learned" : "due";
+  if (reviewed !== -1) return t >= LEARNED_AT[reviewed]! ? "learned" : "due";
   switch (id) {
     case "recursion":
     case "tables":
@@ -257,7 +236,9 @@ function headerAt(t: number): [string, string] {
   if (t < CURSOR_HOP[0]) return ["Linking Recursion → Memoization", cards];
   if (t < CURSOR_OUT[0]) return ["Linking Lookup tables → Memoization", cards];
   if (t < 3) return ["Memoization locked: needs 2", cards];
-  if (t < REVIEW_END[0]) return [`Reviewing ${reviewIndex(t) + 1} of ${REVIEWS.length}`, "Day 1"];
+  if (t < REVIEW.close[1]) return [`Reviewing 1 of ${REVIEWS.length}`, "Day 1"];
+  if (t < LEARNED_AT[2]!)
+    return [`Reviewed ${LEARNED_AT.filter((at) => t >= at).length} of ${REVIEWS.length}`, "Day 1"];
   if (t < 4.14) return ["All caught up", "Day 1"];
   if (t < 4.35) return ["2 cards unlocked", "Day 1"];
   if (t < 4.52) return ["Reviewed as they came due", "Day 4"];
@@ -290,10 +271,8 @@ export function createScene(stage: HTMLElement) {
   const caretBack = one("[data-caret=back]");
   const saveKey = one("[data-key=save]");
   const reviewPanel = one("[data-review]");
-  const faces = REVIEWS.map((_, i) => one<HTMLElement>(`[data-face="${i}"]`));
-  const answers = REVIEWS.map((_, i) => one<HTMLElement>(`[data-answer="${i}"]`));
+  const answer = one("[data-answer]");
   const spaceKey = one("[data-key=space]");
-  const ratingRow = one("[data-ratings]");
   const coachLines = [...stage.querySelectorAll<HTMLElement>("[data-coach]")];
   const ratingKeys = [0, 1, 2, 3].map((i) => one<HTMLElement>(`[data-key="r${i}"]`));
   const field = one("[data-field]");
@@ -382,10 +361,7 @@ export function createScene(stage: HTMLElement) {
     const cam: Camera = { k: shot("k") * lerp(1, 0.36, pull), fx: shot("fx"), fy: shot("fy") };
 
     const editorM = easeInOut(seg(t, 1.02, 1.28)) * (1 - easeInOut(seg(t, 2.0, 2.24)));
-    const reviewM =
-      easeInOut(seg(t, 3.0, REVIEW_START)) * (1 - easeInOut(seg(t, REVIEW_END[0], REVIEW_END[1])));
-    const active = reviewIndex(t);
-    const times = REVIEW_TIMES[active]!;
+    const reviewM = easeInOut(seg(t, ...REVIEW.open)) * (1 - easeInOut(seg(t, ...REVIEW.close)));
 
     style(camera, "transform", cameraTransform(cam));
     // The graph stays readable behind the review card, so grades visibly land on it.
@@ -398,22 +374,9 @@ export function createScene(stage: HTMLElement) {
       // hides while the review card rises out of it.
       let opacity = 1;
       if (node.id === "memo") opacity = t < 2 ? 0 : 1 - clamp01(editorM / 0.3);
-      if (node.id === "calls" && t < REVIEW_TIMES[0]!.start) {
-        opacity = 1 - clamp01(reviewM / 0.3);
-      }
+      if (node.id === "calls" && t < REVIEW.open[1]) opacity = 1 - clamp01(reviewM / 0.3);
       style(el, "opacity", opacity.toFixed(3));
     }
-    // The card a link is dragged from is ringed until the link lands.
-    for (const link of LINKS) {
-      attr(nodes.get(link.from)!, "data-pulse", within(t, link.press, link.release));
-    }
-    // The card under review is ringed on the graph behind the review card.
-    REVIEWS.forEach((r, i) => {
-      const slot = REVIEW_TIMES[i]!;
-      const ringed = i === active && reviewM > 0.5 && t >= slot.start && t < slot.learned;
-      attr(nodes.get(r.id)!, "data-pulse", ringed);
-    });
-
     LINKS.forEach((link, i) => {
       style(linkEdges[i]!, "clip-path", reveal(linkProgress(link, t)));
       attr(linkEdges[i]!, "data-linking", within(t, link.drag[0], link.release));
@@ -424,8 +387,8 @@ export function createScene(stage: HTMLElement) {
     attr(cursor, "data-pressed", pointer.pressed);
     for (const [key, el] of litEdges) style(el, "clip-path", reveal(litProgress(key, t)));
 
-    REVIEW_TIMES.forEach((r, i) => {
-      const shown = easeOut(seg(t, r.learned, r.learned + 0.04)) * (1 - seg(t, 4.0, 4.06));
+    LEARNED_AT.forEach((at, i) => {
+      const shown = easeOut(seg(t, at, at + 0.04)) * (1 - seg(t, 4.0, 4.06));
       style(chips[i]!, "opacity", shown.toFixed(3));
       style(chips[i]!, "transform", `translate(-50%, ${((1 - shown) * 6).toFixed(2)}px)`);
     });
@@ -444,30 +407,21 @@ export function createScene(stage: HTMLElement) {
     attr(caretBack, "data-on", within(t, 1.53, 1.9));
     attr(saveKey, "data-pressed", within(t, 1.88, 1.96));
 
-    // Review: it rises out of the first due card and folds into the last one.
-    const from = t < 3.5 ? REVIEWS[0]!.id : REVIEWS[REVIEWS.length - 1]!.id;
-    // It rests at the top of the graph, leaving the foundations row in view
-    // below, where each grade lands.
+    // Review: it rises out of Function calls and folds back into it. It rests
+    // at the top of the graph, leaving the foundations row in view below,
+    // where each grade lands.
     const restY = Math.min(0, -box.h / 2 + reviewH / 2 + 0.02 * box.h);
-    morph(reviewPanel, reviewW, from, reviewM, cam, restY);
-    faces.forEach((face, i) => {
-      attr(face, "data-active", i === active);
-      attr(face, "data-past", i < active);
-      const r = REVIEW_TIMES[i]!;
-      const shownAnswer = easeOut(seg(t, r.answer[0], r.answer[1]));
-      style(answers[i]!, "clip-path", `inset(0 0 ${((1 - shownAnswer) * 100).toFixed(2)}% 0)`);
-    });
-    attr(reviewPanel, "data-flipped", t >= times.flipped);
-    // The coach names the step; the control it asks for is ringed.
+    morph(reviewPanel, reviewW, REVIEWS[0]!.id, reviewM, cam, restY);
+    const shownAnswer = easeOut(seg(t, ...REVIEW.answer));
+    style(answer, "clip-path", `inset(0 0 ${((1 - shownAnswer) * 100).toFixed(2)}% 0)`);
+    attr(reviewPanel, "data-flipped", t >= REVIEW.flipped);
     const coach = coachAt(t);
     for (const line of coachLines) attr(line, "data-active", line.dataset.coach === coach);
-    attr(spaceKey, "data-hint", coach === "space");
-    attr(ratingRow, "data-hint", t >= times.flipped && t < times.learned);
-    attr(spaceKey, "data-pressed", within(t, times.space[0], times.space[1]));
-    const rating = REVIEWS[active]!.rating;
+    attr(spaceKey, "data-pressed", within(t, ...REVIEW.space));
+    const rating = REVIEWS[0]!.rating;
     ratingKeys.forEach((key, i) => {
-      attr(key, "data-pressed", i === rating && within(t, times.grade[0], times.grade[1]));
-      attr(key, "data-chosen", i === rating && t >= times.grade[0]);
+      attr(key, "data-pressed", i === rating && within(t, ...REVIEW.grade));
+      attr(key, "data-chosen", i === rating && t >= REVIEW.grade[0]);
     });
 
     // Library: the rest of the subject fades in and learning climbs through it.
