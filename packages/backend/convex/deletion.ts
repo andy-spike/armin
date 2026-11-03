@@ -156,9 +156,7 @@ export const cleanupDeck = internalMutation({
 
 /** Each table with the index whose first field is `libraryId`. */
 const LIBRARY_TABLES: [TableNames, string][] = [
-  ["agentAuthorizations", "by_library"],
   ["agentConnections", "by_library"],
-  ["agentUsedRefreshTokens", "by_library"],
   ["agentCreatedDecks", "by_library"],
   ["agentActivity", "by_library"],
   ["agentRequests", "by_library"],
@@ -218,12 +216,10 @@ export const cleanupLibrary = internalMutation({
   },
 });
 
-// Keep sign-ins, OAuth grants, refresh-token replay protection, rate limits,
-// and the monotonic revision while replacing a reviewer's study content.
+// Keep assistant connections, their rate limits, and the monotonic revision
+// while replacing a reviewer's study content.
 const RESET_PRESERVED_TABLES = new Set<TableNames>([
-  "agentAuthorizations",
   "agentConnections",
-  "agentUsedRefreshTokens",
   "agentRateLimits",
   "libraryCounters",
 ]);

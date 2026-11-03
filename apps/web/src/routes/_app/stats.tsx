@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Layers } from "lucide-react";
+import { Layers } from "lucide-react";
 import { barY, defineChart } from "@tanstack/charts";
 import { Chart } from "@tanstack/charts/react";
 import { scaleBand } from "@tanstack/charts/scales/band";
 import { scaleLinear } from "@tanstack/charts/scales/linear";
 import { tooltip } from "@tanstack/charts/tooltip";
 import type { StatsOverview } from "@armin/backend/types";
+import { QueryError } from "@/components/route-status";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -59,18 +60,7 @@ function StatsPage() {
       {(overviewQuery.isLoading || overview?.pending) && <StatsSkeleton />}
 
       {overviewQuery.isError && (
-        <div className="flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center bg-relearning-bg text-relearning">
-            <AlertTriangle className="h-6 w-6" strokeWidth={1.5} />
-          </div>
-          <h3 className="text-base font-semibold text-ink">Couldn&apos;t load your stats</h3>
-          <p className="mt-1 max-w-[40ch] text-sm text-muted">
-            Check your connection and try again. Your saved data is safe.
-          </p>
-          <Button variant="outline" className="mt-5" onClick={() => void overviewQuery.refetch()}>
-            Try again
-          </Button>
-        </div>
+        <QueryError title="Couldn’t load your stats" onRetry={() => void overviewQuery.refetch()} />
       )}
 
       {!overviewQuery.isLoading && !overviewQuery.isError && !overview && (
@@ -308,14 +298,7 @@ function DayBarChart({
     });
   }, [series, opacity, unit, forecast]);
 
-  const first = series.days[0]?.count ?? 0;
-  const average = series.days.length === 0 ? 0 : series.total / series.days.length;
-  const detail =
-    series.total === 0
-      ? empty
-      : forecast
-        ? `${first === 0 ? "Nothing" : first} due today · busiest day ${series.max}`
-        : `${average < 10 ? average.toFixed(1) : Math.round(average)} a day on average · best day ${series.max}`;
+  const detail = seriesDetail(series, forecast, empty);
 
   return (
     <div className="flex flex-col gap-4">
@@ -326,6 +309,22 @@ function DayBarChart({
       <Chart definition={definition} ariaLabel={ariaLabel} height={176} initialWidth={520} />
     </div>
   );
+}
+
+/** The line beside a series total: today's load for a forecast, the daily average otherwise. */
+function seriesDetail(
+  series: StatsOverview["daily"],
+  forecast: boolean | undefined,
+  empty: string,
+) {
+  if (series.total === 0) return empty;
+  if (forecast) {
+    const first = series.days[0]?.count ?? 0;
+    return `${first === 0 ? "Nothing" : first} due today · busiest day ${series.max}`;
+  }
+  const average = series.days.length === 0 ? 0 : series.total / series.days.length;
+  const rounded = average < 10 ? average.toFixed(1) : Math.round(average);
+  return `${rounded} a day on average · best day ${series.max}`;
 }
 
 function Retention({ retention }: { retention: StatsOverview["retention"] }) {

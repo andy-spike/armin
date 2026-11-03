@@ -1,10 +1,5 @@
 import { v } from "convex/values";
-import {
-  MAX_MEDIA_FILE_BYTES,
-  MIME_BY_EXT,
-  sniffMediaExt,
-  UNSUPPORTED_MEDIA_MESSAGE,
-} from "@armin/core/media";
+import { MIME_BY_EXT, sniffMediaExt, UNSUPPORTED_MEDIA_MESSAGE } from "@armin/core/media";
 import { mediaRefFromFileName } from "@armin/core/media-ref";
 import { MEDIA_STORAGE_FULL_MESSAGE } from "@armin/core/plans";
 import { internal } from "./_generated/api";
@@ -13,6 +8,7 @@ import { internalMutation } from "./functions";
 import type { ActionCtx } from "./_generated/server";
 import { getViewer, readableLibrary } from "./model/access";
 import { mediaUsage, releaseMediaBytes, reserveMediaBytes } from "./model/mediaQuota";
+import { mediaFileName, readUploadBody } from "./model/uploadBody";
 
 export const uploaderLibrary = internalQuery({
   args: {},
@@ -23,29 +19,6 @@ export const uploaderLibrary = internalQuery({
   },
 });
 
-function hex(buffer: ArrayBuffer) {
-  return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-/**
- * Read and discard a request body. Rejecting an oversized upload before the
- * client has finished sending closes the connection mid-write, which HTTP
- * proxies surface as an EPIPE and a 500. Draining lets the caller receive the
- * intended 413 instead.
- */
-async function drainBody(body: ReadableStream<Uint8Array> | null) {
-  if (!body) return;
-  const reader = body.getReader();
-  try {
-    for (;;) {
-      const { done } = await reader.read();
-      if (done) return;
-    }
-  } catch {
-    // The client stopped sending; the response status still explains why.
-  }
-}
-
 /**
  * Authenticated raw image or audio bytes, stored by this action. Clients
  * cannot name a blob; the type comes from the bytes, never the request.
@@ -53,39 +26,16 @@ async function drainBody(body: ReadableStream<Uint8Array> | null) {
 export async function uploadMedia(ctx: ActionCtx, request: Request) {
   const upload = await ctx.runQuery(internal.media.uploaderLibrary, {});
   if (!upload) return new Response("Sign in with a verified account.", { status: 401 });
-  const declared = Number(request.headers.get("content-length"));
-  if (declared > MAX_MEDIA_FILE_BYTES) {
-    await drainBody(request.body);
-    return new Response("File too large.", { status: 413 });
-  }
-  const reader = request.body?.getReader();
-  if (!reader) return new Response("File is empty.", { status: 400 });
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  let tooLarge = false;
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    if (tooLarge) continue;
-    size += value.byteLength;
-    if (size > MAX_MEDIA_FILE_BYTES) {
-      tooLarge = true;
-      chunks.length = 0;
-      continue;
-    }
-    chunks.push(value);
-  }
-  if (tooLarge) return new Response("File too large.", { status: 413 });
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.length;
-  }
+  const body = await readUploadBody(request);
+  if ("error" in body)
+    return body.error === "tooLarge"
+      ? new Response("File too large.", { status: 413 })
+      : new Response("File is empty.", { status: 400 });
+  const { bytes } = body;
+  const size = bytes.byteLength;
   const ext = sniffMediaExt(bytes);
   if (!ext) return new Response(UNSUPPORTED_MEDIA_MESSAGE, { status: 400 });
-  const sha = hex(await crypto.subtle.digest("SHA-256", bytes));
-  const fileName = `${sha}.${ext}`;
+  const fileName = await mediaFileName(bytes, ext);
   const mime = MIME_BY_EXT[ext];
   const storageId = await ctx.storage.store(new Blob([bytes], { type: mime }));
   try {
@@ -218,8 +168,8 @@ export const usage = query({
 
 /** Resolve a media file for the current session; null unless it's theirs. */
 export const lookupForViewer = internalQuery({
-  args: { fileName: v.string(), preview: v.optional(v.boolean()) },
-  handler: async (ctx, { fileName, preview }) => {
+  args: { fileName: v.string() },
+  handler: async (ctx, { fileName }) => {
     const viewer = await getViewer(ctx);
     if (!viewer?.library || viewer.library.status !== "active") return null;
     const media = await ctx.db
@@ -228,14 +178,7 @@ export const lookupForViewer = internalQuery({
         q.eq("libraryId", viewer.library!._id).eq("fileName", fileName),
       )
       .unique();
-    if (!media) return null;
-    return preview && media.thumbnailId
-      ? {
-          storageId: media.thumbnailId,
-          mime: "image/webp",
-          size: media.thumbnailSize ?? media.size,
-        }
-      : { storageId: media.storageId, mime: media.mime, size: media.size };
+    return media ? { storageId: media.storageId, mime: media.mime, size: media.size } : null;
   },
 });
 
@@ -310,11 +253,7 @@ export const dimensions = query({
   args: { fileName: v.string() },
   returns: v.union(
     v.null(),
-    v.object({
-      width: v.optional(v.number()),
-      height: v.optional(v.number()),
-      preview: v.boolean(),
-    }),
+    v.object({ width: v.optional(v.number()), height: v.optional(v.number()) }),
   ),
   handler: async (ctx, { fileName }) => {
     const viewer = await getViewer(ctx);
@@ -325,28 +264,6 @@ export const dimensions = query({
         q.eq("libraryId", viewer.library!._id).eq("fileName", fileName),
       )
       .unique();
-    return media
-      ? { width: media.width, height: media.height, preview: media.thumbnailId != null }
-      : null;
-  },
-});
-
-/** Operator backfill for existing images; work stays in bounded action jobs. */
-export const backfillVariants = internalMutation({
-  args: { cursor: v.union(v.null(), v.string()) },
-  returns: v.null(),
-  handler: async (ctx, { cursor }) => {
-    const page = await ctx.db
-      .query("media")
-      .withIndex("by_library")
-      .paginate({ cursor, numItems: 20 });
-    for (const media of page.page)
-      if (media.width == null)
-        await ctx.scheduler.runAfter(0, internal.mediaVariants.generate, { mediaId: media._id });
-    if (!page.isDone)
-      await ctx.scheduler.runAfter(0, internal.media.backfillVariants, {
-        cursor: page.continueCursor,
-      });
-    return null;
+    return media ? { width: media.width, height: media.height } : null;
   },
 });

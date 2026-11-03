@@ -9,7 +9,7 @@ import {
   Field,
   FormError,
   FormNotice,
-  GoogleIcon,
+  GoogleSignIn,
 } from "@/components/auth/auth-layout";
 import { authClient, safeRedirectPath } from "@/lib/auth-client";
 import { useAuthFeatures } from "@/lib/session";
@@ -44,7 +44,6 @@ function SignInPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [googleBusy, setGoogleBusy] = useState(false);
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -61,20 +60,6 @@ function SignInPage() {
       return;
     }
     window.location.assign(redirectTo);
-  };
-
-  const signInWithGoogle = async () => {
-    setGoogleBusy(true);
-    setError(null);
-    const { error } = await authClient.signIn.social({
-      provider: "google",
-      callbackURL: redirectTo,
-      errorCallbackURL: "/sign-in",
-    });
-    if (error) {
-      setError(authErrorMessage(error));
-      setGoogleBusy(false);
-    }
   };
 
   return (
@@ -96,23 +81,7 @@ function SignInPage() {
         {search.reset && <FormNotice>Password changed. Sign in with your new password.</FormNotice>}
         {search.deleted && <FormNotice>Your account and library were deleted.</FormNotice>}
         {features.data?.google && (
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={signInWithGoogle}
-              busy={googleBusy}
-            >
-              <GoogleIcon />
-              Continue with Google
-            </Button>
-            <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-faint">
-              <span className="h-px flex-1 bg-border" />
-              or
-              <span className="h-px flex-1 bg-border" />
-            </div>
-          </>
+          <GoogleSignIn callbackURL={redirectTo} errorCallbackURL="/sign-in" onError={setError} />
         )}
         <form className="space-y-4" onSubmit={onSubmit}>
           <Field label="Email" htmlFor="email">

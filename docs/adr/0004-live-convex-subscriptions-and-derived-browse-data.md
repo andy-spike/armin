@@ -42,6 +42,7 @@ Consequences:
   2,000-card quota) instead of reading counters.
 - Each write does a little more work (a summary and a counter row), and the
   summaries table carries fourteen indexes.
-- Deploying the summaries needs a one-time `maintenance:backfillSummaries` run
-  (`docs/deploy-cloudflare.md`). `maintenance:rebuildDeckCounters` repairs a
-  deck's counters if they are ever in doubt.
+- Deploying the summaries needed a one-time `maintenance:backfillSummaries` run
+  (`docs/deploy-cloudflare.md`). `maintenance:rebuildDeckCounters` repaired a
+  deck's counters if they were ever in doubt. Both were removed in November
+  2026, after every deployment had run the backfill.

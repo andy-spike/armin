@@ -7,19 +7,10 @@ import {
 } from "@/lib/queries";
 import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
+import { useUpdateFlashcard } from "@/lib/use-update-flashcard";
 import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  Plus,
-  Play,
-  Layers,
-  AlertTriangle,
-  Share2,
-  Tag,
-  Settings,
-  Brain,
-} from "lucide-react";
+import { Plus, Play, Layers, Share2, Tag, Settings, Brain } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { CramDialog } from "@/components/cram-dialog";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
@@ -36,6 +27,8 @@ import {
   DeckHeaderSkeleton,
   FlashcardGridSkeleton,
 } from "@/components/page-skeletons";
+import { AllDecksLink, DeckNotFound } from "@/components/deck-not-found";
+import { QueryError } from "@/components/route-status";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useFlashcardTileActions } from "@/components/use-flashcard-tile-actions";
 import { useToast } from "@/components/ui/toast";
@@ -123,15 +116,7 @@ function DeckPage() {
     onError: (error) => notifySaveError(toast, "Couldn’t add flashcard", error),
   });
 
-  const updateCard = useMutation({
-    mutationFn: (values: CardFormValues & { id: string; version: number }) =>
-      armin.flashcards.update(values),
-    onSuccess: () => {
-      toast({ tone: "success", title: "Flashcard updated" });
-      closeDialog();
-    },
-    onError: (error) => notifySaveError(toast, "Couldn’t update flashcard", error),
-  });
+  const updateCard = useUpdateFlashcard(closeDialog);
 
   const saveCard = async (values: CardFormValues) => {
     if (editing) {
@@ -151,29 +136,15 @@ function DeckPage() {
   if (isError) {
     return (
       <div>
-        <BackLink />
+        <AllDecksLink />
         <div className="mt-6">
-          <div className="flex flex-col items-center rounded-xl border border-border bg-bg-2 px-6 py-14 text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-relearning-bg text-relearning">
-              <AlertTriangle className="h-6 w-6" strokeWidth={1.5} />
-            </div>
-            <h3 className="text-base font-semibold text-ink">
-              Couldn&apos;t load these flashcards
-            </h3>
-            <p className="mt-1 max-w-[40ch] text-sm text-muted">
-              Check your connection and try again. Your saved data is safe.
-            </p>
-            <Button
-              variant="outline"
-              className="mt-5"
-              onClick={() => {
-                void deckQuery.refetch();
-                cardsQuery.refetch();
-              }}
-            >
-              Try again
-            </Button>
-          </div>
+          <QueryError
+            title="Couldn’t load these flashcards"
+            onRetry={() => {
+              void deckQuery.refetch();
+              cardsQuery.refetch();
+            }}
+          />
         </div>
       </div>
     );
@@ -182,25 +153,15 @@ function DeckPage() {
   if (deckQuery.isSuccess && !deck) {
     return (
       <div>
-        <BackLink />
-        <EmptyState
-          className="mt-8"
-          icon={Layers}
-          title="Deck not found"
-          description="This deck doesn't exist in your library. It may have been removed or the link is stale."
-          action={
-            <Link to="/">
-              <Button variant="outline">Back to decks</Button>
-            </Link>
-          }
-        />
+        <AllDecksLink />
+        <DeckNotFound />
       </div>
     );
   }
 
   return (
     <div>
-      <BackLink />
+      <AllDecksLink />
 
       {deck ? (
         <DeckHeader
@@ -265,7 +226,7 @@ function DeckPage() {
                 </FilterField>
               )}
               <SortControl
-                fieldLayout
+                layout="field"
                 value={sort}
                 onChange={setSort}
                 options={FLASHCARD_SORT_OPTIONS}
@@ -398,17 +359,6 @@ function DeckHeader({
         )}
       </div>
     </header>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link
-      to="/"
-      className="inline-flex items-center gap-1 rounded-sm text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-    >
-      <ArrowLeft className="h-4 w-4" /> All decks
-    </Link>
   );
 }
 

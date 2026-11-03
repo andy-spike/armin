@@ -8,7 +8,7 @@ import type { api } from "../_generated/api";
 export type { Id, Doc } from "../_generated/dataModel";
 export type DeckWithStats = NonNullable<FunctionReturnType<typeof api.decks.list>>[number];
 export type FlashcardWithMeta = NonNullable<FunctionReturnType<typeof api.flashcards.get>>;
-export type BrowsePage = NonNullable<FunctionReturnType<typeof api.flashcards.browse>>;
+export type BrowsePage = FunctionReturnType<typeof api.flashcards.browsePage>;
 export type ReviewQueue = NonNullable<FunctionReturnType<typeof api.review.queue>>;
 export type ReviewQueueDescriptor = Pick<
   ReviewQueue["items"][number],

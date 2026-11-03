@@ -5,55 +5,8 @@ import {
   activityCutoff,
   recordActivity,
   syncUnitSummary,
-  frontierKey,
   statsGeneration,
 } from "./model/performance";
-
-/** Idempotent operator migration; safe to rerun after interrupted deployment. */
-export const backfill = internalMutation({
-  args: { cursor: v.union(v.string(), v.null()) },
-  returns: v.null(),
-  handler: async (ctx, { cursor }) => {
-    const page = await ctx.db
-      .query("libraries")
-      .withIndex("by_owner")
-      .paginate({ cursor, numItems: 20 });
-    for (const library of page.page) {
-      if (library.status !== "active" || library.statsReady) continue;
-      const epoch = library.statsEpoch ?? 0;
-      await ctx.scheduler.runAfter(0, internal.performance.rebuild, {
-        libraryId: library._id,
-        epoch,
-        phase: "units",
-        since: activityCutoff(),
-        cursor: null,
-      });
-    }
-    if (!page.isDone)
-      await ctx.scheduler.runAfter(0, internal.performance.backfill, {
-        cursor: page.continueCursor,
-      });
-    return null;
-  },
-});
-
-/** New log writes are marked in their own transaction; backfill skips those. */
-/** Give existing unit summaries their fixed new-card order. Idempotent. */
-export const backfillFrontierKeys = internalMutation({
-  args: { cursor: v.union(v.string(), v.null()) },
-  returns: v.null(),
-  handler: async (ctx, { cursor }) => {
-    const page = await ctx.db.query("unitSummaries").paginate({ cursor, numItems: 500 });
-    for (const row of page.page)
-      if (row.frontierKey === undefined)
-        await ctx.db.patch(row._id, { frontierKey: frontierKey(row.flashcardId) });
-    if (!page.isDone)
-      await ctx.scheduler.runAfter(0, internal.performance.backfillFrontierKeys, {
-        cursor: page.continueCursor,
-      });
-    return null;
-  },
-});
 
 export const rebuild = internalMutation({
   args: {

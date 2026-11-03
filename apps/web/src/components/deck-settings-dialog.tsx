@@ -1,5 +1,5 @@
 import { armin } from "@/lib/armin-client";
-import { useId, useState, type ReactNode } from "react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { RotateCcw, X } from "lucide-react";
 import {
@@ -8,12 +8,12 @@ import {
   StabilityFloorInput,
   StepsInput,
 } from "@/components/scheduling-inputs";
+import { Row } from "@/components/settings-layout";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
-import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { DeckSettingsOverrides, SchedulingSettings } from "@armin/core/study";
 
@@ -141,16 +141,16 @@ export function DeckSettingsDialog({
             className="flex-1 space-y-8 overflow-hidden px-4 py-6 sm:px-6"
           >
             <span className="sr-only">Loading settings…</span>
-            <Section
+            <DialogSection
               title="Scheduling"
               description="How FSRS schedules reviews for cards in this deck."
             >
               <OverrideRowsSkeleton rows={6} />
-            </Section>
+            </DialogSection>
           </div>
         ) : (
           <div className="flex-1 space-y-8 overflow-y-auto px-4 py-6 sm:px-6">
-            <Section
+            <DialogSection
               title="Scheduling"
               description="How FSRS schedules reviews for cards in this deck."
             >
@@ -239,9 +239,9 @@ export function DeckSettingsDialog({
                   />
                 )}
               </OverrideRow>
-            </Section>
+            </DialogSection>
 
-            <Section
+            <DialogSection
               title="Learning path"
               description="How prerequisites unlock and how much new material this deck introduces each day."
             >
@@ -274,7 +274,7 @@ export function DeckSettingsDialog({
                   />
                 )}
               </OverrideRow>
-            </Section>
+            </DialogSection>
           </div>
         )}
 
@@ -302,7 +302,7 @@ export function DeckSettingsDialog({
   );
 }
 
-function Section({
+function DialogSection({
   title,
   description,
   children,
@@ -344,51 +344,23 @@ function OverrideRowsSkeleton({ rows }: { rows: number }) {
   ));
 }
 
+/** A deck override row: resetting returns the setting to the library value. */
 function OverrideRow({
-  label,
-  hint,
   overridden,
   onRevert,
-  last,
-  children,
-}: {
-  label: string;
-  hint: string;
+  ...row
+}: Omit<ComponentProps<typeof Row>, "onReset" | "resetTo"> & {
   overridden: boolean;
   onRevert: () => void;
-  last?: boolean;
-  children: ReactNode | ((labelId: string) => ReactNode);
 }) {
-  const labelId = useId();
   return (
-    <div
-      className={cn(
-        "grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-6 gap-y-2 px-4 py-3.5 max-sm:grid-cols-1",
-        !last && "border-b border-border",
-      )}
-    >
-      <div className="min-w-0">
-        <p id={labelId} className="text-sm font-medium text-ink">
-          {label}
-        </p>
-        <p className="mt-0.5 text-[0.8125rem] leading-snug text-muted">{hint}</p>
-      </div>
-      <div className="flex min-h-9 shrink-0 items-center justify-end gap-1.5 max-sm:justify-start">
-        {overridden && (
-          <Tooltip content="Reset to inherited" className="px-2.5 py-1.5">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Reset ${label} to inherited`}
-              onClick={onRevert}
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </Tooltip>
-        )}
-        {typeof children === "function" ? children(labelId) : children}
-      </div>
-    </div>
+    <Row
+      {...row}
+      onReset={overridden ? onRevert : undefined}
+      resetTo="inherited"
+      hintClassName="leading-snug"
+      controlClassName="min-h-9 pt-0"
+    />
   );
 }
 

@@ -52,14 +52,6 @@ export function errorMessage(error: unknown, fallback = "Something went wrong.")
   return fallback;
 }
 
-export function errorCode(error: unknown): string | null {
-  if (error instanceof ConvexError) {
-    const data = error.data as { code?: string };
-    return data?.code ?? null;
-  }
-  return null;
-}
-
 /** A thrown conflict carries the latest version so the UI can offer a reload. */
 export class StaleError extends Error {
   constructor(message: string) {
@@ -83,7 +75,7 @@ function unwrapUpdate(result: UpdateResult) {
   return result;
 }
 
-export type SettingsUpdate = Omit<FunctionArgs<typeof api.settings.update>, never>;
+export type SettingsUpdate = FunctionArgs<typeof api.settings.update>;
 export type DeckSettingsUpdate = Omit<FunctionArgs<typeof api.settings.updateDeck>, "deckId">;
 
 /** A failed image upload, with the HTTP status so callers can tell a full library from a hiccup. */
@@ -328,5 +320,3 @@ export const armin = {
     refresh: () => q().mutation(api.billing.refresh, {}),
   },
 };
-
-export type ArminClient = typeof armin;

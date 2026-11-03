@@ -17,7 +17,7 @@ import { MAX_REVIEW_UNITS_PER_FLASHCARD } from "./model/limits";
 import { bumpRevision, findRequest, recordRequest, type TagCache } from "./model/study";
 import { checkCapacity, libraryPlan, libraryUsage } from "./model/usage";
 import { checkRanges, checkSteps, checkWeights } from "./model/settingsChecks";
-import { startOfNextStudyDayMs } from "@armin/core/study";
+import { emptyDeckOverrides, startOfNextStudyDayMs } from "@armin/core/study";
 
 // Per-call caps keep every mutation inside Convex's write and read limits even
 // when each card is a 60-deletion cloze.
@@ -75,11 +75,7 @@ async function replay(
   requestId: string,
   kind: string,
 ) {
-  const previous = await findRequest(ctx, libraryId, requestId);
-  if (!previous) return null;
-  if (previous.kind !== kind)
-    fail("INVALID", "This request ID was already used for a different operation.");
-  return previous.result;
+  return (await findRequest(ctx, libraryId, requestId, kind))?.result ?? null;
 }
 
 async function runningImport(ctx: MutationCtx, library: Doc<"libraries">, importId: Id<"imports">) {
@@ -196,11 +192,8 @@ export const start = mutation({
         await ctx.db.insert("deckSettings", {
           libraryId: library._id,
           deckId,
+          ...emptyDeckOverrides(),
           ...deck.settings,
-          enableFuzz: null,
-          enableShortTerm: null,
-          prereqStabilityFloor: null,
-          keepSiblingReviewUnitsTogether: null,
           updatedAt: now,
         });
       created.push({ key: deck.key, deckId });

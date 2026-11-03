@@ -20,6 +20,7 @@ import { useKeybindings } from "@/keybindings/keybindings-provider";
 import {
   COMMANDS,
   COMMAND_BY_ID,
+  COMMAND_GROUPS,
   findConflict,
   findSharedBindingCommands,
   type CommandDef,
@@ -28,20 +29,6 @@ import {
 } from "@/lib/keybindings/registry";
 import { serializeSteps, stepFromEvent, type ChordStep } from "@/lib/keybindings/keys";
 import { cn } from "@/lib/utils";
-
-/** Commands grouped by their `group` header, preserving registry order. */
-const GROUPS: { group: string; commands: CommandDef[] }[] = (() => {
-  const order: string[] = [];
-  const byGroup = new Map<string, CommandDef[]>();
-  for (const cmd of COMMANDS) {
-    if (!byGroup.has(cmd.group)) {
-      byGroup.set(cmd.group, []);
-      order.push(cmd.group);
-    }
-    byGroup.get(cmd.group)!.push(cmd);
-  }
-  return order.map((group) => ({ group, commands: byGroup.get(group)! }));
-})();
 
 /** Longest chord the recorder accepts (e.g. "g d"); extra keys are ignored. */
 const MAX_CHORD_STEPS = 2;
@@ -243,14 +230,15 @@ export function KeybindingSettings() {
         </Button>
       </div>
 
-      {GROUPS.map(({ group, commands }, groupIndex) => (
+      {COMMAND_GROUPS.map(({ group, commands }, groupIndex) => (
         <div key={group}>
           <h3 className="border-b border-border bg-surface-sunken px-4 py-2 text-xs font-medium text-muted">
             {group}
           </h3>
           {commands.map((cmd, index) => {
             const overridden = keymap[cmd.id] !== cmd.defaultBinding;
-            const lastRow = groupIndex === GROUPS.length - 1 && index === commands.length - 1;
+            const lastRow =
+              groupIndex === COMMAND_GROUPS.length - 1 && index === commands.length - 1;
             return (
               <div key={cmd.id} className={cn("px-4 py-3", !lastRow && "border-b border-border")}>
                 <div className="flex items-center justify-between gap-4">

@@ -1,10 +1,10 @@
 import { v } from "convex/values";
-import { defaultSchedulingSettings, isValidTimeZone } from "@armin/core/study";
+import { DEFAULT_TIME_ZONE, isValidTimeZone } from "@armin/core/study";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import { getViewer } from "./model/access";
 import { fail } from "./model/errors";
-import { bumpRevision } from "./model/study";
+import { bumpRevision, defaultSettingsRow } from "./model/study";
 import { isReviewer, reviewerResetHours } from "./model/reviewer";
 import { isSelfHosted } from "./model/selfHost";
 import { libraryPlan } from "./model/usage";
@@ -77,15 +77,10 @@ export const ensureLibrary = mutation({
     const libraryId = await ctx.db.insert("libraries", {
       ownerId: viewer.userId,
       status: "active",
-      timeZone: isValidTimeZone(timeZone) ? timeZone : "UTC",
+      timeZone: isValidTimeZone(timeZone) ? timeZone : DEFAULT_TIME_ZONE,
       createdAt: now,
     });
-    await ctx.db.insert("settings", {
-      libraryId,
-      ...defaultSchedulingSettings(),
-      keybindings: null,
-      updatedAt: now,
-    });
+    await ctx.db.insert("settings", defaultSettingsRow(libraryId, now));
     await ctx.db.insert("libraryCounters", {
       libraryId,
       revision: 0,
@@ -109,22 +104,5 @@ export const setTimeZone = mutation({
     await ctx.db.patch(viewer.library._id, { timeZone });
     await bumpRevision(ctx, viewer.library._id);
     return timeZone;
-  },
-});
-
-/**
- * The library's write revision. Clients subscribe to it and refresh their
- * cached reads when any tab or device changes the library.
- */
-export const revision = query({
-  args: {},
-  handler: async (ctx) => {
-    const viewer = await getViewer(ctx);
-    if (!viewer?.library || viewer.library.status !== "active") return null;
-    const counters = await ctx.db
-      .query("libraryCounters")
-      .withIndex("by_library", (q) => q.eq("libraryId", viewer.library!._id))
-      .unique();
-    return counters?.revision ?? 0;
   },
 });

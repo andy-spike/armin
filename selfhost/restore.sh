@@ -27,6 +27,4 @@ wait_for_backend
 say "Restoring $(basename "$file")"
 compose run --rm -T -v "$file:/restore/backup.zip:ro" tools \
   convex import --replace-all --yes /restore/backup.zip
-# An older backup may predate data changes in this version.
-run_migrations
 say "Restore finished. Sign in again."

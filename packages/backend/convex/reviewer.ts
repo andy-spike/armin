@@ -1,11 +1,11 @@
 import { v } from "convex/values";
-import { defaultSchedulingSettings } from "@armin/core/study";
+import { DEFAULT_TIME_ZONE } from "@armin/core/study";
 import { internalMutation } from "./functions";
 import { components, internal } from "./_generated/api";
 import { cleanupLibraryData } from "./deletion";
 import { insertDeck } from "./model/decks";
 import { reviewerResetHours } from "./model/reviewer";
-import { bumpRevision, reconcileReviewUnits } from "./model/study";
+import { bumpRevision, defaultSettingsRow, reconcileReviewUnits } from "./model/study";
 
 /** Operator/cron only. No client can select an account to erase. */
 export const reset = internalMutation({
@@ -59,12 +59,7 @@ export const finishReset = internalMutation({
     if (counters)
       await ctx.db.patch(counters._id, { mediaBytes: 0, audioBytes: 0, reviewUnits: 0 });
     await bumpRevision(ctx, libraryId);
-    await ctx.db.insert("settings", {
-      libraryId,
-      ...defaultSchedulingSettings(),
-      keybindings: null,
-      updatedAt: now,
-    });
+    await ctx.db.insert("settings", defaultSettingsRow(libraryId, now));
     const deckId = await insertDeck(ctx, {
       libraryId,
       name: "Armin sample library",
@@ -122,6 +117,10 @@ export const finishReset = internalMutation({
     await ctx.db.insert("tags", { libraryId, name: "demo", key: "demo" });
     // Selected grants still contain only removed deck IDs. Do not expand them
     // to the new sample deck or otherwise broaden an existing consent.
-    await ctx.db.patch(libraryId, { status: "active", timeZone: "UTC", reviewerResetAt: now });
+    await ctx.db.patch(libraryId, {
+      status: "active",
+      timeZone: DEFAULT_TIME_ZONE,
+      reviewerResetAt: now,
+    });
   },
 });

@@ -7,7 +7,7 @@ import { scaleOrdinal } from "@tanstack/charts/scales/ordinal";
 import { tooltip } from "@tanstack/charts/tooltip";
 import { cn, plural } from "@/lib/utils";
 
-export type HeatmapDay = {
+type HeatmapDay = {
   /** Calendar date (YYYY-MM-DD) in the library's time zone. */
   key: string;
   count: number;

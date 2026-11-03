@@ -303,47 +303,11 @@ export async function syncUnitSummary(
     frontierKey: order,
   };
   if (row) await ctx.db.patch(row._id, fields);
-  else {
-    const again = await ctx.db
-      .query("reviewLogs")
-      .withIndex("by_unit_rating_review", (q) => q.eq("reviewUnitId", unitId).eq("rating", 1))
-      .order("desc")
-      .first();
-    const introduced = await ctx.db
-      .query("reviewLogs")
-      .withIndex("by_unit_state_review", (q) => q.eq("reviewUnitId", unitId).eq("state", 0))
-      .order("desc")
-      .first();
-    await ctx.db.insert("unitSummaries", {
-      ...fields,
-      latestAgain: again?.review,
-      introducedAt: introduced?.review,
-    });
-  }
+  else await ctx.db.insert("unitSummaries", { ...fields, ...(await logBoundaries(ctx, unitId)) });
 }
 
-export async function syncLogBoundary(
-  ctx: MutationCtx,
-  unitId: Id<"reviewUnits">,
-  inserted?: Doc<"reviewLogs">,
-) {
-  const row = await ctx.db
-    .query("unitSummaries")
-    .withIndex("by_unit", (q) => q.eq("reviewUnitId", unitId))
-    .unique();
-  if (!row) return;
-  if (inserted) {
-    const latestAgain =
-      inserted.rating === 1
-        ? Math.max(row.latestAgain ?? -Infinity, inserted.review)
-        : row.latestAgain;
-    const introducedAt =
-      inserted.state === 0
-        ? Math.max(row.introducedAt ?? -Infinity, inserted.review)
-        : row.introducedAt;
-    await ctx.db.patch(row._id, { latestAgain, introducedAt });
-    return;
-  }
+/** The unit's latest Again review and the review that introduced it. */
+async function logBoundaries(ctx: MutationCtx, unitId: Id<"reviewUnits">) {
   const again = await ctx.db
     .query("reviewLogs")
     .withIndex("by_unit_rating_review", (q) => q.eq("reviewUnitId", unitId).eq("rating", 1))
@@ -354,5 +318,14 @@ export async function syncLogBoundary(
     .withIndex("by_unit_state_review", (q) => q.eq("reviewUnitId", unitId).eq("state", 0))
     .order("desc")
     .first();
-  await ctx.db.patch(row._id, { latestAgain: again?.review, introducedAt: introduced?.review });
+  return { latestAgain: again?.review, introducedAt: introduced?.review };
+}
+
+export async function syncLogBoundary(ctx: MutationCtx, unitId: Id<"reviewUnits">) {
+  const row = await ctx.db
+    .query("unitSummaries")
+    .withIndex("by_unit", (q) => q.eq("reviewUnitId", unitId))
+    .unique();
+  if (!row) return;
+  await ctx.db.patch(row._id, await logBoundaries(ctx, unitId));
 }

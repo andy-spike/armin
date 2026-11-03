@@ -33,21 +33,18 @@ import {
   EDGE_MARKER_END,
   EDGE_STROKE,
   buildGraphFlowElementsAsync,
-  graphNodePreview,
-  incidentNodeIdsOf,
   makeFlowEdge,
   refreshNodeData,
-  styleEdgeForEmphasis,
-  toFlowNode,
 } from "@/lib/graph-flow";
 import { cn } from "@/lib/utils";
 import { FloatingEdge } from "./floating-edge";
-import { FlashcardNode, type CardFlowNode, type NodeEmphasis } from "./flashcard-node";
+import { FlashcardNode, type CardFlowNode } from "./flashcard-node";
 import { afterCanvasPaint, markGraphPerf, measureGraphPerf } from "@/lib/graph-perf";
 import { GraphContextMenu, type GraphMenuItem } from "./graph-context-menu";
 import { GraphToolbar } from "./graph-toolbar";
 import { layoutInWorker, useBackgroundLayout } from "./use-background-layout";
 import { useGraphSearch } from "./use-graph-search";
+import { useGraphElementSync, useGraphEmphasis } from "./use-graph-elements";
 import { MAX_ZOOM, MIN_ZOOM, ZoomControl } from "./zoom-control";
 import { GraphLinkPicker, linkPickerContent, type LinkPickerRequest } from "./graph-link-picker";
 
@@ -165,10 +162,9 @@ function PrerequisiteGraphCanvas({
   onReady,
 }: PrerequisiteGraphProps) {
   const { screenToFlowPosition, fitView } = useReactFlow();
-  const knownNodeIds = useRef(new Set<string>());
   const connectFrom = useRef<string | null>(null);
   // Set once the async builder commits the first real graph; the incremental
-  // sync effects below stay dormant until then so they don't fight the build.
+  // sync effects stay dormant until then so they don't fight the build.
   const initialFlowLoaded = useRef(false);
   const cancelReadySignal = useRef<(() => void) | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
@@ -192,6 +188,18 @@ function PrerequisiteGraphCanvas({
   // the renderer while it mounts.
   const [nodes, setNodes, onNodesChange] = useNodesState<CardFlowNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  const nodeById = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph.nodes]);
+  // Incremental updates after the initial build.
+  const { seedKnownNodes } = useGraphElementSync({
+    graph,
+    nodeById,
+    nodePlacements,
+    initialFlowLoaded,
+    screenToFlowPosition,
+    setNodes,
+    setEdges,
+  });
 
   // Always-fresh snapshot of node positions for layout persistence.
   const nodesRef = useRef(nodes);
@@ -226,12 +234,12 @@ function PrerequisiteGraphCanvas({
       measureGraphPerf("buildFlowElements", "buildFlowElements:start", "buildFlowElements:end");
       setNodes(result.nodes);
       setEdges(result.edges);
-      knownNodeIds.current = new Set(graph.nodes.map((n) => n.id));
+      seedKnownNodes(graph.nodes.map((n) => n.id));
       initialFlowLoaded.current = true;
       setFlowReady(true);
     });
     return () => controller.abort();
-  }, [graph, setNodes, setEdges]);
+  }, [graph, setNodes, setEdges, seedKnownNodes]);
 
   // Signal ready only after both the async build has committed real nodes/edges
   // and ReactFlow has initialized, then reveal the canvas on the next paint. We
@@ -253,108 +261,7 @@ function PrerequisiteGraphCanvas({
     };
   }, [flowReady, reactFlowReady, interactive]);
 
-  const nodeById = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph.nodes]);
   const graphIndex = useMemo(() => createGraphCycleIndex(graph.edges), [graph.edges]);
-
-  // Incrementally add/remove nodes as the underlying deck changes, preserving
-  // the positions of cards that are already on the canvas.
-  useEffect(() => {
-    if (!initialFlowLoaded.current) return;
-    const currentIds = new Set(graph.nodes.map((n) => n.id));
-    const added = graph.nodes.filter((n) => !knownNodeIds.current.has(n.id));
-    const removed = [...knownNodeIds.current].filter((id) => !currentIds.has(id));
-
-    if (removed.length > 0) {
-      const removedIds = new Set(removed);
-      setNodes((current) => current.filter((n) => !removedIds.has(n.id)));
-      setEdges((current) =>
-        current.filter((e) => !removedIds.has(e.source) && !removedIds.has(e.target)),
-      );
-    }
-
-    if (added.length > 0) {
-      const fallback = screenToFlowPosition({
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2,
-      });
-      const incidentNodeIds = incidentNodeIdsOf(graph.edges);
-
-      setNodes((current) => [
-        ...current,
-        ...added.map((node, index) => {
-          const saved = node.x != null && node.y != null ? { x: node.x, y: node.y } : undefined;
-          const placement = saved ?? nodePlacements?.[node.id];
-          return toFlowNode(
-            node,
-            incidentNodeIds,
-            placement ?? {
-              x: fallback.x + index * 32,
-              y: fallback.y + index * 32,
-            },
-          );
-        }),
-      ]);
-    }
-
-    knownNodeIds.current = currentIds;
-  }, [graph.edges, graph.nodes, nodePlacements, screenToFlowPosition, setEdges, setNodes]);
-
-  // Keep the rendered edges in sync with the persisted prerequisite edges so
-  // arrows survive a reload of the graph.
-  useEffect(() => {
-    if (!initialFlowLoaded.current) return;
-    setEdges((current) => {
-      const desiredIds = new Set(graph.edges.map((e) => `${e.prereqId}-${e.dependentId}`));
-      const currentIds = new Set(current.map((e) => e.id));
-      const kept = current.filter((e) => desiredIds.has(e.id));
-      const additions = graph.edges
-        .filter((e) => !currentIds.has(`${e.prereqId}-${e.dependentId}`))
-        .map((e) => makeFlowEdge(e.prereqId, e.dependentId));
-      if (additions.length === 0 && kept.length === current.length) {
-        return current;
-      }
-      return [...kept, ...additions];
-    });
-  }, [graph.edges, setEdges]);
-
-  useEffect(() => {
-    if (!initialFlowLoaded.current) return;
-    setNodes((current) => {
-      let changed = false;
-      const updated = current.map((node) => {
-        const source = nodeById.get(node.id);
-        if (!source) return node;
-        const front = graphNodePreview(source.front);
-        const back = graphNodePreview(source.back);
-        if (
-          node.data.front === front &&
-          node.data.back === back &&
-          node.data.type === source.type &&
-          node.data.state === source.state &&
-          node.data.locked === source.locked &&
-          node.data.archived === source.archived
-        ) {
-          return node;
-        }
-        changed = true;
-        return {
-          ...node,
-          data: {
-            front,
-            back,
-            type: source.type,
-            state: source.state,
-            locked: source.locked,
-            archived: source.archived,
-            isIsolated: node.data.isIsolated,
-            emphasis: node.data.emphasis,
-          },
-        };
-      });
-      const withIsolation = refreshNodeData(changed ? updated : current, graph.edges);
-      return changed || withIsolation !== current ? withIsolation : current;
-    });
-  }, [graph.edges, nodeById, setNodes]);
 
   useBackgroundLayout({
     graph,
@@ -365,75 +272,7 @@ function PrerequisiteGraphCanvas({
     onPersistLayout,
   });
 
-  // Re-derive selection/filter emphasis for every node and edge whenever the
-  // selection or lens changes. Selected card + its incident edges + direct
-  // neighbors light up; out-of-scope elements dim.
-  useEffect(() => {
-    const neighborIds = new Set<string>();
-    if (selectedId) {
-      for (const e of graph.edges) {
-        if (e.prereqId === selectedId) neighborIds.add(e.dependentId);
-        if (e.dependentId === selectedId) neighborIds.add(e.prereqId);
-      }
-    }
-    setNodes((current) => {
-      let changed = false;
-      const nextNodes = current.map((node) => {
-        const source = nodeById.get(node.id);
-        if (!source) return node;
-        let emphasis: NodeEmphasis;
-        if (selectedId) {
-          if (source.id === selectedId) emphasis = "active";
-          else if (neighborIds.has(source.id)) emphasis = "connected";
-          else emphasis = "dimmed";
-        } else if (search.currentMatchId === source.id) {
-          emphasis = "active";
-        } else if (!search.matches || search.matches.has(source.id)) {
-          emphasis = null;
-        } else {
-          emphasis = "dimmed";
-        }
-        if (node.data.emphasis === emphasis) return node;
-        changed = true;
-        return { ...node, data: { ...node.data, emphasis } };
-      });
-      return changed ? nextNodes : current;
-    });
-
-    const searchMatches = search.matches;
-    const inScope = (id: string) => nodeById.has(id) && (!searchMatches || searchMatches.has(id));
-    setEdges((current) => {
-      let changed = false;
-      const nextEdges = current.map((edge) => {
-        let next: Edge;
-        if (selectedId) {
-          next = styleEdgeForEmphasis(
-            edge,
-            edge.source === selectedId || edge.target === selectedId ? "active" : "dimmed",
-          );
-        } else if (searchMatches) {
-          next = styleEdgeForEmphasis(
-            edge,
-            inScope(edge.source) && inScope(edge.target) ? null : "dimmed",
-          );
-        } else {
-          next = styleEdgeForEmphasis(edge, null);
-        }
-        if (next !== edge) changed = true;
-        return next;
-      });
-      return changed ? nextEdges : current;
-    });
-  }, [
-    selectedId,
-    search.matches,
-    search.currentMatchId,
-    nodeById,
-    graph.nodes,
-    graph.edges,
-    setNodes,
-    setEdges,
-  ]);
+  useGraphEmphasis({ graph, nodeById, selectedId, search, setNodes, setEdges });
 
   const onSelectionChange: OnSelectionChangeFunc = useCallback(({ nodes: selectedNodes }) => {
     setSelectedId(selectedNodes.length === 1 ? selectedNodes[0].id : null);

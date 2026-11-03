@@ -15,12 +15,9 @@ import { useToast } from "@/components/ui/toast";
 import { deckNamesQuery, moveConsequencesQuery } from "@/lib/queries";
 import { buildDeckFilterOptions } from "@/lib/browse";
 import { stripMarkdownForPreview } from "@/lib/markdown-preview";
+import { plural } from "@/lib/utils";
 
-function plural(count: number, singular: string, pluralForm = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : pluralForm}`;
-}
-
-export type MovableFlashcard = {
+type MovableFlashcard = {
   id: string;
   deckId: string;
   front?: string;

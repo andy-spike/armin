@@ -5,11 +5,10 @@ import {
   prefetchBrowsePage,
   tagsQuery as tagsQueryOptions,
 } from "@/lib/queries";
-import { armin } from "@/lib/armin-client";
-import { notifySaveError } from "@/lib/notify";
+import { useUpdateFlashcard } from "@/lib/use-update-flashcard";
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CircleDot, Layers, Library, Search, Tag } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { CircleDot, Layers, Library, Search, Tag } from "lucide-react";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { FlashcardTile } from "@/components/flashcard-tile";
 import { SortControl } from "@/components/sort-control";
@@ -18,6 +17,7 @@ import { SearchableMultiSelect, SearchableSelect } from "@/components/ui/combobo
 import { EmptyState } from "@/components/ui/empty-state";
 import { VirtualFlashcardGrid } from "@/components/virtual-flashcard-grid";
 import { BrowseContentSkeleton } from "@/components/page-skeletons";
+import { QueryError } from "@/components/route-status";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -28,7 +28,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useFlashcardTileActions } from "@/components/use-flashcard-tile-actions";
-import { useToast } from "@/components/ui/toast";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
 import type { BrowseQueryFilters } from "@/lib/armin-query";
 import { useBrowse } from "@/lib/use-browse";
@@ -46,7 +45,6 @@ const SEARCH_DEBOUNCE_MS = 250;
 
 function BrowsePage() {
   const navigate = useNavigate();
-  const toast = useToast();
 
   const [sort, setSort] = useState<BrowseSortKey>(BROWSE_PAGE_SORT);
   const [stateFilter, setStateFilter] = useState<string>(ALL_STATES);
@@ -107,15 +105,7 @@ function BrowsePage() {
 
   const tileActions = useFlashcardTileActions();
 
-  const updateCard = useMutation({
-    mutationFn: (values: CardFormValues & { id: string; version: number }) =>
-      armin.flashcards.update(values),
-    onSuccess: () => {
-      toast({ tone: "success", title: "Flashcard updated" });
-      closeDialog();
-    },
-    onError: (error) => notifySaveError(toast, "Couldn’t update flashcard", error),
-  });
+  const updateCard = useUpdateFlashcard(closeDialog);
 
   // Awaited, so the dialog shows its save as busy until the server answers.
   const saveCard = async (values: CardFormValues) => {
@@ -161,18 +151,7 @@ function BrowsePage() {
       {isInitialLoading && <BrowseContentSkeleton />}
 
       {browseQuery.isError && (
-        <div className="flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center bg-relearning-bg text-relearning">
-            <AlertTriangle className="h-6 w-6" strokeWidth={1.5} />
-          </div>
-          <h3 className="text-base font-semibold text-ink">Couldn&apos;t load your flashcards</h3>
-          <p className="mt-1 max-w-[40ch] text-sm text-muted">
-            Check your connection and try again. Your saved data is safe.
-          </p>
-          <Button variant="outline" className="mt-5" onClick={browseQuery.refetch}>
-            Try again
-          </Button>
-        </div>
+        <QueryError title="Couldn’t load your flashcards" onRetry={browseQuery.refetch} />
       )}
 
       {!isInitialLoading && !browseQuery.isError && libraryTotal === 0 && (
@@ -261,7 +240,7 @@ function BrowsePage() {
               value={sort}
               onChange={setSort}
               options={BROWSE_SORT_OPTIONS}
-              inlineIcon
+              layout="inline"
               className="sm:ml-auto"
               triggerClassName="min-w-0 w-44"
             />

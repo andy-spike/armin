@@ -212,10 +212,9 @@ export function renderCard(
 
   const back = renderTemplate(template.afmt, { ...ctx, side: "back", frontSide: FRONT_MARK });
   const rule = ANSWER_RULE_RE.exec(back.html);
-  let backHtml = rule
-    ? back.html.slice(rule.index + rule[0].length)
-    : back.html.split(FRONT_MARK).join("");
-  backHtml = backHtml.split(FRONT_MARK).join("");
+  let backHtml = (rule ? back.html.slice(rule.index + rule[0].length) : back.html)
+    .split(FRONT_MARK)
+    .join("");
   // A back that only repeats the front has nothing new to show.
   if (isFieldEmpty(backHtml)) backHtml = front.html;
   return { front: front.html, back: backHtml, tts: front.tts || back.tts };

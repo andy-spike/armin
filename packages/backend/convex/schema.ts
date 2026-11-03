@@ -8,8 +8,6 @@ import { v } from "convex/values";
  * Timestamps are epoch milliseconds.
  */
 
-const legacyAgentScope = v.union(v.literal("created"), v.literal("selected"), v.literal("library"));
-
 export const fsrsFields = {
   due: v.number(),
   stability: v.number(),
@@ -68,33 +66,6 @@ const agentImportDeck = v.object({
 
 export default defineSchema({
   /**
-   * Retired dynamic client registration. No code writes these rows; the hourly
-   * prune removes them once their expiry passes.
-   */
-  agentClients: defineTable({
-    name: v.string(),
-    redirectUris: v.array(v.string()),
-    createdAt: v.number(),
-    expiresAt: v.number(),
-  }).index("by_expiry", ["expiresAt"]),
-  /** Retired consent requests from the Armin OAuth server; pruned by expiry. */
-  agentAuthorizations: defineTable({
-    requestHash: v.string(),
-    clientId: v.id("agentClients"),
-    redirectUri: v.string(),
-    state: v.string(),
-    challenge: v.string(),
-    resource: v.string(),
-    expiresAt: v.number(),
-    codeHash: v.optional(v.string()),
-    connectionId: v.optional(v.id("agentConnections")),
-    libraryId: v.optional(v.id("libraries")),
-  })
-    .index("by_request", ["requestHash"])
-    .index("by_code", ["codeHash"])
-    .index("by_expiry", ["expiresAt"])
-    .index("by_library", ["libraryId"]),
-  /**
    * One app-side record per approved assistant connection. The `@convex-dev/mcp`
    * component owns the credential; `componentConnectionId` links this row to its
    * grant. Rows are kept after revocation for provenance, activity, and retries.
@@ -103,37 +74,36 @@ export default defineSchema({
     libraryId: v.id("libraries"),
     /** Component grant id. Absent on connections from the retired OAuth server. */
     componentConnectionId: v.optional(v.string()),
-    /** @deprecated Retired OAuth client. */
-    clientId: v.optional(v.id("agentClients")),
     name: v.string(),
     /** OAuth resource audience; the component also binds tokens to it. */
     resource: v.string(),
-    /** @deprecated Per-deck permissions were removed; kept for old rows only. */
-    scope: v.optional(legacyAgentScope),
-    deckIds: v.optional(v.array(v.id("decks"))),
-    allowCreateDecks: v.optional(v.boolean()),
-    allowEdits: v.optional(v.boolean()),
     createdAt: v.number(),
     lastUsedAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
-    /** @deprecated Retired token hashes; the migration clears them. */
+    /**
+     * Unused. Rows from the retired OAuth server may still hold these values,
+     * and Convex rejects a schema that omits a field existing rows carry.
+     */
+    clientId: v.optional(v.string()),
+    scope: v.optional(v.string()),
+    deckIds: v.optional(v.array(v.id("decks"))),
+    allowCreateDecks: v.optional(v.boolean()),
+    allowEdits: v.optional(v.boolean()),
     accessHash: v.optional(v.string()),
     accessExpiresAt: v.optional(v.number()),
     refreshHash: v.optional(v.string()),
     refreshExpiresAt: v.optional(v.number()),
   })
     .index("by_library", ["libraryId"])
-    .index("by_library_revoked", ["libraryId", "revokedAt"])
     .index("by_component", ["componentConnectionId"]),
-  /** @deprecated Retired refresh-token replay records; pruned by expiry. */
-  agentUsedRefreshTokens: defineTable({
-    libraryId: v.id("libraries"),
-    connectionId: v.id("agentConnections"),
-    hash: v.string(),
+  agentRateLimits: defineTable({
+    libraryId: v.optional(v.id("libraries")),
+    key: v.string(),
+    count: v.number(),
     expiresAt: v.number(),
   })
-    .index("by_hash", ["hash"])
     .index("by_library", ["libraryId"])
+    .index("by_key", ["key"])
     .index("by_expiry", ["expiresAt"]),
   agentCreatedDecks: defineTable({
     libraryId: v.id("libraries"),
@@ -163,15 +133,6 @@ export default defineSchema({
     .index("by_connection_request", ["connectionId", "requestId"])
     .index("by_library", ["libraryId"])
     .index("by_created", ["createdAt"]),
-  agentRateLimits: defineTable({
-    libraryId: v.optional(v.id("libraries")),
-    key: v.string(),
-    count: v.number(),
-    expiresAt: v.number(),
-  })
-    .index("by_library", ["libraryId"])
-    .index("by_key", ["key"])
-    .index("by_expiry", ["expiresAt"]),
 
   /** One library per Better Auth user. */
   libraries: defineTable({
@@ -183,6 +144,7 @@ export default defineSchema({
     statsEpoch: v.optional(v.number()),
     statsReady: v.optional(v.boolean()),
     createdAt: v.number(),
+    /** Unused; only libraries already being deleted may still carry it. */
     deletionRequestedAt: v.optional(v.number()),
     reviewerResetAt: v.optional(v.number()),
   }).index("by_owner", ["ownerId"]),
@@ -324,7 +286,11 @@ export default defineSchema({
     posX: v.union(v.number(), v.null()),
     posY: v.union(v.number(), v.null()),
     locked: v.boolean(),
-    /** Permanent access milestone. Absent only on pre-policy flashcards. */
+    /**
+     * Permanent access milestone: once a card unlocks, it stays accessible.
+     * Absent only on pre-policy cards (older self-hosted data or backups);
+     * `hasPrerequisiteAccess` treats those as accessible while unlocked.
+     */
     prerequisiteAccessGranted: v.optional(v.boolean()),
     archived: v.boolean(),
     /** Incremented on every authored change; edits must name the version they started from. */
@@ -365,7 +331,6 @@ export default defineSchema({
     .index("by_flashcard", ["flashcardId"])
     .index("by_deck", ["deckId"])
     .index("by_library", ["libraryId"])
-    .index("by_library_eligible_due", ["libraryId", "locked", "archived", "due"])
     .index("by_deck_eligible_due", ["deckId", "locked", "archived", "due"]),
 
   /** Append-only review history with the pre-review state for exact undo. */
@@ -394,7 +359,6 @@ export default defineSchema({
     .index("by_unit_review", ["reviewUnitId", "review"])
     .index("by_library_review", ["libraryId", "review"])
     .index("by_library_state_review", ["libraryId", "state", "review"])
-    .index("by_library_rating_review", ["libraryId", "rating", "review"])
     .index("by_flashcard", ["flashcardId"])
     .index("by_flashcard_review", ["flashcardId", "review"])
     .index("by_deck", ["deckId"]),
@@ -509,12 +473,6 @@ export default defineSchema({
   })
     .index("by_flashcard", ["flashcardId"])
     .index("by_library_created", ["libraryId", "createdAt"])
-    .index("by_library_due", ["libraryId", "dueGroup", "due"])
-    .index("by_library_front", ["libraryId", "frontKey"])
-    .index("by_library_back", ["libraryId", "backKey"])
-    .index("by_library_locked", ["libraryId", "locked", "frontKey"])
-    .index("by_library_state", ["libraryId", "state", "frontKey"])
-    .index("by_library_deck", ["libraryId", "deckKey", "frontKey"])
     .index("by_deck_created", ["deckId", "createdAt"])
     .index("by_deck_due", ["deckId", "dueGroup", "due"])
     .index("by_deck_front", ["deckId", "frontKey"])
@@ -713,7 +671,6 @@ export default defineSchema({
     .index("by_library", ["libraryId"])
     .index("by_library_status", ["libraryId", "status"])
     .index("by_status_updated", ["status", "updatedAt"])
-    .index("by_library_updated", ["libraryId", "updatedAt"])
     .index("by_connection_updated", ["connectionId", "updatedAt"]),
 
   /** Normalized cards waiting for finalization. Never visible in the library. */
@@ -731,7 +688,6 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_import_seq", ["importId", "seq"])
-    .index("by_import_key", ["importId", "key"])
     .index("by_library", ["libraryId"]),
 
   /** Media uploaded for one staging import; cleanup preserves shared images. */

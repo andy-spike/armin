@@ -1,15 +1,8 @@
 import type { FlashcardContent, FlashcardType } from "../flashcard-types";
+import { decodeMediaName } from "./html";
 import { ANKI_MEDIA_PREFIX } from "./types";
 
 const MARKDOWN_PLACEHOLDER_RE = /!\[([^\]]*)\]\(anki-media:([^)\s]+)\)/g;
-
-function decodeName(encoded: string) {
-  try {
-    return decodeURIComponent(encoded);
-  } catch {
-    return encoded;
-  }
-}
 
 /** Tidy the gaps left where a missing image was removed. */
 function tidy(text: string) {
@@ -24,7 +17,7 @@ function resolveMarkdown(text: string, media: ReadonlyMap<string, string>, requi
   let dropped = false;
   const out = text.replace(MARKDOWN_PLACEHOLDER_RE, (_, alt: string, encoded: string) => {
     const audio = alt === "audio";
-    const ref = media.get(decodeName(encoded));
+    const ref = media.get(decodeMediaName(encoded));
     if (ref) return audio ? `![audio](${ref})` : `![](${ref})`;
     dropped = true;
     // Audio accompanies text; a card that only had audio ends up empty and is rejected.
@@ -80,7 +73,7 @@ export function resolveImportMedia(
     case "image_occlusion": {
       const c = content as { baseImage: string; header?: string; extra?: string };
       const base = c.baseImage.startsWith(ANKI_MEDIA_PREFIX)
-        ? (media.get(decodeName(c.baseImage.slice(ANKI_MEDIA_PREFIX.length))) ?? "")
+        ? (media.get(decodeMediaName(c.baseImage.slice(ANKI_MEDIA_PREFIX.length))) ?? "")
         : c.baseImage;
       return {
         ...c,

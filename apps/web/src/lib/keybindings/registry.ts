@@ -173,6 +173,17 @@ export const COMMAND_BY_ID: ReadonlyMap<CommandId, CommandDef> = new Map(
   COMMANDS.map((c) => [c.id, c]),
 );
 
+/** Commands grouped by their `group` header, preserving registry order. */
+export const COMMAND_GROUPS: readonly { group: string; commands: CommandDef[] }[] = (() => {
+  const byGroup = new Map<string, CommandDef[]>();
+  for (const cmd of COMMANDS) {
+    const list = byGroup.get(cmd.group) ?? [];
+    list.push(cmd);
+    byGroup.set(cmd.group, list);
+  }
+  return [...byGroup].map(([group, commands]) => ({ group, commands }));
+})();
+
 /** A Keymap maps every known Command id to its current binding string. */
 export type Keymap = Record<CommandId, string>;
 

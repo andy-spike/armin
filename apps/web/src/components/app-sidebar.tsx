@@ -669,8 +669,7 @@ function ThemeItem({ onThemeSettings: beforeNavigate }: { onThemeSettings: () =>
 function AccountItem({ onSettings }: { onSettings: () => void }) {
   const viewer = useViewer();
   const navigate = useNavigate();
-  const { isMobile: mobile, setOpenMobile } = useSidebar();
-  const { isMobile, state } = useSidebar();
+  const { isMobile, state, setOpenMobile } = useSidebar();
   // Above the row, at its width; the collapsed rail is too narrow for that, so
   // there it opens beside the avatar instead.
   const beside = state === "collapsed" && !isMobile;
@@ -718,7 +717,7 @@ function AccountItem({ onSettings }: { onSettings: () => void }) {
           <DropdownMenuItem
             onClick={() => {
               onSettings();
-              if (mobile) setOpenMobile(false);
+              if (isMobile) setOpenMobile(false);
               void navigate({ to: "/settings" });
             }}
           >

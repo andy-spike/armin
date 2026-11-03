@@ -73,6 +73,9 @@ export function useReviewSession({
   // Missing queue entries may have been deleted elsewhere; preview returns
   // null once the unit is gone. Each is checked once while it stays missing.
   const missingCheckedRef = useRef(new Set<string>());
+  // Units this session is archiving or deleting itself. The live queue can drop
+  // them before the mutation returns; they must not read as deleted elsewhere.
+  const removingRef = useRef(new Set<string>());
   const onRateRef = useRef(onRate);
   const loadPreviewRef = useRef(loadPreview);
   useLayoutEffect(() => {
@@ -230,7 +233,7 @@ export function useReviewSession({
       if (incomingIds.has(id)) missingCheckedRef.current.delete(id);
     }
     const unchecked = missingFromQueue(stateRef.current.cards, queue).filter(
-      (c) => !missingCheckedRef.current.has(c.id),
+      (c) => !missingCheckedRef.current.has(c.id) && !removingRef.current.has(c.id),
     );
     if (unchecked.length === 0) return;
     void Promise.all(
@@ -274,7 +277,23 @@ export function useReviewSession({
     step: (delta: -1 | 1) => {
       if (!undoing) dispatch({ type: "step", delta });
     },
-    /** Drop a unit that was archived or deleted from the session. */
+    /** Drop a unit from the session, such as a missing card the user skips. */
     remove: (reviewUnitId: string) => dispatch({ type: "removed", reviewUnitIds: [reviewUnitId] }),
+    /**
+     * Archive or delete a flashcard from the session: run the change, then
+     * drop every one of its units. A failure leaves the session unchanged.
+     */
+    removeFlashcard: async (flashcardId: string, change: () => Promise<unknown>) => {
+      const ids = stateRef.current.cards
+        .filter((c) => c.flashcardId === flashcardId)
+        .map((c) => c.id);
+      for (const id of ids) removingRef.current.add(id);
+      try {
+        await change();
+        dispatch({ type: "removed", reviewUnitIds: ids });
+      } finally {
+        for (const id of ids) removingRef.current.delete(id);
+      }
+    },
   };
 }

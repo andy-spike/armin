@@ -1,13 +1,9 @@
-import {
-  MAX_MEDIA_FILE_BYTES,
-  MIME_BY_EXT,
-  sniffMediaExt,
-  UNSUPPORTED_MEDIA_MESSAGE,
-} from "@armin/core/media";
+import { MIME_BY_EXT, sniffMediaExt, UNSUPPORTED_MEDIA_MESSAGE } from "@armin/core/media";
 import { MEDIA_STORAGE_FULL_MESSAGE } from "@armin/core/plans";
 import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { hashSecret } from "./model/agentAuth";
+import { mediaFileName, readUploadBody } from "./model/uploadBody";
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -18,21 +14,6 @@ function json(data: unknown, status = 200) {
       "X-Content-Type-Options": "nosniff",
     },
   });
-}
-
-/** Read and discard a rejected body so the caller receives the intended status. */
-async function drainBody(body: ReadableStream<Uint8Array> | null) {
-  if (!body) return;
-  const reader = body.getReader();
-  try {
-    for (;;) if ((await reader.read()).done) return;
-  } catch {
-    // The client stopped sending; the status still explains why.
-  }
-}
-
-function hex(buffer: ArrayBuffer) {
-  return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 /**
@@ -52,38 +33,16 @@ export async function uploadAgentImportMedia(ctx: ActionCtx, request: Request) {
   });
   if (!target) return json({ error: "Unauthorized or expired upload." }, 401);
 
-  const declared = Number(request.headers.get("content-length"));
-  if (declared > MAX_MEDIA_FILE_BYTES) {
-    await drainBody(request.body);
-    return json({ error: "File too large." }, 413);
-  }
-  const reader = request.body?.getReader();
-  if (!reader) return json({ error: "File is empty." }, 400);
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  let tooLarge = false;
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    if (tooLarge) continue;
-    size += value.byteLength;
-    if (size > MAX_MEDIA_FILE_BYTES) {
-      tooLarge = true;
-      chunks.length = 0;
-      continue;
-    }
-    chunks.push(value);
-  }
-  if (tooLarge) return json({ error: "File too large." }, 413);
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.length;
-  }
+  const body = await readUploadBody(request);
+  if ("error" in body)
+    return body.error === "tooLarge"
+      ? json({ error: "File too large." }, 413)
+      : json({ error: "File is empty." }, 400);
+  const { bytes } = body;
+  const size = bytes.byteLength;
   const ext = sniffMediaExt(bytes);
   if (!ext) return json({ error: `${UNSUPPORTED_MEDIA_MESSAGE} SVG is not accepted.` }, 415);
-  const fileName = `${hex(await crypto.subtle.digest("SHA-256", bytes))}.${ext}`;
+  const fileName = await mediaFileName(bytes, ext);
   const mime = MIME_BY_EXT[ext];
   const storageId = await ctx.storage.store(new Blob([bytes], { type: mime }));
   try {

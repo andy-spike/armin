@@ -1,7 +1,7 @@
 import { ConvexError } from "convex/values";
 import { api } from "@armin/backend/api";
 import type { Id } from "@armin/backend/types";
-import { resolveImportMedia, type ImportDeck, type ImportPlan } from "@armin/core/anki";
+import { resolveImportMedia, uniqueDeckNames, type ImportPlan } from "@armin/core/anki";
 import {
   generateReviewUnits,
   validateContent,
@@ -29,7 +29,6 @@ import type { AnkiReader } from "./reader";
  * failure or cancellation removes everything the import created.
  */
 
-const MAX_NAME_CHARS = 120;
 // Backend per-call caps (packages/backend/convex/imports.ts).
 const MAX_CARDS_PER_CALL = 100;
 const MAX_UNITS_PER_CALL = 1500;
@@ -85,15 +84,15 @@ function throwIfAborted(signal: AbortSignal) {
 
 function sleep(ms: number, signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timer);
-        reject(new ImportCancelledError());
-      },
-      { once: true },
-    );
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new ImportCancelledError());
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
   });
 }
 
@@ -118,22 +117,6 @@ async function withRetry<T>(signal: AbortSignal, run: () => Promise<T>) {
       await sleep(600 * 2 ** attempt, signal);
     }
   }
-}
-
-/** Deck names must be unique within one import: "Spanish", "Spanish (2)". */
-export function uniqueDeckNames(decks: ImportDeck[]) {
-  const used = new Set<string>();
-  return decks.map((deck) => {
-    let name = deck.name;
-    for (let n = 2; used.has(name.toLowerCase()); n++) {
-      const suffix = ` (${n})`;
-      let base = deck.name.slice(0, MAX_NAME_CHARS - suffix.length);
-      if (/[\ud800-\udbff]$/.test(base)) base = base.slice(0, -1);
-      name = `${base.trimEnd()}${suffix}`;
-    }
-    used.add(name.toLowerCase());
-    return name;
-  });
 }
 
 /**

@@ -3,7 +3,7 @@ import { flashcardDisplay } from "@armin/core/flashcard-types";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Id } from "./_generated/dataModel";
-import { ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
+import { ownedOrFail, readableDeck, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
 import { linkPrerequisites, unlinkPrerequisite } from "./model/prereqs";
 import { bumpRevision, libraryRevision, parseFlashcard } from "./model/study";
@@ -13,9 +13,8 @@ export const getDeck = query({
   handler: async (ctx, { deckId }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const id = ctx.db.normalizeId("decks", deckId);
-    const deck = id ? await ctx.db.get(id) : null;
-    if (!deck || deck.libraryId !== library._id || deck.staging) return null;
+    const deck = await readableDeck(ctx, library, deckId);
+    if (!deck) return null;
     const flashcards = await ctx.db
       .query("flashcards")
       .withIndex("by_deck", (q) => q.eq("deckId", deck._id))

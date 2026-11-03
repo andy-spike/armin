@@ -4,9 +4,19 @@ import {
   type FlashcardContent,
   type FlashcardType,
 } from "../flashcard-types";
+import {
+  MAX_CONTENT_CHARS,
+  MAX_INTERVAL_MAX,
+  MAX_NAME_CHARS,
+  MAX_REVIEW_UNITS_PER_FLASHCARD,
+  MAX_TAG_CHARS,
+  MAX_TAGS_PER_FLASHCARD,
+  RETENTION_MAX,
+  RETENTION_MIN,
+} from "../limits";
 import { normalizeTags } from "../study";
 import { convertAnkiCloze, dropEmptyClozes, limitClozeClusters } from "./cloze";
-import { decodeEntities, htmlToMarkdown, inspectImage } from "./html";
+import { decodeEntities, decodeMediaName, htmlToMarkdown, inspectImage } from "./html";
 import { classifyNotetype, type NotetypeKind } from "./notetype";
 import { parseOcclusion } from "./occlusion";
 import { scheduleCard } from "./schedule";
@@ -31,14 +41,6 @@ import type {
   ImportWarningCode,
 } from "./types";
 
-// Mirrors the backend's library limits (packages/backend/convex/model/limits.ts),
-// which core can't import.
-const MAX_CONTENT_CHARS = 20_000;
-const MAX_NAME_CHARS = 120;
-const MAX_TAGS = 20;
-const MAX_TAG_CHARS = 60;
-const MAX_UNITS_PER_FLASHCARD = 60;
-
 /** Length an `armin-media:` reference will have once a placeholder is swapped for it. */
 const MEDIA_REF_LENGTH = "armin-media:".length + 64 + ".webp".length;
 
@@ -51,6 +53,22 @@ function cut(text: string, length: number) {
 }
 
 /** The Armin deck name for an Anki deck path. */
+/** Deck names must be unique within one import: "Spanish", "Spanish (2)". */
+export function uniqueDeckNames(decks: readonly { name: string }[]) {
+  const used = new Set<string>();
+  return decks.map((deck) => {
+    let name = deck.name;
+    for (let n = 2; used.has(name.toLowerCase()); n++) {
+      const suffix = ` (${n})`;
+      let base = deck.name.slice(0, MAX_NAME_CHARS - suffix.length);
+      if (/[\ud800-\udbff]$/.test(base)) base = base.slice(0, -1);
+      name = `${base.trimEnd()}${suffix}`;
+    }
+    used.add(name.toLowerCase());
+    return name;
+  });
+}
+
 export function armDeckName(ankiPath: string) {
   const parts = ankiPath
     .split("::")
@@ -153,10 +171,12 @@ export function deckSettingsFromConfig(config: AnkiDeckConfig): ImportDeckSettin
   const params = config.fsrsParams.map((value) => Math.round(value * 10_000) / 10_000);
   const settings: ImportDeckSettings = {
     requestRetention:
-      retention !== null && retention >= 0.7 && retention <= 0.99 ? retention : null,
+      retention !== null && retention >= RETENTION_MIN && retention <= RETENTION_MAX
+        ? retention
+        : null,
     maximumInterval:
       config.maximumInterval !== null && config.maximumInterval >= 1
-        ? Math.min(36_500, Math.round(config.maximumInterval))
+        ? Math.min(MAX_INTERVAL_MAX, Math.round(config.maximumInterval))
         : null,
     learningSteps: formatSteps(config.learnSteps),
     relearningSteps: formatSteps(config.relearnSteps),
@@ -174,13 +194,8 @@ type Content = { type: FlashcardType; content: FlashcardContent };
 
 function mediaIn(content: FlashcardContent) {
   const names = new Set<string>();
-  for (const match of JSON.stringify(content).matchAll(PLACEHOLDER_RE)) {
-    try {
-      names.add(decodeURIComponent(match[1]));
-    } catch {
-      names.add(match[1]);
-    }
-  }
+  for (const match of JSON.stringify(content).matchAll(PLACEHOLDER_RE))
+    names.add(decodeMediaName(match[1]));
   return [...names];
 }
 
@@ -305,7 +320,7 @@ function prepareCloze(
   if (converted.nested) ctx.warnings.add("nested_cloze_flattened");
   if (converted.shared) ctx.warnings.add("shared_cloze_narrowed");
   let text = dropEmptyClozes(ctx.md(converted.text));
-  const limited = limitClozeClusters(text, MAX_UNITS_PER_FLASHCARD);
+  const limited = limitClozeClusters(text, MAX_REVIEW_UNITS_PER_FLASHCARD);
   if (limited.trimmed) ctx.warnings.add("content_truncated");
   text = limited.text;
   if (!text.trim()) return EMPTY;
@@ -355,7 +370,7 @@ function prepareOcclusion(
     ctx.warnings.add(image.reason);
     return EMPTY;
   }
-  const masks = parsed.masks.slice(0, MAX_UNITS_PER_FLASHCARD);
+  const masks = parsed.masks.slice(0, MAX_REVIEW_UNITS_PER_FLASHCARD);
   if (masks.length < parsed.masks.length) ctx.warnings.add("content_truncated");
   if (masks.some((mask) => mask.approximated)) ctx.warnings.add("occlusion_shape_approximated");
   const round = (value: number) => Math.round(value * 10_000) / 10_000;
@@ -399,8 +414,8 @@ function convertTags(tags: string[]) {
     return cut(tag, MAX_TAG_CHARS).trim();
   });
   const unique = normalizeTags(shortened);
-  if (unique.length > MAX_TAGS) trimmed = true;
-  return { tags: unique.slice(0, MAX_TAGS), trimmed };
+  if (unique.length > MAX_TAGS_PER_FLASHCARD) trimmed = true;
+  return { tags: unique.slice(0, MAX_TAGS_PER_FLASHCARD), trimmed };
 }
 
 // --- Card ↔ review unit mapping ---
@@ -659,7 +674,7 @@ function finishFlashcard(
   }
 
   const specs = generateReviewUnits(type, content);
-  if (specs.length === 0 || specs.length > MAX_UNITS_PER_FLASHCARD) return null;
+  if (specs.length === 0 || specs.length > MAX_REVIEW_UNITS_PER_FLASHCARD) return null;
 
   const byOrd = new Map(candidate.cards.map((card) => [card.ord, card]));
   const units: ImportReviewUnit[] = specs.map((spec) => {

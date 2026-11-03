@@ -164,18 +164,6 @@ export function toFlowNode(
   };
 }
 
-export function graphToFlowElements(
-  graph: UiDeckGraph,
-  savedPositions?: Map<string, { x: number; y: number }>,
-): { nodes: CardFlowNode[]; edges: Edge[] } {
-  const incidentNodeIds = incidentNodeIdsOf(graph.edges);
-  const nodes: CardFlowNode[] = graph.nodes.map((n, index) =>
-    toFlowNode(n, incidentNodeIds, savedPositions?.get(n.id) ?? fallbackPositionFor(index)),
-  );
-  const edges = graph.edges.map((e) => makeFlowEdge(e.prereqId, e.dependentId));
-  return { nodes, edges };
-}
-
 /**
  * Yield the renderer thread between chunks so Electron/browser input and
  * navigation can run during a large initial graph build. Prefers
@@ -198,8 +186,7 @@ type BuildGraphFlowElementsOptions = {
 };
 
 /**
- * Abortable, chunked version of {@link graphToFlowElements}. Builds flow nodes
- * and edges in bounded batches, yielding between batches so a large Deck graph
+ * Builds flow nodes and edges in abortable, bounded batches, yielding between batches so a large Deck graph
  * doesn't monopolize the renderer thread. Resolves `null` if the signal aborts
  * before the build finishes, so a cancelled load never commits into an
  * unmounted canvas.

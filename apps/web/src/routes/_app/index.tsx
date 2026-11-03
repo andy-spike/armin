@@ -3,7 +3,8 @@ import { cn, plural } from "@/lib/utils";
 import { armin, errorMessage, newRequestId } from "@/lib/armin-client";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Layers, Plus, AlertTriangle, Ellipsis, Upload, ArrowRight } from "lucide-react";
+import { Layers, Plus, Ellipsis, Upload, ArrowRight } from "lucide-react";
+import { QueryError } from "@/components/route-status";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AutoGrowTextarea } from "@/components/ui/auto-grow-textarea";
@@ -134,18 +135,7 @@ function DecksPage() {
       {decksQuery.isLoading && <DeckGridSkeleton />}
 
       {decksQuery.isError && (
-        <div className="flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center bg-relearning-bg text-relearning">
-            <AlertTriangle className="h-6 w-6" strokeWidth={1.5} />
-          </div>
-          <h3 className="text-base font-semibold text-ink">Couldn&apos;t load your decks</h3>
-          <p className="mt-1 max-w-[40ch] text-sm text-muted">
-            Check your connection and try again. Your saved data is safe.
-          </p>
-          <Button variant="outline" className="mt-5" onClick={() => void decksQuery.refetch()}>
-            Try again
-          </Button>
-        </div>
+        <QueryError title="Couldn’t load your decks" onRetry={() => void decksQuery.refetch()} />
       )}
 
       {!decksQuery.isLoading && !decksQuery.isError && decks.length === 0 && (

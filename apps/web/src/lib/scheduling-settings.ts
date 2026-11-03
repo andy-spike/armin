@@ -1,3 +1,12 @@
+import {
+  MAX_INTERVAL_MAX,
+  MAX_INTERVAL_MIN,
+  PER_DAY_LIMIT_MAX,
+  RETENTION_MAX,
+  RETENTION_MIN,
+  STABILITY_FLOOR_MAX,
+} from "@armin/core/limits";
+
 export type StepDuration = {
   minutes: number;
   seconds: number;
@@ -5,16 +14,13 @@ export type StepDuration = {
 
 const STEP_TOKEN = /^(\d+)([mhd])$/i;
 
-export const RETENTION_MIN = 0.7;
-export const RETENTION_MAX = 0.99;
-export const MAX_INTERVAL_MIN = 1;
-export const MAX_INTERVAL_MAX = 36500;
+export { MAX_INTERVAL_MAX, MAX_INTERVAL_MIN, RETENTION_MAX, RETENTION_MIN, STABILITY_FLOOR_MAX };
+/** The UI asks for a usable floor; the server also accepts 0. */
 export const STABILITY_FLOOR_MIN = 0.1;
-export const STABILITY_FLOOR_MAX = 365;
 export const NEW_CARDS_PER_DAY_MIN = 0;
-export const NEW_CARDS_PER_DAY_MAX = 999;
+export const NEW_CARDS_PER_DAY_MAX = PER_DAY_LIMIT_MAX;
 export const REVIEWS_PER_DAY_MIN = 0;
-export const REVIEWS_PER_DAY_MAX = 999;
+export const REVIEWS_PER_DAY_MAX = PER_DAY_LIMIT_MAX;
 
 export function formatRetentionPercent(value: number): string {
   return String(Math.round(value * 100));

@@ -1,8 +1,9 @@
 import { v } from "convex/values";
+import { shuffle } from "@armin/core/study";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Id } from "./_generated/dataModel";
-import { owned, readableLibrary, writableLibrary } from "./model/access";
+import { owned, readableDeck, readableLibrary, writableLibrary } from "./model/access";
 import {
   cleanCramStates,
   cleanCramTag,
@@ -10,7 +11,7 @@ import {
   selectCramUnits,
   type CramSelection,
 } from "./model/cram";
-import { queueDescriptors, toQueueItems } from "./model/queue";
+import { queueDescriptors } from "./model/queue";
 import { findRequest, recordRequest } from "./model/study";
 
 /**
@@ -37,14 +38,11 @@ type SelectionArgs = {
 };
 
 /** Resolve the deck and library for a cram read; null means "not found". */
-async function readableDeck(ctx: Parameters<typeof readableLibrary>[0], deckIdArg: string) {
+async function cramDeck(ctx: Parameters<typeof readableLibrary>[0], deckIdArg: string) {
   const library = await readableLibrary(ctx);
   if (!library) return null;
-  const deckId = ctx.db.normalizeId("decks", deckIdArg);
-  if (!deckId) return null;
-  const deck = await ctx.db.get(deckId);
-  if (!deck || deck.libraryId !== library._id || deck.staging) return null;
-  return { library, deckId };
+  const deck = await readableDeck(ctx, library, deckIdArg);
+  return deck ? { library, deckId: deck._id } : null;
 }
 
 function selectionFrom(args: SelectionArgs, deckId: Id<"decks">): CramSelection {
@@ -61,7 +59,7 @@ function selectionFrom(args: SelectionArgs, deckId: Id<"decks">): CramSelection 
 export const count = query({
   args: selectionArgs,
   handler: async (ctx, args) => {
-    const found = await readableDeck(ctx, args.deckId);
+    const found = await cramDeck(ctx, args.deckId);
     if (!found) return null;
     const units = await selectCramUnits(
       ctx,
@@ -73,16 +71,17 @@ export const count = query({
   },
 });
 
-/** Every review unit matching a cram setup; the client shuffles and limits it. */
+/** The review units matching a cram setup, shuffled by `seed` and limited to `max`. */
 export const queue = query({
   args: {
     ...selectionArgs,
     max: v.optional(v.number()),
+    /** Accepted for clients that still send it; items are always metadata. */
     metadataOnly: v.optional(v.boolean()),
     seed: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const found = await readableDeck(ctx, args.deckId);
+    const found = await cramDeck(ctx, args.deckId);
     if (!found) return null;
     const units = await selectCramUnits(
       ctx,
@@ -90,21 +89,19 @@ export const queue = query({
       selectionFrom(args, found.deckId),
       Date.now(),
     );
+    // A seeded generator keeps one session's order stable across reactive re-runs.
     let random = (args.seed ?? 1) | 0;
-    const shuffled = [...units];
-    for (let i = shuffled.length - 1; i > 0; i--) {
+    const nextRandom = () => {
       random = (Math.imul(random, 1664525) + 1013904223) | 0;
-      const j = Math.floor(((random >>> 0) / 4294967296) * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
-    }
+      return (random >>> 0) / 4294967296;
+    };
+    const shuffled = shuffle([...units], nextRandom);
     const max =
       args.max == null
         ? shuffled.length
         : Math.max(1, Math.min(shuffled.length, Math.floor(args.max)));
     return {
-      items: args.metadataOnly
-        ? queueDescriptors(shuffled.slice(0, max))
-        : await toQueueItems(ctx, shuffled.slice(0, max)),
+      items: queueDescriptors(shuffled.slice(0, max)),
     };
   },
 });
@@ -128,12 +125,12 @@ export const rate = mutation({
   },
   handler: async (ctx, args): Promise<CramRateResult> => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "cram.rate");
     if (previous) return previous.result as CramRateResult;
 
     const now = Date.now();
     const unit = await owned(ctx, library, args.reviewUnitId);
-    if (!unit || unit.libraryId !== library._id) {
+    if (!unit) {
       return { status: "stale", message: "This review unit no longer exists." };
     }
     const cramLogId = await ctx.db.insert("cramLogs", {
@@ -165,7 +162,7 @@ export const undo = mutation({
   args: { cramLogId: v.id("cramLogs"), requestId: v.string() },
   handler: async (ctx, args): Promise<CramUndoResult> => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "cram.undo");
     if (previous) return previous.result as CramUndoResult;
 
     const now = Date.now();

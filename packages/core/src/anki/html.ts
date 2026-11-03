@@ -11,7 +11,7 @@ import { renderMath } from "../math-render";
 
 const SUPPORTED_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"]);
 /** Audio Armin plays; the bytes are sniffed again on upload (`sniffAudioExt`). */
-export const SUPPORTED_AUDIO_EXTENSIONS = new Set([
+const SUPPORTED_AUDIO_EXTENSIONS = new Set([
   "mp3",
   "ogg",
   "oga",
@@ -268,7 +268,7 @@ function textOf(nodes: HtmlNode[]): string {
     .join("");
 }
 
-function imageExtension(name: string) {
+function fileExtension(name: string) {
   const dot = name.lastIndexOf(".");
   return dot === -1 ? "" : name.slice(dot + 1).toLowerCase();
 }
@@ -281,14 +281,29 @@ export type ImageCheck =
   | { ok: true; name: string; placeholder: string }
   | { ok: false; reason: "missing_media" | "unsupported_image_removed" };
 
-function packageName(rawSrc: string) {
-  let name = rawSrc.trim();
+/** A percent-encoded media name, or the raw name when it isn't valid percent-encoding. */
+export function decodeMediaName(encoded: string) {
   try {
-    name = decodeURIComponent(name);
+    return decodeURIComponent(encoded);
   } catch {
-    // Keep the raw name when it isn't valid percent-encoding.
+    return encoded;
   }
-  return name;
+}
+
+/**
+ * The package file a media reference names, with its lowercase extension.
+ * Remote and inline sources aren't part of the package, so they give null and
+ * count as missing.
+ */
+function packageFile(rawSrc: string) {
+  if (/^(?:https?:|data:|\/\/)/i.test(rawSrc.trim())) return null;
+  const name = decodeMediaName(rawSrc.trim());
+  return { name, ext: fileExtension(name) };
+}
+
+/** Whether a package file name has an audio extension Armin plays. */
+export function isSupportedAudioName(name: string) {
+  return SUPPORTED_AUDIO_EXTENSIONS.has(fileExtension(name));
 }
 
 /** Check an `<img src>` against the package media and Armin's supported formats. */
@@ -297,10 +312,9 @@ export function inspectImage(
   mediaNames: ReadonlySet<string>,
   svg = false,
 ): ImageCheck {
-  // Remote images aren't part of the package, so they count as missing.
-  if (/^(?:https?:|data:|\/\/)/i.test(rawSrc.trim())) return { ok: false, reason: "missing_media" };
-  const name = packageName(rawSrc);
-  const ext = imageExtension(name);
+  const file = packageFile(rawSrc);
+  if (!file) return { ok: false, reason: "missing_media" };
+  const { name, ext } = file;
   if (!SUPPORTED_IMAGE_EXTENSIONS.has(ext) && !(svg && ext === "svg")) {
     return { ok: false, reason: "unsupported_image_removed" };
   }
@@ -314,9 +328,9 @@ export type AudioCheck =
 
 /** Check a `[sound:…]` or `<audio src>` file against the package media and Armin's formats. */
 export function inspectAudio(rawSrc: string, mediaNames: ReadonlySet<string>): AudioCheck {
-  if (/^(?:https?:|data:|\/\/)/i.test(rawSrc.trim())) return { ok: false, reason: "missing_media" };
-  const name = packageName(rawSrc);
-  const ext = imageExtension(name);
+  const file = packageFile(rawSrc);
+  if (!file) return { ok: false, reason: "missing_media" };
+  const { name, ext } = file;
   if (VIDEO_EXTENSIONS.has(ext)) return { ok: false, reason: "video_removed" };
   if (!SUPPORTED_AUDIO_EXTENSIONS.has(ext)) return { ok: false, reason: "audio_removed" };
   if (!mediaNames.has(name)) return { ok: false, reason: "missing_media" };

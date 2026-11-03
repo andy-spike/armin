@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   deckQuery as deckQueryOptions,
   graphQuery as graphQueryOptions,
@@ -8,13 +8,14 @@ import { useStudyClock } from "@/lib/study-clock";
 import { armin } from "@/lib/armin-client";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, GitBranch, Layers } from "lucide-react";
+import { GitBranch } from "lucide-react";
 import type { Viewport, XYPosition } from "@xyflow/react";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { PrerequisiteGraph } from "@/components/prerequisite-graph/prerequisite-graph";
 import { Button } from "@/components/ui/button";
 import { GraphSkeleton } from "@/components/page-skeletons";
-import { Dialog } from "@/components/ui/dialog";
+import { DeleteFlashcardDialog } from "@/components/delete-consequences-list";
+import { AllDecksLink, DeckNotFound } from "@/components/deck-not-found";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { useGraphCanvasEdits } from "@/lib/use-graph-canvas-edits";
@@ -26,43 +27,7 @@ import {
   type UiDeckGraph,
 } from "@/types/view-models";
 import { cn } from "@/lib/utils";
-import { markGraphPerf, measureGraphPerf } from "@/lib/graph-perf";
-
-function afterRoutePaint(work: () => void) {
-  let done = false;
-  let inner = 0;
-  const run = () => {
-    if (done) return;
-    done = true;
-    work();
-  };
-  const outer = requestAnimationFrame(() => {
-    inner = requestAnimationFrame(run);
-  });
-  const timeout = window.setTimeout(run, 100);
-  return () => {
-    done = true;
-    cancelAnimationFrame(outer);
-    cancelAnimationFrame(inner);
-    window.clearTimeout(timeout);
-  };
-}
-
-function plural(count: number, singular: string, pluralForm = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : pluralForm}`;
-}
-
-function formatReviewHistory(consequences: FlashcardDeleteConsequences | null) {
-  if (!consequences) return "Loading review history…";
-  if (consequences.reviewLogCount === 0) {
-    return `No review history will be destroyed across ${plural(consequences.reviewUnitCount, "review unit")}.`;
-  }
-
-  const first = consequences.firstReviewAt?.toLocaleDateString();
-  const last = consequences.lastReviewAt?.toLocaleDateString();
-  const span = first && last ? ` from ${first} to ${last}` : "";
-  return `${plural(consequences.reviewLogCount, "review log")} across ${plural(consequences.reviewUnitCount, "review unit")} will be destroyed${span}.`;
-}
+import { afterCanvasPaint, markGraphPerf, measureGraphPerf } from "@/lib/graph-perf";
 
 function readSavedViewport(storageKey: string): Viewport | undefined {
   try {
@@ -160,10 +125,10 @@ function DeckGraphPage() {
   // page.
   useEffect(() => {
     if (!graphReady || canvasMounted) return;
-    return afterRoutePaint(() => {
+    return afterCanvasPaint(() => {
       markGraphPerf("reactFlow:mount");
       setCanvasMounted(true);
-    });
+    }, 100);
   }, [graphReady, canvasMounted]);
 
   const closeDialog = () => setOpen(false);
@@ -210,8 +175,6 @@ function DeckGraphPage() {
     graph,
     setGraph,
     deckId,
-    createDeckId: deckId,
-    inheritedDeckId: deckId,
     pendingPlacement,
     pendingConnectFrom,
     editingId,
@@ -237,23 +200,8 @@ function DeckGraphPage() {
     return (
       <div>
         <h1 className="sr-only">Deck not found</h1>
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1 rounded-sm text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          <ArrowLeft className="h-4 w-4" /> All decks
-        </Link>
-        <EmptyState
-          className="mt-8"
-          icon={Layers}
-          title="Deck not found"
-          description="This deck doesn't exist in your library. It may have been removed or the link is stale."
-          action={
-            <Link to="/">
-              <Button variant="outline">Back to decks</Button>
-            </Link>
-          }
-        />
+        <AllDecksLink />
+        <DeckNotFound />
       </div>
     );
   }
@@ -335,47 +283,15 @@ function DeckGraphPage() {
         onSubmit={graphEdits.saveCard}
         deckId={deckId}
       />
-      <Dialog
+      <DeleteFlashcardDialog
         open={Boolean(deleteId)}
+        consequences={deleteConsequences}
+        consequencesUnavailable={deleteConsequencesError}
+        waitForConsequences
+        pending={graphEdits.deletePending}
         onClose={() => setDeleteId(null)}
-        title="Delete flashcard?"
-        description="This flashcard will be permanently hard-deleted."
-      >
-        <div className="space-y-3 text-sm text-muted">
-          <p>
-            Archive from the deck or browse view if you want a reversible way to set this aside.
-            Delete removes the flashcard, its review units, and its review history permanently.
-          </p>
-          <ul className="space-y-1 rounded-md border border-border bg-surface-sunken p-3">
-            <li>
-              {deleteConsequencesError
-                ? "Dependent count could not be loaded."
-                : deleteConsequences
-                  ? `${plural(deleteConsequences.dependentCount, "dependent")} will be unlocked or recomputed.`
-                  : "Loading dependent count…"}
-            </li>
-            <li>
-              {deleteConsequencesError
-                ? "Review history could not be loaded."
-                : formatReviewHistory(deleteConsequences)}
-            </li>
-          </ul>
-        </div>
-        <div className="mt-5 flex flex-wrap justify-end gap-2 pt-1">
-          {/* Focus the safe action when the dialog opens from a key press. */}
-          <Button variant="ghost" autoFocus onClick={() => setDeleteId(null)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={!deleteConsequences}
-            busy={graphEdits.deletePending}
-            onClick={() => void confirmGraphDelete()}
-          >
-            Delete flashcard
-          </Button>
-        </div>
-      </Dialog>
+        onConfirm={() => void confirmGraphDelete()}
+      />
     </div>
   );
 }

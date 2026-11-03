@@ -2,7 +2,7 @@ import type { ImageOcclusionContent } from "@armin/core/flashcard-types";
 import { mediaDisplayUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 
-export function isImageOcclusionMaskHidden({
+function isImageOcclusionMaskHidden({
   revealMode,
   targetId,
   maskId,

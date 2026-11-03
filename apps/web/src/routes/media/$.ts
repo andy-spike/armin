@@ -30,18 +30,13 @@ export const Route = createFileRoute("/media/$")({
           },
         });
       },
-      GET: ({ params, request }) => {
+      GET: ({ params }) => {
         const fileName = params._splat ?? "";
         if (!isSafeMediaFileName(fileName)) {
           return new Response("Not found", { status: 404 });
         }
-        const preview =
-          new URL(request.url).searchParams.get("preview") === "1" ? "?preview=1" : "";
         // Files are named by a hash of their bytes and never change.
-        return proxyAuthenticated(
-          `/media/${fileName}${preview}`,
-          "private, max-age=31536000, immutable",
-        );
+        return proxyAuthenticated(`/media/${fileName}`, "private, max-age=31536000, immutable");
       },
     },
   },

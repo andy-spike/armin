@@ -67,13 +67,3 @@ export function cramSessionKey(deckId: string, search: CramSearch) {
     search.max ?? "all",
   ].join("|");
 }
-
-/** Fisher–Yates, so a session order is not biased by due time. */
-export function shuffleCramItems<T>(items: T[]) {
-  const shuffled = [...items];
-  for (let i = shuffled.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
-  }
-  return shuffled;
-}

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { BackToDeckLink, SessionDeckNotFound } from "@/components/deck-not-found";
 import { Button } from "@/components/ui/button";
 import { ReviewSession } from "@/components/review-session";
 import { armin } from "@/lib/armin-client";
@@ -22,24 +22,14 @@ function CramPage() {
   const [seed] = useState(() => Math.floor(Math.random() * 4294967296));
   const queueQuery = useQuery(cramQueueQuery(deckId, filters, search.max, seed));
 
-  // Shuffle and apply the session cap before hydrating any card content.
+  // The server already shuffled and capped the queue.
   const queue = useMemo(
     () => (queueQuery.data?.items ?? []).map(toUiReviewUnit),
     [queueQuery.data],
   );
 
   if (!deckQuery.isLoading && !deckQuery.isError && !deckQuery.data) {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="mt-16 flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">
-          <h2 className="text-xl font-semibold">Deck not found</h2>
-          <p className="mt-1 text-sm text-muted">This deck isn&apos;t in your library anymore.</p>
-          <Link to="/" className="mt-6">
-            <Button variant="outline">Back to decks</Button>
-          </Link>
-        </div>
-      </div>
-    );
+    return <SessionDeckNotFound />;
   }
 
   return (
@@ -72,13 +62,7 @@ function CramPage() {
       }
       header={
         <div className="min-w-0">
-          <Link
-            to="/deck/$deckId"
-            params={{ deckId: deckSlug }}
-            className="inline-flex items-center gap-1 rounded-sm text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to deck
-          </Link>
+          <BackToDeckLink deckSlug={deckSlug} />
           <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">Cram</h1>
         </div>
       }

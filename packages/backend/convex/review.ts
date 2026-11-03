@@ -12,7 +12,7 @@ import { formatInterval, startOfNextStudyDayMs } from "@armin/core/study";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
-import { owned, readableLibrary, writableLibrary } from "./model/access";
+import { owned, readableDeck, readableLibrary, writableLibrary } from "./model/access";
 import {
   checkEligible,
   isBuried,
@@ -41,26 +41,24 @@ const GRADES: Grade[] = [Rating.Again, Rating.Hard, Rating.Good, Rating.Easy];
  * first) followed by today's shared Frontier. `now` is a client clock tick so
  * the subscription re-evaluates as time passes even without writes. `deckId`
  * is a string so a malformed route id returns "not found" instead of failing
- * Convex argument validation.
+ * Convex argument validation. Items are metadata only; card content comes
+ * from `items`. Clients still send `metadataOnly: true`, which is accepted.
  */
 export const queue = query({
   args: { deckId: v.optional(v.string()), now: v.number(), metadataOnly: v.optional(v.boolean()) },
-  handler: async (ctx, { deckId: deckIdArg, now, metadataOnly }) => {
+  handler: async (ctx, { deckId: deckIdArg, now }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
     let deckId: Id<"decks"> | null = null;
     if (deckIdArg !== undefined) {
-      deckId = ctx.db.normalizeId("decks", deckIdArg);
-      if (!deckId) return null;
-      const deck = await ctx.db.get(deckId);
-      if (!deck || deck.libraryId !== library._id || deck.staging) return null;
+      const deck = await readableDeck(ctx, library, deckIdArg);
+      if (!deck) return null;
+      deckId = deck._id;
     }
     const { reviews, frontier } = await selectSession(ctx, library, deckId, now);
     const nextDue = await nextDueAfter(ctx, library, deckId, now);
     return {
-      items: metadataOnly
-        ? queueDescriptors([...reviews, ...frontier])
-        : await toQueueItems(ctx, [...reviews, ...frontier]),
+      items: queueDescriptors([...reviews, ...frontier]),
       reviewCount: reviews.length,
       newCount: frontier.length,
       nextDueAt: nextDue,
@@ -135,12 +133,13 @@ async function nextDueAfter(
 
 /** The four possible outcomes for a review unit, without committing. */
 export const preview = query({
+  // Clients still send `now`; previews always use server time.
   args: { reviewUnitId: v.id("reviewUnits"), now: v.number() },
   handler: async (ctx, { reviewUnitId }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
     const unit = await owned(ctx, library, reviewUnitId);
-    if (!unit || unit.libraryId !== library._id) return null;
+    if (!unit) return null;
     const settings = new SettingsCache(ctx, library._id);
     const scheduler = schedulerFor(await settings.forDeck(unit.deckId));
     const now = Date.now();
@@ -301,12 +300,12 @@ export const rate = mutation({
   },
   handler: async (ctx, args): Promise<RateResult> => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "review.rate");
     if (previous) return previous.result as RateResult;
 
     const now = Date.now();
     const unit = await owned(ctx, library, args.reviewUnitId);
-    if (!unit || unit.libraryId !== library._id) {
+    if (!unit) {
       return { status: "stale", message: "This review unit no longer exists." };
     }
     if (unit.version !== args.expectedVersion) {
@@ -336,7 +335,7 @@ export const rate = mutation({
     // An accepted review proves this flashcard was accessible, including root
     // cards. Later prerequisite edits and Undo must not revoke that access.
     const flashcard = await ctx.db.get(unit.flashcardId);
-    if (flashcard && flashcard.prerequisiteAccessGranted !== true) {
+    if (flashcard && !flashcard.prerequisiteAccessGranted) {
       await ctx.db.patch(flashcard._id, { prerequisiteAccessGranted: true });
     }
     const reviewLogId = await ctx.db.insert("reviewLogs", {
@@ -397,7 +396,7 @@ export const undo = mutation({
   },
   handler: async (ctx, args): Promise<UndoResult> => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "review.undo");
     if (previous) return previous.result as UndoResult;
 
     const now = Date.now();
@@ -463,7 +462,7 @@ export const bury = mutation({
   args: { flashcardId: v.id("flashcards"), requestId: v.string() },
   handler: async (ctx, args): Promise<BuryResult> => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "review.bury");
     if (previous) return previous.result as BuryResult;
 
     const now = Date.now();
@@ -523,7 +522,7 @@ export const unbury = mutation({
   },
   handler: async (ctx, args): Promise<UnburyResult> => {
     const library = await writableLibrary(ctx);
-    const previous = await findRequest(ctx, library._id, args.requestId);
+    const previous = await findRequest(ctx, library._id, args.requestId, "review.unbury");
     if (previous) return previous.result as UnburyResult;
 
     const flashcard = await owned(ctx, library, args.flashcardId);

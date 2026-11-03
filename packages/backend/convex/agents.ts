@@ -287,62 +287,18 @@ export const revokeAccountGrants = internalMutation({
   },
 });
 
-/**
- * Bounded migration for connections created by the retired Armin OAuth server.
- * They have no component grant, so their stored token hashes can never
- * authenticate again; clear them and mark the rows revoked while keeping the
- * rows, provenance ids, activity, and retry records.
- */
-export const retireLegacyConnections = internalMutation({
-  args: { cursor: v.optional(v.union(v.string(), v.null())) },
-  handler: async (ctx, { cursor }) => {
-    const page = await ctx.db
-      .query("agentConnections")
-      .withIndex("by_component", (q) => q.eq("componentConnectionId", undefined))
-      .paginate({ cursor: cursor ?? null, numItems: 100 });
-    const now = Date.now();
-    for (const row of page.page) {
-      if (
-        row.revokedAt !== undefined &&
-        row.accessHash === undefined &&
-        row.refreshHash === undefined
-      )
-        continue;
-      await ctx.db.patch(row._id, {
-        revokedAt: row.revokedAt ?? now,
-        accessHash: undefined,
-        accessExpiresAt: undefined,
-        refreshHash: undefined,
-        refreshExpiresAt: undefined,
-      });
-    }
-    if (!page.isDone)
-      await ctx.scheduler.runAfter(0, internal.agents.retireLegacyConnections, {
-        cursor: page.continueCursor,
-      });
-  },
-});
-
-/** Bounded cleanup of retired OAuth state, activity, and retry records. */
+/** Bounded cleanup of expired rate limits and old assistant activity and retry records. */
 export const prune = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
     let more = false;
-    // These tables are no longer written; rows age out by their own expiry.
-    for (const table of [
-      "agentAuthorizations",
-      "agentClients",
-      "agentRateLimits",
-      "agentUsedRefreshTokens",
-    ] as const) {
-      const rows = await ctx.db
-        .query(table)
-        .withIndex("by_expiry", (q) => q.lt("expiresAt", now))
-        .take(200);
-      for (const row of rows) await ctx.db.delete(row._id);
-      more ||= rows.length === 200;
-    }
+    const expired = await ctx.db
+      .query("agentRateLimits")
+      .withIndex("by_expiry", (q) => q.lt("expiresAt", now))
+      .take(200);
+    for (const row of expired) await ctx.db.delete(row._id);
+    more ||= expired.length === 200;
     for (const [table, age] of [
       ["agentActivity", 90 * DAY],
       ["agentRequests", 7 * DAY],

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { SCHEDULING_PRESET_VALUES } from "@armin/core/scheduling-presets";
-import { resolveEffectiveSettings } from "@armin/core/study";
+import { emptyDeckOverrides, resolveEffectiveSettings } from "@armin/core/study";
 import { query } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
@@ -148,15 +148,7 @@ export const updateDeck = mutation({
       await ctx.db.insert("deckSettings", {
         libraryId: library._id,
         deckId: deck._id,
-        requestRetention: null,
-        maximumInterval: null,
-        enableFuzz: null,
-        enableShortTerm: null,
-        learningSteps: null,
-        relearningSteps: null,
-        weights: null,
-        prereqStabilityFloor: null,
-        keepSiblingReviewUnitsTogether: null,
+        ...emptyDeckOverrides(),
         ...patch,
         updatedAt: now,
       });

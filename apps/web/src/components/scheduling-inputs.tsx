@@ -27,7 +27,7 @@ const invalidInputClass = "border-again focus-visible:border-again focus-visible
  * value changes from outside, adjusted during render rather than in an effect
  * so the stale draft never reaches the screen.
  */
-function useSyncedDraft(value: number, format: (value: number) => string) {
+function useSyncedDraft<T>(value: T, format: (value: T) => string) {
   const [draft, setDraft] = useState(format(value));
   const [invalid, setInvalid] = useState(false);
   const [syncedValue, setSyncedValue] = useState(value);
@@ -45,91 +45,100 @@ function UnitLabel({ children }: { children: string }) {
   return <span className="shrink-0 text-[0.8125rem] text-muted">{children}</span>;
 }
 
-type RetentionInputProps = {
-  value: number;
-  onChange: (value: number) => void;
+type SettingInputProps<T> = {
+  value: T;
+  onChange: (value: T) => void;
   "aria-labelledby"?: string;
 };
 
-export function RetentionInput({
+/**
+ * A number typed as text and committed on blur. `parse` returns the value to
+ * commit, or `undefined` when the draft is invalid; an invalid draft resets to
+ * the committed value and marks the field.
+ */
+function NumberSettingInput<T>({
   value,
   onChange,
   "aria-labelledby": labelledBy,
-}: RetentionInputProps) {
-  const { draft, setDraft, invalid, setInvalid } = useSyncedDraft(value, formatRetentionPercent);
+  format,
+  parse,
+  disallowed,
+  inputMode = "numeric",
+  width,
+  unit,
+  placeholder,
+}: SettingInputProps<T> & {
+  format: (value: T) => string;
+  parse: (draft: string) => T | undefined;
+  /** Characters removed as the user types. */
+  disallowed: RegExp;
+  inputMode?: "numeric" | "decimal";
+  width: string;
+  unit: string;
+  placeholder?: string;
+}) {
+  const { draft, setDraft, invalid, setInvalid } = useSyncedDraft(value, format);
 
   const handleBlur = () => {
-    const parsed = parseRetentionPercent(draft);
-    if (parsed !== null && isValidRetention(parsed)) {
+    const parsed = parse(draft);
+    if (parsed !== undefined) {
       setInvalid(false);
-      setDraft(formatRetentionPercent(parsed));
+      setDraft(format(parsed));
       onChange(parsed);
       return;
     }
     setInvalid(true);
-    setDraft(formatRetentionPercent(value));
+    setDraft(format(value));
   };
 
   return (
     <div className="flex items-center gap-2">
       <Input
-        inputMode="numeric"
+        inputMode={inputMode}
         value={draft}
+        placeholder={placeholder}
         onChange={(event) => {
           setInvalid(false);
-          setDraft(event.target.value.replace(/[^\d]/g, ""));
+          setDraft(event.target.value.replace(disallowed, ""));
         }}
         onBlur={handleBlur}
         aria-labelledby={labelledBy}
         aria-invalid={invalid}
-        className={cn("w-16 text-right tabular-nums", invalid && invalidInputClass)}
+        className={cn(width, "text-right tabular-nums", invalid && invalidInputClass)}
       />
-      <UnitLabel>%</UnitLabel>
+      <UnitLabel>{unit}</UnitLabel>
     </div>
   );
 }
 
-type MaximumIntervalInputProps = {
-  value: number;
-  onChange: (value: number) => void;
-  "aria-labelledby"?: string;
-};
+/** `parsed` when it is a number that passes `isValid`, otherwise `undefined`. */
+function validNumber(parsed: number | null, isValid: (value: number) => boolean) {
+  return parsed !== null && isValid(parsed) ? parsed : undefined;
+}
 
-export function MaximumIntervalInput({
-  value,
-  onChange,
-  "aria-labelledby": labelledBy,
-}: MaximumIntervalInputProps) {
-  const { draft, setDraft, invalid, setInvalid } = useSyncedDraft(value, formatDays);
-
-  const handleBlur = () => {
-    const parsed = parseDays(draft);
-    if (parsed !== null && isValidMaximumInterval(parsed)) {
-      setInvalid(false);
-      setDraft(formatDays(parsed));
-      onChange(parsed);
-      return;
-    }
-    setInvalid(true);
-    setDraft(formatDays(value));
-  };
-
+export function RetentionInput(props: SettingInputProps<number>) {
   return (
-    <div className="flex items-center gap-2">
-      <Input
-        inputMode="numeric"
-        value={draft}
-        onChange={(event) => {
-          setInvalid(false);
-          setDraft(event.target.value.replace(/[^\d,]/g, ""));
-        }}
-        onBlur={handleBlur}
-        aria-labelledby={labelledBy}
-        aria-invalid={invalid}
-        className={cn("w-24 text-right tabular-nums", invalid && invalidInputClass)}
-      />
-      <UnitLabel>days</UnitLabel>
-    </div>
+    <NumberSettingInput
+      {...props}
+      format={formatRetentionPercent}
+      parse={(draft) => validNumber(parseRetentionPercent(draft), isValidRetention)}
+      disallowed={/[^\d]/g}
+      width="w-16"
+      unit="%"
+    />
+  );
+}
+
+export function MaximumIntervalInput(props: SettingInputProps<number>) {
+  return (
+    <NumberSettingInput
+      {...props}
+      format={formatDays}
+      parse={(draft) => validNumber(parseDays(draft), isValidMaximumInterval)}
+      disallowed={/[^\d,]/g}
+      width="w-24"
+      unit="days"
+    />
   );
 }
 
@@ -236,152 +245,52 @@ export function StepsInput({ value, onChange, "aria-labelledby": labelledBy }: S
   return <DurationStepFields step={step} onChange={handleChange} labelledBy={labelledBy} />;
 }
 
-type StabilityFloorInputProps = {
-  value: number;
-  onChange: (value: number) => void;
-  "aria-labelledby"?: string;
-};
-
-export function StabilityFloorInput({
-  value,
-  onChange,
-  "aria-labelledby": labelledBy,
-}: StabilityFloorInputProps) {
-  const { draft, setDraft, invalid, setInvalid } = useSyncedDraft(value, String);
-
-  const handleBlur = () => {
-    const parsed = Number(draft);
-    if (isValidStabilityFloor(parsed)) {
-      setInvalid(false);
-      setDraft(String(parsed));
-      onChange(parsed);
-      return;
-    }
-    setInvalid(true);
-    setDraft(String(value));
-  };
-
+export function StabilityFloorInput(props: SettingInputProps<number>) {
   return (
-    <div className="flex items-center gap-2">
-      <Input
-        inputMode="decimal"
-        value={draft}
-        onChange={(event) => {
-          setInvalid(false);
-          setDraft(event.target.value.replace(/[^\d.]/g, ""));
-        }}
-        onBlur={handleBlur}
-        aria-labelledby={labelledBy}
-        aria-invalid={invalid}
-        className={cn("w-16 text-right tabular-nums", invalid && invalidInputClass)}
-      />
-      <UnitLabel>days</UnitLabel>
-    </div>
+    <NumberSettingInput
+      {...props}
+      format={String}
+      parse={(draft) => validNumber(Number(draft), isValidStabilityFloor)}
+      disallowed={/[^\d.]/g}
+      inputMode="decimal"
+      width="w-16"
+      unit="days"
+    />
   );
 }
 
-type NewCardsPerDayInputProps = {
-  value: number;
-  onChange: (value: number) => void;
-  "aria-labelledby"?: string;
-};
-
-export function NewCardsPerDayInput({
-  value,
-  onChange,
-  "aria-labelledby": labelledBy,
-}: NewCardsPerDayInputProps) {
-  const { draft, setDraft, invalid, setInvalid } = useSyncedDraft(value, String);
-
-  const handleBlur = () => {
-    const parsed = parseBoundedInt(draft, NEW_CARDS_PER_DAY_MAX);
-    if (parsed !== null && isValidNewCardsPerDay(parsed)) {
-      setInvalid(false);
-      setDraft(String(parsed));
-      onChange(parsed);
-      return;
-    }
-    setInvalid(true);
-    setDraft(String(value));
-  };
-
+export function NewCardsPerDayInput(props: SettingInputProps<number>) {
   return (
-    <div className="flex items-center gap-2">
-      <Input
-        inputMode="numeric"
-        value={draft}
-        onChange={(event) => {
-          setInvalid(false);
-          setDraft(event.target.value.replace(/[^\d]/g, ""));
-        }}
-        onBlur={handleBlur}
-        aria-labelledby={labelledBy}
-        aria-invalid={invalid}
-        className={cn("w-16 text-right tabular-nums", invalid && invalidInputClass)}
-      />
-      <UnitLabel>review units</UnitLabel>
-    </div>
+    <NumberSettingInput
+      {...props}
+      format={String}
+      parse={(draft) =>
+        validNumber(parseBoundedInt(draft, NEW_CARDS_PER_DAY_MAX), isValidNewCardsPerDay)
+      }
+      disallowed={/[^\d]/g}
+      width="w-16"
+      unit="review units"
+    />
   );
 }
-
-type ReviewsPerDayInputProps = {
-  /** `null` means no daily limit. */
-  value: number | null;
-  onChange: (value: number | null) => void;
-  "aria-labelledby"?: string;
-};
 
 const formatReviewsPerDay = (value: number | null) => (value == null ? "" : String(value));
 
-export function ReviewsPerDayInput({
-  value,
-  onChange,
-  "aria-labelledby": labelledBy,
-}: ReviewsPerDayInputProps) {
-  const [draft, setDraft] = useState(formatReviewsPerDay(value));
-  const [invalid, setInvalid] = useState(false);
-  const [syncedValue, setSyncedValue] = useState(value);
-
-  if (value !== syncedValue) {
-    setSyncedValue(value);
-    setDraft(formatReviewsPerDay(value));
-    setInvalid(false);
-  }
-
-  const handleBlur = () => {
-    if (draft.trim() === "") {
-      setInvalid(false);
-      setDraft("");
-      onChange(null);
-      return;
-    }
-    const parsed = parseBoundedInt(draft, REVIEWS_PER_DAY_MAX);
-    if (parsed !== null && isValidReviewsPerDay(parsed)) {
-      setInvalid(false);
-      setDraft(String(parsed));
-      onChange(parsed);
-      return;
-    }
-    setInvalid(true);
-    setDraft(formatReviewsPerDay(value));
-  };
-
+/** `null` means no daily limit; an empty field commits it. */
+export function ReviewsPerDayInput(props: SettingInputProps<number | null>) {
   return (
-    <div className="flex items-center gap-2">
-      <Input
-        inputMode="numeric"
-        value={draft}
-        placeholder="Unlimited"
-        onChange={(event) => {
-          setInvalid(false);
-          setDraft(event.target.value.replace(/[^\d]/g, ""));
-        }}
-        onBlur={handleBlur}
-        aria-labelledby={labelledBy}
-        aria-invalid={invalid}
-        className={cn("w-24 text-right tabular-nums", invalid && invalidInputClass)}
-      />
-      <UnitLabel>reviews</UnitLabel>
-    </div>
+    <NumberSettingInput
+      {...props}
+      format={formatReviewsPerDay}
+      parse={(draft) =>
+        draft.trim() === ""
+          ? null
+          : validNumber(parseBoundedInt(draft, REVIEWS_PER_DAY_MAX), isValidReviewsPerDay)
+      }
+      disallowed={/[^\d]/g}
+      width="w-24"
+      unit="reviews"
+      placeholder="Unlimited"
+    />
   );
 }

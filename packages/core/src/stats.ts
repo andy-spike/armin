@@ -6,12 +6,6 @@
 
 import { startOfNextStudyDayMs, startOfStudyDayMs, studyDayKey } from "./study";
 
-/** FSRS Review state: the pre-review state counted for true retention. */
-const REVIEW_STATE = 2;
-
-/** FSRS Again. Every other rating is treated as retained. */
-const RATING_AGAIN = 1;
-
 export const STATS_HEATMAP_WEEKS = 52;
 /** The Decks page shows a full year in small cells, so the calendar fills its panel. */
 export const STATS_COMPACT_HEATMAP_WEEKS = 52;
@@ -35,15 +29,6 @@ export type StudyDaySeries = {
 export type ReviewStreak = {
   current: number;
   longest: number;
-};
-
-export type ReviewRetention = {
-  /** Review-state answers in the window. */
-  reviews: number;
-  /** Answers rated Hard, Good, or Easy. */
-  retained: number;
-  /** Retained share, or null when the window has no Review-state answers. */
-  ratio: number | null;
 };
 
 export type ReviewUnitStateCounts = {
@@ -182,24 +167,6 @@ export function reviewStreaks(days: readonly StudyDayCount[]): ReviewStreak {
     index -= 1;
   }
   return { current, longest };
-}
-
-/**
- * True retention: of reviews whose pre-review state was Review, the share
- * rated Hard, Good, or Easy rather than Again. Learning and relearning answers
- * are excluded because they measure steps, not long-term recall.
- */
-export function summarizeRetention(
-  logs: readonly { state: number; rating: number }[],
-): ReviewRetention {
-  let reviews = 0;
-  let retained = 0;
-  for (const log of logs) {
-    if (log.state !== REVIEW_STATE) continue;
-    reviews += 1;
-    if (log.rating !== RATING_AGAIN) retained += 1;
-  }
-  return { reviews, retained, ratio: reviews === 0 ? null : retained / reviews };
 }
 
 /** Non-overlapping active state totals plus separate locked/archived counts. */

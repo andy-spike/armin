@@ -12,7 +12,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/toast";
 import { convexClient, errorMessage } from "@/lib/armin-client";
 import { useConnection } from "@/lib/session";
-import { cn } from "@/lib/utils";
+import { cn, formatTimestamp } from "@/lib/utils";
 
 /* ------------------------------------------------------------- helpers */
 
@@ -33,14 +33,9 @@ function formatWhen(timestamp: number) {
   });
 }
 
-/** A stable timestamp for accessible names; relative times would change under a screen reader. */
-function formatExact(timestamp: number) {
-  return new Date(timestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-}
-
 function When({ timestamp }: { timestamp: number }) {
   return (
-    <Tooltip content={formatExact(timestamp)} className="px-2.5 py-1.5">
+    <Tooltip content={formatTimestamp(timestamp)} className="px-2.5 py-1.5">
       <time dateTime={new Date(timestamp).toISOString()}>{formatWhen(timestamp)}</time>
     </Tooltip>
   );
@@ -149,7 +144,7 @@ function ConnectionRow({
             variant="ghost"
             size="sm"
             className="text-again hover:text-again-deep"
-            aria-label={`Disconnect ${connection.name}, connected ${formatExact(connection.createdAt)}`}
+            aria-label={`Disconnect ${connection.name}, connected ${formatTimestamp(connection.createdAt)}`}
             onClick={onDisconnect}
           >
             Disconnect

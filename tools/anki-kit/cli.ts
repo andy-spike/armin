@@ -13,29 +13,24 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import initSqlJs from "sql.js";
-import { armDeckName, convertAnkiCollection } from "../../packages/core/src/anki/convert";
+import {
+  armDeckName,
+  convertAnkiCollection,
+  uniqueDeckNames,
+} from "../../packages/core/src/anki/convert";
+import { isSupportedAudioName } from "../../packages/core/src/anki/html";
 import { resolveImportMedia } from "../../packages/core/src/anki/resolve-media";
 import type { AnkiCollection } from "../../packages/core/src/anki/types";
-import {
-  generateReviewUnits,
-  validateContent,
-  type FlashcardContent,
-  type FlashcardType,
-} from "../../packages/core/src/flashcard-types";
+import { generateReviewUnits, validateContent } from "../../packages/core/src/flashcard-types";
 import { MAX_MEDIA_FILE_BYTES, MIME_BY_EXT, sniffMediaExt } from "../../packages/core/src/media";
 import {
   openAnkiPackage,
   parseAnkiText,
+  type ByteSource,
   type OpenedAnkiPackage,
 } from "../../packages/core/src/anki/reader";
 
-const AUDIO_NAME = /\.(?:mp3|ogg|oga|opus|m4a|wav|flac|aac)$/i;
 import kitVersion from "../../packages/core/src/anki/kit-version.json";
-
-type ByteSource = {
-  size: number;
-  read(start: number, end: number): Promise<Uint8Array>;
-};
 
 type Args = {
   file: string;
@@ -280,6 +275,7 @@ async function main() {
 
   const cards: PlanFile["cards"] = [];
   const failed: PlanFile["unresolved"] = [];
+  let reviewUnits = 0;
   for (const card of converted.flashcards) {
     const refs = new Map<string, string>();
     for (const name of card.media) {
@@ -288,12 +284,13 @@ async function main() {
     }
     try {
       // Missing audio is dropped like in the browser; a missing image leaves the card unresolved.
-      if (card.media.some((name) => missing.has(name) && !AUDIO_NAME.test(name)))
+      if (card.media.some((name) => missing.has(name) && !isSupportedAudioName(name)))
         throw new Error("An image could not be preserved.");
       const content = resolveImportMedia(card.content, card.type, refs);
       validateContent(card.type, content);
       const units = generateReviewUnits(card.type, content);
       if (units.length === 0) throw new Error("no review items");
+      reviewUnits += units.length;
       cards.push({
         key: card.key,
         deckKey: card.deckKey,
@@ -358,17 +355,8 @@ async function main() {
     });
   }
 
-  const usedNames = new Set<string>();
-  for (const deck of decks) {
-    const original = deck.name;
-    for (let n = 2; usedNames.has(deck.name.toLowerCase()); n++) {
-      const suffix = ` (${n})`;
-      let base = original.slice(0, 120 - suffix.length);
-      if (/[\ud800-\udbff]$/.test(base)) base = base.slice(0, -1);
-      deck.name = `${base.trimEnd()}${suffix}`;
-    }
-    usedNames.add(deck.name.toLowerCase());
-  }
+  const names = uniqueDeckNames(decks);
+  decks.forEach((deck, index) => (deck.name = names[index]!));
 
   const unresolved = [
     ...(converted.omitted ?? []).map((omitted) => ({
@@ -411,16 +399,10 @@ async function main() {
     media,
     totals: {
       flashcards: cards.length,
-      reviewUnits: 0,
+      reviewUnits,
       mediaFiles: media.length,
     },
   };
-  plan.totals.reviewUnits = cards.reduce(
-    (sum, card) =>
-      sum +
-      generateReviewUnits(card.type as FlashcardType, card.content as FlashcardContent).length,
-    0,
-  );
 
   const selectedNotes = new Set(
     collection.cards

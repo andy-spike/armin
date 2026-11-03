@@ -55,13 +55,12 @@ export async function getSettingsRow(
     .query("settings")
     .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
     .unique();
-  if (row) return row;
-  return {
-    libraryId,
-    ...defaultSchedulingSettings(),
-    keybindings: null,
-    updatedAt: 0,
-  };
+  return row ?? defaultSettingsRow(libraryId, 0);
+}
+
+/** A new library's settings: default scheduling and factory keybindings. */
+export function defaultSettingsRow(libraryId: Id<"libraries">, updatedAt: number) {
+  return { libraryId, ...defaultSchedulingSettings(), keybindings: null, updatedAt };
 }
 
 export function overridesFrom(row: Doc<"deckSettings"> | null): DeckSettingsOverrides {
@@ -115,7 +114,6 @@ export class SettingsCache {
     const cached = this.byDeck.get(deckId);
     if (cached) return cached;
     if (this.preloaded) return this.globalSettings();
-    if (cached) return cached;
     const global = await this.globalSettings();
     const row = await this.ctx.db
       .query("deckSettings")
@@ -291,7 +289,7 @@ export async function deleteReviewUnit(ctx: MutationCtx, id: Id<"reviewUnits">) 
 
 // --- Prerequisite lock state ---
 
-/** Preserve access already earned, including currently unlocked legacy cards. */
+/** Preserve access already earned, including currently unlocked pre-policy cards. */
 function hasPrerequisiteAccess(flashcard: Doc<"flashcards">) {
   return (
     flashcard.prerequisiteAccessGranted === true ||
@@ -404,22 +402,6 @@ async function applyLockState(
  * Backfill old cards without reading unbounded review history. Existing
  * access and any surviving review history prove the card was accessible.
  */
-export async function migratePrerequisiteAccess(
-  ctx: MutationCtx,
-  flashcard: Doc<"flashcards">,
-  now: number,
-) {
-  if (flashcard.prerequisiteAccessGranted !== undefined) return false;
-  const units = await ctx.db
-    .query("reviewUnits")
-    .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcard._id))
-    .collect();
-  const granted =
-    !flashcard.locked || units.some((unit) => unit.reps > 0 || unit.lastReview != null);
-  await applyLockState(ctx, flashcard, !granted, now, units);
-  return true;
-}
-
 export async function refreshLockState(
   ctx: MutationCtx,
   flashcardIds: Id<"flashcards">[],
@@ -531,16 +513,26 @@ export function fsrsSnapshot(unit: FsrsFieldsMs): FsrsFieldsMs {
 
 // --- Request de-duplication ---
 
+/**
+ * The stored outcome of an earlier call with this request ID, so a retry
+ * returns it instead of applying twice. A request ID belongs to one operation:
+ * reusing it for another `kind` is rejected rather than replaying a result of
+ * the wrong shape.
+ */
 export async function findRequest(
   ctx: QueryCtx,
   libraryId: Id<"libraries">,
   requestId: string | undefined,
+  kind: string,
 ) {
   if (!requestId) return null;
-  return ctx.db
+  const previous = await ctx.db
     .query("requests")
     .withIndex("by_library_request", (q) => q.eq("libraryId", libraryId).eq("requestId", requestId))
     .unique();
+  if (previous && previous.kind !== kind)
+    fail("INVALID", "This request ID was already used for a different operation.");
+  return previous;
 }
 
 export async function recordRequest(
