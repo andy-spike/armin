@@ -355,7 +355,14 @@ async function computeLocked(
 /**
  * Persist lock state for a flashcard and keep its never-reviewed units in the
  * matching schedule: locked units wait on the far-future pending date, newly
- * unlocked ones become New and due now.
+ * unlocked ones become New.
+ *
+ * An unlocked unit is due from its creation, not from the unlock. Queries take
+ * the client's study clock as `now`, which lags server time until the next
+ * refresh, so a unit due at the unlock instant would stay out of an open
+ * session's queue until that clock caught up: the session would end on "All
+ * caught up" and the card would appear seconds later. Due time doesn't order
+ * new units (`frontierKey` does), so the earlier date changes nothing else.
  */
 async function applyLockState(
   ctx: MutationCtx,
@@ -385,7 +392,10 @@ async function applyLockState(
       if (locked && !pending) {
         Object.assign(patch, fsrsFieldsToMs(pendingReviewUnitFields()));
       } else if (!locked && pending) {
-        Object.assign(patch, fsrsFieldsToMs(newReviewUnitFields(new Date(now))));
+        Object.assign(
+          patch,
+          fsrsFieldsToMs(newReviewUnitFields(new Date(Math.min(unit.createdAt, now)))),
+        );
       }
     }
     if (Object.keys(patch).length > 0) {

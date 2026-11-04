@@ -164,8 +164,8 @@ export async function prepareLandingDemo() {
     signOut,
     /** Finds the card written on camera, links its dependent, and places it. */
     async afterWrittenCard() {
-      const cards = await client.query(api.flashcards.listByDeck, { deckId });
-      const written = cards.find((card) => card.content?.front === WRITTEN_CARD.front);
+      const graph = await client.query(api.graph.getDeck, { deckId });
+      const written = graph?.nodes.find((card) => card.front.trim() === WRITTEN_CARD.front);
       if (!written) throw new Error("The card written on camera was not saved.");
       ids.set(WRITTEN_CARD.key, written.id);
       await link(WRITTEN_LINKS);
