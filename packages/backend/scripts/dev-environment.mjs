@@ -1,8 +1,17 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer } from "node:net";
-import { networkInterfaces } from "node:os";
+import { networkInterfaces, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -41,6 +50,28 @@ export function assertNode() {
     throw new Error(
       `Node ${process.versions.node} cannot run Convex "use node" actions locally. Use Node 24 from .nvmrc, e.g. mise exec node@24 -- pnpm worktree:setup.`,
     );
+}
+
+// Temporary files go under .convex/tmp, on the same filesystem as local storage,
+// so installing external Node packages never needs a cross-filesystem rename.
+// The Node executor listens on a Unix socket inside a subdirectory, and socket
+// paths are limited to about 100 bytes; a deep checkout uses a short symlink
+// in the system temp directory that points back at .convex/tmp.
+export function convexTempDir() {
+  const tempDir = join(backend, ".convex", "tmp");
+  mkdirSync(tempDir, { recursive: true });
+  if (tempDir.length + "/.tmpXXXXXX/.executor.sock".length < 100) return tempDir;
+  const id = createHash("sha256").update(tempDir).digest("hex").slice(0, 12);
+  const link = join(tmpdir(), `armin-convex-${id}`);
+  let current;
+  try {
+    current = lstatSync(link).isSymbolicLink() ? readlinkSync(link) : null;
+  } catch {}
+  if (current !== tempDir) {
+    if (current !== undefined) rmSync(link, { force: true });
+    symlinkSync(tempDir, link);
+  }
+  return link;
 }
 
 export function convexPortArgs(state) {

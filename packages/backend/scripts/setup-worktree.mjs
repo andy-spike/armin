@@ -1,5 +1,4 @@
 import { configureSandbox } from "./polar-sandbox.mjs";
-import { mkdirSync } from "node:fs";
 import { seedWorktree } from "./seed-worktree.mjs";
 import { spawn } from "node:child_process";
 import { chmodSync, copyFileSync, existsSync } from "node:fs";
@@ -12,6 +11,7 @@ import {
   backend,
   convex,
   convexPortArgs,
+  convexTempDir,
   isMainCheckout,
   mainState,
   readEnv,
@@ -25,8 +25,7 @@ import {
 // Starts this checkout's local backend and resolves once functions are pushed.
 // CONVEX_AGENT_MODE=anonymous creates a deployment without a Convex account.
 function startBackend(state) {
-  const tempDir = `${backend}/.convex/tmp`;
-  mkdirSync(tempDir, { recursive: true });
+  const tempDir = convexTempDir();
   const child = spawn(
     "pnpm",
     ["exec", "convex", "dev", "--tail-logs", "disable", ...convexPortArgs(state)],

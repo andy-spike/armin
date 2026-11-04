@@ -410,7 +410,9 @@ for a year. Every media route requires the session.
 
 Local launchers place temporary files under `.convex/tmp`, on the same
 filesystem as local storage, so installing external Node packages does not fail
-with a cross-filesystem rename. The pinned Sharp version remains distinct from
+with a cross-filesystem rename. In a deeply nested checkout, where a Unix socket
+path under `.convex/tmp` would exceed the operating system's limit, they use a
+short symlink in the system temp directory that points back to it. The pinned Sharp version remains distinct from
 Expo's transitive version so Convex 1.47's workspace-local external dependency
 lookup works with this repo's hoisted pnpm layout. Recheck that lookup when
 upgrading Sharp or changing the package layout.
