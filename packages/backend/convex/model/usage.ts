@@ -63,11 +63,14 @@ export async function libraryUsage(ctx: Pick<QueryCtx, "db">, libraryId: Id<"lib
 
 /**
  * The plan a library is on. A self-hosted instance has no billing, so its
- * owner gets Pro's limits, which are the technical bounds. A missing library
- * gets the free plan.
+ * owner gets Pro's limits, which are the technical bounds. An operator can
+ * grant complimentary Pro without a subscription. A missing library gets the
+ * free plan.
  */
-export function libraryPlan(library: Pick<Doc<"libraries">, "plan"> | null): PlanId {
-  if (isSelfHosted()) return "pro";
+export function libraryPlan(
+  library: Pick<Doc<"libraries">, "plan" | "complimentaryPro"> | null,
+): PlanId {
+  if (isSelfHosted() || library?.complimentaryPro) return "pro";
   return library?.plan ?? "free";
 }
 

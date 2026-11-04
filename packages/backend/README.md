@@ -223,6 +223,12 @@ dunning, and pays out.
   the Better Auth user ID, so a checkout left open and paid after deletion is
   revoked when its webhook arrives. That first charge is not refunded
   automatically; refund it from Polar if the customer asks.
+- **Complimentary Pro.** An operator can give an account Pro without a
+  subscription: `pnpm --filter @armin/backend exec convex run
+  billing:setComplimentaryPro '{"email":"you@example.com","enabled":true}' --prod`
+  (`false` removes it). The account must have signed in once. It sets
+  `libraries.complimentaryPro`, which overrides the synced `plan` and is never
+  changed by the Polar sync; checkout is refused while it is set.
 - **Excluded.** Self-hosted instances (`SELF_HOSTED=true`) and the public
   reviewer account never see billing, and a deployment without the Polar
   variables below has billing off.

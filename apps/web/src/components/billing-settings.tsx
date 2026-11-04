@@ -122,10 +122,10 @@ export function BillingSettings() {
       description="Payments, taxes, and invoices are handled by Polar, Armin's merchant of record."
     >
       <Row
-        label={pro ? "Pro" : "Free"}
+        label={data.complimentary ? "Pro · Complimentary" : pro ? "Pro" : "Free"}
         hint={
           pro
-            ? `Up to ${number.format(PLAN_LIMITS.pro.flashcards)} cards and ${number.format(PLAN_LIMITS.pro.agentCardsPerMonth)} AI assistant cards a month.`
+            ? `${data.complimentary ? "No subscription needed. " : ""}Up to ${number.format(PLAN_LIMITS.pro.flashcards)} cards and ${number.format(PLAN_LIMITS.pro.agentCardsPerMonth)} AI assistant cards a month.`
             : `Up to ${number.format(PLAN_LIMITS.free.flashcards)} cards and ${number.format(PLAN_LIMITS.free.agentCardsPerMonth)} AI assistant cards a month.`
         }
         last={!subscription && pro && !pending}
