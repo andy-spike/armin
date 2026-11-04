@@ -2,7 +2,7 @@ import { createPolar, errors, webhooks } from "@polar-sh/sdk/2026-10";
 import type { HttpRouter } from "convex/server";
 import { v } from "convex/values";
 import type { PlanId } from "@armin/core/plans";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import {
   action,
   httpAction,
@@ -143,6 +143,7 @@ export const billingUser = internalQuery({
       emailVerified: viewer.emailVerified,
       reviewer: isReviewer(viewer.userId),
       libraryActive: viewer.library?.status === "active",
+      complimentary: viewer.library?.complimentaryPro === true,
     };
   },
 });
@@ -186,6 +187,8 @@ export const status = query({
       enabled,
       selfHosted: isSelfHosted(),
       plan,
+      /** Pro granted by an operator, with nothing to pay or manage. */
+      complimentary: viewer.library?.complimentaryPro === true,
       /** A requested read of Polar hasn't been applied yet. */
       syncing: billing ? billing.applied < billing.requested : false,
       /** The last read failed and is waiting to retry. */
@@ -211,6 +214,7 @@ export const createCheckout = action({
   args: { interval: intervalValidator },
   handler: async (ctx, { interval }): Promise<{ url: string }> => {
     const user = await requireBillingUser(ctx);
+    if (user.complimentary) fail("CONFLICT", "This account already has complimentary Pro.");
     // Check Polar itself, not only the stored copy, so a delayed webhook
     // can't let someone pay twice.
     if (await fetchProSubscription(user.userId)) {
@@ -273,6 +277,38 @@ export const refresh = mutation({
       },
     );
     await requestBillingSync(ctx, user.userId);
+  },
+});
+
+/**
+ * Operator only: grant or remove complimentary Pro for the account with this
+ * email, with no subscription. Run with
+ * `convex run billing:setComplimentaryPro '{"email":"…","enabled":true}'`.
+ * An existing Polar subscription is untouched; removing the grant falls back
+ * to the synced `plan`.
+ */
+export const setComplimentaryPro = internalMutation({
+  args: { email: v.string(), enabled: v.boolean() },
+  handler: async (ctx, { email, enabled }) => {
+    const address = email.trim().toLowerCase();
+    const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "email", operator: "eq", value: address }],
+    });
+    if (!user) throw new Error(`No account uses ${address}. Sign in once first.`);
+    if (isReviewer(user._id)) throw new Error("The shared reviewer account can't get Pro.");
+    const library = await ctx.db
+      .query("libraries")
+      .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+      .unique();
+    if (!library) throw new Error(`${address} has no library yet. Open the web app once first.`);
+    if (library.status !== "active") throw new Error(`The library is ${library.status}.`);
+    await ctx.db.patch(library._id, { complimentaryPro: enabled || undefined });
+    return {
+      userId: user._id,
+      email: address,
+      plan: libraryPlan({ ...library, complimentaryPro: enabled }),
+    };
   },
 });
 

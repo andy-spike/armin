@@ -141,6 +141,11 @@ export default defineSchema({
     timeZone: v.string(),
     /** Billing plan; absent means free. */
     plan: v.optional(v.union(v.literal("free"), v.literal("pro"))),
+    /**
+     * Pro granted by an operator without a subscription (`billing.setComplimentaryPro`).
+     * Overrides `plan`; the Polar sync never changes it.
+     */
+    complimentaryPro: v.optional(v.boolean()),
     statsEpoch: v.optional(v.number()),
     statsReady: v.optional(v.boolean()),
     createdAt: v.number(),
