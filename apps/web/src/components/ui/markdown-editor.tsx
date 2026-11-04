@@ -140,6 +140,8 @@ type MarkdownEditorProps = {
   "aria-label"?: string;
   /** Cloze card text: `{{N::answer}}` deletions show as editable chips. */
   cloze?: boolean;
+  /** Text and equations only: no image or audio tools (concept card templates). */
+  textOnly?: boolean;
 };
 
 export function MarkdownEditor({
@@ -151,6 +153,7 @@ export function MarkdownEditor({
   className,
   "aria-label": ariaLabel,
   cloze = false,
+  textOnly = false,
 }: MarkdownEditorProps) {
   const toast = useToast();
   const alive = useRef(true);
@@ -262,6 +265,7 @@ export function MarkdownEditor({
         [Crepe.Feature.BlockEdit]: false,
         [Crepe.Feature.Toolbar]: false,
         [Crepe.Feature.AI]: false,
+        ...(textOnly ? { [Crepe.Feature.ImageBlock]: false } : {}),
       },
       featureConfigs: {
         [Crepe.Feature.Placeholder]: { text: placeholder ?? "", mode: "doc" },
@@ -273,7 +277,8 @@ export function MarkdownEditor({
     });
     if (cloze) crepe.editor.use(clozePlugins);
     crepe.editor.config((ctx) => {
-      configureCardImages(ctx, setPreview);
+      // Text-only fields leave out the image block this configures.
+      if (!textOnly) configureCardImages(ctx, setPreview);
       // Empty paragraphs are layout only; Armin does not render raw HTML.
       ctx.update(paragraphSchema.key, (previous) => (context) => {
         const schema = previous(context);
@@ -359,7 +364,7 @@ export function MarkdownEditor({
       crepeRef.current = null;
       void creating.then(() => crepe.destroy());
     };
-  }, [source, placeholder, autoFocus, ariaLabel, cloze]);
+  }, [source, placeholder, autoFocus, ariaLabel, cloze, textOnly]);
 
   const withChip = (apply: (view: EditorView) => void) =>
     crepeRef.current?.editor.action((ctx) => apply(ctx.get(editorViewCtx)));
@@ -486,8 +491,8 @@ export function MarkdownEditor({
         disabled={!source && !ready}
         uploading={uploading > 0}
         onCommand={(command) => crepeRef.current?.editor.action(command)}
-        onAddImage={() => fileRef.current?.click()}
-        onAddAudio={() => audioFileRef.current?.click()}
+        onAddImage={textOnly ? undefined : () => fileRef.current?.click()}
+        onAddAudio={textOnly ? undefined : () => audioFileRef.current?.click()}
         onEditSource={() => {
           holdHeight();
           setSource(true);

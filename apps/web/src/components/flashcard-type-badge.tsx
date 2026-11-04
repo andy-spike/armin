@@ -7,6 +7,7 @@ const CARD_TYPE_LABELS: Record<FlashcardType, string> = {
   cloze: "Cloze",
   type_answer: "Type answer",
   image_occlusion: "Image occlusion",
+  concept: "Concept",
 };
 
 /** Small chip showing a note's card type. Hidden for plain basic cards. */

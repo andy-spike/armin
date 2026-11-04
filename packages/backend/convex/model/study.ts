@@ -1,4 +1,5 @@
 import { internal } from "../_generated/api";
+import { isAwaitingVariant } from "@armin/core/concept";
 import {
   flashcardDisplay,
   generateReviewUnits,
@@ -242,16 +243,19 @@ export async function reconcileReviewUnits(
   for (const spec of specs) {
     const found = existingBySubKey.get(spec.subKey);
     if (found) {
+      // A concept card's unit shows its assigned variant, which a template
+      // edit leaves in place.
+      const display = type === "concept" ? found : spec;
       const changed =
-        found.front !== spec.front ||
-        found.back !== spec.back ||
+        found.front !== display.front ||
+        found.back !== display.back ||
         found.locked !== flashcard.locked ||
         found.archived !== flashcard.archived ||
         found.deckId !== flashcard.deckId;
       if (changed) {
         await ctx.db.patch(found._id, {
-          front: spec.front,
-          back: spec.back,
+          front: display.front,
+          back: display.back,
           locked: flashcard.locked,
           archived: flashcard.archived,
           deckId: flashcard.deckId,
@@ -261,7 +265,9 @@ export async function reconcileReviewUnits(
       }
     } else {
       const schedule = fsrsFieldsToMs(
-        flashcard.locked ? pendingReviewUnitFields() : newReviewUnitFields(new Date(now)),
+        flashcard.locked || isAwaitingVariant(spec)
+          ? pendingReviewUnitFields()
+          : newReviewUnitFields(new Date(now)),
       );
       await ctx.db.insert("reviewUnits", {
         libraryId: flashcard.libraryId,
@@ -355,7 +361,8 @@ async function computeLocked(
 /**
  * Persist lock state for a flashcard and keep its never-reviewed units in the
  * matching schedule: locked units wait on the far-future pending date, newly
- * unlocked ones become New.
+ * unlocked ones become New. A concept card's unit with no variant assigned
+ * yet stays pending, unlocked or not, because it has nothing to show.
  *
  * An unlocked unit is due from its creation, not from the unlock. Queries take
  * the client's study clock as `now`, which lags server time until the next
@@ -391,7 +398,7 @@ async function applyLockState(
       const pending = isPendingSchedule(unit);
       if (locked && !pending) {
         Object.assign(patch, fsrsFieldsToMs(pendingReviewUnitFields()));
-      } else if (!locked && pending) {
+      } else if (!locked && pending && !isAwaitingVariant(unit)) {
         Object.assign(
           patch,
           fsrsFieldsToMs(newReviewUnitFields(new Date(Math.min(unit.createdAt, now)))),

@@ -11,6 +11,7 @@ import { normalizeTags } from "@armin/core/study";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { requestGeneration } from "./concepts";
 import { fail } from "./errors";
 import { MAX_CONTENT_CHARS, MAX_TAG_CHARS, MAX_TAGS_PER_FLASHCARD } from "./limits";
 import {
@@ -26,9 +27,19 @@ import {
   type TagCache,
 } from "./study";
 
-/** Validate type + content with the shared core rules; coded errors for clients. */
-export function validateFlashcardInput(type: string, content: unknown) {
+/**
+ * Validate type + content with the shared core rules; coded errors for clients.
+ * Concept cards come only from the card editor (ADR 0023): assistants and
+ * imports can't create them, so a caller opts in with `concept`.
+ */
+export function validateFlashcardInput(
+  type: string,
+  content: unknown,
+  options: { concept?: boolean } = {},
+) {
   if (!isFlashcardType(type)) fail("INVALID", `Unknown flashcard type: ${type}`);
+  if (type === "concept" && !options.concept)
+    fail("INVALID", "Concept cards can only be created and edited in Armin's card editor.");
   let parsed: FlashcardContent;
   try {
     parsed = validateContent(type, content);
@@ -81,7 +92,7 @@ export type ValidatedFlashcard = ReturnType<typeof validateFlashcardInput>;
 
 /**
  * The one place a flashcard is created: tags, row, review units, image links,
- * and remembered tag names. Callers validate first (so they can add their own
+ * remembered tag names, and a concept card's first generation job. Callers validate first (so they can add their own
  * rules, such as the agent's text-only check) and check capacity with
  * `checkCapacity` once for the whole batch they write.
  */
@@ -123,6 +134,7 @@ export async function insertFlashcard(
   await reconcileReviewUnits(ctx, flashcard, input.type, input.content, now);
   if (input.mediaFiles.length > 0) await syncFlashcardMedia(ctx, flashcard, input.mediaFiles);
   await rememberTags(ctx, libraryId, tags, args.tagCache);
+  if (input.type === "concept") await requestGeneration(ctx, flashcard, now);
   return id;
 }
 

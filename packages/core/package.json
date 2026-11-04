@@ -7,6 +7,7 @@
   "exports": {
     "./flashcard-types": "./src/flashcard-types.ts",
     "./flashcard-rules": "./src/flashcard-rules.ts",
+    "./concept": "./src/concept.ts",
     "./scheduler": "./src/scheduler.ts",
     "./scheduling-presets": "./src/scheduling-presets.ts",
     "./stats": "./src/stats.ts",

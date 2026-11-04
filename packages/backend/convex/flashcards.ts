@@ -15,6 +15,7 @@ import {
 } from "./model/access";
 import schema from "./schema";
 import { checkCapacity } from "./model/usage";
+import { fail } from "./model/errors";
 import {
   deleteFlashcardCascade,
   editFlashcard,
@@ -339,7 +340,7 @@ export const create = mutation({
     if (previous) return previous.result as { id: Id<"flashcards"> };
     const deck = await ownedOrFail(ctx, library, args.deckId, "Deck");
     await checkCapacity(ctx, library._id, { flashcards: 1 });
-    const input = validateFlashcardInput(args.type, args.content);
+    const input = validateFlashcardInput(args.type, args.content, { concept: true });
     const now = Date.now();
     const id = await insertFlashcard(ctx, {
       libraryId: library._id,
@@ -385,7 +386,12 @@ export const update = mutation({
     let input: ValidatedFlashcard | undefined;
     if (args.content !== undefined || args.type !== undefined) {
       const current = parseFlashcard(flashcard);
-      input = validateFlashcardInput(args.type ?? current.type, args.content ?? current.content);
+      const type = args.type ?? current.type;
+      // A concept card's review unit and variant pool have no counterpart in
+      // other types, so neither side of that change is allowed.
+      if (type !== current.type && (type === "concept" || current.type === "concept"))
+        fail("INVALID", "A card can't be changed to or from a concept card.");
+      input = validateFlashcardInput(type, args.content ?? current.content, { concept: true });
     }
     const version = await editFlashcard(ctx, flashcard, { input, tags: args.tags }, Date.now());
     await bumpRevision(ctx, library._id);

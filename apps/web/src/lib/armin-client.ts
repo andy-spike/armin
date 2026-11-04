@@ -208,6 +208,13 @@ export const armin = {
         targetDeckId: targetDeckId as Id<"decks">,
       }),
   },
+  concepts: {
+    /** Generate a concept card's variants again after a failed job. */
+    retryGeneration: (flashcardId: string) =>
+      q().mutation(api.concepts.retryGeneration, {
+        flashcardId: flashcardId as Id<"flashcards">,
+      }),
+  },
   review: {
     preview: async (reviewUnitId: string) =>
       (await q().query(api.review.preview, {

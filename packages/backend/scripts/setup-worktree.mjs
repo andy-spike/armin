@@ -111,6 +111,9 @@ try {
   };
   if (!names.has("BETTER_AUTH_SECRET"))
     settings.BETTER_AUTH_SECRET = randomBytes(32).toString("base64");
+  // Concept card variants come from the generator's fake provider locally.
+  // A value already set (such as `false` to try the failure path) is kept.
+  if (!names.has("CONCEPT_GENERATOR_FAKE")) settings.CONCEPT_GENERATOR_FAKE = "true";
   convex(["env", "set", "--force"], {
     input: Object.entries(settings)
       .map(([key, value]) => `${key}=${JSON.stringify(value)}`)

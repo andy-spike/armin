@@ -136,6 +136,15 @@ export const cardInfoQuery = (flashcardId: string | null) =>
     select: (info) => info ?? null,
   });
 
+/** A concept card's variant pool and generation state, for the card editor. `null` skips. */
+export const conceptPoolQuery = (flashcardId: string | null) =>
+  queryOptions({
+    ...(flashcardId
+      ? live(api.concepts.pool, { flashcardId })
+      : convexQuery(api.concepts.pool, "skip")),
+    select: (pool) => pool ?? null,
+  });
+
 /** How many links a move would remove, for the move dialog. `null` skips. */
 export const moveConsequencesQuery = (flashcardId: string | null) =>
   queryOptions({

@@ -276,9 +276,10 @@ export function MarkdownEditorToolbar({
   source: boolean;
   disabled: boolean;
   uploading: boolean;
-  onAddImage: () => void;
+  /** Absent for text-only fields, which hide the image and audio tools. */
+  onAddImage?: () => void;
   /** Audio can't be shown in rich text, so adding it switches to the source. */
-  onAddAudio: () => void;
+  onAddAudio?: () => void;
   onEditSource: () => void;
   onRichText: () => void;
   /** Source that the rich editor would change, such as HTML or legacy equations. */
@@ -346,30 +347,34 @@ export function MarkdownEditorToolbar({
         </>
       )}
       <div className="ml-auto flex items-center gap-0.5">
-        <ToolTip label="Add image">
-          <button
-            type="button"
-            aria-label="Add image"
-            disabled={(disabled && !source) || uploading}
-            className={toolClass}
-            onMouseDown={keepSelection}
-            onClick={onAddImage}
-          >
-            <ImagePlus className="h-3.5 w-3.5" aria-hidden />
-          </button>
-        </ToolTip>
-        <ToolTip label="Add audio">
-          <button
-            type="button"
-            aria-label="Add audio"
-            disabled={(disabled && !source) || uploading}
-            className={toolClass}
-            onMouseDown={keepSelection}
-            onClick={onAddAudio}
-          >
-            <Music className="h-3.5 w-3.5" aria-hidden />
-          </button>
-        </ToolTip>
+        {onAddImage && (
+          <ToolTip label="Add image">
+            <button
+              type="button"
+              aria-label="Add image"
+              disabled={(disabled && !source) || uploading}
+              className={toolClass}
+              onMouseDown={keepSelection}
+              onClick={onAddImage}
+            >
+              <ImagePlus className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </ToolTip>
+        )}
+        {onAddAudio && (
+          <ToolTip label="Add audio">
+            <button
+              type="button"
+              aria-label="Add audio"
+              disabled={(disabled && !source) || uploading}
+              className={toolClass}
+              onMouseDown={keepSelection}
+              onClick={onAddAudio}
+            >
+              <Music className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </ToolTip>
+        )}
         {!source && (
           <ToolTip label="Edit the Markdown source">
             <button

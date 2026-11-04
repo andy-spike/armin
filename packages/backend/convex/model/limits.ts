@@ -27,3 +27,5 @@ export const MAX_DESCRIPTION_CHARS = 2000;
 export const REQUEST_RETENTION_MS = 7 * 24 * 3_600_000;
 /** Export ZIPs are deleted after this. */
 export const EXPORT_TTL_MS = 60 * 60_000;
+/** Variants one concept card keeps, so the variant pool is read in one bounded range. */
+export const MAX_VARIANTS_PER_CONCEPT = 500;

@@ -574,6 +574,7 @@ export const items = query({
         v.literal("cloze"),
         v.literal("type_answer"),
         v.literal("image_occlusion"),
+        v.literal("concept"),
       ),
       content: v.any(),
       subKey: v.string(),

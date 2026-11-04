@@ -175,6 +175,7 @@ const LIBRARY_TABLES: [TableNames, string][] = [
   ["cramLogs", "by_library_review"],
   ["reviewUnits", "by_library"],
   ["prereqs", "by_library"],
+  ["conceptVariants", "by_library"],
   ["flashcardMedia", "by_library_file"],
   ["flashcards", "by_library"],
   ["deckSettings", "by_library"],

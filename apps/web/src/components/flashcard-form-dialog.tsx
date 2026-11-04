@@ -14,9 +14,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { CONCEPT_BATCH_SIZE } from "@armin/core/concept";
 import { hasEmptyClozeDeletion, parseClozes } from "@armin/core/flashcard-rules";
 import { ClozeField, Field, TagsInput } from "@/components/flashcard-form-fields";
-import type { FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
+import { ConceptVariantsPanel } from "@/components/concept-variants-panel";
+import type { ConceptContent, FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
 
 export type CardFormValues = {
   type: FlashcardType;
@@ -49,6 +51,7 @@ const TYPE_OPTIONS: { value: FlashcardType; label: string }[] = [
   { value: "basic_reversed", label: "Reversed" },
   { value: "cloze", label: "Cloze" },
   { value: "type_answer", label: "Type answer" },
+  { value: "concept", label: "Concept" },
 ];
 
 /** The editable text of every card type; only the current type's fields are used. */
@@ -60,6 +63,9 @@ type FormFields = {
   prompt: string;
   answer: string;
   acceptedAnswers: string[];
+  brief: string;
+  exercise: string;
+  solution: string;
 };
 
 const EMPTY_FIELDS: FormFields = {
@@ -70,6 +76,9 @@ const EMPTY_FIELDS: FormFields = {
   prompt: "",
   answer: "",
   acceptedAnswers: [],
+  brief: "",
+  exercise: "",
+  solution: "",
 };
 
 /** The form fields for stored card content (empty for a new card). */
@@ -96,6 +105,15 @@ function fieldsFromContent(type: FlashcardType, content: FlashcardContent | null
         prompt: c.prompt,
         answer: c.answer,
         acceptedAnswers: c.acceptedAnswers ?? [],
+      };
+    }
+    case "concept": {
+      const c = content as ConceptContent;
+      return {
+        ...EMPTY_FIELDS,
+        brief: c.brief,
+        exercise: c.example.exercise,
+        solution: c.example.solution,
       };
     }
     default:
@@ -139,6 +157,13 @@ function contentFromFields(
     }
     case "image_occlusion":
       return imageOcclusion;
+    case "concept": {
+      const brief = fields.brief.trim();
+      const exercise = fields.exercise.trim();
+      const solution = fields.solution.trim();
+      if (!brief || !exercise || !solution) return null;
+      return { brief, example: { exercise, solution } };
+    }
   }
 }
 
@@ -348,16 +373,28 @@ export function FlashcardFormDialog({
               </Select>
             </Field>
           )}
-          <Field label="Type">
-            <div className="grid w-full grid-cols-2 gap-1.5 sm:grid-cols-4">
+          <Field
+            label="Type"
+            hint={
+              displayMode === "edit" && initialType === "concept"
+                ? "A concept card keeps its type."
+                : undefined
+            }
+          >
+            <div className="grid w-full grid-cols-3 gap-1.5 sm:grid-cols-5">
               {TYPE_OPTIONS.map((option) => (
                 <button
                   key={option.value}
                   type="button"
                   onClick={() => setType(option.value)}
                   aria-pressed={type === option.value}
+                  // A saved card can't change to or from a concept card.
+                  disabled={
+                    displayMode === "edit" &&
+                    (initialType === "concept") !== (option.value === "concept")
+                  }
                   className={cn(
-                    "min-w-0 rounded-md border px-2.5 py-1.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                    "min-w-0 rounded-md border px-2.5 py-1.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50",
                     type === option.value
                       ? "border-accent bg-accent text-on-accent"
                       : "border-border-strong bg-surface text-muted hover:text-ink",
@@ -457,6 +494,55 @@ export function FlashcardFormDialog({
                   placeholder="e.g. paris, ville de paris"
                 />
               </Field>
+            </>
+          )}
+
+          {type === "concept" && (
+            <>
+              <Field
+                label="Brief"
+                hint="The concept, what to vary, the difficulty, and what to avoid."
+              >
+                <MarkdownEditor
+                  textOnly
+                  key={`brief-${editorKey}`}
+                  autoFocus
+                  aria-label="Brief"
+                  value={fields.brief}
+                  onChange={(value) => setField("brief", value)}
+                  placeholder="Derivatives of polynomials with 2–4 terms. Vary the coefficients and exponents; avoid fractional exponents."
+                />
+              </Field>
+              <Field label="Example exercise" hint="One worked example, in the format you expect.">
+                <MarkdownEditor
+                  textOnly
+                  key={`exercise-${editorKey}`}
+                  aria-label="Example exercise"
+                  value={fields.exercise}
+                  onChange={(value) => setField("exercise", value)}
+                  placeholder="Differentiate $3x^4 - 2x + 5$."
+                />
+              </Field>
+              <Field label="Example solution" hint="Worked step by step.">
+                <MarkdownEditor
+                  textOnly
+                  key={`solution-${editorKey}`}
+                  aria-label="Example solution"
+                  value={fields.solution}
+                  onChange={(value) => setField("solution", value)}
+                  placeholder="Apply the power rule to each term: $12x^3 - 2$."
+                />
+              </Field>
+              {displayMode === "edit" && displayCardId ? (
+                <Field label="Variants" hint="Exercises generated from this template.">
+                  <ConceptVariantsPanel flashcardId={displayCardId} />
+                </Field>
+              ) : (
+                <p className="text-xs text-muted">
+                  Text and equations only. After you add the card, Armin generates about{" "}
+                  {CONCEPT_BATCH_SIZE} exercises from this template.
+                </p>
+              )}
             </>
           )}
 

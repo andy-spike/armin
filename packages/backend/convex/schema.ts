@@ -64,6 +64,20 @@ const agentImportDeck = v.object({
   cardCount: v.number(),
 });
 
+/**
+ * A concept card's variant pool (ADR 0023): where its latest generation job
+ * stands. Jobs are numbered so a superseded job's result is discarded.
+ */
+const conceptPool = v.object({
+  status: v.union(v.literal("generating"), v.literal("ready"), v.literal("failed")),
+  /** Why the latest job failed, shown with Retry. Set only with `failed`. */
+  reason: v.optional(v.string()),
+  /** The latest job's number; only that job may store variants or fail the pool. */
+  job: v.number(),
+  /** When the latest job was scheduled. */
+  requestedAt: v.number(),
+});
+
 export default defineSchema({
   /**
    * One app-side record per approved assistant connection. The `@convex-dev/mcp`
@@ -298,6 +312,11 @@ export default defineSchema({
      */
     prerequisiteAccessGranted: v.optional(v.boolean()),
     archived: v.boolean(),
+    /**
+     * Concept cards only: the variant pool's generation state. Not authored
+     * content, so changing it leaves `version` alone.
+     */
+    conceptPool: v.optional(conceptPool),
     /** Incremented on every authored change; edits must name the version they started from. */
     version: v.number(),
     createdAt: v.number(),
@@ -305,6 +324,29 @@ export default defineSchema({
   })
     .index("by_library", ["libraryId"])
     .index("by_deck", ["deckId"]),
+
+  /**
+   * A concept card's variants: generated exercises with worked solutions
+   * (ADR 0023). Each belongs to one library and one concept card; the card's
+   * single review unit shows whichever variant is assigned to it.
+   */
+  conceptVariants: defineTable({
+    libraryId: v.id("libraries"),
+    flashcardId: v.id("flashcards"),
+    exercise: v.string(),
+    solution: v.string(),
+    /** Active variants can be shown in review; flagged ones are set aside. */
+    status: v.union(v.literal("active"), v.literal("flagged")),
+    /** When a review last showed it; absent means unseen. */
+    lastShownAt: v.optional(v.number()),
+    origin: v.union(v.literal("generated"), v.literal("edited")),
+    /** Incremented on every change; edits must name the version they started from. */
+    version: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_flashcard", ["flashcardId"])
+    .index("by_library", ["libraryId"]),
 
   /** Generated review items; FSRS state inline. */
   reviewUnits: defineTable({
