@@ -16,6 +16,7 @@ import {
 import schema from "./schema";
 import { checkCapacity } from "./model/usage";
 import { fail } from "./model/errors";
+import { selectProvider } from "./model/generator";
 import {
   deleteFlashcardCascade,
   editFlashcard,
@@ -341,6 +342,12 @@ export const create = mutation({
     const deck = await ownedOrFail(ctx, library, args.deckId, "Deck");
     await checkCapacity(ctx, library._id, { flashcards: 1 });
     const input = validateFlashcardInput(args.type, args.content, { concept: true });
+    // A concept card is only useful with generated exercises, so it can't be
+    // created while this deployment has no generator.
+    if (input.type === "concept") {
+      const { unavailable } = selectProvider();
+      if (unavailable) fail("INVALID", unavailable);
+    }
     const now = Date.now();
     const id = await insertFlashcard(ctx, {
       libraryId: library._id,

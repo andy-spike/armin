@@ -15,6 +15,7 @@ import {
   variantsOf,
 } from "./model/concepts";
 import { fail } from "./model/errors";
+import { selectProvider } from "./model/generator";
 import { MAX_VARIANTS_PER_CONCEPT } from "./model/limits";
 import {
   settleVariants,
@@ -59,6 +60,19 @@ export const pool = query({
         createdAt: variant.createdAt,
       })),
     };
+  },
+});
+
+/**
+ * Whether this deployment can generate variants, so the card editor can offer
+ * the Concept type or explain why not. A deployment setting: it needs no
+ * session and is the same for every account.
+ */
+export const availability = query({
+  args: {},
+  handler: async () => {
+    const { unavailable } = selectProvider();
+    return { available: unavailable === null, reason: unavailable };
   },
 });
 

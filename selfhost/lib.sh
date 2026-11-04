@@ -71,13 +71,26 @@ wait_for_backend() {
 # Push the backend functions and the deployment settings this instance needs.
 deploy_backend() {
   say "Configuring the Convex backend"
-  printf 'SITE_URL=%s\nBETTER_AUTH_SECRET=%s\nSELF_HOSTED=true\n' \
-    "$(env_get SITE_URL)" "$(env_get BETTER_AUTH_SECRET)" | convex env set --force >/dev/null
+  {
+    printf 'SITE_URL=%s\nBETTER_AUTH_SECRET=%s\nSELF_HOSTED=true\n' \
+      "$(env_get SITE_URL)" "$(env_get BETTER_AUTH_SECRET)"
+    # Concept cards: both set turns generation on through your gateway key.
+    local name
+    for name in AI_GATEWAY_API_KEY AI_GATEWAY_MODEL; do
+      [ -z "$(env_get "$name")" ] || printf '%s=%s\n' "$name" "$(env_get "$name")"
+    done
+  } | convex env set --force >/dev/null
   say "Deploying Armin's backend functions (this takes a minute)"
   convex deploy --yes
   # Capture first: under pipefail, grep -q exiting early would fail the pipe.
   local vars
   vars="$(convex env list)"
+  # A gateway setting cleared in .env is removed, turning concept cards off.
+  for name in AI_GATEWAY_API_KEY AI_GATEWAY_MODEL; do
+    if [ -z "$(env_get "$name")" ] && grep -q "^$name=" <<<"$vars"; then
+      convex env remove "$name" >/dev/null
+    fi
+  done
   if ! grep -q '^JWKS=' <<<"$vars"; then
     # Store the auth signing keys in the deployment so token checks never
     # fetch this instance's own public URL.

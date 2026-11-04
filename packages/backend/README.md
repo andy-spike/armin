@@ -213,12 +213,36 @@ in), and a card can't change to or from the concept type.
 - **Generator module** (`model/generator.ts`) is the only code that asks a model
   for variants. A provider turns a template plus exercises to avoid into
   candidate variants; the module validates each against the core variant schema
-  and drops invalid ones. Today it has only the deterministic fake provider,
-  which returns numbered exercises after a short delay and is selected by
-  `CONCEPT_GENERATOR_FAKE`. The fake can't run on Convex cloud or a
-  self-hosted instance: it requires the deployment's own URL to be a loopback
-  address. Without a provider, generation is off and jobs fail with
-  "Variant generation isn't set up on this server yet."
+  and drops invalid or image-bearing ones. `selectProvider` picks one from the
+  deployment variables:
+  - **fake**, when `CONCEPT_GENERATOR_FAKE=true`: deterministic numbered
+    exercises after a short delay, at no cost. It wins over the gateway, so a
+    local deployment spends no tokens unless the fake is turned off. It can't
+    run on Convex cloud or a self-hosted instance: it requires the
+    deployment's own URL to be a loopback address.
+  - **gateway**, when `AI_GATEWAY_API_KEY` and `AI_GATEWAY_MODEL` are both
+    set: one call through [TanStack AI](https://tanstack.com/ai/latest/) and
+    its Vercel AI Gateway adapter (`createVercelGatewayText(model, key)`,
+    Responses API). `chat()`'s `outputSchema` asks for
+    `{ variants: [{ exercise, solution }] }` as JSON schema output; each
+    variant is still validated on its own. The prompt holds the brief, the
+    worked example, and the exercises to avoid, and asks for text and KaTeX
+    only. The OpenAI client's own retries are off: 429 and 5xx are retried
+    in the action after 2, 4, and 8 seconds, everything else (401 included)
+    fails at once. The pool then shows a general reason (busy, unavailable,
+    or not working on this server) with Retry, and the reservation is
+    released; logs record only the status code, never the provider's message
+    or the key. The model call needs Node's streams (in the default runtime
+    the streamed response fails to close), so `conceptGeneration.ts` is a
+    `"use node"` action; TanStack AI is imported lazily, so queries and
+    mutations that check availability never load it.
+
+  With neither, generation is off: `concepts.availability` reports "Concept
+  cards aren't available on this server yet.", the card editor shows the
+  Concept type disabled with that reason, `flashcards.create` refuses a new
+  concept card, and Retry on an existing card fails its pool with the reason
+  without reserving allowance.
+
 - **Assignment.** The unit's `variantId` names the assigned variant, and its
   front and back hold that variant's exercise and solution, so `review.items`,
   the review screens, and Undo need no separate content path. Until a variant
@@ -386,20 +410,22 @@ Set these on the Convex deployment with `npx convex env set <NAME> <value>` from
 `packages/backend` (values are never stored in the repository). For the local
 dev deployment, keep `pnpm dev` running while you set them:
 
-| Name                                                    | Purpose                                                                                                                                                                                                                                                                               |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET`                                    | Session signing secret. Generate with `openssl rand -base64 32`.                                                                                                                                                                                                                      |
-| `SITE_URL`                                              | Public web origin, `http://localhost:3000` in development. Used for auth callbacks and email links.                                                                                                                                                                                   |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`              | Google OAuth web client. Register `${SITE_URL}/api/auth/callback/google` as a redirect URI.                                                                                                                                                                                           |
-| `RESEND_API_KEY`                                        | Resend key for verification and password-reset email.                                                                                                                                                                                                                                 |
-| `EMAIL_FROM`                                            | Optional. Defaults to `Armin <onboarding@resend.dev>`, which Resend only delivers to the Resend account's own address.                                                                                                                                                                |
-| `MOBILE_TRUSTED_ORIGINS`                                | Optional comma-separated origins for the Expo app. Defaults to `armin://`. The development deployment adds `exp://,exp://**` for Expo Go; never use `exp://` wildcards in production.                                                                                                 |
-| `POLAR_ORGANIZATION_TOKEN`                              | Polar organization access token (sandbox and production tokens differ). Scopes: `checkouts:write`, `customers:read`, `customers:write`, `customer_sessions:write`, `subscriptions:read`, `subscriptions:write`. Billing is off without it.                                            |
-| `POLAR_WEBHOOK_SECRET`                                  | Signing secret of the Polar webhook endpoint (`<site>/polar/events`), or of `polar webhook listen` locally. Billing is off without it.                                                                                                                                                |
-| `POLAR_SERVER`                                          | `production` or `sandbox` (default).                                                                                                                                                                                                                                                  |
-| `POLAR_PRODUCT_PRO_MONTHLY`, `POLAR_PRODUCT_PRO_YEARLY` | Polar product IDs of the monthly and yearly Pro subscriptions. Billing is off unless both are set.                                                                                                                                                                                    |
-| `CONCEPT_GENERATOR_FAKE`                                | Development only. `true` makes concept card generation use the generator's deterministic fake provider. It takes effect only on a local deployment (a loopback `CONVEX_CLOUD_URL`) that isn't self-hosted; anywhere else it is ignored and generation stays off. Local setup sets it. |
-| `OPENAI_APPS_CHALLENGE`                                 | Optional. The exact domain-verification token from OpenAI's plugin portal, served at `/.well-known/openai-apps-challenge`. See [plugin publishing](../../plugins/PUBLISHING.md).                                                                                                      |
+| Name                                                    | Purpose                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `BETTER_AUTH_SECRET`                                    | Session signing secret. Generate with `openssl rand -base64 32`.                                                                                                                                                                                                                                 |
+| `SITE_URL`                                              | Public web origin, `http://localhost:3000` in development. Used for auth callbacks and email links.                                                                                                                                                                                              |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`              | Google OAuth web client. Register `${SITE_URL}/api/auth/callback/google` as a redirect URI.                                                                                                                                                                                                      |
+| `RESEND_API_KEY`                                        | Resend key for verification and password-reset email.                                                                                                                                                                                                                                            |
+| `EMAIL_FROM`                                            | Optional. Defaults to `Armin <onboarding@resend.dev>`, which Resend only delivers to the Resend account's own address.                                                                                                                                                                           |
+| `MOBILE_TRUSTED_ORIGINS`                                | Optional comma-separated origins for the Expo app. Defaults to `armin://`. The development deployment adds `exp://,exp://**` for Expo Go; never use `exp://` wildcards in production.                                                                                                            |
+| `POLAR_ORGANIZATION_TOKEN`                              | Polar organization access token (sandbox and production tokens differ). Scopes: `checkouts:write`, `customers:read`, `customers:write`, `customer_sessions:write`, `subscriptions:read`, `subscriptions:write`. Billing is off without it.                                                       |
+| `POLAR_WEBHOOK_SECRET`                                  | Signing secret of the Polar webhook endpoint (`<site>/polar/events`), or of `polar webhook listen` locally. Billing is off without it.                                                                                                                                                           |
+| `POLAR_SERVER`                                          | `production` or `sandbox` (default).                                                                                                                                                                                                                                                             |
+| `POLAR_PRODUCT_PRO_MONTHLY`, `POLAR_PRODUCT_PRO_YEARLY` | Polar product IDs of the monthly and yearly Pro subscriptions. Billing is off unless both are set.                                                                                                                                                                                               |
+| `CONCEPT_GENERATOR_FAKE`                                | Development only. `true` makes concept card generation use the generator's deterministic fake provider. It takes effect only on a local deployment (a loopback `CONVEX_CLOUD_URL`) that isn't self-hosted; anywhere else it is ignored. It wins over the gateway variables. Local setup sets it. |
+| `AI_GATEWAY_API_KEY`                                    | Vercel AI Gateway API key for concept card generation. Secret: set it only on the deployment, never in the repository or logs.                                                                                                                                                                   |
+| `AI_GATEWAY_MODEL`                                      | Gateway model ID for concept card generation, in `creator/model` form (such as `openai/gpt-5-mini`). Generation uses the gateway only when this and `AI_GATEWAY_API_KEY` are both set; with neither them nor the fake, concept cards are unavailable. Not chosen yet for armincards.app (#102).  |
+| `OPENAI_APPS_CHALLENGE`                                 | Optional. The exact domain-verification token from OpenAI's plugin portal, served at `/.well-known/openai-apps-challenge`. See [plugin publishing](../../plugins/PUBLISHING.md).                                                                                                                 |
 
 Without `RESEND_API_KEY`, sign-up, password reset, and verification resends are
 disabled and say that email is unavailable; existing verified accounts can still

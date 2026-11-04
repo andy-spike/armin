@@ -145,6 +145,12 @@ export const conceptPoolQuery = (flashcardId: string | null) =>
     select: (pool) => pool ?? null,
   });
 
+/**
+ * Whether this deployment generates concept card variants, and why not. A
+ * deployment setting, so the subscription stays open like other live reads.
+ */
+export const conceptAvailabilityQuery = () => queryOptions(live(api.concepts.availability, {}));
+
 /** How many links a move would remove, for the move dialog. `null` skips. */
 export const moveConsequencesQuery = (flashcardId: string | null) =>
   queryOptions({

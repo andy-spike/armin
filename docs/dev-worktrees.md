@@ -177,7 +177,10 @@ Setup sets this deployment's `SITE_URL`, Expo trusted origins, and a session sec
 when one is absent. It also turns on the concept card generator's fake provider
 (`CONCEPT_GENERATOR_FAKE=true`) unless the variable is already set, so concept
 cards fill with numbered sample exercises at no cost. Set it to `false` to see
-the "generation isn't set up" failure and Retry. It does not copy the main checkout's secrets or user data.
+concept cards reported as unavailable. To try a real model, set
+`AI_GATEWAY_API_KEY` and `AI_GATEWAY_MODEL` on the local deployment and set
+`CONCEPT_GENERATOR_FAKE=false`; while the fake is on it wins, so nothing spends
+tokens. It does not copy the main checkout's secrets or user data.
 Treat demo credentials and the local admin key as local credentials; report
 their file locations rather than pasting their contents into issues or PRs.
 

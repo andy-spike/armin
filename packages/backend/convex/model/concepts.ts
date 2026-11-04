@@ -7,6 +7,7 @@ import {
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { selectProvider } from "./generator";
 import { MAX_VARIANTS_PER_CONCEPT } from "./limits";
 import { reserveVariants, settleVariants } from "./variantAllowance";
 
@@ -30,7 +31,9 @@ export const GENERATION_STALL_MS = 10 * 60_000;
  * mutation, before the action can call the model; a superseded job's
  * reservation is released first. With no allowance left, no job is scheduled
  * and the pool shows that the allowance is used, until a later request (Retry,
- * or a refill) finds room again in a new month or on a larger plan.
+ * or a refill) finds room again in a new month or on a larger plan. When the
+ * deployment has no generator, the pool fails with that reason instead, so no
+ * allowance is reserved for a job that can't run.
  */
 export async function requestGeneration(
   ctx: MutationCtx,
@@ -40,6 +43,13 @@ export async function requestGeneration(
   const previous = flashcard.conceptPool;
   if (previous?.status === "generating") await settleVariants(ctx, previous.reserved, 0);
   const job = (previous?.job ?? 0) + 1;
+  const { unavailable } = selectProvider();
+  if (unavailable) {
+    await ctx.db.patch(flashcard._id, {
+      conceptPool: { status: "failed", job, requestedAt: now, reason: unavailable },
+    });
+    return;
+  }
   const room = MAX_VARIANTS_PER_CONCEPT - (await variantsOf(ctx, flashcard._id)).length;
   if (room <= 0) {
     await ctx.db.patch(flashcard._id, {

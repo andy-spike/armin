@@ -1,3 +1,5 @@
+"use node";
+
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -13,6 +15,9 @@ import { GenerationError, generateVariants, selectProvider } from "./model/gener
  * `count` is the batch `requestGeneration` reserved from the monthly variant
  * allowance (`reserved`) before scheduling this job. Storing or failing
  * settles that reservation, charging only the variants stored.
+ *
+ * A Node action: the gateway provider's streamed model response needs Node's
+ * fetch and streams (see `model/generator.ts`).
  */
 export const generate = internalAction({
   args: {

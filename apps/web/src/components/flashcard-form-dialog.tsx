@@ -1,7 +1,9 @@
 import { useConnection } from "@/lib/session";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import { Tooltip } from "@/components/ui/tooltip";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
@@ -14,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { conceptAvailabilityQuery } from "@/lib/queries";
 import { CONCEPT_BATCH_SIZE } from "@armin/core/concept";
 import { hasEmptyClozeDeletion, parseClozes } from "@armin/core/flashcard-rules";
 import { ClozeField, Field, TagsInput } from "@/components/flashcard-form-fields";
@@ -233,6 +236,11 @@ export function FlashcardFormDialog({
     return () => cancelAnimationFrame(frame);
   }, [discardOpen]);
 
+  // A new concept card needs a generator; an existing one stays editable.
+  const conceptAvailability = useQuery({ ...conceptAvailabilityQuery(), enabled: open }).data;
+  const conceptUnavailable =
+    conceptAvailability && !conceptAvailability.available ? conceptAvailability.reason : null;
+
   const displayMode = open ? mode : displaySession.mode;
   const displayCardId = open ? (reviewUnitId ?? null) : displaySession.reviewUnitId;
 
@@ -240,7 +248,8 @@ export function FlashcardFormDialog({
   // Disconnected: keep the draft but don't start a save whose outcome
   // can't be confirmed.
   const { online } = useConnection();
-  const canSubmit = content !== null && !submitting && uploads === 0 && online;
+  const blockedConcept = displayMode === "create" && type === "concept" && !!conceptUnavailable;
+  const canSubmit = content !== null && !submitting && uploads === 0 && online && !blockedConcept;
 
   const dirty = initialSnapshot !== null && formSnapshot(type, fields, tags) !== initialSnapshot;
 
@@ -260,7 +269,7 @@ export function FlashcardFormDialog({
   };
 
   const handleSubmit = async () => {
-    if (!content || submitting || !online || uploadCount.current > 0) return;
+    if (!content || submitting || !online || blockedConcept || uploadCount.current > 0) return;
     setSubmitting(true);
     try {
       await onSubmit({ type, content, tags });
@@ -382,27 +391,43 @@ export function FlashcardFormDialog({
             }
           >
             <div className="grid w-full grid-cols-3 gap-1.5 sm:grid-cols-5">
-              {TYPE_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setType(option.value)}
-                  aria-pressed={type === option.value}
-                  // A saved card can't change to or from a concept card.
-                  disabled={
-                    displayMode === "edit" &&
-                    (initialType === "concept") !== (option.value === "concept")
-                  }
-                  className={cn(
-                    "min-w-0 rounded-md border px-2.5 py-1.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50",
-                    type === option.value
-                      ? "border-accent bg-accent text-on-accent"
-                      : "border-border-strong bg-surface text-muted hover:text-ink",
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
+              {TYPE_OPTIONS.map((option) => {
+                // Without a generator, a new card can't be a concept card. The
+                // button stays focusable (aria-disabled) so its tooltip can say why.
+                const unavailable =
+                  option.value === "concept" && displayMode === "create" && conceptUnavailable;
+                const button = (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      if (!unavailable) setType(option.value);
+                    }}
+                    aria-pressed={type === option.value}
+                    aria-disabled={unavailable ? true : undefined}
+                    // A saved card can't change to or from a concept card.
+                    disabled={
+                      displayMode === "edit" &&
+                      (initialType === "concept") !== (option.value === "concept")
+                    }
+                    className={cn(
+                      "min-w-0 rounded-md border px-2.5 py-1.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50",
+                      type === option.value
+                        ? "border-accent bg-accent text-on-accent"
+                        : "border-border-strong bg-surface text-muted hover:text-ink aria-disabled:hover:text-muted",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+                return unavailable ? (
+                  <Tooltip key={option.value} content={unavailable}>
+                    {button}
+                  </Tooltip>
+                ) : (
+                  button
+                );
+              })}
             </div>
           </Field>
 
