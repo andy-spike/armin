@@ -21,7 +21,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { settingsQuery as settingsQueryOptions } from "@/lib/queries";
 import { isEditableTarget } from "@/lib/keybindings/editable";
 import {
@@ -82,7 +82,6 @@ function parseOverrides(raw: string | null | undefined): KeybindingOverrides {
 }
 
 export function KeybindingsProvider({ children }: { children: ReactNode }) {
-  const queryClient = useQueryClient();
   const hasBackend = useLibraryReady();
 
   const settingsQuery = useQuery({ ...settingsQueryOptions(), enabled: hasBackend });
@@ -249,20 +248,11 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
 
   const commitKeymap = useCallback(
     (next: Keymap) => {
-      const diff = diffFromFactory(next);
-      // Optimistic local update so keys respond before the round-trip settles.
-      // The live result replaces it once the save lands.
-      queryClient.setQueryData(settingsQueryOptions().queryKey, (prev) =>
-        prev
-          ? {
-              ...prev,
-              keybindings: Object.keys(diff).length ? JSON.stringify(diff) : null,
-            }
-          : prev,
-      );
-      if (hasBackend) persistOverrides.mutate(diff);
+      // The settings save carries a Convex optimistic update, so keys respond
+      // before the round-trip settles.
+      if (hasBackend) persistOverrides.mutate(diffFromFactory(next));
     },
-    [hasBackend, persistOverrides, queryClient],
+    [hasBackend, persistOverrides],
   );
 
   const setBinding = useCallback(

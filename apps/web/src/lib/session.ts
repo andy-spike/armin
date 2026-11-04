@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { onlineManager, useQuery } from "@tanstack/react-query";
+import { useConvexConnectionState } from "convex/react";
 import { convexQuery } from "@convex-dev/react-query";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@armin/backend/api";
-import { convexClient } from "@/lib/armin-client";
 
 /** The signed-in user and library state; reactive. */
 export function useViewer() {
@@ -32,50 +32,23 @@ export function useAuthFeatures() {
   });
 }
 
-type Connection = { online: boolean; pending: boolean };
-
-let cached: Connection = { online: true, pending: false };
-
-function readConnection(): Connection {
-  try {
-    const state = convexClient().connectionState();
-    const browserOnline = typeof navigator === "undefined" || navigator.onLine !== false;
-    // The socket can take up to a minute to notice a dead network; the
-    // browser's own offline signal pauses submissions immediately.
-    const online = browserOnline && (state.isWebSocketConnected || !state.hasEverConnected);
-    const pending = state.hasInflightRequests;
-    if (online !== cached.online || pending !== cached.pending) {
-      cached = { online, pending };
-    }
-  } catch {
-    // Client not ready during the first render.
-  }
-  return cached;
-}
-
 /**
  * Live connection state. `online` is false while the WebSocket is down, so
  * the UI can stop new study/edit submissions; `pending` means a submitted
  * request has no confirmed outcome yet.
  */
 export function useConnection() {
-  return useSyncExternalStore(
-    (onChange) => {
-      window.addEventListener("online", onChange);
-      window.addEventListener("offline", onChange);
-      let unsubscribe: () => void = () => undefined;
-      try {
-        unsubscribe = convexClient().subscribeToConnectionState(onChange);
-      } catch {
-        // Client not ready yet; browser events still drive the state.
-      }
-      return () => {
-        window.removeEventListener("online", onChange);
-        window.removeEventListener("offline", onChange);
-        unsubscribe();
-      };
-    },
-    readConnection,
-    () => cached,
+  const state = useConvexConnectionState();
+  // The socket can take up to a minute to notice a dead network; the
+  // browser's own offline signal (TanStack Query's online manager) pauses
+  // submissions immediately.
+  const browserOnline = useSyncExternalStore(
+    (onChange) => onlineManager.subscribe(onChange),
+    () => onlineManager.isOnline(),
+    () => true,
   );
+  return {
+    online: browserOnline && (state.isWebSocketConnected || !state.hasEverConnected),
+    pending: state.hasInflightRequests,
+  };
 }

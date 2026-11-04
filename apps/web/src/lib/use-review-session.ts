@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useMutation, useMutationState } from "@tanstack/react-query";
 import {
   initialReviewSession,
   missingFromQueue,
@@ -23,13 +24,18 @@ type Submission = {
 type BuryOutcome = { status: "ok"; units: BuriedUnit[] } | { status: "stale"; message: string };
 
 const RETRY_DELAYS_MS = [500, 1_000, 2_000, 5_000];
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Answers share one TanStack Query mutation scope, so they save one at a time
+ * in answer order, and each retries until it has an outcome.
+ */
+const SAVE_ANSWER = ["review", "save-answer"];
 
 /**
  * Drives the `@armin/core/review-session` engine against the server. Answers
- * show as done at once and save in the background, one at a time in answer
- * order; a request whose outcome is unknown is retried with the same request
- * id, so the server applies each answer at most once.
+ * show as done at once and save in the background; a request whose outcome is
+ * unknown is retried with the same request id, so the server applies each
+ * answer at most once.
  */
 export function useReviewSession({
   queue,
@@ -63,13 +69,13 @@ export function useReviewSession({
     setState(stateRef.current);
   }, []);
 
-  const submissionsRef = useRef<Submission[]>([]);
+  // Answers given but not yet saved, by turn. Counted synchronously, so the
+  // queue merge below never runs between an answer and the start of its save.
+  const unsavedRef = useRef(new Set<string>());
   const [saving, setSaving] = useState(0);
-  const [saveFailing, setSaveFailing] = useState(false);
+  const drainWaitersRef = useRef<(() => void)[]>([]);
   const [undoing, setUndoing] = useState(false);
   const [burying, setBurying] = useState(false);
-  const drainWaitersRef = useRef<(() => void)[]>([]);
-  const savingLoopRef = useRef(false);
   // Missing queue entries may have been deleted elsewhere; preview returns
   // null once the unit is gone. Each is checked once while it stays missing.
   const missingCheckedRef = useRef(new Set<string>());
@@ -87,72 +93,64 @@ export function useReviewSession({
   const cards = ready ? state.cards : [];
   const card = cards[state.index];
 
-  /** Resolve once every answer given so far has a server outcome. */
-  const whenSaved = () =>
-    submissionsRef.current.length === 0
-      ? Promise.resolve()
-      : new Promise<void>((resolve) => drainWaitersRef.current.push(resolve));
-
-  const saveAnswers = async () => {
-    if (savingLoopRef.current) return;
-    savingLoopRef.current = true;
-    try {
-      let attempt = 0;
-      while (submissionsRef.current.length > 0) {
-        const submission = submissionsRef.current[0]!;
-        let result: SessionRateResult;
-        try {
-          result = await onRateRef.current(
-            submission.card,
-            submission.rating,
-            submission.requestId,
-          );
-        } catch {
-          setSaveFailing(true);
-          await sleep(RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)]!);
-          attempt += 1;
-          continue;
-        }
-        attempt = 0;
-        setSaveFailing(false);
-        submissionsRef.current.shift();
-        dispatch(
-          result.status === "ok"
-            ? {
-                type: "saved",
-                turnId: submission.turnId,
-                reviewUnitId: submission.card.id,
-                reviewLogId: result.reviewLogId,
-                version: result.version,
-              }
-            : { type: "rejected", reviewUnitId: submission.card.id, message: result.message },
-        );
-        setSaving(submissionsRef.current.length);
-      }
-    } finally {
-      savingLoopRef.current = false;
+  const saveAnswer = useMutation({
+    mutationKey: SAVE_ANSWER,
+    scope: { id: SAVE_ANSWER.join(":") },
+    // Convex queues writes across reconnects itself; never pause for the browser's online flag.
+    networkMode: "always",
+    retry: true,
+    retryDelay: (failures) => RETRY_DELAYS_MS[Math.min(failures, RETRY_DELAYS_MS.length) - 1]!,
+    mutationFn: (submission: Submission) =>
+      onRateRef.current(submission.card, submission.rating, submission.requestId),
+    onSuccess: (result, submission) =>
+      dispatch(
+        result.status === "ok"
+          ? {
+              type: "saved",
+              turnId: submission.turnId,
+              reviewUnitId: submission.card.id,
+              reviewLogId: result.reviewLogId,
+              version: result.version,
+            }
+          : { type: "rejected", reviewUnitId: submission.card.id, message: result.message },
+      ),
+    onSettled: (_result, _error, submission) => {
+      unsavedRef.current.delete(submission.turnId);
+      setSaving(unsavedRef.current.size);
+      if (unsavedRef.current.size > 0) return;
       const waiters = drainWaitersRef.current;
       drainWaitersRef.current = [];
       for (const resolve of waiters) resolve();
-    }
-  };
+    },
+  });
+  // An answer that failed at least once and is still retrying.
+  const saveFailing = useMutationState({
+    filters: { mutationKey: SAVE_ANSWER, status: "pending" },
+    select: (mutation) => mutation.state.failureCount > 0,
+  }).some(Boolean);
+
+  /** Resolve once every answer given so far has a server outcome. */
+  const whenSaved = () =>
+    unsavedRef.current.size === 0
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => drainWaitersRef.current.push(resolve));
 
   /** Answer the card on screen; the next card shows while the answer saves. False when ignored. */
   const rate = (grade: Grade) => {
     if (!card || card.reviewed || undoing || state.stale || !online) return false;
-    if (submissionsRef.current.some((s) => s.turnId === card.turnId)) return false;
+    if (unsavedRef.current.has(card.turnId)) return false;
     const requestId = crypto.randomUUID();
-    submissionsRef.current.push({ turnId: card.turnId, card, rating: grade, requestId });
-    setSaving(submissionsRef.current.length);
+    unsavedRef.current.add(card.turnId);
+    setSaving(unsavedRef.current.size);
     dispatch({ type: "rated", grade, requestId, repeatAgainOffset });
-    void saveAnswers();
+    saveAnswer.mutate({ turnId: card.turnId, card, rating: grade, requestId });
     return true;
   };
 
   /** Undo the latest answer or bury. Resolves true when an answer came back on screen. */
   const undoLast = async () => {
     if (!onUndo || undoing || !online) return false;
-    if (stateRef.current.history.length === 0 && submissionsRef.current.length === 0) return false;
+    if (stateRef.current.history.length === 0 && unsavedRef.current.size === 0) return false;
     setUndoing(true);
     dispatch({ type: "notice", message: null });
     try {

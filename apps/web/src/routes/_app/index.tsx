@@ -42,8 +42,7 @@ import {
   prefetchDecksPage,
   statsHeatmapQuery,
 } from "@/lib/queries";
-import { forgetEdit, requestCreate, useShownDecks } from "@/lib/pending-deck-edits";
-import { useDeckPinnedAt } from "@/lib/pending-pins";
+import { isPendingDeck } from "@/lib/optimistic";
 import { STATS_COMPACT_HEATMAP_WEEKS } from "@armin/core/stats";
 import type { StatsHeatmap } from "@armin/backend/types";
 
@@ -63,32 +62,30 @@ function DecksPage() {
   const decksQuery = useQuery(decksQueryOptions(now));
   const deckActions = useDeckActions();
 
-  const shownDecks = useShownDecks(decksQuery.data);
-  const decks = shownDecks ?? [];
+  const decks = decksQuery.data ?? [];
   const heatmapQuery = useQuery({
     ...statsHeatmapQuery(STATS_COMPACT_HEATMAP_WEEKS, now),
     enabled: decks.length > 0,
   });
-  const sortedDecks = useMemo(() => sortDecks(shownDecks ?? [], sort), [shownDecks, sort]);
+  const sortedDecks = useMemo(
+    () => sortDecks(decksQuery.data ?? [], sort),
+    [decksQuery.data, sort],
+  );
 
-  // The new deck shows as a placeholder at once and the dialog closes; the
-  // mutation resolves only once the live list includes the real deck.
+  // The new deck shows as a placeholder at once (a Convex optimistic update)
+  // and the dialog closes; the real deck replaces it once the list includes it.
   const createDeck = useMutation({
     mutationFn: (input: { name: string; description: string | null }) =>
       armin.decks.create({ ...input, requestId: createRequestId.current }),
-    onMutate: (input) => {
+    onMutate: () => {
       setClosingAfterCreate(true);
       setOpen(false);
-      return { placeholder: requestCreate(input.name, input.description) };
     },
     onSuccess: (_deck, input) => {
       toast({ tone: "success", title: "Deck created", description: input.name });
     },
     onError: (error) => {
       toast({ tone: "error", title: "Couldn’t create deck", description: errorMessage(error) });
-    },
-    onSettled: (_result, _error, _input, context) => {
-      if (context) forgetEdit("create", context.placeholder);
     },
   });
 
@@ -166,7 +163,11 @@ function DecksPage() {
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sortedDecks.map((deck) => (
             // A deck still being created can't be opened or edited yet.
-            <li key={deck.id} inert={deck.pending} className={cn(deck.pending && "opacity-60")}>
+            <li
+              key={deck.id}
+              inert={isPendingDeck(deck)}
+              className={cn(isPendingDeck(deck) && "opacity-60")}
+            >
               <DeckTile
                 deck={deck}
                 onPrefetch={() => prefetchDeckPage(queryClient, deck.id)}
@@ -312,7 +313,7 @@ function DeckTile({
   onRename: () => void;
   onDelete: () => void;
 }) {
-  const pinned = useDeckPinnedAt(deck) != null;
+  const pinned = deck.pinnedAt != null;
   const pct = deck.total > 0 ? Math.round((deck.learned / deck.total) * 100) : 0;
 
   return (

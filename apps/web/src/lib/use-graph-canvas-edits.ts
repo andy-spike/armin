@@ -2,7 +2,7 @@ import { armin, errorMessage } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import { useUpdateFlashcard } from "@/lib/use-update-flashcard";
 import { useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useIsMutating, useMutation } from "@tanstack/react-query";
 import type { XYPosition } from "@xyflow/react";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
 import type { UiDeckGraph } from "@/types/view-models";
@@ -25,7 +25,8 @@ type UseGraphCanvasEditsInput = {
   editingId: string | null;
   editingVersion: number | null;
   closeDialog: () => void;
-  refetchGraph: () => void;
+  /** Replace the canvas's working copy with the server's graph. */
+  resetGraph: () => void;
   toast: Toast;
 };
 
@@ -42,68 +43,57 @@ export function useGraphCanvasEdits({
   editingId,
   editingVersion,
   closeDialog,
-  refetchGraph,
+  resetGraph,
   toast,
 }: UseGraphCanvasEditsInput) {
   const [nodePlacements, setNodePlacements] = useState<Record<string, XYPosition>>({});
 
+  // Graph writes name the library revision they start from. Ours run one at a
+  // time in one TanStack Query mutation scope, each starting from the
+  // revision the previous one saved; between writes, the server's is adopted.
+  const scope = { id: `graph:${deckId}` };
   const revision = useRef(graph.version ?? 0);
-  const pending = useRef(0);
-  const queue = useRef(Promise.resolve());
-  // Adopt the server's version whenever none of our own writes are in flight.
+  const writing = useIsMutating({ mutationKey: ["graph", deckId] }) > 0;
   useLayoutEffect(() => {
-    if (pending.current === 0 && graph.version !== undefined) revision.current = graph.version;
+    if (!writing && graph.version !== undefined) revision.current = graph.version;
   });
 
-  // Serialize our own rapid edits, while rejecting changes from a stale view.
-  const writeGraph = <T extends { version: number }>(write: (version: number) => Promise<T>) => {
-    pending.current++;
-    const result = queue.current.then(async () => {
-      const saved = await write(revision.current);
-      revision.current = saved.version;
-      setGraph((current) => ({ ...current, version: saved.version }));
-      return saved;
-    });
-    queue.current = result.then(() => undefined);
-    void queue.current.catch(() => undefined);
-    return result.finally(() => {
-      pending.current--;
-      if (pending.current === 0) {
-        queue.current = Promise.resolve();
-        refetchGraph();
-      }
-    });
+  const writeGraph = async <T extends { version: number }>(
+    write: (version: number) => Promise<T>,
+  ) => {
+    const saved = await write(revision.current);
+    revision.current = saved.version;
+    return saved;
+  };
+
+  // A failed write puts the canvas back to the server's graph.
+  const failed = (title: string, error?: unknown) => {
+    toast({ tone: "error", title, description: error ? errorMessage(error) : undefined });
+    resetGraph();
   };
 
   const addPrereq = useMutation({
+    mutationKey: ["graph", deckId],
+    scope,
     mutationFn: (edge: GraphEdge) =>
       writeGraph((version) => armin.graph.addPrereq(edge.prereqId, edge.dependentId, version)),
-    onError: (error) => {
-      toast({
-        tone: "error",
-        title: "Couldn’t link flashcards",
-        description: errorMessage(error),
-      });
-      refetchGraph();
-    },
+    onError: (error) => failed("Couldn’t link flashcards", error),
   });
 
   const removePrereq = useMutation({
+    mutationKey: ["graph", deckId],
+    scope,
     mutationFn: (edge: GraphEdge) =>
       writeGraph((version) => armin.graph.removePrereq(edge.prereqId, edge.dependentId, version)),
-    onError: () => {
-      toast({ tone: "error", title: "Couldn’t remove link" });
-      refetchGraph();
-    },
+    onError: () => failed("Couldn’t remove link"),
   });
 
   const saveLayout = useMutation({
+    mutationKey: ["graph", deckId],
+    scope,
     mutationFn: (placements: GraphLayoutPlacement[]) =>
       writeGraph((version) => armin.graph.saveLayout(deckId, placements, version)),
-    onError: (error) => {
-      toast({ tone: "error", title: "Couldn’t save layout", description: errorMessage(error) });
-      refetchGraph();
-    },
+    onError: (error) => failed("Couldn’t save layout", error),
   });
 
   const createCard = useMutation({
@@ -144,10 +134,7 @@ export function useGraphCanvasEdits({
     onSuccess: () => {
       toast({ tone: "success", title: "Flashcard deleted" });
     },
-    onError: () => {
-      toast({ tone: "error", title: "Couldn’t delete flashcard" });
-      refetchGraph();
-    },
+    onError: () => failed("Couldn’t delete flashcard"),
   });
 
   const saveCard = async (values: CardFormValues) => {

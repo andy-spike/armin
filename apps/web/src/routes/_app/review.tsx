@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ReviewSession } from "@/components/review-session";
+import { ReviewSession } from "@/components/review-session/review-session";
 import { toUiReviewUnit } from "@/types/view-models";
 import { useReviewActions } from "@/lib/use-review-actions";
 import { useStudyClock } from "@/lib/study-clock";
