@@ -53,6 +53,15 @@ shows that the allowance is used until the next month. Per-account model choice
 and user-supplied keys on the hosted service were rejected for their settings,
 pricing, and key-storage burden.
 
+Model calls go through [TanStack AI](https://tanstack.com/ai/latest/) and its
+Vercel AI Gateway adapter (`@tanstack/ai-vercel-gateway`), so changing the model
+or provider means changing one gateway model ID (`creator/model`) rather than
+code. The deployment holds `AI_GATEWAY_API_KEY` and the model ID; self-hosters
+set their own. Every model call sits behind one generator module with a gateway
+provider and a deterministic fake provider. Local deployments use the fake, so
+development and walkthroughs need no key and cost nothing, and the fake stays in
+use until a model is chosen.
+
 ## Availability
 
 On armincards.app, concept cards are a Pro feature; free libraries cannot create
