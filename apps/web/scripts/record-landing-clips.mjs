@@ -1,12 +1,14 @@
-// Records the landing page's four clips from the real app, in dark mode:
-// writing a card, linking it in the graph, reviewing, and the unlocked graph.
+// Records the landing page's four clips from the real app, once in light mode
+// and once in dark: writing a card, linking it in the graph, reviewing, and the
+// unlocked graph. The landing page shows the set matching the visitor's theme.
 //
 //   pnpm --filter @armin/web landing:clips
 //
 // Needs `pnpm dev` running in this checkout, agent-browser, and ffmpeg. Each
 // run resets the "Fundamentals of LLMs" deck in its own demo account on this
 // checkout's local deployment, then writes MP4s and posters to
-// apps/web/public/landing/ and their sizes to src/components/landing/clips.json.
+// apps/web/public/landing/ (`<clip>-light.mp4`, `<clip>-dark.mp4`, and a JPEG
+// poster for each) and their sizes to src/components/landing/clips.json.
 // Each clip is cropped to the part of the screen its step is about.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -22,6 +24,7 @@ const SESSION = "armin-landing-clips";
 const out = fileURLToPath(new URL("../public/landing/", import.meta.url));
 const manifest = fileURLToPath(new URL("../src/components/landing/clips.json", import.meta.url));
 const raw = join(out, ".raw");
+const SCHEMES = ["dark", "light"];
 const WIDTH = 1280;
 const HEIGHT = 800;
 const SCALE = 1.5;
@@ -92,12 +95,13 @@ function typeQuickly(text) {
 }
 
 const sizes = {};
+let scheme = "dark";
 function startClip(name) {
-  ab("record", "start", join(raw, `${name}.mp4`), "--cursor", "--fps", "30");
+  ab("record", "start", join(raw, `${name}-${scheme}.mp4`), "--cursor", "--fps", "30");
 }
 function stopClip(name, crop) {
   ab("record", "stop");
-  const source = join(raw, `${name}.mp4`);
+  const source = join(raw, `${name}-${scheme}.mp4`);
   // Recorded pixels per CSS pixel, from the recording's own width.
   const recorded = Number(
     execFileSync("ffprobe", [
@@ -116,8 +120,16 @@ function stopClip(name, crop) {
   const even = (n) => Math.round(n / 2) * 2;
   const width = even(Math.min(MAX_WIDTH, crop.width * k));
   const height = even((width * crop.height) / crop.width);
+  // Both schemes share one layout, so their crops match; the page reserves
+  // space from one size per clip.
+  const previous = sizes[name];
+  if (previous && (previous.width !== width || previous.height !== height)) {
+    console.warn(
+      `The ${scheme} ${name} clip is ${width}×${height}, the other ${previous.width}×${previous.height}.`,
+    );
+  }
   sizes[name] = { width, height };
-  const target = join(out, `${name}.mp4`);
+  const target = join(out, `${name}-${scheme}.mp4`);
   // Small, widely playable H.264 with no audio track, ready to stream.
   execFileSync("ffmpeg", [
     "-y",
@@ -159,7 +171,7 @@ function stopClip(name, crop) {
     "1",
     "-q:v",
     "3",
-    join(out, `${name}.jpg`),
+    join(out, `${name}-${scheme}.jpg`),
   ]);
 }
 
@@ -174,6 +186,21 @@ function openGraph(site, deckPath) {
 
 async function main() {
   mkdirSync(raw, { recursive: true });
+  try {
+    for (const next of SCHEMES) {
+      scheme = next;
+      console.log(`Recording the ${scheme} clips`);
+      await recordScheme();
+    }
+  } finally {
+    rmSync(raw, { recursive: true, force: true });
+  }
+  writeFileSync(manifest, `${JSON.stringify(sizes, null, 2)}\n`);
+  console.log(`Wrote the landing clips to ${out}`);
+}
+
+/** Resets the demo deck and records all four clips in the current scheme. */
+async function recordScheme() {
   const demo = await prepareLandingDemo();
   const site = demo.siteUrl;
   try {
@@ -182,9 +209,9 @@ async function main() {
     // No earlier session to close.
   }
   ab("set", "viewport", String(WIDTH), String(HEIGHT), String(SCALE));
-  ab("set", "media", "dark");
+  ab("set", "media", scheme);
   ab("open", `${site}/sign-in`);
-  wait(1200);
+  ab("wait", "input[type=email]");
   ab("fill", "input[type=email]", LANDING_ACCOUNT.email);
   ab("fill", "input[type=password]", LANDING_ACCOUNT.password);
   ab("press", "Enter");
@@ -297,11 +324,8 @@ async function main() {
     stopClip("unlock", unlockFrame);
   } finally {
     ab("close");
-    rmSync(raw, { recursive: true, force: true });
     await demo.signOut();
   }
-  writeFileSync(manifest, `${JSON.stringify(sizes, null, 2)}\n`);
-  console.log(`Wrote the landing clips to ${out}`);
 }
 
 main().catch((error) => {
