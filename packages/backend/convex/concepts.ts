@@ -1,12 +1,21 @@
 import { v } from "convex/values";
+import { isAwaitingVariant } from "@armin/core/concept";
 import { conceptVariantSchema, type ConceptContent } from "@armin/core/flashcard-types";
 import { internalQuery, query } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import { owned, ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
-import { poolView, requestGeneration, runningJob, variantsOf } from "./model/concepts";
+import {
+  conceptUnit,
+  nextVariant,
+  poolView,
+  requestGeneration,
+  runningJob,
+  showVariant,
+  variantsOf,
+} from "./model/concepts";
 import { fail } from "./model/errors";
 import { MAX_VARIANTS_PER_CONCEPT } from "./model/limits";
-import { bumpRevision, parseFlashcard } from "./model/study";
+import { bumpRevision, parseFlashcard, waitingSchedule } from "./model/study";
 
 /*
  * Concept card variant pools (ADR 0023). The card editor reads a card's pool
@@ -76,7 +85,9 @@ const variantInput = v.object({ exercise: v.string(), solution: v.string() });
 /**
  * Store a job's variants and mark the pool ready. Each variant is checked
  * against the core schema again at this storage boundary; a batch with none
- * left fails the pool instead.
+ * left fails the pool instead. When the card's unit has no variant yet, the
+ * batch assigns one, which moves the unit off the pending schedule to New in
+ * the same patch unless prerequisites still lock the card.
  */
 export const storeVariants = internalMutation({
   args: { flashcardId: v.id("flashcards"), job: v.number(), variants: v.array(variantInput) },
@@ -114,6 +125,18 @@ export const storeVariants = internalMutation({
     await ctx.db.patch(flashcardId, {
       conceptPool: { job, status: "ready", requestedAt: flashcard.conceptPool!.requestedAt },
     });
+    const unit = await conceptUnit(ctx, flashcardId);
+    if (unit && isAwaitingVariant(unit)) {
+      const variant = await nextVariant(ctx, flashcardId);
+      if (variant) {
+        await ctx.db.patch(unit._id, {
+          ...showVariant(variant),
+          ...waitingSchedule({ ...unit, variantId: variant._id }, flashcard.locked, now),
+          version: unit.version + 1,
+          updatedAt: now,
+        });
+      }
+    }
     await bumpRevision(ctx, flashcard.libraryId);
     return { stored: valid.length };
   },

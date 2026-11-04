@@ -1,4 +1,4 @@
-import type { ConceptPoolStatus } from "@armin/core/concept";
+import { CONCEPT_SUBKEY, pickNextVariant, type ConceptPoolStatus } from "@armin/core/concept";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
@@ -69,4 +69,69 @@ export async function runningJob(ctx: QueryCtx, flashcardId: Id<"flashcards">, j
   )
     return null;
   return flashcard;
+}
+
+/** A concept card's one review unit, by its fixed subKey. */
+export async function conceptUnit(ctx: QueryCtx, flashcardId: Id<"flashcards">) {
+  const units = await ctx.db
+    .query("reviewUnits")
+    .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcardId))
+    .collect();
+  return units.find((unit) => unit.subKey === CONCEPT_SUBKEY) ?? null;
+}
+
+/**
+ * The display half of assigning a variant: the unit's front and back become
+ * the variant's exercise and solution. Callers write it in the same patch as
+ * the version bump, so an open review of the previous variant goes stale.
+ */
+export function showVariant(variant: Doc<"conceptVariants">) {
+  return { variantId: variant._id, front: variant.exercise, back: variant.solution };
+}
+
+/**
+ * Pick the variant a concept unit shows next (`pickNextVariant`). Inside a
+ * mutation Convex seeds `Math.random` per mutation, so the choice is
+ * deterministic for a given transaction yet varies between reviews; that is
+ * all a varied exercise needs.
+ */
+export async function nextVariant(ctx: QueryCtx, flashcardId: Id<"flashcards">) {
+  return pickNextVariant(await variantsOf(ctx, flashcardId), Math.random);
+}
+
+/**
+ * A concept card's part of a rating, written in the rating mutation (ADR
+ * 0023): mark the shown variant seen and assign the next one. Returns the
+ * unit's new display, to patch together with its schedule and version, and
+ * the shown variant's prior state for the review log, so Undo can restore
+ * both. Null for any other unit. When no variant is active the unit keeps
+ * showing what it showed.
+ */
+export async function advanceVariant(ctx: MutationCtx, unit: Doc<"reviewUnits">, now: number) {
+  if (!unit.variantId) return null;
+  const shown = await ctx.db.get(unit.variantId);
+  const beforeVariant =
+    shown && shown.flashcardId === unit.flashcardId
+      ? { variantId: shown._id, lastShownAt: shown.lastShownAt }
+      : undefined;
+  if (beforeVariant) await ctx.db.patch(beforeVariant.variantId, { lastShownAt: now });
+  const next = await nextVariant(ctx, unit.flashcardId);
+  return { display: next ? showVariant(next) : {}, beforeVariant };
+}
+
+/**
+ * Undo's counterpart of `advanceVariant`: give the shown variant back its
+ * previous last-shown time and reassign it. Null when that variant was
+ * deleted or set aside since, so the review can no longer be undone exactly.
+ */
+export async function restoreVariant(
+  ctx: MutationCtx,
+  unit: Doc<"reviewUnits">,
+  before: NonNullable<Doc<"reviewLogs">["beforeVariant"]>,
+) {
+  const variant = await ctx.db.get(before.variantId);
+  if (!variant || variant.flashcardId !== unit.flashcardId || variant.status !== "active")
+    return null;
+  await ctx.db.patch(variant._id, { lastShownAt: before.lastShownAt });
+  return showVariant(variant);
 }

@@ -199,9 +199,25 @@ in), and a card can't change to or from the concept type.
   self-hosted instance: it requires the deployment's own URL to be a loopback
   address. Without a provider, generation is off and jobs fail with
   "Variant generation isn't set up on this server yet."
-- **Review.** The unit's front and back show the assigned variant. Until one is
-  assigned, the unit stays on the pending schedule (like a locked card's), so
-  review, Frontier counts, and rating skip it, and cram leaves it out.
+- **Assignment.** The unit's `variantId` names the assigned variant, and its
+  front and back hold that variant's exercise and solution, so `review.items`,
+  the review screens, and Undo need no separate content path. Until a variant
+  is assigned, the never-reviewed unit waits on the pending schedule, by the
+  same rule as a locked card's (`waitingSchedule` in `model/study.ts`), so
+  review, Frontier counts, rating, and cram skip it. The first stored batch
+  assigns a variant and, in the same patch, moves the unit to New unless
+  prerequisites lock the card. Template edits leave the assignment alone.
+- **Review.** `review.rate` writes the concept's part in its one transaction:
+  it marks the shown variant seen (`lastShownAt`), assigns the next one (a
+  random unseen active variant, otherwise the active variant shown longest
+  ago, so review never blocks), and writes it with the new schedule and the
+  version bump; a rating against the previous version is stale. Randomness
+  uses `Math.random`, which Convex seeds per mutation: deterministic for one
+  transaction, different between reviews. The review log's `beforeVariant`
+  keeps the shown variant and its previous `lastShownAt`; `review.undo`
+  restores both with the schedule, or is stale if that variant has since been
+  removed or set aside. Concept units otherwise count like any unit in deck
+  totals, Frontier selection, the daily cap, and Stats.
 
 ## Plans and limits
 

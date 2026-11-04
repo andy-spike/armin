@@ -370,6 +370,12 @@ export default defineSchema({
      * deck's own order on import. Absent means the hash of the flashcard id.
      */
     frontierKey: v.optional(v.number()),
+    /**
+     * Concept cards only: the variant this unit shows as its front and back.
+     * Absent until the first variant exists; the unit waits on the pending
+     * schedule until then (ADR 0023).
+     */
+    variantId: v.optional(v.id("conceptVariants")),
     /** Incremented on every schedule or display change; reviews name the version shown. */
     version: v.number(),
     createdAt: v.number(),
@@ -397,6 +403,16 @@ export default defineSchema({
     learningSteps: v.number(),
     review: v.number(),
     before: fsrsSnapshot,
+    /**
+     * Concept cards only: the variant this review showed and its last-shown
+     * time before the review, so Undo can reassign it and restore that time.
+     */
+    beforeVariant: v.optional(
+      v.object({
+        variantId: v.id("conceptVariants"),
+        lastShownAt: v.optional(v.number()),
+      }),
+    ),
     /** Review-unit version written by this review; undo requires it unchanged. */
     unitVersionAfter: v.number(),
     statsGeneration: v.optional(v.string()),

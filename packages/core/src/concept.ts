@@ -38,9 +38,27 @@ export function hasMediaReference(text: string) {
 
 /**
  * A concept card's review unit shows its assigned variant as its front and
- * back. Until a variant is assigned it has nothing to show, so it stays on
- * the pending schedule and out of review and cram.
+ * back. Until a variant is assigned it has nothing to show, so it waits on the
+ * pending schedule, like a locked unit, and stays out of review and cram.
  */
-export function isAwaitingVariant(unit: { subKey: string; front: string }) {
-  return unit.subKey === CONCEPT_SUBKEY && unit.front === "";
+export function isAwaitingVariant(unit: { subKey: string; variantId?: string }) {
+  return unit.subKey === CONCEPT_SUBKEY && unit.variantId == null;
+}
+
+/**
+ * The variant to show next: a random unseen active variant, otherwise the
+ * active variant shown longest ago, so review never blocks on generation.
+ * Null when no variant is active. `random` returns a number in [0, 1).
+ */
+export function pickNextVariant<
+  T extends { status: ConceptVariantStatus; lastShownAt?: number | null },
+>(variants: T[], random: () => number) {
+  const active = variants.filter((variant) => variant.status === "active");
+  const unseen = active.filter((variant) => variant.lastShownAt == null);
+  if (unseen.length > 0) return unseen[Math.floor(random() * unseen.length)]!;
+  let oldest: T | null = null;
+  for (const variant of active) {
+    if (!oldest || variant.lastShownAt! < oldest.lastShownAt!) oldest = variant;
+  }
+  return oldest;
 }

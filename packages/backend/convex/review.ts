@@ -13,6 +13,7 @@ import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { owned, readableDeck, readableLibrary, writableLibrary } from "./model/access";
+import { advanceVariant, restoreVariant } from "./model/concepts";
 import {
   checkEligible,
   isBuried,
@@ -287,8 +288,9 @@ export type RateResult =
 /**
  * Rate a review unit. One transaction validates ownership, the version the
  * client displayed, and eligibility (lock, archive, due, shared Frontier);
- * computes FSRS at accepted server time; writes the schedule and history; and
- * refreshes every prerequisite consequence. A repeated `requestId` returns the
+ * computes FSRS at accepted server time; writes the schedule and history
+ * (for a concept card, also marking the shown variant seen and assigning the
+ * next); and refreshes every prerequisite consequence. A repeated `requestId` returns the
  * first outcome instead of applying the answer again.
  */
 export const rate = mutation({
@@ -327,8 +329,12 @@ export const rate = mutation({
     );
     const version = unit.version + 1;
     const fields = fsrsFieldsToMs(fromFsrsCard(next));
+    // A concept card's unit moves on to its next variant in the same write,
+    // so the version bump also retires the exercise just answered.
+    const concept = await advanceVariant(ctx, unit, now);
     await ctx.db.patch(unit._id, {
       ...fields,
+      ...concept?.display,
       version,
       updatedAt: now,
     });
@@ -354,6 +360,7 @@ export const rate = mutation({
       learningSteps: log.learning_steps,
       review: log.review.getTime(),
       before: fsrsSnapshot(unit),
+      ...(concept?.beforeVariant ? { beforeVariant: concept.beforeVariant } : {}),
       unitVersionAfter: version,
     });
     // Dependents' locks depend only on whether this flashcard's units are
@@ -386,7 +393,9 @@ export type UndoResult =
 /**
  * Undo exactly one review: it must still be the unit's latest review, and the
  * unit must still be in the state that review produced. Restores the saved
- * pre-review schedule, removes the log, and refreshes prerequisite effects.
+ * pre-review schedule (and, for a concept card, the variant it showed and
+ * that variant's last-shown time), removes the log, and refreshes
+ * prerequisite effects.
  */
 export const undo = mutation({
   args: {
@@ -421,8 +430,18 @@ export const undo = mutation({
         message: "This card changed after that review, so it can't be undone.",
       };
     }
+    // A concept card's review also changed which variant shows; put it back.
+    const display = log.beforeVariant
+      ? await restoreVariant(ctx, unit, log.beforeVariant)
+      : undefined;
+    if (display === null) {
+      return {
+        status: "stale",
+        message: "The exercise from that review was removed, so it can't be undone.",
+      };
+    }
     const version = unit.version + 1;
-    await ctx.db.patch(unit._id, { ...log.before, version, updatedAt: now });
+    await ctx.db.patch(unit._id, { ...log.before, ...display, version, updatedAt: now });
     await ctx.db.delete(log._id);
     const settings = new SettingsCache(ctx, library._id);
     await refreshAfterPrereqChange(ctx, unit.flashcardId, settings, now);
