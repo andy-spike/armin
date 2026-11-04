@@ -38,3 +38,14 @@ In the review clip, Context window sometimes did not join the session after
 Tokens was graded, so the session ends on "All caught up". It varied between
 recording runs; the committed set ends that way in both schemes. The step's
 label doesn't mention the third card.
+
+## Switch thumb spacing
+
+The pricing page's Monthly/Yearly switch (the shared `Switch` in
+`components/ui/switch.tsx`, also used in settings and dialogs) had an
+off-centre thumb. The 18px thumb sat in a 20px inner track and slid 16px, so
+the gap was 2px left and 3px top and bottom when off, and 4px right when on.
+The thumb is now 20px: measured on `/pricing`, the gap is 2px on every side in
+both states. Corners stay square, as everywhere in the app.
+
+![Pricing switch, off and on](2026-11-04-landing-clips-themes/03-pricing-switch.png)
