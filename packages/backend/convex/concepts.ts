@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { isAwaitingVariant } from "@armin/core/concept";
 import { conceptVariantSchema, type ConceptContent } from "@armin/core/flashcard-types";
-import { internalQuery, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { internalQuery, query, type MutationCtx } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import { owned, ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
 import {
@@ -15,6 +16,12 @@ import {
 } from "./model/concepts";
 import { fail } from "./model/errors";
 import { MAX_VARIANTS_PER_CONCEPT } from "./model/limits";
+import {
+  settleVariants,
+  variantAllowance,
+  type VariantReservation,
+} from "./model/variantAllowance";
+import { variantReservation } from "./schema";
 import { bumpRevision, parseFlashcard, waitingSchedule } from "./model/study";
 
 /*
@@ -35,9 +42,13 @@ export const pool = query({
     const id = ctx.db.normalizeId("flashcards", flashcardId);
     const flashcard = id ? await owned(ctx, library, id) : null;
     if (!flashcard || flashcard.type !== "concept") return null;
-    const variants = await variantsOf(ctx, flashcard._id);
+    const now = Date.now();
+    const [variants, allowance] = await Promise.all([
+      variantsOf(ctx, flashcard._id),
+      variantAllowance(ctx, library._id, now),
+    ]);
     return {
-      ...poolView(flashcard, Date.now()),
+      ...poolView(flashcard, now, allowance),
       variants: variants.map((variant) => ({
         id: variant._id,
         exercise: variant.exercise,
@@ -51,7 +62,26 @@ export const pool = query({
   },
 });
 
-/** Run generation again after a failed (or stalled) job. Does nothing while a job runs. */
+/**
+ * This month's concept card variant allowance, for the account page. Null
+ * when signed out or on a self-hosted instance, which has no allowance.
+ */
+export const allowance = query({
+  args: {},
+  handler: async (ctx) => {
+    const library = await readableLibrary(ctx);
+    if (!library) return null;
+    const allowance = await variantAllowance(ctx, library._id, Date.now());
+    if (!allowance) return null;
+    const { plan, used, reserved, limit, resetsAt } = allowance;
+    return { plan, used, reserved, limit, resetsAt };
+  },
+});
+
+/**
+ * Run generation again after a failed (or stalled) job, or after the monthly
+ * allowance has room again. Does nothing while a job runs.
+ */
 export const retryGeneration = mutation({
   args: { flashcardId: v.id("flashcards") },
   handler: async (ctx, { flashcardId }) => {
@@ -59,7 +89,8 @@ export const retryGeneration = mutation({
     const flashcard = await ownedOrFail(ctx, library, flashcardId, "Flashcard");
     if (flashcard.type !== "concept") fail("INVALID", "Only concept cards generate variants.");
     const now = Date.now();
-    if (!poolView(flashcard, now).canRetry) return { started: false };
+    const allowance = await variantAllowance(ctx, library._id, now);
+    if (!poolView(flashcard, now, allowance).canRetry) return { started: false };
     await requestGeneration(ctx, flashcard, now);
     return { started: true };
   },
@@ -90,19 +121,31 @@ const variantInput = v.object({ exercise: v.string(), solution: v.string() });
  * the same patch unless prerequisites still lock the card.
  */
 export const storeVariants = internalMutation({
-  args: { flashcardId: v.id("flashcards"), job: v.number(), variants: v.array(variantInput) },
-  handler: async (ctx, { flashcardId, job, variants }) => {
+  args: {
+    flashcardId: v.id("flashcards"),
+    job: v.number(),
+    reserved: v.optional(variantReservation),
+    variants: v.array(variantInput),
+  },
+  handler: async (ctx, { flashcardId, job, reserved, variants }) => {
     const flashcard = await runningJob(ctx, flashcardId, job);
-    if (!flashcard) return { stored: 0 };
+    if (!flashcard) {
+      await releaseOrphaned(ctx, flashcardId, reserved);
+      return { stored: 0 };
+    }
+    const held = flashcard.conceptPool!.reserved;
     const room = MAX_VARIANTS_PER_CONCEPT - (await variantsOf(ctx, flashcardId)).length;
     const valid = variants
       .filter((variant) => conceptVariantSchema.safeParse(variant).success)
-      .slice(0, Math.max(0, room));
+      .slice(0, Math.max(0, Math.min(room, held?.count ?? room)));
     const now = Date.now();
+    // Charge what is stored here, in the same transaction as the variants.
+    await settleVariants(ctx, held, valid.length);
     if (valid.length === 0) {
       await ctx.db.patch(flashcardId, {
         conceptPool: {
-          ...flashcard.conceptPool!,
+          job,
+          requestedAt: flashcard.conceptPool!.requestedAt,
           status: "failed",
           reason: "The generator returned no usable exercises.",
         },
@@ -142,14 +185,37 @@ export const storeVariants = internalMutation({
   },
 });
 
-/** Record why a job failed; the card offers Retry. */
+/** Record why a job failed and release its reservation; the card offers Retry. */
 export const failGeneration = internalMutation({
-  args: { flashcardId: v.id("flashcards"), job: v.number(), reason: v.string() },
-  handler: async (ctx, { flashcardId, job, reason }) => {
+  args: {
+    flashcardId: v.id("flashcards"),
+    job: v.number(),
+    reserved: v.optional(variantReservation),
+    reason: v.string(),
+  },
+  handler: async (ctx, { flashcardId, job, reserved, reason }) => {
     const flashcard = await runningJob(ctx, flashcardId, job);
-    if (!flashcard) return;
+    if (!flashcard) {
+      await releaseOrphaned(ctx, flashcardId, reserved);
+      return;
+    }
+    const { requestedAt, reserved: held } = flashcard.conceptPool!;
+    await settleVariants(ctx, held, 0);
     await ctx.db.patch(flashcardId, {
-      conceptPool: { ...flashcard.conceptPool!, status: "failed", reason },
+      conceptPool: { job, requestedAt, status: "failed", reason },
     });
   },
 });
+
+/**
+ * A job that finds its card deleted still holds its reservation; nothing else
+ * can release it. A superseded job's reservation was already released by the
+ * request that replaced it, so a card that still exists releases nothing.
+ */
+async function releaseOrphaned(
+  ctx: MutationCtx,
+  flashcardId: Id<"flashcards">,
+  reserved: VariantReservation,
+) {
+  if (reserved && !(await ctx.db.get(flashcardId))) await settleVariants(ctx, reserved, 0);
+}

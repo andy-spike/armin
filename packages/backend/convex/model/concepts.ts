@@ -1,8 +1,14 @@
-import { CONCEPT_SUBKEY, pickNextVariant, type ConceptPoolStatus } from "@armin/core/concept";
+import {
+  CONCEPT_BATCH_SIZE,
+  CONCEPT_SUBKEY,
+  pickNextVariant,
+  type ConceptPoolStatus,
+} from "@armin/core/concept";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { MAX_VARIANTS_PER_CONCEPT } from "./limits";
+import { reserveVariants, settleVariants } from "./variantAllowance";
 
 /*
  * A concept card's variant pool (ADR 0023). Generation runs as a scheduled
@@ -18,25 +24,75 @@ import { MAX_VARIANTS_PER_CONCEPT } from "./limits";
  */
 export const GENERATION_STALL_MS = 10 * 60_000;
 
-/** Start the card's next generation job and mark its pool as generating. */
+/**
+ * Start the card's next generation job and mark its pool as generating. The
+ * job's batch is reserved from the monthly variant allowance here, in the
+ * mutation, before the action can call the model; a superseded job's
+ * reservation is released first. With no allowance left, no job is scheduled
+ * and the pool shows that the allowance is used, until a later request (Retry,
+ * or a refill) finds room again in a new month or on a larger plan.
+ */
 export async function requestGeneration(
   ctx: MutationCtx,
   flashcard: Doc<"flashcards">,
   now: number,
 ) {
-  const job = (flashcard.conceptPool?.job ?? 0) + 1;
+  const previous = flashcard.conceptPool;
+  if (previous?.status === "generating") await settleVariants(ctx, previous.reserved, 0);
+  const job = (previous?.job ?? 0) + 1;
+  const room = MAX_VARIANTS_PER_CONCEPT - (await variantsOf(ctx, flashcard._id)).length;
+  if (room <= 0) {
+    await ctx.db.patch(flashcard._id, {
+      conceptPool: {
+        status: "failed",
+        job,
+        requestedAt: now,
+        reason: "This card already keeps as many variants as it can.",
+      },
+    });
+    return;
+  }
+  const { count, reservation } = await reserveVariants(
+    ctx,
+    flashcard.libraryId,
+    Math.min(CONCEPT_BATCH_SIZE, room),
+    now,
+  );
+  if (count === 0) {
+    await ctx.db.patch(flashcard._id, {
+      conceptPool: { status: "allowanceUsed", job, requestedAt: now },
+    });
+    return;
+  }
   await ctx.db.patch(flashcard._id, {
-    conceptPool: { status: "generating", job, requestedAt: now },
+    conceptPool: { status: "generating", job, requestedAt: now, reserved: reservation },
   });
   await ctx.scheduler.runAfter(0, internal.conceptGeneration.generate, {
     flashcardId: flashcard._id,
     job,
+    count,
+    reserved: reservation,
   });
 }
 
-/** The pool's state as the card editor shows it, with whether Retry applies. */
-export function poolView(flashcard: Doc<"flashcards">, now: number) {
+/**
+ * The pool's state as the card editor shows it, with whether Retry applies.
+ * `allowance` is the library's current month (null where none applies): a
+ * pool stopped by the allowance offers Retry again once it has room.
+ */
+export function poolView(
+  flashcard: Doc<"flashcards">,
+  now: number,
+  allowance: { remaining: number; limit: number; resetsAt: number } | null,
+) {
   const pool = flashcard.conceptPool;
+  if (pool?.status === "allowanceUsed")
+    return {
+      status: "allowanceUsed" as const,
+      reason: null,
+      canRetry: !allowance || allowance.remaining > 0,
+      allowance: allowance && { limit: allowance.limit, resetsAt: allowance.resetsAt },
+    };
   const status: ConceptPoolStatus = pool?.status ?? "failed";
   const stalled = pool?.status === "generating" && now - pool.requestedAt > GENERATION_STALL_MS;
   return {
@@ -47,6 +103,7 @@ export function poolView(flashcard: Doc<"flashcards">, now: number) {
         ? (pool.reason ?? null)
         : "Variants have not been generated yet.",
     canRetry: status === "failed" || stalled,
+    allowance: null,
   };
 }
 

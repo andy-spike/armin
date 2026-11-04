@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CircleCheck, LoaderCircle, TriangleAlert } from "lucide-react";
+import { CircleCheck, CircleSlash, LoaderCircle, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarkdownContent } from "@/components/ui/markdown-content";
 import { useToast } from "@/components/ui/toast";
+import { formatAllowanceReset } from "@/components/variant-usage";
 import { armin, errorMessage } from "@/lib/armin-client";
 import { conceptPoolQuery } from "@/lib/queries";
 
 /**
  * A concept card's variant pool in the card editor: whether generation is
- * running, ready, or failed (with Retry), and the generated exercises with
- * their worked solutions, read-only.
+ * running, ready, failed (with Retry), or stopped by the monthly variant
+ * allowance (until it has room again), and the generated exercises with their
+ * worked solutions, read-only.
  */
 export function ConceptVariantsPanel({ flashcardId }: { flashcardId: string }) {
   const toast = useToast();
@@ -62,6 +64,31 @@ export function ConceptVariantsPanel({ flashcardId }: { flashcardId: string }) {
               Generating variants failed.
               {pool.reason && <span className="block text-xs text-muted">{pool.reason}</span>}
             </span>
+          </span>
+        )}
+        {pool.status === "allowanceUsed" && (
+          <span className="flex min-w-0 flex-1 items-start gap-2 text-ink">
+            <CircleSlash className="mt-0.5 h-4 w-4 shrink-0 text-muted" aria-hidden />
+            {pool.canRetry || !pool.allowance ? (
+              <span className="min-w-0">
+                Variant allowance has room again
+                <span className="block text-xs text-muted">
+                  Retry to generate this card's variants.
+                </span>
+              </span>
+            ) : (
+              <span className="min-w-0">
+                Variant allowance used
+                <span className="block text-xs text-muted">
+                  {pool.allowance.limit === 0
+                    ? "Your plan doesn't include generated variants."
+                    : `New variants resume on ${formatAllowanceReset(pool.allowance.resetsAt)}.`}
+                  {count > 0
+                    ? ` Reviews reuse this card's ${count} variant${count === 1 ? "" : "s"}${pool.allowance.limit === 0 ? "" : " until then"}.`
+                    : " The card has no exercise to review until it gets one."}
+                </span>
+              </span>
+            )}
           </span>
         )}
         {pool.canRetry && (

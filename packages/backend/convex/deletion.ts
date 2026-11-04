@@ -176,6 +176,7 @@ const LIBRARY_TABLES: [TableNames, string][] = [
   ["reviewUnits", "by_library"],
   ["prereqs", "by_library"],
   ["conceptVariants", "by_library"],
+  ["conceptVariantUsage", "by_library_month"],
   ["flashcardMedia", "by_library_file"],
   ["flashcards", "by_library"],
   ["deckSettings", "by_library"],
@@ -217,11 +218,13 @@ export const cleanupLibrary = internalMutation({
   },
 });
 
-// Keep assistant connections, their rate limits, and the monotonic revision
+// Keep assistant connections, their rate limits, the month's variant
+// allowance, and the monotonic revision
 // while replacing a reviewer's study content.
 const RESET_PRESERVED_TABLES = new Set<TableNames>([
   "agentConnections",
   "agentRateLimits",
+  "conceptVariantUsage",
   "libraryCounters",
 ]);
 

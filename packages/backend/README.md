@@ -29,8 +29,9 @@ generated API.
 - `convex/cram.ts` — practice-only cram selection and `cramLogs`; never
   schedules, locks, or writes review history.
 - `convex/concepts.ts`, `conceptGeneration.ts`, `model/concepts.ts`,
-  `model/generator.ts` — concept cards' variant pools and their generation
-  job (see [Concept cards](#concept-cards)).
+  `model/generator.ts`, `model/variantAllowance.ts` — concept cards' variant
+  pools, their generation job, and the monthly variant allowance (see
+  [Concept cards](#concept-cards)).
 - `convex/stats.ts` — review activity, streaks, retention, due forecast, and
   card-state totals, all scoped to the caller's library.
 - `convex/imports.ts` — batched Anki import (see below).
@@ -182,14 +183,33 @@ in), and a card can't change to or from the concept type.
   card) hold each exercise and worked solution, a status (`active` or
   `flagged`), when a review last showed it, an origin, and a version. The
   card's `conceptPool` records the latest generation job: `generating`,
-  `ready`, or `failed` with a reason. A job stuck generating for 10 minutes
-  counts as failed so it can be retried.
+  `ready`, `failed` with a reason, or `allowanceUsed` when no job could start
+  (see the allowance below). A job stuck generating for 10 minutes counts as
+  failed so it can be retried.
 - **Generation.** Creating a concept card schedules
   `conceptGeneration.generate`, an action that asks the generator module for a
   batch of 10 variants, avoiding the pool's recent exercises, and stores the
   valid ones with `concepts.storeVariants`. Jobs are numbered; only the card's
   latest job may store variants or fail the pool. Any failure sets `failed`
   with a reason, and `concepts.retryGeneration` starts a new job.
+- **Variant allowance** (`model/variantAllowance.ts`). Generated variants count
+  against the library's monthly `conceptVariantsPerMonth`, kept per UTC month
+  (`usageMonth`, the assistant allowance's key) in `conceptVariantUsage` as
+  `used` and `reserved`. `requestGeneration`, in the mutation that schedules a
+  job, reserves the batch (up to the remaining allowance) before the action can
+  call the model, and records it on the pool as `reserved`. `storeVariants`
+  charges only the variants it stores and releases the rest in the same
+  transaction; a failed job releases everything, as does a job superseded by
+  Retry or one whose card was deleted. Convex mutations are serializable, so
+  concurrent jobs in one library can't reserve past the limit. A job whose
+  action dies without reporting back keeps its batch (at most 10) reserved
+  until its card is retried. With nothing left, no job is scheduled and the
+  pool becomes `allowanceUsed`: no Retry, and reviews keep reusing variants.
+  Once the allowance has room again (a new UTC month or a larger plan), the
+  pool offers Retry, and any new generation request starts normally; the
+  stored status changes with the next job. `concepts.allowance` reports the
+  month's usage for the account page. Self-hosted instances have no allowance
+  and keep no usage rows.
 - **Generator module** (`model/generator.ts`) is the only code that asks a model
   for variants. A provider turns a template plus exercises to avoid into
   candidate variants; the module validates each against the core variant schema
@@ -232,9 +252,12 @@ plan limits that `model/usage.ts` (`checkCapacity`, `libraryLimits`) enforces:
 | Images and audio (shared pool)  | 1 GiB | 5 GiB   |
 | Assistant-created cards / month | 300   | 10,000  |
 | Assistant writes / hour         | 60    | 600     |
+| Concept card variants / month   | 0     | 2,000   |
 
 The monthly assistant allowance is per library and counts `save_cards`; staged
-Anki imports are bounded only by the library limits. Pro is sold through
+Anki imports are bounded only by the library limits. The monthly variant
+allowance counts stored concept card variants (see
+[Concept cards](#concept-cards)); self-hosted instances skip it. Pro is sold through
 Polar (see [Billing](#billing-polar)); every limit check reads only
 `libraries.plan`.
 

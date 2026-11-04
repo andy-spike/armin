@@ -68,14 +68,32 @@ const agentImportDeck = v.object({
  * A concept card's variant pool (ADR 0023): where its latest generation job
  * stands. Jobs are numbered so a superseded job's result is discarded.
  */
+/** The variant allowance a running generation job holds: a count in one library's month. */
+export const variantReservation = v.object({
+  libraryId: v.id("libraries"),
+  month: v.string(),
+  count: v.number(),
+});
+
 const conceptPool = v.object({
-  status: v.union(v.literal("generating"), v.literal("ready"), v.literal("failed")),
+  status: v.union(
+    v.literal("generating"),
+    v.literal("ready"),
+    v.literal("failed"),
+    /** No job started: the library's monthly variant allowance was used up. */
+    v.literal("allowanceUsed"),
+  ),
   /** Why the latest job failed, shown with Retry. Set only with `failed`. */
   reason: v.optional(v.string()),
   /** The latest job's number; only that job may store variants or fail the pool. */
   job: v.number(),
   /** When the latest job was scheduled. */
   requestedAt: v.number(),
+  /**
+   * The variant allowance a `generating` job holds, released when the job
+   * stores, fails, or is superseded. Absent where no allowance applies.
+   */
+  reserved: v.optional(variantReservation),
 });
 
 export default defineSchema({
@@ -330,6 +348,20 @@ export default defineSchema({
    * (ADR 0023). Each belongs to one library and one concept card; the card's
    * single review unit shows whichever variant is assigned to it.
    */
+  /**
+   * A library's concept card variant allowance for one UTC month (ADR 0023,
+   * `usageMonth`): variants stored, and variants held by running jobs. A job
+   * reserves its batch before calling the model and, when it ends, charges
+   * what it stored and releases the reservation. Self-hosted instances keep
+   * no rows.
+   */
+  conceptVariantUsage: defineTable({
+    libraryId: v.id("libraries"),
+    month: v.string(),
+    used: v.number(),
+    reserved: v.number(),
+  }).index("by_library_month", ["libraryId", "month"]),
+
   conceptVariants: defineTable({
     libraryId: v.id("libraries"),
     flashcardId: v.id("flashcards"),

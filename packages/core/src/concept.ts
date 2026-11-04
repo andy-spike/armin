@@ -19,9 +19,10 @@ export const MAX_VARIANT_FIELD_CHARS = 5_000;
 
 /**
  * Where a concept card's variant pool stands: a generation job is running,
- * the last job stored its variants, or the last job failed with a reason.
+ * the last job stored its variants, the last job failed with a reason, or no
+ * job could start because the library's monthly variant allowance is used.
  */
-export const CONCEPT_POOL_STATUSES = ["generating", "ready", "failed"] as const;
+export const CONCEPT_POOL_STATUSES = ["generating", "ready", "failed", "allowanceUsed"] as const;
 export type ConceptPoolStatus = (typeof CONCEPT_POOL_STATUSES)[number];
 
 /** A variant is shown in review while active; a flagged one is set aside. */

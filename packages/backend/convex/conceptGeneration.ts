@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { CONCEPT_BATCH_SIZE } from "@armin/core/concept";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { variantReservation } from "./schema";
 import { GenerationError, generateVariants, selectProvider } from "./model/generator";
 
 /**
@@ -9,15 +9,31 @@ import { GenerationError, generateVariants, selectProvider } from "./model/gener
  * exercises to avoid, ask the generator module for a batch, and store what it
  * returns. Every failure ends in the pool's failed state with a reason, so the
  * card can offer Retry. A job that is no longer the card's latest does nothing.
+ *
+ * `count` is the batch `requestGeneration` reserved from the monthly variant
+ * allowance (`reserved`) before scheduling this job. Storing or failing
+ * settles that reservation, charging only the variants stored.
  */
 export const generate = internalAction({
-  args: { flashcardId: v.id("flashcards"), job: v.number() },
+  args: {
+    flashcardId: v.id("flashcards"),
+    job: v.number(),
+    count: v.number(),
+    reserved: v.optional(variantReservation),
+  },
   returns: v.null(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, { count, ...args }) => {
     const fail = (reason: string) =>
       ctx.runMutation(internal.concepts.failGeneration, { ...args, reason });
-    const input = await ctx.runQuery(internal.concepts.generationInput, args);
-    if (!input) return null;
+    const input = await ctx.runQuery(internal.concepts.generationInput, {
+      flashcardId: args.flashcardId,
+      job: args.job,
+    });
+    if (!input) {
+      // Releases the reservation if the card was deleted meanwhile.
+      await fail("This job is no longer current.");
+      return null;
+    }
     if (input.room <= 0) {
       await fail("This card already keeps as many variants as it can.");
       return null;
@@ -31,7 +47,7 @@ export const generate = internalAction({
       const { variants, dropped } = await generateVariants(provider, {
         template: input.template,
         avoid: input.avoid,
-        count: Math.min(CONCEPT_BATCH_SIZE, input.room),
+        count: Math.min(count, input.room),
       });
       if (dropped > 0)
         console.warn(`Generator ${provider.name} returned ${dropped} invalid variants.`);
