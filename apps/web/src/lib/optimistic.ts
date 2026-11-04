@@ -68,8 +68,9 @@ export function createDeckOptimistically(
     learning: 0,
     learned: 0,
   };
+  // Only the grid and sidebar, which render placeholders inert. Pickers read
+  // `listNames`, and a picked placeholder id would reach queries and mutations.
   editDeckRows(store, (decks) => [...decks, placeholder]);
-  editDeckNames(store, (decks) => [...decks, { id, name: args.name }]);
 }
 
 export function renameDeckOptimistically(
