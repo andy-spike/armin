@@ -32,12 +32,38 @@ of the form itself.
 - Switching `data-theme` from dark to light with the page open: the light clip
   starts playing and the dark one pauses.
 
-## Known issue in the recording
+## Unlocked cards joining an open review session
 
-In the review clip, Context window sometimes did not join the session after
-Tokens was graded, so the session ends on "All caught up". It varied between
-recording runs; the committed set ends that way in both schemes. The step's
-label doesn't mention the third card.
+While recording, the review clip often ended on "All caught up" although
+grading Tokens unlocks Context window. Reproduced outside the recorder: after
+the last card's grade, "All caught up" showed and the unlocked card appeared
+1.5–4 s later (and once not within 10 s).
+
+Cause: unlocking set the unit's due time to the server's clock at the unlock.
+Queue queries compare due times with the client's study clock (`now`), which
+only advances when `review.status` reports a `refreshAt`, with a 1 s minimum
+delay plus any client-behind-server clock skew. So the unlocked unit counted
+as "not yet due" for that open session until the clock caught up.
+
+Fix (`applyLockState` in `packages/backend/convex/model/study.ts`): an
+unlocked unit is due from its own creation time, the same due time a card
+that was never locked has. Its availability then follows the `locked` data
+change, which Convex pushes to the subscription immediately, not a time
+comparison. Checked that this changes nothing else: new units are ordered by
+`frontierKey`, not due; the forecast counts only Learning/Review/Relearning;
+and ts-fsrs gives identical first-review outcomes for a new card whatever its
+due date.
+
+After the fix, three repro runs polled every ~150 ms: the unlocked card joined
+the session about 0.5 s after the grade, every time. "All caught up" still
+shows for ~0.4 s before it, because the session shows its end panel before the
+last grade has saved; that is UI behavior, not part of this fix.
+
+Both review clips were re-recorded and now end with an unlocked card in the
+session. Context window and Self-attention unlock together; which one comes
+first is a per-card hash that differs between recordings.
+
+![Review clips' last frames, light and dark](2026-11-04-landing-clips-themes/04-review-unlock.png)
 
 ## Switch thumb spacing
 
