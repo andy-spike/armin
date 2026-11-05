@@ -442,12 +442,6 @@ export const undo = mutation({
     const display = log.beforeVariant
       ? await restoreVariant(ctx, unit, log.beforeVariant)
       : undefined;
-    if (display === null) {
-      return {
-        status: "stale",
-        message: "The exercise from that review was removed, so it can't be undone.",
-      };
-    }
     const version = unit.version + 1;
     await ctx.db.patch(unit._id, { ...log.before, ...display, version, updatedAt: now });
     await ctx.db.delete(log._id);

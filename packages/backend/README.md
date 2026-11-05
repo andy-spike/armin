@@ -267,8 +267,10 @@ in), and a card can't change to or from the concept type.
   uses `Math.random`, which Convex seeds per mutation: deterministic for one
   transaction, different between reviews. The review log's `beforeVariant`
   keeps the shown variant and its previous `lastShownAt`; `review.undo`
-  restores both with the schedule, or is stale if that variant has since been
-  removed or set aside. Concept units otherwise count like any unit in deck
+  restores both with the schedule. If the learner has since deleted or
+  flagged that variant, Undo still restores the schedule but keeps the unit
+  on the active variant it shows now, so a removed exercise never returns (a
+  flagged one still gets its `lastShownAt` back). Concept units otherwise count like any unit in deck
   totals, Frontier selection, the daily cap, and Stats.
 - **Curation.** `concepts.editVariant` (against the variant's `version`; a
   stale save returns `conflict`, and the text is checked against the core

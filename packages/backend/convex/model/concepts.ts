@@ -246,8 +246,11 @@ export async function refillIfLow(
 
 /**
  * Undo's counterpart of `advanceVariant`: give the shown variant back its
- * previous last-shown time and reassign it. Null when that variant was
- * deleted or set aside since, so the review can no longer be undone exactly.
+ * previous last-shown time and reassign it. When the learner has since
+ * deleted or flagged that variant, Undo still restores the schedule but
+ * keeps the unit on the active variant it shows now, so a removed exercise
+ * never comes back (ADR 0023); a flagged one still gets its last-shown time
+ * back. Returns the display to write, or undefined to keep the current one.
  */
 export async function restoreVariant(
   ctx: MutationCtx,
@@ -255,10 +258,9 @@ export async function restoreVariant(
   before: NonNullable<Doc<"reviewLogs">["beforeVariant"]>,
 ) {
   const variant = await ctx.db.get(before.variantId);
-  if (!variant || variant.flashcardId !== unit.flashcardId || variant.status !== "active")
-    return null;
+  if (!variant || variant.flashcardId !== unit.flashcardId) return undefined;
   await ctx.db.patch(variant._id, { lastShownAt: before.lastShownAt });
-  return showVariant(variant);
+  return variant.status === "active" ? showVariant(variant) : undefined;
 }
 
 /**
