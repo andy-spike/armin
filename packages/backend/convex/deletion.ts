@@ -3,6 +3,7 @@ import { type MutationCtx } from "./_generated/server";
 import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import { bumpRevision } from "./model/study";
+import { settleVariants } from "./model/variantAllowance";
 import type { Id, TableNames } from "./_generated/dataModel";
 
 /** Rows deleted per cleanup transaction; the job reschedules until done. */
@@ -149,6 +150,10 @@ export const cleanupDeck = internalMutation({
         }
         budget -= links.length;
         if (!budget) break;
+        // As card deletion does: a job still generating for this card can no
+        // longer settle its reservation once the card row is gone.
+        if (card.conceptPool?.status === "generating")
+          await settleVariants(ctx, card.conceptPool.reserved, 0);
         await ctx.db.delete(card._id);
         if (card.type === "concept")
           await ctx.scheduler.runAfter(0, internal.deletion.cleanupConceptVariants, {

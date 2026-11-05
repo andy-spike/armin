@@ -301,8 +301,10 @@ in), and a card can't change to or from the concept type.
   pending schedule, and the web tiles label it **No exercises yet** instead of
   New. Deleting a card or a deck schedules `deletion.cleanupConceptVariants`,
   which removes the card's variants 100 per transaction once the card row is
-  gone; a generation job still running for it finds no card and releases its
-  reservation. Cram never writes concept state: `review.items` with cram's
+  gone. A job still generating for a deleted card has its reservation released
+  in the same transaction that deletes the card (card or deck deletion), so a
+  late report from that job, or its watchdog, finds no card and changes
+  nothing. Cram never writes concept state: `review.items` with cram's
   `practiceSeed` shows each concept unit a random active variant among its 40
   newest, picked by
   `pickPracticeVariant` (a hash of the seed and unit ID, so one session keeps
