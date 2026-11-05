@@ -2,6 +2,7 @@ import {
   CONCEPT_BATCH_SIZE,
   CONCEPT_LOW_WATER_MARK,
   CONCEPT_SUBKEY,
+  isAwaitingVariant,
   pickNextVariant,
   unseenVariantCount,
   type ConceptPoolStatus,
@@ -9,8 +10,10 @@ import {
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { fail } from "./errors";
 import { selectProvider } from "./generator";
 import { MAX_VARIANTS_PER_CONCEPT } from "./limits";
+import { bumpRevision, waitingSchedule } from "./study";
 import { requireConceptCards } from "./usage";
 import { reserveVariants, settleVariants, variantAllowance } from "./variantAllowance";
 
@@ -239,4 +242,112 @@ export async function restoreVariant(
     return null;
   await ctx.db.patch(variant._id, { lastShownAt: before.lastShownAt });
   return showVariant(variant);
+}
+
+/**
+ * Assign a variant to a concept unit that has none yet (its first batch, or a
+ * variant restored to a pool that had none active). The unit moves off the
+ * pending schedule to New in the same patch, unless prerequisites still lock
+ * the card. Does nothing when the unit already shows a variant.
+ */
+export async function assignIfAwaiting(
+  ctx: MutationCtx,
+  flashcard: Doc<"flashcards">,
+  now: number,
+) {
+  const unit = await conceptUnit(ctx, flashcard._id);
+  if (!unit || !isAwaitingVariant(unit)) return;
+  const variant = await nextVariant(ctx, flashcard._id);
+  if (!variant) return;
+  await ctx.db.patch(unit._id, {
+    ...showVariant(variant),
+    ...waitingSchedule({ ...unit, variantId: variant._id }, flashcard.locked, now),
+    version: unit.version + 1,
+    updatedAt: now,
+  });
+}
+
+/**
+ * A learner's change to one variant (curation, ADR 0023): `edit` replaces its
+ * text, `flag` sets it aside, `unflag` returns it to selection, and `delete`
+ * removes it. One transaction keeps the review in step: when the card's unit
+ * shows this variant, an edit rewrites what it shows, and a flag or delete
+ * assigns the next variant without rating the concept; either way the unit's
+ * version is bumped, so an open review of the old text goes stale. A change
+ * that leaves fewer than `CONCEPT_LOW_WATER_MARK` unseen variants refills the
+ * pool, as a rating does.
+ *
+ * A concept card always keeps one active variant once it has one: flagging or
+ * deleting the last is refused. A reviewed unit has no pending schedule to
+ * fall back on, so an empty pool would leave a due card with no exercise.
+ */
+export async function curateVariant(
+  ctx: MutationCtx,
+  flashcard: Doc<"flashcards">,
+  variant: Doc<"conceptVariants">,
+  change:
+    | { kind: "edit"; exercise: string; solution: string }
+    | { kind: "flag" }
+    | { kind: "unflag" }
+    | { kind: "delete" },
+  now: number,
+) {
+  requireConceptCards(await ctx.db.get(flashcard.libraryId));
+  const variants = await variantsOf(ctx, flashcard._id);
+  const removes = change.kind === "flag" || change.kind === "delete";
+  if (
+    removes &&
+    variant.status === "active" &&
+    !variants.some((other) => other._id !== variant._id && other.status === "active")
+  ) {
+    fail(
+      "CONFLICT",
+      "This is the card's only active variant, so reviews still need it. Edit it instead, or unflag another variant first.",
+    );
+  }
+
+  let updated: Doc<"conceptVariants"> | null = null;
+  if (change.kind === "delete") {
+    await ctx.db.delete(variant._id);
+  } else {
+    const patch =
+      change.kind === "edit"
+        ? { exercise: change.exercise, solution: change.solution, origin: "edited" as const }
+        : { status: change.kind === "flag" ? ("flagged" as const) : ("active" as const) };
+    updated = { ...variant, ...patch, version: variant.version + 1, updatedAt: now };
+    await ctx.db.patch(variant._id, { ...patch, version: updated.version, updatedAt: now });
+  }
+  const remaining = variants.flatMap((row) =>
+    row._id !== variant._id ? [row] : updated ? [updated] : [],
+  );
+
+  const unit = await conceptUnit(ctx, flashcard._id);
+  let unitVersion = unit?.version ?? null;
+  if (unit && unit.variantId === variant._id) {
+    const display = removes
+      ? pickNextVariant(remaining, Math.random)
+      : (updated as Doc<"conceptVariants">);
+    if (display) {
+      unitVersion = unit.version + 1;
+      await ctx.db.patch(unit._id, {
+        ...showVariant(display),
+        version: unitVersion,
+        updatedAt: now,
+      });
+    }
+  } else if (unit && isAwaitingVariant(unit) && change.kind === "unflag") {
+    await assignIfAwaiting(ctx, flashcard, now);
+    unitVersion = (await ctx.db.get(unit._id))?.version ?? unitVersion;
+  }
+
+  if (removes) {
+    await refillIfLow(
+      ctx,
+      flashcard,
+      { size: remaining.length, unseen: unseenVariantCount(remaining) },
+      now,
+    );
+  }
+  await bumpRevision(ctx, flashcard.libraryId);
+  return { variantVersion: updated?.version ?? null, unitVersion };
 }

@@ -272,6 +272,8 @@ export function useReviewSession({
     undoLast,
     bury,
     acceptStale: () => dispatch({ type: "acceptStale" }),
+    /** The card on screen now shows other content under `version`, unanswered. */
+    replace: (turnId: string, version: number) => dispatch({ type: "replaced", turnId, version }),
     step: (delta: -1 | 1) => {
       if (!undoing) dispatch({ type: "step", delta });
     },

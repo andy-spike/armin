@@ -1,4 +1,4 @@
-import { Archive, EllipsisVertical, Info, Moon, Pencil, Trash2 } from "lucide-react";
+import { Archive, EllipsisVertical, Flag, Info, Moon, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -23,6 +23,7 @@ export function CardActions({
   onMenuOpenChange,
   onEdit,
   onBury,
+  onFlagVariant,
   onArchive,
   onDelete,
 }: {
@@ -35,6 +36,8 @@ export function CardActions({
   onMenuOpenChange: (open: boolean) => void;
   onEdit?: () => void;
   onBury?: () => void;
+  /** Concept cards: set the exercise on screen aside and show the next one. */
+  onFlagVariant?: () => void;
   onArchive?: () => void;
   onDelete?: () => void;
 }) {
@@ -70,6 +73,12 @@ export function CardActions({
               <Moon className="h-4 w-4" />
               Bury until tomorrow
               <MenuShortcut binding={keymap["review.bury"]} />
+            </DropdownMenuItem>
+          )}
+          {onFlagVariant && (
+            <DropdownMenuItem disabled={actionPending || !online} onClick={onFlagVariant}>
+              <Flag className="h-4 w-4" />
+              Flag this exercise
             </DropdownMenuItem>
           )}
           {onArchive && (

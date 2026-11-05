@@ -1,17 +1,16 @@
 import { v } from "convex/values";
-import { isAwaitingVariant } from "@armin/core/concept";
 import { conceptVariantSchema, type ConceptContent } from "@armin/core/flashcard-types";
-import type { Id } from "./_generated/dataModel";
-import { internalQuery, query, type MutationCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internalQuery, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import { owned, ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
 import {
+  assignIfAwaiting,
   conceptUnit,
-  nextVariant,
+  curateVariant,
   poolView,
   requestGeneration,
   runningJob,
-  showVariant,
   variantsOf,
 } from "./model/concepts";
 import { fail } from "./model/errors";
@@ -24,7 +23,7 @@ import {
   type VariantReservation,
 } from "./model/variantAllowance";
 import { variantReservation } from "./schema";
-import { bumpRevision, parseFlashcard, waitingSchedule } from "./model/study";
+import { bumpRevision, parseFlashcard } from "./model/study";
 
 /*
  * Concept card variant pools (ADR 0023). The card editor reads a card's pool
@@ -35,7 +34,7 @@ import { bumpRevision, parseFlashcard, waitingSchedule } from "./model/study";
 /** Exercises a generation job is told to avoid: the pool's most recent ones. */
 const AVOID_LIMIT = 50;
 
-/** A concept card's pool state and variants, for the card editor's read-only panel. */
+/** A concept card's pool state and variants, for the card editor's variants panel. */
 export const pool = query({
   args: { flashcardId: v.string() },
   handler: async (ctx, { flashcardId }) => {
@@ -45,9 +44,10 @@ export const pool = query({
     const flashcard = id ? await owned(ctx, library, id) : null;
     if (!flashcard || flashcard.type !== "concept") return null;
     const now = Date.now();
-    const [variants, allowance] = await Promise.all([
+    const [variants, allowance, unit] = await Promise.all([
       variantsOf(ctx, flashcard._id),
       variantAllowance(ctx, library._id, now),
+      conceptUnit(ctx, flashcard._id),
     ]);
     // Outside Pro the card keeps its pool, but nothing generates until Pro returns.
     const requiresPro = !conceptCardsAllowed(library);
@@ -56,12 +56,15 @@ export const pool = query({
       ...view,
       canRetry: view.canRetry && !requiresPro,
       requiresPro,
+      /** The variant the card's next review shows. */
+      assignedVariantId: unit?.variantId ?? null,
       variants: variants.map((variant) => ({
         id: variant._id,
         exercise: variant.exercise,
         solution: variant.solution,
         status: variant.status,
         origin: variant.origin,
+        version: variant.version,
         lastShownAt: variant.lastShownAt ?? null,
         createdAt: variant.createdAt,
       })),
@@ -116,6 +119,136 @@ export const retryGeneration = mutation({
     return { started: true };
   },
 });
+
+export type EditVariantResult =
+  | { status: "ok"; version: number }
+  | { status: "conflict"; version: number; message: string };
+
+/**
+ * Save a learner's edit of a variant's exercise and solution, made against
+ * `expectedVersion`. The first accepted edit wins: a later save from an older
+ * version returns a conflict and changes nothing. The text is checked against
+ * the variant schema (text and KaTeX, no images or audio). When the card's
+ * review shows this variant, it shows the edit, under a new unit version.
+ */
+export const editVariant = mutation({
+  args: {
+    variantId: v.id("conceptVariants"),
+    expectedVersion: v.number(),
+    exercise: v.string(),
+    solution: v.string(),
+  },
+  handler: async (ctx, args): Promise<EditVariantResult> => {
+    const library = await writableLibrary(ctx);
+    const { flashcard, variant } = await ownedVariant(ctx, library, args.variantId);
+    requireConceptCards(library);
+    if (variant.version !== args.expectedVersion) {
+      return {
+        status: "conflict",
+        version: variant.version,
+        message: "This variant was changed elsewhere after you started editing it.",
+      };
+    }
+    const parsed = conceptVariantSchema.safeParse({
+      exercise: args.exercise,
+      solution: args.solution,
+    });
+    if (!parsed.success) fail("INVALID", parsed.error.issues[0]?.message ?? "Invalid variant.");
+    const { variantVersion } = await curateVariant(
+      ctx,
+      flashcard,
+      variant,
+      { kind: "edit", ...parsed.data },
+      Date.now(),
+    );
+    return { status: "ok", version: variantVersion! };
+  },
+});
+
+/**
+ * Delete a variant so no review shows it again. When the card's review
+ * shows it, the next variant is assigned without rating the concept. The
+ * card's only active variant can't be deleted.
+ */
+export const deleteVariant = mutation({
+  args: { variantId: v.id("conceptVariants") },
+  handler: async (ctx, { variantId }) => {
+    const library = await writableLibrary(ctx);
+    const { flashcard, variant } = await ownedVariant(ctx, library, variantId);
+    requireConceptCards(library);
+    await curateVariant(ctx, flashcard, variant, { kind: "delete" }, Date.now());
+    return null;
+  },
+});
+
+/** Return a flagged variant to selection. Does nothing for an active one. */
+export const unflagVariant = mutation({
+  args: { variantId: v.id("conceptVariants") },
+  handler: async (ctx, { variantId }) => {
+    const library = await writableLibrary(ctx);
+    const { flashcard, variant } = await ownedVariant(ctx, library, variantId);
+    requireConceptCards(library);
+    if (variant.status === "active") return null;
+    await curateVariant(ctx, flashcard, variant, { kind: "unflag" }, Date.now());
+    return null;
+  },
+});
+
+export type FlagShownResult =
+  | { status: "ok"; version: number }
+  | { status: "stale"; message: string };
+
+/**
+ * Flag the variant a review is showing as wrong or confusing, from the review
+ * itself. `expectedVersion` is the unit version on screen, so the flag lands
+ * on the exercise the learner saw. The variant is set aside and the next one
+ * is assigned without rating the concept; the result is the unit's new
+ * version, which shows that next variant.
+ */
+export const flagShownVariant = mutation({
+  args: { reviewUnitId: v.id("reviewUnits"), expectedVersion: v.number() },
+  handler: async (ctx, args): Promise<FlagShownResult> => {
+    const library = await writableLibrary(ctx);
+    const unit = await owned(ctx, library, args.reviewUnitId);
+    if (!unit) return { status: "stale", message: "This review unit no longer exists." };
+    if (unit.version !== args.expectedVersion) {
+      return {
+        status: "stale",
+        message: "This card changed since it was shown. Reload it to continue.",
+      };
+    }
+    const variant = unit.variantId ? await ctx.db.get(unit.variantId) : null;
+    if (!variant || variant.flashcardId !== unit.flashcardId) {
+      fail("INVALID", "Only a concept card's exercise can be flagged.");
+    }
+    const flashcard = await ownedOrFail(ctx, library, unit.flashcardId, "Flashcard");
+    requireConceptCards(library);
+    const { unitVersion } = await curateVariant(
+      ctx,
+      flashcard,
+      variant,
+      { kind: "flag" },
+      Date.now(),
+    );
+    return { status: "ok", version: unitVersion ?? unit.version };
+  },
+});
+
+/** A variant of a concept card in the caller's library, with its card; otherwise NOT_FOUND. */
+async function ownedVariant(
+  ctx: QueryCtx,
+  library: Doc<"libraries">,
+  variantId: Id<"conceptVariants">,
+) {
+  const variant = await ctx.db.get(variantId);
+  const flashcard =
+    variant && variant.libraryId === library._id
+      ? await owned(ctx, library, variant.flashcardId)
+      : null;
+  if (!variant || !flashcard || flashcard.type !== "concept")
+    fail("NOT_FOUND", "Variant not found.");
+  return { flashcard, variant };
+}
 
 /** The template and recent exercises for a job, or null when the job is no longer current. */
 export const generationInput = internalQuery({
@@ -189,18 +322,7 @@ export const storeVariants = internalMutation({
     await ctx.db.patch(flashcardId, {
       conceptPool: { job, status: "ready", requestedAt: flashcard.conceptPool!.requestedAt },
     });
-    const unit = await conceptUnit(ctx, flashcardId);
-    if (unit && isAwaitingVariant(unit)) {
-      const variant = await nextVariant(ctx, flashcardId);
-      if (variant) {
-        await ctx.db.patch(unit._id, {
-          ...showVariant(variant),
-          ...waitingSchedule({ ...unit, variantId: variant._id }, flashcard.locked, now),
-          version: unit.version + 1,
-          updatedAt: now,
-        });
-      }
-    }
+    await assignIfAwaiting(ctx, flashcard, now);
     await bumpRevision(ctx, flashcard.libraryId);
     return { stored: valid.length };
   },

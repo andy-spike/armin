@@ -262,6 +262,18 @@ in), and a card can't change to or from the concept type.
   restores both with the schedule, or is stale if that variant has since been
   removed or set aside. Concept units otherwise count like any unit in deck
   totals, Frontier selection, the daily cap, and Stats.
+- **Curation.** `concepts.editVariant` (against the variant's `version`; a
+  stale save returns `conflict`, and the text is checked against the core
+  variant schema), `deleteVariant`, `unflagVariant`, and, from review,
+  `flagShownVariant` (against the unit version on screen) all go through
+  `curateVariant` in `model/concepts.ts`. When the unit shows the changed
+  variant, an edit rewrites its front and back, and a flag or delete assigns
+  the next variant without rating; either bumps the unit's version, so an
+  open review of the old text goes stale. A flag or delete that leaves fewer
+  than 3 unseen variants refills through `refillIfLow`, as a rating does.
+  Flagging or deleting the card's only active variant is refused with
+  `CONFLICT`: a reviewed unit has no pending schedule to fall back on, so an
+  empty pool would leave a due card with nothing to show. Each needs Pro.
 - **Pro only.** Concept cards need the library's effective plan to be Pro
   (`conceptCardsAllowed` in `model/usage.ts`, through `libraryPlan`, so
   complimentary Pro and self-hosted instances qualify). Without it,

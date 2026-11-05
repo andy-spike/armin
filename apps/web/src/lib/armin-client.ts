@@ -214,6 +214,28 @@ export const armin = {
       q().mutation(api.concepts.retryGeneration, {
         flashcardId: flashcardId as Id<"flashcards">,
       }),
+    /** Save a variant's exercise and solution; a stale `version` returns a conflict. */
+    editVariant: (input: { id: string; version: number; exercise: string; solution: string }) =>
+      q().mutation(api.concepts.editVariant, {
+        variantId: input.id as Id<"conceptVariants">,
+        expectedVersion: input.version,
+        exercise: input.exercise,
+        solution: input.solution,
+      }),
+    deleteVariant: (variantId: string) =>
+      q().mutation(api.concepts.deleteVariant, {
+        variantId: variantId as Id<"conceptVariants">,
+      }),
+    unflagVariant: (variantId: string) =>
+      q().mutation(api.concepts.unflagVariant, {
+        variantId: variantId as Id<"conceptVariants">,
+      }),
+    /** Flag the exercise a review shows; the unit moves on to the next variant. */
+    flagShownVariant: (input: { reviewUnitId: string; version: number }) =>
+      q().mutation(api.concepts.flagShownVariant, {
+        reviewUnitId: input.reviewUnitId as Id<"reviewUnits">,
+        expectedVersion: input.version,
+      }),
   },
   review: {
     preview: async (reviewUnitId: string) =>
