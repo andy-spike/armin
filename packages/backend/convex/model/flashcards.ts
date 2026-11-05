@@ -308,6 +308,11 @@ export async function deleteFlashcardCascade(
   for (const unit of units) await deleteReviewUnit(ctx, unit._id);
   await syncFlashcardMedia(ctx, flashcard, []);
   await ctx.db.delete(flashcard._id);
+  // A concept card's variants go in bounded batches once the card is gone.
+  if (flashcard.type === "concept")
+    await ctx.scheduler.runAfter(0, internal.deletion.cleanupConceptVariants, {
+      flashcardId: flashcard._id,
+    });
 
   if (opts.refreshDependents && dependents.length > 0) {
     const settings = new SettingsCache(ctx, flashcard.libraryId);

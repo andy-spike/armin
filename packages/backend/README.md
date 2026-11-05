@@ -291,6 +291,21 @@ in), and a card can't change to or from the concept type.
   and offers no Retry; the web editor shows the card read-only, Browse
   labels it **Requires Pro**, and a free library's Concept type opens an
   upsell that links to Billing.
+- **Rest of the study model.** A concept card is an ordinary flashcard to
+  prerequisites (its one unit decides securedness), locks, earned access,
+  archive, move, and bury. Until its first variant is assigned it waits on the
+  pending schedule, and the web tiles label it **No exercises yet** instead of
+  New. Deleting a card or a deck schedules `deletion.cleanupConceptVariants`,
+  which removes the card's variants 100 per transaction once the card row is
+  gone; a generation job still running for it finds no card and releases its
+  reservation. Cram never writes concept state: `review.items` with cram's
+  `practiceSeed` shows each concept unit a random active variant picked by
+  `pickPracticeVariant` (a hash of the seed and unit ID, so one session keeps
+  its pick), leaving the assigned variant and every `lastShownAt` alone.
+  Exports carry the template as the card's content in `data/flashcards.json`
+  and every variant, with its status, origin, and `lastShownAt`, in
+  `data/concept-variants.json` (variants of a card deleted mid-cleanup are
+  left out).
 
 ## Plans and limits
 

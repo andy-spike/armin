@@ -588,7 +588,14 @@ export const unbury = mutation({
 
 /** Card text is subscribed only for a small look-ahead window. */
 export const items = query({
-  args: { ids: v.array(v.id("reviewUnits")) },
+  args: {
+    ids: v.array(v.id("reviewUnits")),
+    /**
+     * Cram's session seed. A concept card then shows a random active variant
+     * rather than its assigned one, and nothing about the pool changes.
+     */
+    practiceSeed: v.optional(v.number()),
+  },
   returns: v.array(
     v.object({
       reviewUnitId: v.id("reviewUnits"),
@@ -614,7 +621,7 @@ export const items = query({
       hydrated: v.boolean(),
     }),
   ),
-  handler: async (ctx, { ids }) => {
+  handler: async (ctx, { ids, practiceSeed }) => {
     const library = await readableLibrary(ctx);
     if (!library) return [];
     const units = [];
@@ -622,6 +629,6 @@ export const items = query({
       const unit = await owned(ctx, library, id);
       if (unit) units.push(unit);
     }
-    return toQueueItems(ctx, units);
+    return toQueueItems(ctx, units, { practiceSeed });
   },
 });

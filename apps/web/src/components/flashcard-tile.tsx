@@ -9,6 +9,7 @@ import {
   FolderInput,
   Info,
   BatteryLow,
+  Hourglass,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -151,7 +152,7 @@ function CardPreviewText({ content, className }: { content: string; className?: 
 }
 
 function showDueLabel(card: UiFlashcard) {
-  return card.dueLabel !== "New" && card.dueLabel !== "Locked";
+  return card.dueLabel !== "New" && card.dueLabel !== "Locked" && card.dueLabel !== "Waiting";
 }
 
 function CardActionsMenu({
@@ -290,7 +291,16 @@ function FlashcardTileBody({
 
         <div className={cn("flex items-center justify-between gap-2", deckName && "mt-2")}>
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <StateBadge state={card.state} locked={card.locked} className="min-w-0 shrink-0" />
+            {card.awaitingExercises ? (
+              <Tooltip content="This concept card joins your reviews once its first exercises are generated. Open it to see their status.">
+                <Badge className="pointer-events-auto min-w-0 shrink-0 bg-surface-sunken text-muted">
+                  <Hourglass className="h-3 w-3" aria-hidden />
+                  No exercises yet
+                </Badge>
+              </Tooltip>
+            ) : (
+              <StateBadge state={card.state} locked={card.locked} className="min-w-0 shrink-0" />
+            )}
             {card.archived && (
               <Badge className="min-w-0 shrink-0 bg-surface-sunken text-muted">
                 <Archive className="h-3 w-3" aria-hidden />

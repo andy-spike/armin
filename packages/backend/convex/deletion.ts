@@ -36,6 +36,30 @@ export const cleanupUnitLogs = internalMutation({
   },
 });
 
+// A variant holds up to two 5,000-character fields; a hundred stay far below
+// a transaction's read limit.
+const VARIANT_BATCH = 100;
+
+/**
+ * Remove a deleted concept card's variant pool in bounded batches (ADR 0023).
+ * Card and deck deletion schedule it once the card row is gone, so no review,
+ * Browse summary, or generation job can reach these variants meanwhile.
+ */
+export const cleanupConceptVariants = internalMutation({
+  args: { flashcardId: v.id("flashcards") },
+  handler: async (ctx, { flashcardId }) => {
+    if (await ctx.db.get(flashcardId)) return;
+    const variants = await ctx.db
+      .query("conceptVariants")
+      .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcardId))
+      .take(VARIANT_BATCH);
+    for (const variant of variants) await ctx.db.delete(variant._id);
+    if (variants.length === VARIANT_BATCH) {
+      await ctx.scheduler.runAfter(0, internal.deletion.cleanupConceptVariants, { flashcardId });
+    }
+  },
+});
+
 /** Deck deletion supplies the removed unit IDs, including units moved in. */
 export const cleanupRemovedUnits = internalMutation({
   args: { unitIds: v.array(v.id("reviewUnits")) },
@@ -126,6 +150,10 @@ export const cleanupDeck = internalMutation({
         budget -= links.length;
         if (!budget) break;
         await ctx.db.delete(card._id);
+        if (card.type === "concept")
+          await ctx.scheduler.runAfter(0, internal.deletion.cleanupConceptVariants, {
+            flashcardId: card._id,
+          });
         if (--budget === 0) break;
       }
       if (files.size)

@@ -74,6 +74,29 @@ export function isLowOnVariants(
 }
 
 /**
+ * The variant cram shows for a concept card: a random active variant, chosen
+ * by hashing the practice session's seed with the unit's ID. The same session
+ * always gets the same pick, so reactive re-runs don't swap the exercise
+ * mid-answer, and nothing needs writing (cram changes no variant state).
+ * Null when no variant is active.
+ */
+export function pickPracticeVariant<T extends { status: ConceptVariantStatus }>(
+  variants: T[],
+  seed: number,
+  unitId: string,
+) {
+  const active = variants.filter((variant) => variant.status === "active");
+  if (active.length === 0) return null;
+  // FNV-1a over the seed and unit ID.
+  let hash = 2166136261;
+  for (const char of `${seed}:${unitId}`) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return active[(hash >>> 0) % active.length]!;
+}
+
+/**
  * The variant to show next: a random unseen active variant, otherwise the
  * active variant shown longest ago, so review never blocks on generation.
  * Null when no variant is active. `random` returns a number in [0, 1).

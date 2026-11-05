@@ -82,6 +82,11 @@ type ReviewSessionProps = {
   allowNewCards?: boolean;
   /** Changing this resets the session to the first card. */
   resetKey?: string;
+  /**
+   * Set for practice (cram): each concept card shows a random active exercise
+   * picked from this seed, leaving the one assigned for review untouched.
+   */
+  practiceSeed?: number;
   isLoading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
@@ -119,6 +124,7 @@ export function ReviewSession({
   repeatAgainOffset,
   allowNewCards = true,
   resetKey,
+  practiceSeed,
   isLoading = false,
   isError = false,
   onRetry,
@@ -153,7 +159,7 @@ export function ReviewSession({
     card,
     contents,
     loading: contentLoading,
-  } = useCardContent({ cards, index, resetKey });
+  } = useCardContent({ cards, index, resetKey, practiceSeed });
 
   const { undoing, burying } = session;
   const [flipped, setFlipped] = useState(false);

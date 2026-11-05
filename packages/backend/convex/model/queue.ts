@@ -1,10 +1,14 @@
-import { CONCEPT_SUBKEY } from "@armin/core/concept";
+import { CONCEPT_SUBKEY, pickPracticeVariant } from "@armin/core/concept";
 import { isPendingSchedule, State } from "@armin/core/scheduler";
 import { selectFrontier, startOfStudyDayMs } from "@armin/core/study";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { activeDeckIds } from "./access";
-import { MAX_REVIEW_UNITS_PER_FLASHCARD, MAX_SESSION_REVIEWS } from "./limits";
+import {
+  MAX_REVIEW_UNITS_PER_FLASHCARD,
+  MAX_SESSION_REVIEWS,
+  MAX_VARIANTS_PER_CONCEPT,
+} from "./limits";
 import { unitFrontierKey } from "./performance";
 import { parseFlashcard, SettingsCache } from "./study";
 import { conceptCardsAllowed } from "./usage";
@@ -31,8 +35,16 @@ export const queueUnit = (row: Doc<"unitSummaries">) => ({
   _id: row.reviewUnitId,
 });
 
-/** Queue-shaped items for the review and cram renderers. */
-export async function toQueueItems(ctx: QueryCtx, units: QueueUnit[]) {
+/**
+ * Queue-shaped items for the review and cram renderers. With `practiceSeed`
+ * (cram), a concept card shows a random active variant instead of the one
+ * assigned for review (`pickPracticeVariant`), read without writing anything.
+ */
+export async function toQueueItems(
+  ctx: QueryCtx,
+  units: QueueUnit[],
+  options: { practiceSeed?: number } = {},
+) {
   const flashcards = new Map<Id<"flashcards">, Doc<"flashcards"> | null>();
   const decks = new Map<Id<"decks">, string>();
   const items = [];
@@ -48,6 +60,15 @@ export async function toQueueItems(ctx: QueryCtx, units: QueueUnit[]) {
       decks.set(unit.deckId, (await ctx.db.get(unit.deckId))?.name ?? "");
     }
     const { type, content } = parseFlashcard(flashcard);
+    let { front, back } = unit;
+    if (options.practiceSeed !== undefined && unit.subKey === CONCEPT_SUBKEY) {
+      const variants = await ctx.db
+        .query("conceptVariants")
+        .withIndex("by_flashcard", (q) => q.eq("flashcardId", unit.flashcardId))
+        .take(MAX_VARIANTS_PER_CONCEPT);
+      const practice = pickPracticeVariant(variants, options.practiceSeed, unit._id);
+      if (practice) ({ exercise: front, solution: back } = practice);
+    }
     items.push({
       reviewUnitId: unit._id,
       flashcardId: unit.flashcardId,
@@ -56,8 +77,8 @@ export async function toQueueItems(ctx: QueryCtx, units: QueueUnit[]) {
       type,
       content,
       subKey: unit.subKey,
-      front: unit.front,
-      back: unit.back,
+      front,
+      back,
       version: unit.version,
       flashcardVersion: flashcard.version,
       due: unit.due,
