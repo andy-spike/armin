@@ -16,6 +16,7 @@ import {
 } from "./model/concepts";
 import { fail } from "./model/errors";
 import { selectProvider } from "./model/generator";
+import { conceptCardsAllowed, requireConceptCards } from "./model/usage";
 import { MAX_VARIANTS_PER_CONCEPT } from "./model/limits";
 import {
   settleVariants,
@@ -48,8 +49,13 @@ export const pool = query({
       variantsOf(ctx, flashcard._id),
       variantAllowance(ctx, library._id, now),
     ]);
+    // Outside Pro the card keeps its pool, but nothing generates until Pro returns.
+    const requiresPro = !conceptCardsAllowed(library);
+    const view = poolView(flashcard, now, allowance);
     return {
-      ...poolView(flashcard, now, allowance),
+      ...view,
+      canRetry: view.canRetry && !requiresPro,
+      requiresPro,
       variants: variants.map((variant) => ({
         id: variant._id,
         exercise: variant.exercise,
@@ -102,6 +108,7 @@ export const retryGeneration = mutation({
     const library = await writableLibrary(ctx);
     const flashcard = await ownedOrFail(ctx, library, flashcardId, "Flashcard");
     if (flashcard.type !== "concept") fail("INVALID", "Only concept cards generate variants.");
+    requireConceptCards(library);
     const now = Date.now();
     const allowance = await variantAllowance(ctx, library._id, now);
     if (!poolView(flashcard, now, allowance).canRetry) return { started: false };

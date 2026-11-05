@@ -9,6 +9,7 @@ import {
   FolderInput,
   Info,
   BatteryLow,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,7 @@ import {
 import { StateBadge, Badge } from "@/components/ui/badge";
 import { FlashcardTypeBadge } from "@/components/flashcard-type-badge";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useConceptCardsAllowed } from "@/components/concept-pro";
 import type { FlashcardDeleteConsequences, UiFlashcard } from "@/types/view-models";
 import {
   FLASHCARD_TILE_EXIT_MS,
@@ -258,6 +260,7 @@ function FlashcardTileBody({
     />
   );
   const frontPreview = useMemo(() => stripMarkdownForPreview(card.front), [card.front]);
+  const conceptNeedsPro = useConceptCardsAllowed() === false;
 
   return (
     <div
@@ -295,6 +298,14 @@ function FlashcardTileBody({
               </Badge>
             )}
             <FlashcardTypeBadge type={card.type} />
+            {card.type === "concept" && conceptNeedsPro && (
+              <Tooltip content="Concept cards are a Pro feature. This card keeps its data and returns to your reviews when you upgrade.">
+                <Badge className="pointer-events-auto min-w-0 shrink-0 bg-accent/15 text-accent-deep">
+                  <Sparkles className="h-3 w-3" aria-hidden />
+                  Requires Pro
+                </Badge>
+              </Tooltip>
+            )}
             {card.lowOnVariants && (
               <Tooltip content="No unseen variants left. Reviews reuse the ones seen longest ago until more are generated.">
                 <Badge className="pointer-events-auto min-w-0 shrink-0 bg-surface-sunken text-muted">

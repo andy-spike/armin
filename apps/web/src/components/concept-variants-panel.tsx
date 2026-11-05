@@ -91,6 +91,11 @@ export function ConceptVariantsPanel({ flashcardId }: { flashcardId: string }) {
             )}
           </span>
         )}
+        {pool.requiresPro && (
+          <span className="basis-full text-xs text-muted">
+            No new variants are generated without Pro.
+          </span>
+        )}
         {pool.canRetry && (
           <Button
             size="sm"

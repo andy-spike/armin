@@ -1,4 +1,4 @@
-import { queueUnit, type QueueUnit } from "./queue";
+import { isWithheldConcept, queueUnit, type QueueUnit } from "./queue";
 import { MAX_REVIEW_UNITS_PER_DECK } from "./limits";
 import { CONCEPT_SUBKEY, isAwaitingVariant } from "@armin/core/concept";
 import { State } from "@armin/core/scheduler";
@@ -69,7 +69,9 @@ export async function selectCramUnits(
       unit.libraryId === library._id &&
       !unit.archived &&
       (args.includeLocked || !unit.locked) &&
-      states.has(unit.state),
+      states.has(unit.state) &&
+      // Outside Pro, concept cards stay out of cram too (ADR 0023).
+      !isWithheldConcept(unit, library),
   );
   if (units.length === 0) return [];
   // A concept card's unit has nothing to show until a variant is assigned.

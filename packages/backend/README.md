@@ -262,6 +262,23 @@ in), and a card can't change to or from the concept type.
   restores both with the schedule, or is stale if that variant has since been
   removed or set aside. Concept units otherwise count like any unit in deck
   totals, Frontier selection, the daily cap, and Stats.
+- **Pro only.** Concept cards need the library's effective plan to be Pro
+  (`conceptCardsAllowed` in `model/usage.ts`, through `libraryPlan`, so
+  complimentary Pro and self-hosted instances qualify). Without it,
+  `flashcards.create` refuses a new concept card, `flashcards.update` refuses
+  any edit to one, and `requestGeneration` (creation, Retry, refill) refuses
+  to start a job, each with `QUOTA`. A library that leaves Pro keeps every
+  concept card, variant, and review log unchanged: its concept units are
+  withheld at read time (`isWithheldConcept` in `model/queue.ts`) from queue
+  selection, due counts, `nextDueAt`, and cram, and `review.rate` returns
+  `ineligible` for one already on screen. Per-deck due counts subtract
+  `deckUnitCounts.conceptFrontierCandidates`, the concept units among a
+  deck's Frontier candidates. Nothing is written when the plan changes, so
+  everything resumes exactly when Pro returns. Delete, archive, move, and
+  prerequisite links stay available. `concepts.pool` reports `requiresPro`
+  and offers no Retry; the web editor shows the card read-only, Browse
+  labels it **Requires Pro**, and a free library's Concept type opens an
+  upsell that links to Billing.
 
 ## Plans and limits
 

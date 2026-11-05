@@ -21,6 +21,8 @@ import { CONCEPT_BATCH_SIZE } from "@armin/core/concept";
 import { hasEmptyClozeDeletion, parseClozes } from "@armin/core/flashcard-rules";
 import { ClozeField, Field, TagsInput } from "@/components/flashcard-form-fields";
 import { ConceptVariantsPanel } from "@/components/concept-variants-panel";
+import { ConceptProNotice, ProMarker, useConceptCardsAllowed } from "@/components/concept-pro";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import type { ConceptContent, FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
 
 export type CardFormValues = {
@@ -240,6 +242,9 @@ export function FlashcardFormDialog({
   const conceptAvailability = useQuery({ ...conceptAvailabilityQuery(), enabled: open }).data;
   const conceptUnavailable =
     conceptAvailability && !conceptAvailability.available ? conceptAvailability.reason : null;
+  // Concept cards are Pro-only: a free library sees the type as an upsell, and
+  // a lapsed one sees its concept cards read-only until Pro returns.
+  const conceptNeedsPro = useConceptCardsAllowed() === false;
 
   const displayMode = open ? mode : displaySession.mode;
   const displayCardId = open ? (reviewUnitId ?? null) : displaySession.reviewUnitId;
@@ -248,7 +253,8 @@ export function FlashcardFormDialog({
   // Disconnected: keep the draft but don't start a save whose outcome
   // can't be confirmed.
   const { online } = useConnection();
-  const blockedConcept = displayMode === "create" && type === "concept" && !!conceptUnavailable;
+  const blockedConcept =
+    type === "concept" && (conceptNeedsPro || (displayMode === "create" && !!conceptUnavailable));
   const canSubmit = content !== null && !submitting && uploads === 0 && online && !blockedConcept;
 
   const dirty = initialSnapshot !== null && formSnapshot(type, fields, tags) !== initialSnapshot;
@@ -394,8 +400,14 @@ export function FlashcardFormDialog({
               {TYPE_OPTIONS.map((option) => {
                 // Without a generator, a new card can't be a concept card. The
                 // button stays focusable (aria-disabled) so its tooltip can say why.
+                // A library without Pro can still pick it, to see the upsell.
                 const unavailable =
-                  option.value === "concept" && displayMode === "create" && conceptUnavailable;
+                  option.value === "concept" &&
+                  displayMode === "create" &&
+                  !conceptNeedsPro &&
+                  conceptUnavailable;
+                const proOnly =
+                  option.value === "concept" && displayMode === "create" && conceptNeedsPro;
                 const button = (
                   <button
                     key={option.value}
@@ -411,6 +423,7 @@ export function FlashcardFormDialog({
                       (initialType === "concept") !== (option.value === "concept")
                     }
                     className={cn(
+                      proOnly && "relative",
                       "min-w-0 rounded-md border px-2.5 py-1.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50",
                       type === option.value
                         ? "border-accent bg-accent text-on-accent"
@@ -418,6 +431,9 @@ export function FlashcardFormDialog({
                     )}
                   >
                     {option.label}
+                    {proOnly && (
+                      <ProMarker className="absolute -right-1.5 -top-2 bg-accent-deep text-on-accent" />
+                    )}
                   </button>
                 );
                 return unavailable ? (
@@ -522,7 +538,31 @@ export function FlashcardFormDialog({
             </>
           )}
 
-          {type === "concept" && (
+          {type === "concept" && conceptNeedsPro && displayMode === "create" && (
+            <ConceptProNotice variant="create" />
+          )}
+
+          {type === "concept" && conceptNeedsPro && displayMode === "edit" && (
+            <>
+              <ConceptProNotice variant="lapsed" />
+              <Field label="Brief">
+                <MarkdownContent content={fields.brief} className="text-sm" />
+              </Field>
+              <Field label="Example exercise">
+                <MarkdownContent content={fields.exercise} className="text-sm" />
+              </Field>
+              <Field label="Example solution">
+                <MarkdownContent content={fields.solution} className="text-sm" />
+              </Field>
+              {displayCardId && (
+                <Field label="Variants">
+                  <ConceptVariantsPanel flashcardId={displayCardId} />
+                </Field>
+              )}
+            </>
+          )}
+
+          {type === "concept" && !conceptNeedsPro && (
             <>
               <Field
                 label="Brief"
@@ -580,9 +620,11 @@ export function FlashcardFormDialog({
             </Field>
           )}
 
-          <Field label="Tags" hint="Press Enter or comma to add.">
-            <TagsInput key={`tags-${editorKey}`} value={tags} onChange={setTags} />
-          </Field>
+          {!(type === "concept" && conceptNeedsPro) && (
+            <Field label="Tags" hint="Press Enter or comma to add.">
+              <TagsInput key={`tags-${editorKey}`} value={tags} onChange={setTags} />
+            </Field>
+          )}
         </div>
       )}
     </Dialog>

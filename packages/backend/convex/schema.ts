@@ -622,6 +622,12 @@ export default defineSchema({
     archivedCount: v.number(),
     /** New, unlocked, unarchived, never-reviewed units. */
     frontierCandidates: v.number(),
+    /**
+     * The concept card units among `frontierCandidates`, which a library
+     * without Pro withholds (ADR 0023). Absent on rows from before it was
+     * counted, which hold none.
+     */
+    conceptFrontierCandidates: v.optional(v.number()),
   })
     .index("by_deck", ["deckId"])
     .index("by_library", ["libraryId"]),

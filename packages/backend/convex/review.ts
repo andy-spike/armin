@@ -17,6 +17,7 @@ import { advanceVariant, refillIfLow, restoreVariant } from "./model/concepts";
 import {
   checkEligible,
   isBuried,
+  isWithheldConcept,
   selectSession,
   toQueueItems,
   queueDescriptors,
@@ -113,7 +114,8 @@ async function nextDueAfter(
     // Bounded: past this many skipped rows, the next study day refresh suffices.
     let scanned = 0;
     for await (const unit of rows) {
-      if (decks.has(unit.deckId) && !isBuried(unit, now)) return unit.due;
+      if (decks.has(unit.deckId) && !isBuried(unit, now) && !isWithheldConcept(unit, library))
+        return unit.due;
       if (++scanned >= 2000) break;
     }
     return null;
@@ -126,7 +128,9 @@ async function nextDueAfter(
         q.eq("deckId", id).eq("locked", false).eq("archived", false).gt("due", now),
       )
       .take(11);
-    const due = units.find((unit) => !isBuried(unit, now))?.due;
+    const due = units.find(
+      (unit) => !isBuried(unit, now) && !isWithheldConcept(unit, library),
+    )?.due;
     if (due != null && (earliest == null || due < earliest)) earliest = due;
   }
   return earliest;
@@ -317,7 +321,7 @@ export const rate = mutation({
         message: "This card changed since it was shown. Reload it to continue.",
       };
     }
-    const ineligible = await checkEligible(unit, now);
+    const ineligible = await checkEligible(unit, library, now);
     if (ineligible) return { status: "ineligible", message: ineligible };
 
     const settings = new SettingsCache(ctx, library._id);

@@ -14,7 +14,7 @@ import {
   writableLibrary,
 } from "./model/access";
 import schema from "./schema";
-import { checkCapacity } from "./model/usage";
+import { checkCapacity, requireConceptCards } from "./model/usage";
 import { fail } from "./model/errors";
 import { selectProvider } from "./model/generator";
 import {
@@ -349,6 +349,7 @@ export const create = mutation({
     // A concept card is only useful with generated exercises, so it can't be
     // created while this deployment has no generator.
     if (input.type === "concept") {
+      requireConceptCards(library);
       const { unavailable } = selectProvider();
       if (unavailable) fail("INVALID", unavailable);
     }
@@ -394,6 +395,9 @@ export const update = mutation({
         message: "This flashcard was changed elsewhere after you opened it.",
       };
     }
+    // A concept card outside Pro keeps its data but can't be edited until Pro
+    // returns (ADR 0023).
+    if (flashcard.type === "concept") requireConceptCards(library);
     let input: ValidatedFlashcard | undefined;
     if (args.content !== undefined || args.type !== undefined) {
       const current = parseFlashcard(flashcard);
