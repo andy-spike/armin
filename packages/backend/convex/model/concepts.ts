@@ -27,7 +27,9 @@ import { reserveVariants, settleVariants, variantAllowance } from "./variantAllo
 
 /**
  * A job still "generating" after this long has stopped without reporting
- * back (an action timeout or a deploy mid-run), so it can be retried.
+ * back (an action timeout or a deploy mid-run). Convex actions run at most 10
+ * minutes, so `concepts.expireGeneration` then fails it and releases its
+ * reservation, and the card offers Retry.
  */
 export const GENERATION_STALL_MS = 10 * 60_000;
 
@@ -91,6 +93,14 @@ export async function requestGeneration(
     job,
     count,
     reserved: reservation,
+  });
+  // An action can stop without reporting back (a timeout or a deploy
+  // mid-run). The watchdog then fails the pool and releases the batch, so the
+  // allowance isn't held and the card offers Retry; it does nothing once the
+  // job has stored, failed, or been superseded.
+  await ctx.scheduler.runAfter(GENERATION_STALL_MS, internal.concepts.expireGeneration, {
+    flashcardId: flashcard._id,
+    job,
   });
 }
 

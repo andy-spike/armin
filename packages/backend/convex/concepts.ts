@@ -351,6 +351,31 @@ export const failGeneration = internalMutation({
 });
 
 /**
+ * The watchdog `requestGeneration` schedules with each job: a job still
+ * running after `GENERATION_STALL_MS` stopped without reporting back, so its
+ * pool fails with Retry and its reservation is released. Should the action
+ * report later after all, `runningJob` no longer matches and its result is
+ * dropped, so the batch is never charged twice.
+ */
+export const expireGeneration = internalMutation({
+  args: { flashcardId: v.id("flashcards"), job: v.number() },
+  handler: async (ctx, { flashcardId, job }) => {
+    const flashcard = await runningJob(ctx, flashcardId, job);
+    if (!flashcard) return;
+    const { requestedAt, reserved } = flashcard.conceptPool!;
+    await settleVariants(ctx, reserved, 0);
+    await ctx.db.patch(flashcardId, {
+      conceptPool: {
+        job,
+        requestedAt,
+        status: "failed",
+        reason: "Generating variants took too long.",
+      },
+    });
+  },
+});
+
+/**
  * A job that finds its card deleted still holds its reservation; nothing else
  * can release it. A superseded job's reservation was already released by the
  * request that replaced it, so a card that still exists releases nothing.

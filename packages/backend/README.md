@@ -184,8 +184,12 @@ in), and a card can't change to or from the concept type.
   `flagged`), when a review last showed it, an origin, and a version. The
   card's `conceptPool` records the latest generation job: `generating`,
   `ready`, `failed` with a reason, or `allowanceUsed` when no job could start
-  (see the allowance below). A job stuck generating for 10 minutes counts as
-  failed so it can be retried.
+  (see the allowance below). Every job also schedules a watchdog,
+  `concepts.expireGeneration`, 10 minutes out (the longest a Convex action
+  runs). A job that hasn't stored or failed by then stopped without reporting
+  back, so the watchdog fails the pool with Retry and releases the job's
+  allowance reservation; a late report from that job is dropped. A failed pool
+  waits for Retry rather than refilling on ratings.
 - **Generation.** Creating a concept card schedules
   `conceptGeneration.generate`, an action that asks the generator module for a
   batch of 10 variants, avoiding the pool's recent exercises, and stores the
