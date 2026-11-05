@@ -49,6 +49,12 @@ settings are machine/app settings; another machine must register the same action
    Sign in through the normal app. Each library starts with basic, cloze, and
    typed-answer cards, plus a prerequisite that locks one card. The seed is an
    operator CLI script, with no fixture endpoint in the deployed application.
+   Every setup run also gives the test account complimentary Pro
+   (`billing:setComplimentaryPro`), so Pro-only features such as concept cards
+   work right away. To test the free plan, turn it off with
+   `pnpm --filter @armin/backend exec convex run billing:setComplimentaryPro
+   '{"email":"test@example.com","enabled":false}'`; rerunning setup turns it
+   back on.
 4. Make changes and run the validation required by `AGENTS.md`. Record app
    walkthroughs under `docs/qa/`. Commit regenerated Convex and route files when
    they change. Keep `.armin/`, `.env.local`, and `.convex/` out of commits.

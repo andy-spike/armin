@@ -123,6 +123,17 @@ try {
   configureSandbox(state);
   run("node", [join(backend, "scripts/configure-clients.mjs")]);
   await seedWorktree();
+  // The test account gets complimentary Pro on every local deployment, so
+  // Pro-only features such as concept cards work right after setup. It only
+  // sets `libraries.complimentaryPro` on this checkout's local deployment.
+  convex(
+    [
+      "run",
+      "billing:setComplimentaryPro",
+      JSON.stringify({ email: "test@example.com", enabled: true }),
+    ],
+    { stdio: ["ignore", "pipe", "inherit"] },
+  );
   if (!names.has("JWKS")) {
     // Seeding obtains a token and therefore creates the Better Auth signing key.
     // Embed that same key in the local deployment so token verification does not
