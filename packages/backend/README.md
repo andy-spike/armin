@@ -207,7 +207,11 @@ in), and a card can't change to or from the concept type.
   Retry or one whose card was deleted. Convex mutations are serializable, so
   concurrent jobs in one library can't reserve past the limit. A job whose
   action dies without reporting back keeps its batch (at most 10) reserved
-  until its card is retried. With nothing left, no job is scheduled and the
+  until its watchdog expires it (see the variant pool above), its card is
+  retried, or its card or deck is deleted, which settles the batch in the
+  same transaction; a late result from that job can't release it again.
+  Reviewer reset clears the month's reservations, since it removes every
+  card. With nothing left, no job is scheduled and the
   pool becomes `allowanceUsed`: no Retry, and reviews keep reusing variants.
   Once the allowance has room again (a new UTC month or a larger plan), the
   pool offers Retry, and any new generation request starts normally; the

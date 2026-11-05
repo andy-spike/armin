@@ -269,6 +269,16 @@ export async function cleanupLibraryData(
 ) {
   let budget = BATCH;
 
+  // A reset keeps the allowance rows but removes every card, so no running
+  // job can settle its batch afterwards: release all reservations up front.
+  if (reset) {
+    const usage = await ctx.db
+      .query("conceptVariantUsage")
+      .withIndex("by_library_month", (q) => q.eq("libraryId", libraryId))
+      .collect();
+    for (const row of usage) if (row.reserved > 0) await ctx.db.patch(row._id, { reserved: 0 });
+  }
+
   const media = await ctx.db
     .query("media")
     .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
