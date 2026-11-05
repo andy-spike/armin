@@ -212,30 +212,59 @@ export async function dueReviewUnits(
   if (limit <= 0) return [];
   let units: QueueUnit[] = [];
   if (library.statsReady) {
+    // Without Pro, concept units are withheld; skip them in the index so they
+    // can't fill the scan and hide the library's other due reviews.
+    const withheld = !conceptCardsAllowed(library);
     for (const state of REVIEW_STATES) {
-      const rows = deckId
-        ? await ctx.db
-            .query("unitSummaries")
-            .withIndex("by_deck_state_due", (q) =>
-              q
-                .eq("deckId", deckId)
-                .eq("locked", false)
-                .eq("archived", false)
-                .eq("state", state)
-                .lte("due", now),
-            )
-            .take(limit + SCAN_SLACK)
-        : await ctx.db
-            .query("unitSummaries")
-            .withIndex("by_library_state_due", (q) =>
-              q
-                .eq("libraryId", library._id)
-                .eq("locked", false)
-                .eq("archived", false)
-                .eq("state", state)
-                .lte("due", now),
-            )
-            .take(limit + SCAN_SLACK);
+      const rows = withheld
+        ? deckId
+          ? await ctx.db
+              .query("unitSummaries")
+              .withIndex("by_deck_kind_state_due", (q) =>
+                q
+                  .eq("deckId", deckId)
+                  .eq("locked", false)
+                  .eq("archived", false)
+                  .eq("concept", undefined)
+                  .eq("state", state)
+                  .lte("due", now),
+              )
+              .take(limit + SCAN_SLACK)
+          : await ctx.db
+              .query("unitSummaries")
+              .withIndex("by_library_kind_state_due", (q) =>
+                q
+                  .eq("libraryId", library._id)
+                  .eq("locked", false)
+                  .eq("archived", false)
+                  .eq("concept", undefined)
+                  .eq("state", state)
+                  .lte("due", now),
+              )
+              .take(limit + SCAN_SLACK)
+        : deckId
+          ? await ctx.db
+              .query("unitSummaries")
+              .withIndex("by_deck_state_due", (q) =>
+                q
+                  .eq("deckId", deckId)
+                  .eq("locked", false)
+                  .eq("archived", false)
+                  .eq("state", state)
+                  .lte("due", now),
+              )
+              .take(limit + SCAN_SLACK)
+          : await ctx.db
+              .query("unitSummaries")
+              .withIndex("by_library_state_due", (q) =>
+                q
+                  .eq("libraryId", library._id)
+                  .eq("locked", false)
+                  .eq("archived", false)
+                  .eq("state", state)
+                  .lte("due", now),
+              )
+              .take(limit + SCAN_SLACK);
       units.push(...rows.map(queueUnit));
     }
   } else {
@@ -301,21 +330,45 @@ export async function frontierCandidates(
       )
       .slice(0, limit);
   }
-  const rows = deckId
-    ? ctx.db
-        .query("unitSummaries")
-        .withIndex("by_deck_frontier", (q) =>
-          q.eq("deckId", deckId).eq("locked", false).eq("archived", false).eq("state", State.New),
-        )
-    : ctx.db
-        .query("unitSummaries")
-        .withIndex("by_library_frontier", (q) =>
-          q
-            .eq("libraryId", library._id)
-            .eq("locked", false)
-            .eq("archived", false)
-            .eq("state", State.New),
-        );
+  // Without Pro, skip withheld concept units in the index (see `dueReviewUnits`).
+  const withheld = !conceptCardsAllowed(library);
+  const rows = withheld
+    ? deckId
+      ? ctx.db
+          .query("unitSummaries")
+          .withIndex("by_deck_kind_frontier", (q) =>
+            q
+              .eq("deckId", deckId)
+              .eq("locked", false)
+              .eq("archived", false)
+              .eq("concept", undefined)
+              .eq("state", State.New),
+          )
+      : ctx.db
+          .query("unitSummaries")
+          .withIndex("by_library_kind_frontier", (q) =>
+            q
+              .eq("libraryId", library._id)
+              .eq("locked", false)
+              .eq("archived", false)
+              .eq("concept", undefined)
+              .eq("state", State.New),
+          )
+    : deckId
+      ? ctx.db
+          .query("unitSummaries")
+          .withIndex("by_deck_frontier", (q) =>
+            q.eq("deckId", deckId).eq("locked", false).eq("archived", false).eq("state", State.New),
+          )
+      : ctx.db
+          .query("unitSummaries")
+          .withIndex("by_library_frontier", (q) =>
+            q
+              .eq("libraryId", library._id)
+              .eq("locked", false)
+              .eq("archived", false)
+              .eq("state", State.New),
+          );
   const out: QueueUnit[] = [];
   let scanned = 0;
   for await (const row of rows) {

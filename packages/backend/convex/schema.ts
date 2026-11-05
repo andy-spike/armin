@@ -494,6 +494,11 @@ export default defineSchema({
     introducedAt: v.optional(v.number()),
     /** Fixed new-card order (`frontierKey` in model/performance.ts). */
     frontierKey: v.optional(v.number()),
+    /**
+     * Set on a concept card's unit only, so a library without Pro can select
+     * from its other units by index (ADR 0023). Absent on every other unit.
+     */
+    concept: v.optional(v.literal(true)),
   })
     .index("by_unit", ["reviewUnitId"])
     .index("by_flashcard", ["flashcardId"])
@@ -505,6 +510,32 @@ export default defineSchema({
     .index("by_deck_state_due", ["deckId", "locked", "archived", "state", "due"])
     .index("by_library_frontier", ["libraryId", "locked", "archived", "state", "frontierKey"])
     .index("by_deck_frontier", ["deckId", "locked", "archived", "state", "frontierKey"])
+    // The same selections without withheld concept units, for libraries without Pro.
+    .index("by_library_kind_state_due", [
+      "libraryId",
+      "locked",
+      "archived",
+      "concept",
+      "state",
+      "due",
+    ])
+    .index("by_deck_kind_state_due", ["deckId", "locked", "archived", "concept", "state", "due"])
+    .index("by_library_kind_frontier", [
+      "libraryId",
+      "locked",
+      "archived",
+      "concept",
+      "state",
+      "frontierKey",
+    ])
+    .index("by_deck_kind_frontier", [
+      "deckId",
+      "locked",
+      "archived",
+      "concept",
+      "state",
+      "frontierKey",
+    ])
     .index("by_library_buried", ["libraryId", "buriedUntil"])
     .index("by_library_introduced", ["libraryId", "introducedAt"]),
 

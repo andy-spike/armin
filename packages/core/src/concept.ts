@@ -35,8 +35,12 @@ export type ConceptPoolStatus = (typeof CONCEPT_POOL_STATUSES)[number];
 export const CONCEPT_VARIANT_STATUSES = ["active", "flagged"] as const;
 export type ConceptVariantStatus = (typeof CONCEPT_VARIANT_STATUSES)[number];
 
-/** Markdown images (including audio clips) and embedded HTML media. */
-const MEDIA_REFERENCE_RE = /!\[[^\]]*\]\(|<(?:img|audio|video|picture|source)\b/i;
+/**
+ * Markdown images in any form (inline, reference, collapsed, or shortcut, all
+ * of which start with `![`; audio clips use the same syntax) and embedded
+ * HTML media.
+ */
+const MEDIA_REFERENCE_RE = /!\[|<(?:img|audio|video|picture|source)\b/i;
 
 /** Templates and variants are text and KaTeX only: no images or audio. */
 export function hasMediaReference(text: string) {

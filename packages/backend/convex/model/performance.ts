@@ -1,3 +1,4 @@
+import { CONCEPT_SUBKEY } from "@armin/core/concept";
 import { startOfStudyDayMs } from "@armin/core/study";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
@@ -301,6 +302,8 @@ export async function syncUnitSummary(
     buriedUntil,
     createdAt,
     frontierKey: order,
+    // A unit's subKey never changes, so neither does this marker.
+    ...(subKey === CONCEPT_SUBKEY ? { concept: true as const } : {}),
   };
   if (row) await ctx.db.patch(row._id, fields);
   else await ctx.db.insert("unitSummaries", { ...fields, ...(await logBoundaries(ctx, unitId)) });
