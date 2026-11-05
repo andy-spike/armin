@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { conceptVariantSchema, type ConceptContent } from "@armin/core/flashcard-types";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalQuery, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internalQuery, query, type QueryCtx } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import { owned, ownedOrFail, readableLibrary, writableLibrary } from "./model/access";
 import {
@@ -17,11 +17,7 @@ import { fail } from "./model/errors";
 import { selectProvider } from "./model/generator";
 import { conceptCardsAllowed, requireConceptCards } from "./model/usage";
 import { MAX_VARIANTS_PER_CONCEPT } from "./model/limits";
-import {
-  settleVariants,
-  variantAllowance,
-  type VariantReservation,
-} from "./model/variantAllowance";
+import { settleVariants, variantAllowance } from "./model/variantAllowance";
 import { variantReservation } from "./schema";
 import { bumpRevision, parseFlashcard } from "./model/study";
 
@@ -281,12 +277,9 @@ export const storeVariants = internalMutation({
     reserved: v.optional(variantReservation),
     variants: v.array(variantInput),
   },
-  handler: async (ctx, { flashcardId, job, reserved, variants }) => {
+  handler: async (ctx, { flashcardId, job, variants }) => {
     const flashcard = await runningJob(ctx, flashcardId, job);
-    if (!flashcard) {
-      await releaseOrphaned(ctx, flashcardId, reserved);
-      return { stored: 0 };
-    }
+    if (!flashcard) return { stored: 0 };
     const held = flashcard.conceptPool!.reserved;
     const room = MAX_VARIANTS_PER_CONCEPT - (await variantsOf(ctx, flashcardId)).length;
     const valid = variants
@@ -336,12 +329,9 @@ export const failGeneration = internalMutation({
     reserved: v.optional(variantReservation),
     reason: v.string(),
   },
-  handler: async (ctx, { flashcardId, job, reserved, reason }) => {
+  handler: async (ctx, { flashcardId, job, reason }) => {
     const flashcard = await runningJob(ctx, flashcardId, job);
-    if (!flashcard) {
-      await releaseOrphaned(ctx, flashcardId, reserved);
-      return;
-    }
+    if (!flashcard) return;
     const { requestedAt, reserved: held } = flashcard.conceptPool!;
     await settleVariants(ctx, held, 0);
     await ctx.db.patch(flashcardId, {
@@ -374,16 +364,3 @@ export const expireGeneration = internalMutation({
     });
   },
 });
-
-/**
- * A job that finds its card deleted still holds its reservation; nothing else
- * can release it. A superseded job's reservation was already released by the
- * request that replaced it, so a card that still exists releases nothing.
- */
-async function releaseOrphaned(
-  ctx: MutationCtx,
-  flashcardId: Id<"flashcards">,
-  reserved: VariantReservation,
-) {
-  if (reserved && !(await ctx.db.get(flashcardId))) await settleVariants(ctx, reserved, 0);
-}

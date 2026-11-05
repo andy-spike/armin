@@ -35,7 +35,7 @@ export const generate = internalAction({
       job: args.job,
     });
     if (!input) {
-      // Releases the reservation if the card was deleted meanwhile.
+      // Deletion or supersession already settled the reservation.
       await fail("This job is no longer current.");
       return null;
     }

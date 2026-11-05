@@ -14,6 +14,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { requestGeneration } from "./concepts";
 import { fail } from "./errors";
 import { MAX_CONTENT_CHARS, MAX_TAG_CHARS, MAX_TAGS_PER_FLASHCARD } from "./limits";
+import { settleVariants } from "./variantAllowance";
 import {
   adjustReviewUnitCount,
   canonicalTags,
@@ -307,6 +308,10 @@ export async function deleteFlashcardCascade(
   await adjustReviewUnitCount(ctx, flashcard.libraryId, -units.length);
   for (const unit of units) await deleteReviewUnit(ctx, unit._id);
   await syncFlashcardMedia(ctx, flashcard, []);
+  // Settle while the current job is still identifiable. A late action or its
+  // watchdog must not release this reservation a second time after deletion.
+  if (flashcard.conceptPool?.status === "generating")
+    await settleVariants(ctx, flashcard.conceptPool.reserved, 0);
   await ctx.db.delete(flashcard._id);
   // A concept card's variants go in bounded batches once the card is gone.
   if (flashcard.type === "concept")
