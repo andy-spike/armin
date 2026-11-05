@@ -351,7 +351,7 @@ export function hydrateFromUnits(
 /** Tile view of a flashcard whose unit aggregate is already known. */
 export function hydrateTile(
   flashcard: Doc<"flashcards">,
-  { state, due }: { state: number; due: number },
+  { state, due, lowOnVariants }: { state: number; due: number; lowOnVariants?: boolean },
   deckName?: string,
 ) {
   const { type, content } = parseFlashcard(flashcard);
@@ -374,6 +374,8 @@ export function hydrateTile(
     back: display.back,
     state,
     due,
+    /** A concept card whose active variants have all been shown, as its Browse summary records. */
+    lowOnVariants: lowOnVariants ?? false,
   };
 }
 

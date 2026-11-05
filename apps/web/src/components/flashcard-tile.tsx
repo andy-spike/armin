@@ -8,6 +8,7 @@ import {
   ArchiveRestore,
   FolderInput,
   Info,
+  BatteryLow,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -294,6 +295,14 @@ function FlashcardTileBody({
               </Badge>
             )}
             <FlashcardTypeBadge type={card.type} />
+            {card.lowOnVariants && (
+              <Tooltip content="No unseen variants left. Reviews reuse the ones seen longest ago until more are generated.">
+                <Badge className="pointer-events-auto min-w-0 shrink-0 bg-surface-sunken text-muted">
+                  <BatteryLow className="h-3 w-3" aria-hidden />
+                  Low on variants
+                </Badge>
+              </Tooltip>
+            )}
           </div>
           {!deckName && actionMenu}
         </div>

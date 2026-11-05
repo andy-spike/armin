@@ -13,7 +13,7 @@ import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { owned, readableDeck, readableLibrary, writableLibrary } from "./model/access";
-import { advanceVariant, restoreVariant } from "./model/concepts";
+import { advanceVariant, refillIfLow, restoreVariant } from "./model/concepts";
 import {
   checkEligible,
   isBuried,
@@ -289,9 +289,10 @@ export type RateResult =
  * Rate a review unit. One transaction validates ownership, the version the
  * client displayed, and eligibility (lock, archive, due, shared Frontier);
  * computes FSRS at accepted server time; writes the schedule and history
- * (for a concept card, also marking the shown variant seen and assigning the
- * next); and refreshes every prerequisite consequence. A repeated `requestId` returns the
- * first outcome instead of applying the answer again.
+ * (for a concept card, also marking the shown variant seen, assigning the
+ * next, and refilling a pool that runs low); and refreshes every
+ * prerequisite consequence. A repeated `requestId` returns the first outcome
+ * instead of applying the answer again.
  */
 export const rate = mutation({
   args: {
@@ -344,6 +345,9 @@ export const rate = mutation({
     if (flashcard && !flashcard.prerequisiteAccessGranted) {
       await ctx.db.patch(flashcard._id, { prerequisiteAccessGranted: true });
     }
+    // A concept card low on unseen variants starts one refill job, in this
+    // transaction, unless its pool already has a job (see `refillIfLow`).
+    if (flashcard && concept) await refillIfLow(ctx, flashcard, concept.pool, now);
     const reviewLogId = await ctx.db.insert("reviewLogs", {
       libraryId: library._id,
       deckId: unit.deckId,

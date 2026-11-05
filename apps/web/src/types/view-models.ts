@@ -57,6 +57,8 @@ export type UiFlashcard = {
   tags: string[];
   /** Version the UI loaded; edits name it so stale saves are rejected. */
   version: number;
+  /** A concept card whose active variants have all been shown, so reviews repeat them. */
+  lowOnVariants: boolean;
 };
 
 export type UiBrowseFlashcard = UiFlashcard & {
@@ -154,6 +156,7 @@ export function toUiFlashcard(flashcard: FlashcardWithMeta): UiFlashcard {
     createdAt: toDate(flashcard.createdAt)?.toISOString() ?? "",
     tags: flashcard.tags,
     version: flashcard.version,
+    lowOnVariants: flashcard.lowOnVariants,
   };
 }
 

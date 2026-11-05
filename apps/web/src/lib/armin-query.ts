@@ -5,4 +5,5 @@ export type BrowseQueryFilters = {
   deckId?: string;
   tags?: string[];
   search?: string;
+  type?: "concept";
 };

@@ -14,6 +14,12 @@ export const CONCEPT_SUBKEY = "concept";
 /** Variants one generation job asks for. */
 export const CONCEPT_BATCH_SIZE = 10;
 
+/**
+ * A rating that leaves a concept card with fewer unseen active variants than
+ * this refills its pool with another batch.
+ */
+export const CONCEPT_LOW_WATER_MARK = 3;
+
 /** Upper bound for a variant's exercise or solution text. */
 export const MAX_VARIANT_FIELD_CHARS = 5_000;
 
@@ -44,6 +50,27 @@ export function hasMediaReference(text: string) {
  */
 export function isAwaitingVariant(unit: { subKey: string; variantId?: string }) {
   return unit.subKey === CONCEPT_SUBKEY && unit.variantId == null;
+}
+
+/** Active variants no review has shown yet. */
+export function unseenVariantCount(
+  variants: { status: ConceptVariantStatus; lastShownAt?: number | null }[],
+) {
+  return variants.filter((variant) => variant.status === "active" && variant.lastShownAt == null)
+    .length;
+}
+
+/**
+ * A pool whose reviews repeat exercises: it has active variants, but every
+ * one has been shown. An empty pool (first batch pending, or every variant
+ * set aside) is not low; its card stays out of the queue instead.
+ */
+export function isLowOnVariants(
+  variants: { status: ConceptVariantStatus; lastShownAt?: number | null }[],
+) {
+  return (
+    variants.some((variant) => variant.status === "active") && unseenVariantCount(variants) === 0
+  );
 }
 
 /**

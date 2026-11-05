@@ -8,7 +8,7 @@ import {
 import { useUpdateFlashcard } from "@/lib/use-update-flashcard";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CircleDot, Layers, Library, Search, Tag } from "lucide-react";
+import { CircleDot, Layers, Library, Search, Shapes, Tag } from "lucide-react";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import { FlashcardTile } from "@/components/flashcard-tile";
 import { SortControl } from "@/components/sort-control";
@@ -41,6 +41,11 @@ import {
 import { STATE_OPTIONS } from "@/lib/flashcard-filters";
 
 const ALL_STATES = "all";
+const ALL_TYPES = "all";
+const TYPE_ITEMS = [
+  { value: ALL_TYPES, label: "All types" },
+  { value: "concept", label: "Concept cards" },
+];
 const SEARCH_DEBOUNCE_MS = 250;
 
 function BrowsePage() {
@@ -48,6 +53,7 @@ function BrowsePage() {
 
   const [sort, setSort] = useState<BrowseSortKey>(BROWSE_PAGE_SORT);
   const [stateFilter, setStateFilter] = useState<string>(ALL_STATES);
+  const [typeFilter, setTypeFilter] = useState<string>(ALL_TYPES);
   const [deckFilter, setDeckFilter] = useState("");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [searchInput, setSearchInput] = useState("");
@@ -66,11 +72,12 @@ function BrowsePage() {
       const state = Number(stateFilter);
       if (Number.isInteger(state)) filters.state = state;
     }
+    if (typeFilter === "concept") filters.type = "concept";
     if (deckFilter) filters.deckId = deckFilter;
     if (tagFilter.length > 0) filters.tags = tagFilter;
     if (search) filters.search = search;
     return filters;
-  }, [sort, stateFilter, deckFilter, tagFilter, search]);
+  }, [sort, stateFilter, typeFilter, deckFilter, tagFilter, search]);
 
   const decksQuery = useQuery(deckNamesQuery());
   const tagsQuery = useQuery(tagsQueryOptions());
@@ -204,6 +211,29 @@ function BrowsePage() {
                   {STATE_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={String(opt.value)}>
                       {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={typeFilter}
+              items={TYPE_ITEMS}
+              onValueChange={(value) => setTypeFilter(value ?? ALL_TYPES)}
+            >
+              <SelectTrigger
+                className="w-40 border-border-strong bg-surface"
+                aria-label="Filter by card type"
+              >
+                <Shapes className="size-3.5 text-muted" aria-hidden />
+                <SelectValue className="flex-1 text-left" />
+              </SelectTrigger>
+              <SelectContent alignItemWithTrigger={false}>
+                <SelectGroup>
+                  {TYPE_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
                     </SelectItem>
                   ))}
                 </SelectGroup>

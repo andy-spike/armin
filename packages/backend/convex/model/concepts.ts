@@ -1,7 +1,9 @@
 import {
   CONCEPT_BATCH_SIZE,
+  CONCEPT_LOW_WATER_MARK,
   CONCEPT_SUBKEY,
   pickNextVariant,
+  unseenVariantCount,
   type ConceptPoolStatus,
 } from "@armin/core/concept";
 import { internal } from "../_generated/api";
@@ -9,7 +11,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { selectProvider } from "./generator";
 import { MAX_VARIANTS_PER_CONCEPT } from "./limits";
-import { reserveVariants, settleVariants } from "./variantAllowance";
+import { reserveVariants, settleVariants, variantAllowance } from "./variantAllowance";
 
 /*
  * A concept card's variant pool (ADR 0023). Generation runs as a scheduled
@@ -172,7 +174,8 @@ export async function nextVariant(ctx: QueryCtx, flashcardId: Id<"flashcards">) 
  * unit's new display, to patch together with its schedule and version, and
  * the shown variant's prior state for the review log, so Undo can restore
  * both. Null for any other unit. When no variant is active the unit keeps
- * showing what it showed.
+ * showing what it showed. `pool` is the pool after the rating, for
+ * `refillIfLow`.
  */
 export async function advanceVariant(ctx: MutationCtx, unit: Doc<"reviewUnits">, now: number) {
   if (!unit.variantId) return null;
@@ -182,8 +185,39 @@ export async function advanceVariant(ctx: MutationCtx, unit: Doc<"reviewUnits">,
       ? { variantId: shown._id, lastShownAt: shown.lastShownAt }
       : undefined;
   if (beforeVariant) await ctx.db.patch(beforeVariant.variantId, { lastShownAt: now });
-  const next = await nextVariant(ctx, unit.flashcardId);
-  return { display: next ? showVariant(next) : {}, beforeVariant };
+  const variants = await variantsOf(ctx, unit.flashcardId);
+  const next = pickNextVariant(variants, Math.random);
+  return {
+    display: next ? showVariant(next) : {},
+    beforeVariant,
+    pool: { size: variants.length, unseen: unseenVariantCount(variants) },
+  };
+}
+
+/**
+ * After a rating, refill a concept card whose pool is below the low-water mark
+ * with one more batch through `requestGeneration`, so the monthly allowance
+ * applies. Only a `ready` pool refills, or an `allowanceUsed` one whose
+ * allowance has room again: a `generating` pool already has its job (a
+ * stalled one counts as failed), and a failed pool waits for Retry rather
+ * than calling a failing generator on every review. Because a refill moves
+ * the pool to `generating` in the rating's own transaction, and Convex
+ * mutations are serializable, any later rating sees that job and schedules
+ * none, however fast a session rates. A full pool doesn't refill.
+ */
+export async function refillIfLow(
+  ctx: MutationCtx,
+  flashcard: Doc<"flashcards">,
+  pool: { size: number; unseen: number },
+  now: number,
+) {
+  if (pool.unseen >= CONCEPT_LOW_WATER_MARK || pool.size >= MAX_VARIANTS_PER_CONCEPT) return;
+  const status = flashcard.conceptPool?.status;
+  if (status === "allowanceUsed") {
+    const allowance = await variantAllowance(ctx, flashcard.libraryId, now);
+    if (!poolView(flashcard, now, allowance).canRetry) return;
+  } else if (status !== "ready") return;
+  await requestGeneration(ctx, flashcard, now);
 }
 
 /**

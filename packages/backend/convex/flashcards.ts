@@ -117,18 +117,22 @@ const browseFilters = {
   deckId: v.optional(v.string()),
   tags: v.optional(v.array(v.string())),
   search: v.optional(v.string()),
+  // Only concept cards for now: summaries written before `type` was kept
+  // lack it, and none of those is a concept card.
+  type: v.optional(v.literal("concept")),
 };
 
-type BrowseFilters = { state?: number; tags?: string[]; search?: string };
+type BrowseFilters = { state?: number; tags?: string[]; search?: string; type?: "concept" };
 
 /** The filter as a summary test, or null when nothing is filtered. */
-function summaryMatcher({ state, tags, search }: BrowseFilters) {
+function summaryMatcher({ state, tags, search, type }: BrowseFilters) {
   const tagKeys = new Set((tags ?? []).map((tag) => tag.toLocaleLowerCase()));
   const needle = search?.toLocaleLowerCase() ?? "";
-  if (state === undefined && tagKeys.size === 0 && !needle) return null;
+  if (state === undefined && tagKeys.size === 0 && !needle && type === undefined) return null;
   return (summary: Summary) =>
     (tagKeys.size === 0 || summary.tagKeys.some((tag) => tagKeys.has(tag))) &&
     (state === undefined || (summary.stateMask & (1 << state)) !== 0) &&
+    (type === undefined || summary.type === type) &&
     (!needle || summary.searchText.includes(needle));
 }
 

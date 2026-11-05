@@ -565,6 +565,13 @@ export default defineSchema({
     units: v.number(),
     newUnits: v.number(),
     learningUnits: v.number(),
+    /**
+     * The flashcard's type, for Browse's type filter. Absent on summaries not
+     * rebuilt since it was added, none of them a concept card's.
+     */
+    type: v.optional(v.string()),
+    /** Set on concept cards only: true when active variants remain but every one has been shown. */
+    lowOnVariants: v.optional(v.boolean()),
   })
     .index("by_flashcard", ["flashcardId"])
     .index("by_library_created", ["libraryId", "createdAt"])
