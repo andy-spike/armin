@@ -4,11 +4,7 @@ import { selectFrontier, startOfStudyDayMs } from "@armin/core/study";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { activeDeckIds } from "./access";
-import {
-  MAX_REVIEW_UNITS_PER_FLASHCARD,
-  MAX_SESSION_REVIEWS,
-  MAX_VARIANTS_PER_CONCEPT,
-} from "./limits";
+import { MAX_REVIEW_UNITS_PER_FLASHCARD, MAX_SESSION_REVIEWS } from "./limits";
 import { unitFrontierKey } from "./performance";
 import { parseFlashcard, SettingsCache } from "./study";
 import { conceptCardsAllowed } from "./usage";
@@ -35,9 +31,13 @@ export const queueUnit = (row: Doc<"unitSummaries">) => ({
   _id: row.reviewUnitId,
 });
 
+/** Variants a cram pick chooses among per concept unit (up to 30 KB each). */
+const PRACTICE_VARIANT_SAMPLE = 40;
+
 /**
  * Queue-shaped items for the review and cram renderers. With `practiceSeed`
- * (cram), a concept card shows a random active variant instead of the one
+ * (cram), a concept card shows a random active variant (among its newest
+ * `PRACTICE_VARIANT_SAMPLE`) instead of the one
  * assigned for review (`pickPracticeVariant`), read without writing anything.
  */
 export async function toQueueItems(
@@ -62,10 +62,13 @@ export async function toQueueItems(
     const { type, content } = parseFlashcard(flashcard);
     let { front, back } = unit;
     if (options.practiceSeed !== undefined && unit.subKey === CONCEPT_SUBKEY) {
+      // The newest variants only: eight units of full pools could pass a
+      // query's read limit, and recent batches give practice enough variety.
       const variants = await ctx.db
         .query("conceptVariants")
         .withIndex("by_flashcard", (q) => q.eq("flashcardId", unit.flashcardId))
-        .take(MAX_VARIANTS_PER_CONCEPT);
+        .order("desc")
+        .take(PRACTICE_VARIANT_SAMPLE);
       const practice = pickPracticeVariant(variants, options.practiceSeed, unit._id);
       if (practice) ({ exercise: front, solution: back } = practice);
     }

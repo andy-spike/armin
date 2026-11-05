@@ -299,7 +299,8 @@ in), and a card can't change to or from the concept type.
   which removes the card's variants 100 per transaction once the card row is
   gone; a generation job still running for it finds no card and releases its
   reservation. Cram never writes concept state: `review.items` with cram's
-  `practiceSeed` shows each concept unit a random active variant picked by
+  `practiceSeed` shows each concept unit a random active variant among its 40
+  newest, picked by
   `pickPracticeVariant` (a hash of the seed and unit ID, so one session keeps
   its pick), leaving the assigned variant and every `lastShownAt` alone.
   Exports carry the template as the card's content in `data/flashcards.json`
