@@ -184,6 +184,8 @@ async function saveCards(ctx: MutationCtx, connection: Doc<"agentConnections">, 
 async function editCard(ctx: MutationCtx, connection: Doc<"agentConnections">, input: unknown) {
   const args = agentToolSchemas.update_card.parse(input);
   const card = await cardForEdit(ctx, connection, args.cardId, args.expectedVersion);
+  if (card.type === "concept")
+    fail("INVALID", "Concept cards can only be created and edited in Armin's card editor.");
   let parsed: ValidatedFlashcard | undefined;
   if (args.card) {
     parsed = textInput(args.card.type, args.card.content);
