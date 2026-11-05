@@ -5,8 +5,7 @@
  * The registry covers ONLY app-level actions (navigation, review, cram, and
  * opening the palette/cheatsheet). Widget and OS conventions — dialog Escape,
  * the Tab focus-trap, form submit, tag entry, editor formatting — are NOT
- * Commands; they stay as their existing intrinsic handlers. See
- * docs/adr/0018-keybindings-central-dispatcher-and-command-registry.md.
+ * Commands; they stay as their existing intrinsic handlers.
  */
 
 import { isStepsPrefix, parseBinding, serializeSteps, type ChordStep } from "./keys";

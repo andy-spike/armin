@@ -358,7 +358,7 @@ export const rate = mutation({
     });
     // Dependents' locks depend only on whether this flashcard's units are
     // secured, which is a function of state and stability alone. Prerequisites
-    // share their dependents' deck (ADR 0015), so this floor is theirs too. When
+    // share their dependents' deck, so this floor is theirs too. When
     // the answer leaves the unit on the same side of the floor, no lock can
     // change, and the usual case skips walking the downstream graph.
     const floor = deckSettings.prereqStabilityFloor;
