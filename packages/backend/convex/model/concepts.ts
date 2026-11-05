@@ -154,6 +154,13 @@ export async function runningJob(ctx: QueryCtx, flashcardId: Id<"flashcards">, j
     flashcard.conceptPool.status !== "generating"
   )
     return null;
+  // Deck deletion and reviewer reset hide cards before their bounded cleanup
+  // reaches them. Do not store or charge a result during that interval.
+  const [deck, library] = await Promise.all([
+    ctx.db.get(flashcard.deckId),
+    ctx.db.get(flashcard.libraryId),
+  ]);
+  if (!deck || library?.status !== "active") return null;
   return flashcard;
 }
 
