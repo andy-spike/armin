@@ -4,7 +4,12 @@
  * Free of Node `Buffer` so it runs in Convex and React Native.
  */
 
-import type { FlashcardContent, FlashcardType, ImageOcclusionContent } from "./flashcard-types";
+import type {
+  ConceptContent,
+  FlashcardContent,
+  FlashcardType,
+  ImageOcclusionContent,
+} from "./flashcard-types";
 import { isMediaRef, parseMediaRef } from "./media-ref";
 
 export type ImageExt = "png" | "jpg" | "gif" | "webp" | "svg" | "bmp" | "avif";
@@ -119,6 +124,10 @@ export function markdownFieldsFor(type: FlashcardType, content: FlashcardContent
     case "image_occlusion": {
       const c = content as ImageOcclusionContent;
       return [c.header, c.extra].filter((v): v is string => Boolean(v));
+    }
+    case "concept": {
+      const c = content as ConceptContent;
+      return [c.brief, c.example.exercise, c.example.solution];
     }
   }
 }

@@ -8,6 +8,9 @@ import {
   ArchiveRestore,
   FolderInput,
   Info,
+  BatteryLow,
+  Hourglass,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +30,7 @@ import {
 import { StateBadge, Badge } from "@/components/ui/badge";
 import { FlashcardTypeBadge } from "@/components/flashcard-type-badge";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useConceptCardsAllowed } from "@/components/concept-pro";
 import type { FlashcardDeleteConsequences, UiFlashcard } from "@/types/view-models";
 import {
   FLASHCARD_TILE_EXIT_MS,
@@ -148,7 +152,7 @@ function CardPreviewText({ content, className }: { content: string; className?: 
 }
 
 function showDueLabel(card: UiFlashcard) {
-  return card.dueLabel !== "New" && card.dueLabel !== "Locked";
+  return card.dueLabel !== "New" && card.dueLabel !== "Locked" && card.dueLabel !== "Waiting";
 }
 
 function CardActionsMenu({
@@ -257,6 +261,7 @@ function FlashcardTileBody({
     />
   );
   const frontPreview = useMemo(() => stripMarkdownForPreview(card.front), [card.front]);
+  const conceptNeedsPro = useConceptCardsAllowed() === false;
 
   return (
     <div
@@ -286,7 +291,16 @@ function FlashcardTileBody({
 
         <div className={cn("flex items-center justify-between gap-2", deckName && "mt-2")}>
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <StateBadge state={card.state} locked={card.locked} className="min-w-0 shrink-0" />
+            {card.awaitingExercises ? (
+              <Tooltip content="This concept card joins your reviews once its first exercises are generated. Open it to see their status.">
+                <Badge className="pointer-events-auto min-w-0 shrink-0 bg-surface-sunken text-muted">
+                  <Hourglass className="h-3 w-3" aria-hidden />
+                  No exercises yet
+                </Badge>
+              </Tooltip>
+            ) : (
+              <StateBadge state={card.state} locked={card.locked} className="min-w-0 shrink-0" />
+            )}
             {card.archived && (
               <Badge className="min-w-0 shrink-0 bg-surface-sunken text-muted">
                 <Archive className="h-3 w-3" aria-hidden />
@@ -294,6 +308,22 @@ function FlashcardTileBody({
               </Badge>
             )}
             <FlashcardTypeBadge type={card.type} />
+            {card.type === "concept" && conceptNeedsPro && (
+              <Tooltip content="Concept cards are a Pro feature. This card keeps its data and returns to your reviews when you upgrade.">
+                <Badge className="pointer-events-auto min-w-0 shrink-0 bg-accent/15 text-accent-deep">
+                  <Sparkles className="h-3 w-3" aria-hidden />
+                  Requires Pro
+                </Badge>
+              </Tooltip>
+            )}
+            {card.lowOnVariants && (
+              <Tooltip content="No unseen variants left. Reviews reuse the ones seen longest ago until more are generated.">
+                <Badge className="pointer-events-auto min-w-0 shrink-0 bg-surface-sunken text-muted">
+                  <BatteryLow className="h-3 w-3" aria-hidden />
+                  Low on variants
+                </Badge>
+              </Tooltip>
+            )}
           </div>
           {!deckName && actionMenu}
         </div>

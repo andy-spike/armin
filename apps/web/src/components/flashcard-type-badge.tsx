@@ -5,8 +5,9 @@ const CARD_TYPE_LABELS: Record<FlashcardType, string> = {
   basic: "Basic",
   basic_reversed: "Reversed",
   cloze: "Cloze",
-  type_answer: "Type answer",
+  type_answer: "Type",
   image_occlusion: "Image occlusion",
+  concept: "Concept",
 };
 
 /** Small chip showing a note's card type. Hidden for plain basic cards. */

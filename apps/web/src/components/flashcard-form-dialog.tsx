@@ -1,7 +1,9 @@
 import { useConnection } from "@/lib/session";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import { Tooltip } from "@/components/ui/tooltip";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
@@ -14,9 +16,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { conceptAvailabilityQuery } from "@/lib/queries";
+import { CONCEPT_BATCH_SIZE } from "@armin/core/concept";
 import { hasEmptyClozeDeletion, parseClozes } from "@armin/core/flashcard-rules";
 import { ClozeField, Field, TagsInput } from "@/components/flashcard-form-fields";
-import type { FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
+import { ConceptVariantsPanel } from "@/components/concept-variants-panel";
+import { ConceptProNotice, ProMarker, useConceptCardsAllowed } from "@/components/concept-pro";
+import { MarkdownContent } from "@/components/ui/markdown-content";
+import type { ConceptContent, FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
 
 export type CardFormValues = {
   type: FlashcardType;
@@ -48,7 +55,8 @@ const TYPE_OPTIONS: { value: FlashcardType; label: string }[] = [
   { value: "basic", label: "Basic" },
   { value: "basic_reversed", label: "Reversed" },
   { value: "cloze", label: "Cloze" },
-  { value: "type_answer", label: "Type answer" },
+  { value: "type_answer", label: "Type" },
+  { value: "concept", label: "Concept" },
 ];
 
 /** The editable text of every card type; only the current type's fields are used. */
@@ -60,6 +68,9 @@ type FormFields = {
   prompt: string;
   answer: string;
   acceptedAnswers: string[];
+  brief: string;
+  exercise: string;
+  solution: string;
 };
 
 const EMPTY_FIELDS: FormFields = {
@@ -70,6 +81,9 @@ const EMPTY_FIELDS: FormFields = {
   prompt: "",
   answer: "",
   acceptedAnswers: [],
+  brief: "",
+  exercise: "",
+  solution: "",
 };
 
 /** The form fields for stored card content (empty for a new card). */
@@ -96,6 +110,15 @@ function fieldsFromContent(type: FlashcardType, content: FlashcardContent | null
         prompt: c.prompt,
         answer: c.answer,
         acceptedAnswers: c.acceptedAnswers ?? [],
+      };
+    }
+    case "concept": {
+      const c = content as ConceptContent;
+      return {
+        ...EMPTY_FIELDS,
+        brief: c.brief,
+        exercise: c.example.exercise,
+        solution: c.example.solution,
       };
     }
     default:
@@ -139,6 +162,13 @@ function contentFromFields(
     }
     case "image_occlusion":
       return imageOcclusion;
+    case "concept": {
+      const brief = fields.brief.trim();
+      const exercise = fields.exercise.trim();
+      const solution = fields.solution.trim();
+      if (!brief || !exercise || !solution) return null;
+      return { brief, example: { exercise, solution } };
+    }
   }
 }
 
@@ -208,6 +238,14 @@ export function FlashcardFormDialog({
     return () => cancelAnimationFrame(frame);
   }, [discardOpen]);
 
+  // A new concept card needs a generator; an existing one stays editable.
+  const conceptAvailability = useQuery({ ...conceptAvailabilityQuery(), enabled: open }).data;
+  const conceptUnavailable =
+    conceptAvailability && !conceptAvailability.available ? conceptAvailability.reason : null;
+  // Concept cards are Pro-only: a free library sees the type as an upsell, and
+  // a lapsed one sees its concept cards read-only until Pro returns.
+  const conceptNeedsPro = useConceptCardsAllowed() === false;
+
   const displayMode = open ? mode : displaySession.mode;
   const displayCardId = open ? (reviewUnitId ?? null) : displaySession.reviewUnitId;
 
@@ -215,7 +253,9 @@ export function FlashcardFormDialog({
   // Disconnected: keep the draft but don't start a save whose outcome
   // can't be confirmed.
   const { online } = useConnection();
-  const canSubmit = content !== null && !submitting && uploads === 0 && online;
+  const blockedConcept =
+    type === "concept" && (conceptNeedsPro || (displayMode === "create" && !!conceptUnavailable));
+  const canSubmit = content !== null && !submitting && uploads === 0 && online && !blockedConcept;
 
   const dirty = initialSnapshot !== null && formSnapshot(type, fields, tags) !== initialSnapshot;
 
@@ -235,7 +275,7 @@ export function FlashcardFormDialog({
   };
 
   const handleSubmit = async () => {
-    if (!content || submitting || !online || uploadCount.current > 0) return;
+    if (!content || submitting || !online || blockedConcept || uploadCount.current > 0) return;
     setSubmitting(true);
     try {
       await onSubmit({ type, content, tags });
@@ -348,24 +388,62 @@ export function FlashcardFormDialog({
               </Select>
             </Field>
           )}
-          <Field label="Type">
-            <div className="grid w-full grid-cols-2 gap-1.5 sm:grid-cols-4">
-              {TYPE_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setType(option.value)}
-                  aria-pressed={type === option.value}
-                  className={cn(
-                    "min-w-0 rounded-md border px-2.5 py-1.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
-                    type === option.value
-                      ? "border-accent bg-accent text-on-accent"
-                      : "border-border-strong bg-surface text-muted hover:text-ink",
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
+          <Field
+            label="Type"
+            hint={
+              displayMode === "edit" && initialType === "concept"
+                ? "A concept card keeps its type."
+                : undefined
+            }
+          >
+            <div className="grid w-full grid-cols-3 gap-1.5 sm:grid-cols-5">
+              {TYPE_OPTIONS.map((option) => {
+                // Without a generator, a new card can't be a concept card. The
+                // button stays focusable (aria-disabled) so its tooltip can say why.
+                // A library without Pro can still pick it, to see the upsell.
+                const unavailable =
+                  option.value === "concept" &&
+                  displayMode === "create" &&
+                  !conceptNeedsPro &&
+                  conceptUnavailable;
+                const proOnly =
+                  option.value === "concept" && displayMode === "create" && conceptNeedsPro;
+                const button = (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      if (!unavailable) setType(option.value);
+                    }}
+                    aria-pressed={type === option.value}
+                    aria-disabled={unavailable ? true : undefined}
+                    // A saved card can't change to or from a concept card.
+                    disabled={
+                      displayMode === "edit" &&
+                      (initialType === "concept") !== (option.value === "concept")
+                    }
+                    className={cn(
+                      proOnly && "relative",
+                      "min-w-0 rounded-md border px-2.5 py-1.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50",
+                      type === option.value
+                        ? "border-accent bg-accent text-on-accent"
+                        : "border-border-strong bg-surface text-muted hover:text-ink aria-disabled:hover:text-muted",
+                    )}
+                  >
+                    {option.label}
+                    {proOnly && (
+                      <ProMarker className="absolute -right-1.5 -top-2 bg-accent-deep text-on-accent" />
+                    )}
+                  </button>
+                );
+                return unavailable ? (
+                  <Tooltip key={option.value} content={unavailable}>
+                    {button}
+                  </Tooltip>
+                ) : (
+                  button
+                );
+              })}
             </div>
           </Field>
 
@@ -460,6 +538,79 @@ export function FlashcardFormDialog({
             </>
           )}
 
+          {type === "concept" && conceptNeedsPro && displayMode === "create" && (
+            <ConceptProNotice variant="create" />
+          )}
+
+          {type === "concept" && conceptNeedsPro && displayMode === "edit" && (
+            <>
+              <ConceptProNotice variant="lapsed" />
+              <Field label="Brief">
+                <MarkdownContent content={fields.brief} className="text-sm" />
+              </Field>
+              <Field label="Example">
+                <MarkdownContent content={fields.exercise} className="text-sm" />
+              </Field>
+              <Field label="Solution">
+                <MarkdownContent content={fields.solution} className="text-sm" />
+              </Field>
+              {displayCardId && (
+                <Field label="Variants">
+                  <ConceptVariantsPanel flashcardId={displayCardId} />
+                </Field>
+              )}
+            </>
+          )}
+
+          {type === "concept" && !conceptNeedsPro && (
+            <>
+              <Field
+                label="Brief"
+                hint="The concept, what to vary, the difficulty, and what to avoid."
+              >
+                <MarkdownEditor
+                  textOnly
+                  key={`brief-${editorKey}`}
+                  autoFocus
+                  aria-label="Brief"
+                  value={fields.brief}
+                  onChange={(value) => setField("brief", value)}
+                  placeholder="Derivatives of polynomials with 2–4 terms. Vary the coefficients and exponents; avoid fractional exponents."
+                />
+              </Field>
+              <Field label="Example" hint="One exercise, in the format you expect.">
+                <MarkdownEditor
+                  textOnly
+                  key={`exercise-${editorKey}`}
+                  aria-label="Example exercise"
+                  value={fields.exercise}
+                  onChange={(value) => setField("exercise", value)}
+                  placeholder="Differentiate $3x^4 - 2x + 5$."
+                />
+              </Field>
+              <Field label="Solution" hint="The example's worked solution, step by step.">
+                <MarkdownEditor
+                  textOnly
+                  key={`solution-${editorKey}`}
+                  aria-label="Example solution"
+                  value={fields.solution}
+                  onChange={(value) => setField("solution", value)}
+                  placeholder="Apply the power rule to each term: $12x^3 - 2$."
+                />
+              </Field>
+              {displayMode === "edit" && displayCardId ? (
+                <Field label="Variants" hint="Exercises generated from this template.">
+                  <ConceptVariantsPanel flashcardId={displayCardId} />
+                </Field>
+              ) : (
+                <p className="text-xs text-muted">
+                  Text and equations only. After you add the card, Armin generates about{" "}
+                  {CONCEPT_BATCH_SIZE} exercises from this template.
+                </p>
+              )}
+            </>
+          )}
+
           {type === "image_occlusion" && (
             <Field label="Image occlusion">
               <div className="rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-muted">
@@ -469,9 +620,11 @@ export function FlashcardFormDialog({
             </Field>
           )}
 
-          <Field label="Tags" hint="Press Enter or comma to add.">
-            <TagsInput key={`tags-${editorKey}`} value={tags} onChange={setTags} />
-          </Field>
+          {!(type === "concept" && conceptNeedsPro) && (
+            <Field label="Tags" hint="Press Enter or comma to add.">
+              <TagsInput key={`tags-${editorKey}`} value={tags} onChange={setTags} />
+            </Field>
+          )}
         </div>
       )}
     </Dialog>

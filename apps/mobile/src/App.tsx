@@ -18,8 +18,10 @@ import { ConvexError } from "convex/values";
 import { api } from "@armin/backend/api";
 import type { Id, ReviewQueueItem } from "@armin/backend/types";
 import { parseMediaRef } from "@armin/core/media-ref";
+import { hasMath } from "@armin/core/math";
 import { authClient, convexToken } from "./lib/auth-client";
 import { convexSiteUrl, convexUrl } from "./lib/env";
+import { MathText } from "./MathText";
 
 /**
  * Minimal authenticated smoke path for the shared backend: sign in, read the
@@ -428,7 +430,8 @@ function CardSide({ text }: { text: string }) {
   const plain = text.replace(MARKDOWN_IMAGE, "").trim();
   return (
     <View style={styles.side}>
-      {plain.length > 0 && <Text style={styles.cardText}>{plain}</Text>}
+      {plain.length > 0 &&
+        (hasMath(plain) ? <MathText text={plain} /> : <Text style={styles.cardText}>{plain}</Text>)}
       {images.map((fileName) => (
         <PrivateImage key={fileName} fileName={fileName} />
       ))}

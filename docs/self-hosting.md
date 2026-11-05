@@ -29,6 +29,7 @@ If you'd rather not run a server, use [armincards.app](https://armincards.app).
 | Email               | None. No verification step; passwords are reset on the server.                                            |
 | Google sign-in      | Off                                                                                                       |
 | AI assistants (MCP) | On, at `https://actions.<your domain>/mcp`                                                                |
+| Concept cards       | Off until you set a Vercel AI Gateway key and model; see [concept cards](#optional-concept-cards)         |
 | Limits              | armincards.app Pro limits, free: 100,000 cards (10,000 per deck), 1,000 decks, 5 GiB for images and audio |
 | HTTPS               | Automatic Let's Encrypt certificates through Caddy                                                        |
 | Data                | `selfhost/data/` on the server                                                                            |
@@ -159,6 +160,33 @@ address, `https://actions.cards.example.com/mcp`. Chat apps such as Claude and
 ChatGPT connect as a **custom connector** with that address; the Armin plugin
 in their directories connects to armincards.app, not your instance. Coding
 agents (Claude Code, Codex) use the setup prompt on that page.
+
+## Optional: concept cards
+
+A concept card practices a skill with exercises a model writes from your
+template. Your instance calls the model through the
+[Vercel AI Gateway](https://vercel.com/ai-gateway) with your own gateway
+account, which bills you for what it generates; there is no monthly allowance
+on a self-hosted instance. Without both settings below, the card editor shows
+the Concept type as unavailable.
+
+1. Create an API key in the AI Gateway section of your Vercel dashboard.
+2. Pick a text model from the gateway's model list and note its ID, in
+   `creator/model` form (for example `openai/gpt-5-mini`).
+3. Set both in `selfhost/.env`:
+
+   ```dotenv
+   AI_GATEWAY_API_KEY=<your gateway key>
+   AI_GATEWAY_MODEL=<creator/model>
+   ```
+
+4. Run `./selfhost/update.sh`. It copies both into the backend's settings.
+
+To turn concept cards off again, empty either line and run `update.sh`; it
+removes the setting from the backend. Cards you already made keep their
+exercises and stay reviewable. A rejected key or an unknown model shows on the
+card as a failed generation with **Retry**; the backend logs (`docker compose
+-f selfhost/docker-compose.yml logs backend`) show the gateway's status code.
 
 ## Optional: the Convex dashboard
 

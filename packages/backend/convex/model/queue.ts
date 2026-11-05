@@ -1,3 +1,4 @@
+import { CONCEPT_SUBKEY, pickPracticeVariant } from "@armin/core/concept";
 import { isPendingSchedule, State } from "@armin/core/scheduler";
 import { selectFrontier, startOfStudyDayMs } from "@armin/core/study";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -6,6 +7,7 @@ import { activeDeckIds } from "./access";
 import { MAX_REVIEW_UNITS_PER_FLASHCARD, MAX_SESSION_REVIEWS } from "./limits";
 import { unitFrontierKey } from "./performance";
 import { parseFlashcard, SettingsCache } from "./study";
+import { conceptCardsAllowed } from "./usage";
 
 export type QueueUnit = Pick<
   Doc<"reviewUnits">,
@@ -29,8 +31,20 @@ export const queueUnit = (row: Doc<"unitSummaries">) => ({
   _id: row.reviewUnitId,
 });
 
-/** Queue-shaped items for the review and cram renderers. */
-export async function toQueueItems(ctx: QueryCtx, units: QueueUnit[]) {
+/** Variants a cram pick chooses among per concept unit (up to 30 KB each). */
+const PRACTICE_VARIANT_SAMPLE = 40;
+
+/**
+ * Queue-shaped items for the review and cram renderers. With `practiceSeed`
+ * (cram), a concept card shows a random active variant (among its newest
+ * `PRACTICE_VARIANT_SAMPLE`) instead of the one
+ * assigned for review (`pickPracticeVariant`), read without writing anything.
+ */
+export async function toQueueItems(
+  ctx: QueryCtx,
+  units: QueueUnit[],
+  options: { practiceSeed?: number } = {},
+) {
   const flashcards = new Map<Id<"flashcards">, Doc<"flashcards"> | null>();
   const decks = new Map<Id<"decks">, string>();
   const items = [];
@@ -46,6 +60,18 @@ export async function toQueueItems(ctx: QueryCtx, units: QueueUnit[]) {
       decks.set(unit.deckId, (await ctx.db.get(unit.deckId))?.name ?? "");
     }
     const { type, content } = parseFlashcard(flashcard);
+    let { front, back } = unit;
+    if (options.practiceSeed !== undefined && unit.subKey === CONCEPT_SUBKEY) {
+      // The newest variants only: eight units of full pools could pass a
+      // query's read limit, and recent batches give practice enough variety.
+      const variants = await ctx.db
+        .query("conceptVariants")
+        .withIndex("by_flashcard", (q) => q.eq("flashcardId", unit.flashcardId))
+        .order("desc")
+        .take(PRACTICE_VARIANT_SAMPLE);
+      const practice = pickPracticeVariant(variants, options.practiceSeed, unit._id);
+      if (practice) ({ exercise: front, solution: back } = practice);
+    }
     items.push({
       reviewUnitId: unit._id,
       flashcardId: unit.flashcardId,
@@ -54,8 +80,8 @@ export async function toQueueItems(ctx: QueryCtx, units: QueueUnit[]) {
       type,
       content,
       subKey: unit.subKey,
-      front: unit.front,
-      back: unit.back,
+      front,
+      back,
       version: unit.version,
       flashcardVersion: flashcard.version,
       due: unit.due,
@@ -130,10 +156,23 @@ export async function reviewsDoneToday(
   ).length;
 }
 
-/** Unlocked, unarchived, unburied, and due by `now`: the unit can be studied. */
-function isStudyable(unit: QueueUnit, libraryId: Id<"libraries">, now: number) {
+/**
+ * A concept card's unit in a library without Pro (ADR 0023). It keeps its
+ * schedule and history but is withheld from every selection, count, and
+ * rating until Pro returns. Only concept units carry `CONCEPT_SUBKEY`.
+ */
+export function isWithheldConcept(
+  unit: Pick<QueueUnit, "subKey">,
+  library: Pick<Doc<"libraries">, "plan" | "complimentaryPro">,
+) {
+  return unit.subKey === CONCEPT_SUBKEY && !conceptCardsAllowed(library);
+}
+
+/** Unlocked, unarchived, unburied, due by `now`, and not withheld: the unit can be studied. */
+function isStudyable(unit: QueueUnit, library: Doc<"libraries">, now: number) {
   return (
-    unit.libraryId === libraryId &&
+    unit.libraryId === library._id &&
+    !isWithheldConcept(unit, library) &&
     !unit.locked &&
     !unit.archived &&
     unit.due <= now &&
@@ -173,30 +212,59 @@ export async function dueReviewUnits(
   if (limit <= 0) return [];
   let units: QueueUnit[] = [];
   if (library.statsReady) {
+    // Without Pro, concept units are withheld; skip them in the index so they
+    // can't fill the scan and hide the library's other due reviews.
+    const withheld = !conceptCardsAllowed(library);
     for (const state of REVIEW_STATES) {
-      const rows = deckId
-        ? await ctx.db
-            .query("unitSummaries")
-            .withIndex("by_deck_state_due", (q) =>
-              q
-                .eq("deckId", deckId)
-                .eq("locked", false)
-                .eq("archived", false)
-                .eq("state", state)
-                .lte("due", now),
-            )
-            .take(limit + SCAN_SLACK)
-        : await ctx.db
-            .query("unitSummaries")
-            .withIndex("by_library_state_due", (q) =>
-              q
-                .eq("libraryId", library._id)
-                .eq("locked", false)
-                .eq("archived", false)
-                .eq("state", state)
-                .lte("due", now),
-            )
-            .take(limit + SCAN_SLACK);
+      const rows = withheld
+        ? deckId
+          ? await ctx.db
+              .query("unitSummaries")
+              .withIndex("by_deck_kind_state_due", (q) =>
+                q
+                  .eq("deckId", deckId)
+                  .eq("locked", false)
+                  .eq("archived", false)
+                  .eq("concept", undefined)
+                  .eq("state", state)
+                  .lte("due", now),
+              )
+              .take(limit + SCAN_SLACK)
+          : await ctx.db
+              .query("unitSummaries")
+              .withIndex("by_library_kind_state_due", (q) =>
+                q
+                  .eq("libraryId", library._id)
+                  .eq("locked", false)
+                  .eq("archived", false)
+                  .eq("concept", undefined)
+                  .eq("state", state)
+                  .lte("due", now),
+              )
+              .take(limit + SCAN_SLACK)
+        : deckId
+          ? await ctx.db
+              .query("unitSummaries")
+              .withIndex("by_deck_state_due", (q) =>
+                q
+                  .eq("deckId", deckId)
+                  .eq("locked", false)
+                  .eq("archived", false)
+                  .eq("state", state)
+                  .lte("due", now),
+              )
+              .take(limit + SCAN_SLACK)
+          : await ctx.db
+              .query("unitSummaries")
+              .withIndex("by_library_state_due", (q) =>
+                q
+                  .eq("libraryId", library._id)
+                  .eq("locked", false)
+                  .eq("archived", false)
+                  .eq("state", state)
+                  .lte("due", now),
+              )
+              .take(limit + SCAN_SLACK);
       units.push(...rows.map(queueUnit));
     }
   } else {
@@ -215,7 +283,7 @@ export async function dueReviewUnits(
     units = units.filter((unit) => unit.state !== State.New);
   }
   return units
-    .filter((unit) => decks.has(unit.deckId) && isStudyable(unit, library._id, now))
+    .filter((unit) => decks.has(unit.deckId) && isStudyable(unit, library, now))
     .sort((a, b) => a.due - b.due)
     .slice(0, limit);
 }
@@ -239,7 +307,7 @@ export async function frontierCandidates(
     unit.lastReview == null &&
     !exclude.has(unit._id) &&
     decks.has(unit.deckId) &&
-    isStudyable(unit, library._id, now);
+    isStudyable(unit, library, now);
   if (!library.statsReady) {
     const units: QueueUnit[] = [];
     for (const id of decks) {
@@ -262,21 +330,45 @@ export async function frontierCandidates(
       )
       .slice(0, limit);
   }
-  const rows = deckId
-    ? ctx.db
-        .query("unitSummaries")
-        .withIndex("by_deck_frontier", (q) =>
-          q.eq("deckId", deckId).eq("locked", false).eq("archived", false).eq("state", State.New),
-        )
-    : ctx.db
-        .query("unitSummaries")
-        .withIndex("by_library_frontier", (q) =>
-          q
-            .eq("libraryId", library._id)
-            .eq("locked", false)
-            .eq("archived", false)
-            .eq("state", State.New),
-        );
+  // Without Pro, skip withheld concept units in the index (see `dueReviewUnits`).
+  const withheld = !conceptCardsAllowed(library);
+  const rows = withheld
+    ? deckId
+      ? ctx.db
+          .query("unitSummaries")
+          .withIndex("by_deck_kind_frontier", (q) =>
+            q
+              .eq("deckId", deckId)
+              .eq("locked", false)
+              .eq("archived", false)
+              .eq("concept", undefined)
+              .eq("state", State.New),
+          )
+      : ctx.db
+          .query("unitSummaries")
+          .withIndex("by_library_kind_frontier", (q) =>
+            q
+              .eq("libraryId", library._id)
+              .eq("locked", false)
+              .eq("archived", false)
+              .eq("concept", undefined)
+              .eq("state", State.New),
+          )
+    : deckId
+      ? ctx.db
+          .query("unitSummaries")
+          .withIndex("by_deck_frontier", (q) =>
+            q.eq("deckId", deckId).eq("locked", false).eq("archived", false).eq("state", State.New),
+          )
+      : ctx.db
+          .query("unitSummaries")
+          .withIndex("by_library_frontier", (q) =>
+            q
+              .eq("libraryId", library._id)
+              .eq("locked", false)
+              .eq("archived", false)
+              .eq("state", State.New),
+          );
   const out: QueueUnit[] = [];
   let scanned = 0;
   for await (const row of rows) {
@@ -309,7 +401,7 @@ async function continuingUnits(
         unit.state === State.New &&
         unit.lastReview == null &&
         decks.has(unit.deckId) &&
-        isStudyable(unit, library._id, now)
+        isStudyable(unit, library, now)
       )
         units.push(unit);
     }
@@ -469,7 +561,14 @@ export async function dueCounts(ctx: QueryCtx, library: Doc<"libraries">, now: n
     .query("deckUnitCounts")
     .withIndex("by_library", (q) => q.eq("libraryId", library._id))
     .collect();
-  const candidatesByDeck = new Map(counters.map((row) => [row.deckId, row.frontierCandidates]));
+  // Outside Pro, concept units are withheld, so they leave each deck's Frontier count.
+  const withheld = !conceptCardsAllowed(library);
+  const candidatesByDeck = new Map(
+    counters.map((row) => [
+      row.deckId,
+      row.frontierCandidates - (withheld ? Math.max(0, row.conceptFrontierCandidates ?? 0) : 0),
+    ]),
+  );
   const tally = (units: { deckId: Id<"decks"> }[]) => {
     const out = new Map<Id<"decks">, number>();
     for (const unit of units) out.set(unit.deckId, (out.get(unit.deckId) ?? 0) + 1);
@@ -478,7 +577,13 @@ export async function dueCounts(ctx: QueryCtx, library: Doc<"libraries">, now: n
   const reviewsByDeck = tally(shared);
   const buriedByDeck = tally(
     buried.filter(
-      (row) => row.state === State.New && row.lastReview == null && !row.locked && !row.archived,
+      (row) =>
+        row.state === State.New &&
+        row.lastReview == null &&
+        !row.locked &&
+        !row.archived &&
+        // Withheld concept units are already out of the count above.
+        !isWithheldConcept(row, library),
     ),
   );
   const perDeck: Record<string, number> = {};
@@ -523,8 +628,14 @@ export async function dueCounts(ctx: QueryCtx, library: Doc<"libraries">, now: n
  * settings change exhausts a budget (ADR 0021 keeps both caps account-wide and
  * lets the chosen view consume what remains).
  */
-export async function checkEligible(unit: Doc<"reviewUnits">, now: number): Promise<string | null> {
+export async function checkEligible(
+  unit: Doc<"reviewUnits">,
+  library: Doc<"libraries">,
+  now: number,
+): Promise<string | null> {
   if (unit.archived) return "This flashcard was archived.";
+  if (isWithheldConcept(unit, library))
+    return "Concept cards are a Pro feature. This card returns to your reviews when Pro does.";
   if (unit.locked || isPendingSchedule(unit)) {
     return "This flashcard is locked until its prerequisites are secured.";
   }

@@ -89,6 +89,8 @@ export function useReviewActions() {
       archiveCard.mutateAsync(flashcardId).then(() => undefined),
     onDeleteFlashcard: (flashcardId: string) =>
       deleteCard.mutateAsync(flashcardId).then(() => undefined),
+    onFlagVariant: (card: UiReviewUnit) =>
+      armin.concepts.flagShownVariant({ reviewUnitId: card.id, version: card.version }),
     loadDeleteConsequences: (flashcardId: string) =>
       armin.flashcards.deleteConsequences(flashcardId),
   };

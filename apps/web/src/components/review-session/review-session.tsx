@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import type { BuryResult } from "@armin/backend/types";
+import type { BuryResult, FlagShownResult } from "@armin/backend/types";
 import type {
   HistoryEntry,
   SessionRateResult,
@@ -13,7 +13,9 @@ import { CardInfoDialog } from "@/components/card-info-dialog";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
 import type { CardFormValues } from "@/components/flashcard-form-dialog";
 import { DeleteFlashcardDialog } from "@/components/delete-consequences-list";
+import { useToast } from "@/components/ui/toast";
 import { useKeybindings, useScope } from "@/keybindings/keybindings-provider";
+import { errorMessage } from "@/lib/armin-client";
 import { isEditableTarget } from "@/lib/keybindings/editable";
 import { replayCardAudio } from "@/lib/card-audio";
 import { useReviewSession } from "@/lib/use-review-session";
@@ -80,6 +82,11 @@ type ReviewSessionProps = {
   allowNewCards?: boolean;
   /** Changing this resets the session to the first card. */
   resetKey?: string;
+  /**
+   * Set for practice (cram): each concept card shows a random active exercise
+   * picked from this seed, leaving the one assigned for review untouched.
+   */
+  practiceSeed?: number;
   isLoading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
@@ -95,6 +102,11 @@ type ReviewSessionProps = {
   onEditFlashcard?: (flashcard: UiFlashcard, values: CardFormValues) => Promise<void>;
   onArchiveFlashcard?: (flashcardId: string) => Promise<void>;
   onDeleteFlashcard?: (flashcardId: string) => Promise<void>;
+  /**
+   * Flag the concept card exercise on screen. The card stays on screen and
+   * shows its next exercise; the concept is not rated.
+   */
+  onFlagVariant?: (card: UiReviewUnit) => Promise<FlagShownResult>;
   loadDeleteConsequences?: (flashcardId: string) => Promise<FlashcardDeleteConsequences>;
 };
 
@@ -112,6 +124,7 @@ export function ReviewSession({
   repeatAgainOffset,
   allowNewCards = true,
   resetKey,
+  practiceSeed,
   isLoading = false,
   isError = false,
   onRetry,
@@ -124,8 +137,10 @@ export function ReviewSession({
   onEditFlashcard,
   onArchiveFlashcard,
   onDeleteFlashcard,
+  onFlagVariant,
   loadDeleteConsequences,
 }: ReviewSessionProps) {
+  const toast = useToast();
   const session = useReviewSession({
     queue,
     ready: !isLoading && !isError,
@@ -144,7 +159,7 @@ export function ReviewSession({
     card,
     contents,
     loading: contentLoading,
-  } = useCardContent({ cards, index, resetKey });
+  } = useCardContent({ cards, index, resetKey, practiceSeed });
 
   const { undoing, burying } = session;
   const [flipped, setFlipped] = useState(false);
@@ -239,6 +254,32 @@ export function ReviewSession({
     try {
       await session.removeFlashcard(card.flashcardId, () => onArchiveFlashcard(card.flashcardId));
       setDeleteConfirmOpen(false);
+    } finally {
+      setCardActionPending(false);
+    }
+  };
+
+  const flagVariant = async () => {
+    if (!card || card.reviewed || !onFlagVariant || flashcardActionPending) return;
+    setCardActionPending(true);
+    try {
+      const result = await onFlagVariant(card);
+      if (result.status === "ok") {
+        session.replace(card.turnId, result.version);
+        toast({
+          tone: "success",
+          title: "Exercise flagged",
+          description: "It won't be shown again. Here is another one.",
+        });
+      } else {
+        toast({ tone: "error", title: "Couldn't flag this exercise", description: result.message });
+      }
+    } catch (error) {
+      toast({
+        tone: "error",
+        title: "Couldn't flag this exercise",
+        description: errorMessage(error),
+      });
     } finally {
       setCardActionPending(false);
     }
@@ -503,6 +544,11 @@ export function ReviewSession({
                   onMenuOpenChange={prefetchFlashcard}
                   onEdit={onEditFlashcard && loadCard ? () => void openEdit() : undefined}
                   onBury={onBury ? () => void buryCard() : undefined}
+                  onFlagVariant={
+                    onFlagVariant && card.type === "concept" && !card.reviewed
+                      ? () => void flagVariant()
+                      : undefined
+                  }
                   onArchive={onArchiveFlashcard ? () => void handleArchive() : undefined}
                   onDelete={onDeleteFlashcard ? openDeleteConfirm : undefined}
                 />

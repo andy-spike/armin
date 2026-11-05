@@ -11,10 +11,12 @@ import {
 } from "./performance";
 import { Triggers } from "convex-helpers/server/triggers";
 import { countFlashcardChange, countUnitChange } from "./deckSizes";
+import { isLowOnVariants } from "@armin/core/concept";
 import { flashcardDisplay, type TypeAnswerContent } from "@armin/core/flashcard-types";
 import { State } from "@armin/core/scheduler";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { MAX_VARIANTS_PER_CONCEPT } from "./limits";
 import { parseFlashcard } from "./study";
 
 /*
@@ -80,6 +82,21 @@ triggers.register("reviewUnits", async (ctx, change) => {
   if (!changed(change.oldDoc, change.newDoc, UNIT_FIELDS)) return;
   for (const unit of [change.oldDoc, change.newDoc]) {
     if (unit) ctx.touchedFlashcards.add(unit.flashcardId);
+  }
+});
+
+const VARIANT_FIELDS = [
+  "status",
+  "lastShownAt",
+  "flashcardId",
+] as const satisfies (keyof Doc<"conceptVariants">)[];
+
+// A concept card's "low on variants" flag follows its variants: stored,
+// shown, set aside, restored by Undo, or deleted.
+triggers.register("conceptVariants", async (ctx, change) => {
+  if (!changed(change.oldDoc, change.newDoc, VARIANT_FIELDS)) return;
+  for (const variant of [change.oldDoc, change.newDoc]) {
+    if (variant) ctx.touchedFlashcards.add(variant.flashcardId);
   }
 });
 
@@ -243,6 +260,7 @@ function summaryFor(
   flashcard: Doc<"flashcards">,
   units: Doc<"reviewUnits">[],
   deckName: string,
+  variants: Doc<"conceptVariants">[],
 ): Omit<Doc<"flashcardSummaries">, "_id" | "_creationTime"> {
   const { type, content } = parseFlashcard(flashcard);
   const display = flashcardDisplay(type, content);
@@ -279,6 +297,8 @@ function summaryFor(
     units: units.length,
     newUnits,
     learningUnits,
+    type,
+    ...(type === "concept" ? { lowOnVariants: isLowOnVariants(variants) } : {}),
   };
 }
 
@@ -304,7 +324,14 @@ export async function syncSummary(
     .query("reviewUnits")
     .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcardId))
     .collect();
-  const next = summaryFor(flashcard, units, deckNames.get(flashcard.deckId)!);
+  const variants =
+    flashcard.type === "concept"
+      ? await db
+          .query("conceptVariants")
+          .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcardId))
+          .take(MAX_VARIANTS_PER_CONCEPT)
+      : [];
+  const next = summaryFor(flashcard, units, deckNames.get(flashcard.deckId)!, variants);
   if (!existing) {
     await db.insert("flashcardSummaries", next);
     return;

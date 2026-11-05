@@ -1,7 +1,9 @@
+import { CONCEPT_SUBKEY } from "./concept";
 import { splitMath } from "./math";
 import type {
   BasicContent,
   ClozeContent,
+  ConceptContent,
   FlashcardContent,
   FlashcardType,
   ImageOcclusionContent,
@@ -231,6 +233,11 @@ export function generateReviewUnits(
         back: mask.label ?? "Hidden area",
       }));
     }
+    case "concept":
+      // One unit whatever the template says. Its front and back show the
+      // assigned variant, not the template, so they start empty and the
+      // template never overwrites them.
+      return [{ subKey: CONCEPT_SUBKEY, front: "", back: "" }];
   }
 }
 
@@ -266,6 +273,10 @@ export function flashcardDisplay(
           .filter(Boolean)
           .join(" · "),
       };
+    }
+    case "concept": {
+      const concept = content as ConceptContent;
+      return { front: concept.brief, back: concept.example.exercise };
     }
   }
 }

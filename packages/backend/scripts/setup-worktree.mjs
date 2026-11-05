@@ -1,5 +1,4 @@
 import { configureSandbox } from "./polar-sandbox.mjs";
-import { mkdirSync } from "node:fs";
 import { seedWorktree } from "./seed-worktree.mjs";
 import { spawn } from "node:child_process";
 import { chmodSync, copyFileSync, existsSync } from "node:fs";
@@ -12,6 +11,7 @@ import {
   backend,
   convex,
   convexPortArgs,
+  convexTempDir,
   isMainCheckout,
   mainState,
   readEnv,
@@ -25,8 +25,7 @@ import {
 // Starts this checkout's local backend and resolves once functions are pushed.
 // CONVEX_AGENT_MODE=anonymous creates a deployment without a Convex account.
 function startBackend(state) {
-  const tempDir = `${backend}/.convex/tmp`;
-  mkdirSync(tempDir, { recursive: true });
+  const tempDir = convexTempDir();
   const child = spawn(
     "pnpm",
     ["exec", "convex", "dev", "--tail-logs", "disable", ...convexPortArgs(state)],
@@ -112,6 +111,9 @@ try {
   };
   if (!names.has("BETTER_AUTH_SECRET"))
     settings.BETTER_AUTH_SECRET = randomBytes(32).toString("base64");
+  // Concept card variants come from the generator's fake provider locally.
+  // A value already set (such as `false` to try the failure path) is kept.
+  if (!names.has("CONCEPT_GENERATOR_FAKE")) settings.CONCEPT_GENERATOR_FAKE = "true";
   convex(["env", "set", "--force"], {
     input: Object.entries(settings)
       .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
@@ -121,6 +123,17 @@ try {
   configureSandbox(state);
   run("node", [join(backend, "scripts/configure-clients.mjs")]);
   await seedWorktree();
+  // The test account gets complimentary Pro on every local deployment, so
+  // Pro-only features such as concept cards work right after setup. It only
+  // sets `libraries.complimentaryPro` on this checkout's local deployment.
+  convex(
+    [
+      "run",
+      "billing:setComplimentaryPro",
+      JSON.stringify({ email: "test@example.com", enabled: true }),
+    ],
+    { stdio: ["ignore", "pipe", "inherit"] },
+  );
   if (!names.has("JWKS")) {
     // Seeding obtains a token and therefore creates the Better Auth signing key.
     // Embed that same key in the local deployment so token verification does not

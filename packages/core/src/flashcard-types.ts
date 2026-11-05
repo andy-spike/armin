@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { hasMediaReference, MAX_VARIANT_FIELD_CHARS } from "./concept";
 import { clozeClusters, hasEmptyClozeDeletion, normalizeClozeText } from "./flashcard-rules";
 
 export * from "./flashcard-rules";
@@ -21,6 +22,7 @@ export const FLASHCARD_TYPES = [
   "cloze",
   "type_answer",
   "image_occlusion",
+  "concept",
 ] as const;
 
 export type FlashcardType = (typeof FLASHCARD_TYPES)[number];
@@ -81,6 +83,38 @@ const imageOcclusionContentSchema = z.object({
   revealMode: z.enum(["hide_all", "hide_one"]).default("hide_all"),
 });
 
+/** Required Markdown with KaTeX and no images or audio (ADR 0023). */
+function conceptText(label: string, max?: number) {
+  const text = z
+    .string()
+    .refine((value) => value.trim().length > 0, { message: `${label} is required.` })
+    .refine((value) => !hasMediaReference(value), {
+      message: `${label} can't contain images or audio. Use text and equations.`,
+    });
+  return max
+    ? text.refine((value) => value.length <= max, {
+        message: `${label} is limited to ${max} characters.`,
+      })
+    : text;
+}
+
+const conceptContentSchema = z.object({
+  brief: conceptText("The brief"),
+  example: z.object({
+    exercise: conceptText("The example exercise"),
+    solution: conceptText("The example solution"),
+  }),
+});
+
+/**
+ * One exercise of a concept card's variant pool with its worked solution.
+ * Generator output and learner edits are both validated against it.
+ */
+export const conceptVariantSchema = z.object({
+  exercise: conceptText("A variant's exercise", MAX_VARIANT_FIELD_CHARS),
+  solution: conceptText("A variant's solution", MAX_VARIANT_FIELD_CHARS),
+});
+
 export type BasicContent = z.infer<typeof basicContentSchema>;
 /** `extra` is Markdown shown only on the answer side; it is absent when empty. */
 export type ClozeContent = { text: string; extra?: string };
@@ -88,6 +122,12 @@ export type TypeAnswerContent = z.infer<typeof typeAnswerContentSchema>;
 export type ImageOcclusionGeometry = z.infer<typeof imageOcclusionGeometrySchema>;
 export type ImageOcclusionMask = z.infer<typeof imageOcclusionMaskSchema>;
 export type ImageOcclusionContent = z.infer<typeof imageOcclusionContentSchema>;
+/**
+ * A concept card's template: the brief (the concept, what to vary, the
+ * difficulty, and what to avoid) and one worked example.
+ */
+export type ConceptContent = z.infer<typeof conceptContentSchema>;
+export type ConceptVariant = z.infer<typeof conceptVariantSchema>;
 
 export type FlashcardContentByType = {
   basic: BasicContent;
@@ -95,6 +135,7 @@ export type FlashcardContentByType = {
   cloze: ClozeContent;
   type_answer: TypeAnswerContent;
   image_occlusion: ImageOcclusionContent;
+  concept: ConceptContent;
 };
 
 export type FlashcardContent = FlashcardContentByType[FlashcardType];
@@ -105,6 +146,7 @@ const contentSchemaByType = {
   cloze: clozeContentSchema,
   type_answer: typeAnswerContentSchema,
   image_occlusion: imageOcclusionContentSchema,
+  concept: conceptContentSchema,
 } as const;
 
 /**

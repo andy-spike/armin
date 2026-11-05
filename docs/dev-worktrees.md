@@ -28,7 +28,7 @@ and an `armin-<id>.localhost` origin.
 The project's **Set up worktree** action runs `pnpm worktree:setup` automatically
 when T3 creates a worktree. It installs the pinned dependencies, starts the
 checkout's local backend, pushes functions, sets `SITE_URL`,
-`MOBILE_TRUSTED_ORIGINS`, and `BETTER_AUTH_SECRET`, writes client URLs, seeds the
+`MOBILE_TRUSTED_ORIGINS`, `BETTER_AUTH_SECRET`, and `CONCEPT_GENERATOR_FAKE`, writes client URLs, seeds the
 sample library, and stops the backend again. **Start dev** runs `pnpm dev`; **Start
 mobile** runs `pnpm dev:mobile` in another terminal. In the main checkout, run
 `pnpm dev:setup` once instead; it follows the same steps.
@@ -49,6 +49,12 @@ settings are machine/app settings; another machine must register the same action
    Sign in through the normal app. Each library starts with basic, cloze, and
    typed-answer cards, plus a prerequisite that locks one card. The seed is an
    operator CLI script, with no fixture endpoint in the deployed application.
+   Every setup run also gives the test account complimentary Pro
+   (`billing:setComplimentaryPro`), so Pro-only features such as concept cards
+   work right away. To test the free plan, turn it off with
+   `pnpm --filter @armin/backend exec convex run billing:setComplimentaryPro
+   '{"email":"test@example.com","enabled":false}'`; rerunning setup turns it
+   back on.
 4. Make changes and run the validation required by `AGENTS.md`. Record app
    walkthroughs under `docs/qa/`. Commit regenerated Convex and route files when
    they change. Keep `.armin/`, `.env.local`, and `.convex/` out of commits.
@@ -174,7 +180,13 @@ with Google. Google provider policy may restrict acceptable loopback hostnames.
 Setup cannot register OAuth redirect URIs for you.
 
 Setup sets this deployment's `SITE_URL`, Expo trusted origins, and a session secret
-when one is absent. It does not copy the main checkout's secrets or user data.
+when one is absent. It also turns on the concept card generator's fake provider
+(`CONCEPT_GENERATOR_FAKE=true`) unless the variable is already set, so concept
+cards fill with numbered sample exercises at no cost. Set it to `false` to see
+concept cards reported as unavailable. To try a real model, set
+`AI_GATEWAY_API_KEY` and `AI_GATEWAY_MODEL` on the local deployment and set
+`CONCEPT_GENERATOR_FAKE=false`; while the fake is on it wins, so nothing spends
+tokens. It does not copy the main checkout's secrets or user data.
 Treat demo credentials and the local admin key as local credentials; report
 their file locations rather than pasting their contents into issues or PRs.
 

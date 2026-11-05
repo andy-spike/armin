@@ -28,6 +28,10 @@ generated API.
 - `convex/review.ts` — queue, rating previews, rate, bury/unbury, card info, and undo.
 - `convex/cram.ts` — practice-only cram selection and `cramLogs`; never
   schedules, locks, or writes review history.
+- `convex/concepts.ts`, `conceptGeneration.ts`, `model/concepts.ts`,
+  `model/generator.ts`, `model/variantAllowance.ts` — concept cards' variant
+  pools, their generation job, and the monthly variant allowance (see
+  [Concept cards](#concept-cards)).
 - `convex/stats.ts` — review activity, streaks, retention, due forecast, and
   card-state totals, all scoped to the caller's library.
 - `convex/imports.ts` — batched Anki import (see below).
@@ -165,6 +169,157 @@ Rules:
   while one is running returns `CONFLICT`; clients can read `imports.current` and
   offer to cancel it.
 
+## Concept cards
+
+A concept card (`type: "concept"`, ADR 0023) holds a **template**: a brief and
+one worked example, text and KaTeX only (`@armin/core/flashcard-types` rejects
+image and audio references). It is created through `insertFlashcard` like every
+card, so plan and deck capacity apply, and it generates one review unit with
+the fixed `subKey` `concept`. Assistants and imports can't create or edit
+concept cards (`validateFlashcardInput` refuses the type unless the caller opts
+in), and a card can't change to or from the concept type.
+
+- **Variant pool.** `conceptVariants` rows (library-scoped, at most 500 per
+  card) hold each exercise and worked solution, a status (`active` or
+  `flagged`), when a review last showed it, an origin, and a version. The
+  card's `conceptPool` records the latest generation job: `generating`,
+  `ready`, `failed` with a reason, or `allowanceUsed` when no job could start
+  (see the allowance below). Every job also schedules a watchdog,
+  `concepts.expireGeneration`, 10 minutes out (the longest a Convex action
+  runs). A job that hasn't stored or failed by then stopped without reporting
+  back, so the watchdog fails the pool with Retry and releases the job's
+  allowance reservation; a late report from that job is dropped. A failed pool
+  waits for Retry rather than refilling on ratings.
+- **Generation.** Creating a concept card schedules
+  `conceptGeneration.generate`, an action that asks the generator module for a
+  batch of 10 variants, avoiding the pool's recent exercises, and stores the
+  valid ones with `concepts.storeVariants`. Jobs are numbered; only the card's
+  latest job may store variants or fail the pool. Any failure sets `failed`
+  with a reason, and `concepts.retryGeneration` starts a new job.
+- **Variant allowance** (`model/variantAllowance.ts`). Generated variants count
+  against the library's monthly `conceptVariantsPerMonth`, kept per UTC month
+  (`usageMonth`, the assistant allowance's key) in `conceptVariantUsage` as
+  `used` and `reserved`. `requestGeneration`, in the mutation that schedules a
+  job, reserves the batch (up to the remaining allowance) before the action can
+  call the model, and records it on the pool as `reserved`. `storeVariants`
+  charges only the variants it stores and releases the rest in the same
+  transaction; a failed job releases everything, as does a job superseded by
+  Retry or one whose card was deleted. Convex mutations are serializable, so
+  concurrent jobs in one library can't reserve past the limit. A job whose
+  action dies without reporting back keeps its batch (at most 10) reserved
+  until its watchdog expires it (see the variant pool above), its card is
+  retried, or its card or deck is deleted, which settles the batch in the
+  same transaction; a late result from that job can't release it again.
+  Reviewer reset clears the month's reservations, since it removes every
+  card. With nothing left, no job is scheduled and the
+  pool becomes `allowanceUsed`: no Retry, and reviews keep reusing variants.
+  Once the allowance has room again (a new UTC month or a larger plan), the
+  pool offers Retry, and any new generation request starts normally; the
+  stored status changes with the next job. `concepts.allowance` reports the
+  month's usage for the account page. Self-hosted instances have no allowance
+  and keep no usage rows.
+- **Generator module** (`model/generator.ts`) is the only code that asks a model
+  for variants. A provider turns a template plus exercises to avoid into
+  candidate variants; the module validates each against the core variant schema
+  and drops invalid or image-bearing ones. `selectProvider` picks one from the
+  deployment variables:
+  - **fake**, when `CONCEPT_GENERATOR_FAKE=true`: deterministic numbered
+    exercises after a short delay, at no cost. It wins over the gateway, so a
+    local deployment spends no tokens unless the fake is turned off. It can't
+    run on Convex cloud or a self-hosted instance: it requires the
+    deployment's own URL to be a loopback address.
+  - **gateway**, when `AI_GATEWAY_API_KEY` and `AI_GATEWAY_MODEL` are both
+    set: one call through [TanStack AI](https://tanstack.com/ai/latest/) and
+    its Vercel AI Gateway adapter (`createVercelGatewayText(model, key)`,
+    Responses API). `chat()`'s `outputSchema` asks for
+    `{ variants: [{ exercise, solution }] }` as JSON schema output; each
+    variant is still validated on its own. The prompt holds the brief, the
+    worked example, and the exercises to avoid, and asks for text and KaTeX
+    only. The OpenAI client's own retries are off: 429 and 5xx are retried
+    in the action after 2, 4, and 8 seconds, everything else (401 included)
+    fails at once. The pool then shows a general reason (busy, unavailable,
+    or not working on this server) with Retry, and the reservation is
+    released; logs record only the status code, never the provider's message
+    or the key. The model call needs Node's streams (in the default runtime
+    the streamed response fails to close), so `conceptGeneration.ts` is a
+    `"use node"` action; TanStack AI is imported lazily, so queries and
+    mutations that check availability never load it.
+
+  With neither, generation is off: `concepts.availability` reports "Concept
+  cards aren't available on this server yet.", the card editor shows the
+  Concept type disabled with that reason, `flashcards.create` refuses a new
+  concept card, and Retry on an existing card fails its pool with the reason
+  without reserving allowance.
+
+- **Assignment.** The unit's `variantId` names the assigned variant, and its
+  front and back hold that variant's exercise and solution, so `review.items`,
+  the review screens, and Undo need no separate content path. Until a variant
+  is assigned, the never-reviewed unit waits on the pending schedule, by the
+  same rule as a locked card's (`waitingSchedule` in `model/study.ts`), so
+  review, Frontier counts, rating, and cram skip it. The first stored batch
+  assigns a variant and, in the same patch, moves the unit to New unless
+  prerequisites lock the card. Template edits leave the assignment alone.
+- **Review.** `review.rate` writes the concept's part in its one transaction:
+  it marks the shown variant seen (`lastShownAt`), assigns the next one (a
+  random unseen active variant, otherwise the active variant shown longest
+  ago, so review never blocks), and writes it with the new schedule and the
+  version bump; a rating against the previous version is stale. Randomness
+  uses `Math.random`, which Convex seeds per mutation: deterministic for one
+  transaction, different between reviews. The review log's `beforeVariant`
+  keeps the shown variant and its previous `lastShownAt`; `review.undo`
+  restores both with the schedule. If the learner has since deleted or
+  flagged that variant, Undo still restores the schedule but keeps the unit
+  on the active variant it shows now, so a removed exercise never returns (a
+  flagged one still gets its `lastShownAt` back). Concept units otherwise count like any unit in deck
+  totals, Frontier selection, the daily cap, and Stats.
+- **Curation.** `concepts.editVariant` (against the variant's `version`; a
+  stale save returns `conflict`, and the text is checked against the core
+  variant schema), `deleteVariant`, `unflagVariant`, and, from review,
+  `flagShownVariant` (against the unit version on screen) all go through
+  `curateVariant` in `model/concepts.ts`. When the unit shows the changed
+  variant, an edit rewrites its front and back, and a flag or delete assigns
+  the next variant without rating; either bumps the unit's version, so an
+  open review of the old text goes stale. A flag or delete that leaves fewer
+  than 3 unseen variants refills through `refillIfLow`, as a rating does.
+  Flagging or deleting the card's only active variant is refused with
+  `CONFLICT`: a reviewed unit has no pending schedule to fall back on, so an
+  empty pool would leave a due card with nothing to show. Each needs Pro.
+- **Pro only.** Concept cards need the library's effective plan to be Pro
+  (`conceptCardsAllowed` in `model/usage.ts`, through `libraryPlan`, so
+  complimentary Pro and self-hosted instances qualify). Without it,
+  `flashcards.create` refuses a new concept card, `flashcards.update` refuses
+  any edit to one, and `requestGeneration` (creation, Retry, refill) refuses
+  to start a job, each with `QUOTA`. A library that leaves Pro keeps every
+  concept card, variant, and review log unchanged: its concept units are
+  withheld at read time (`isWithheldConcept` in `model/queue.ts`) from queue
+  selection, due counts, `nextDueAt`, and cram, and `review.rate` returns
+  `ineligible` for one already on screen. Per-deck due counts subtract
+  `deckUnitCounts.conceptFrontierCandidates`, the concept units among a
+  deck's Frontier candidates. Nothing is written when the plan changes, so
+  everything resumes exactly when Pro returns. Delete, archive, move, and
+  prerequisite links stay available. `concepts.pool` reports `requiresPro`
+  and offers no Retry; the web editor shows the card read-only, Browse
+  labels it **Requires Pro**, and a free library's Concept type opens an
+  upsell that links to Billing.
+- **Rest of the study model.** A concept card is an ordinary flashcard to
+  prerequisites (its one unit decides securedness), locks, earned access,
+  archive, move, and bury. Until its first variant is assigned it waits on the
+  pending schedule, and the web tiles label it **No exercises yet** instead of
+  New. Deleting a card or a deck schedules `deletion.cleanupConceptVariants`,
+  which removes the card's variants 100 per transaction once the card row is
+  gone. A job still generating for a deleted card has its reservation released
+  in the same transaction that deletes the card (card or deck deletion), so a
+  late report from that job, or its watchdog, finds no card and changes
+  nothing. Cram never writes concept state: `review.items` with cram's
+  `practiceSeed` shows each concept unit a random active variant among its 40
+  newest, picked by
+  `pickPracticeVariant` (a hash of the seed and unit ID, so one session keeps
+  its pick), leaving the assigned variant and every `lastShownAt` alone.
+  Exports carry the template as the card's content in `data/flashcards.json`
+  and every variant, with its status, origin, and `lastShownAt`, in
+  `data/concept-variants.json` (variants of a card deleted mid-cleanup are
+  left out).
+
 ## Plans and limits
 
 Each library has a `plan` (absent means free). `@armin/core/plans` holds the
@@ -178,9 +333,12 @@ plan limits that `model/usage.ts` (`checkCapacity`, `libraryLimits`) enforces:
 | Images and audio (shared pool)  | 1 GiB | 5 GiB   |
 | Assistant-created cards / month | 300   | 10,000  |
 | Assistant writes / hour         | 60    | 600     |
+| Concept card variants / month   | 0     | 2,000   |
 
 The monthly assistant allowance is per library and counts `save_cards`; staged
-Anki imports are bounded only by the library limits. Pro is sold through
+Anki imports are bounded only by the library limits. The monthly variant
+allowance counts stored concept card variants (see
+[Concept cards](#concept-cards)); self-hosted instances skip it. Pro is sold through
 Polar (see [Billing](#billing-polar)); every limit check reads only
 `libraries.plan`.
 
@@ -272,8 +430,8 @@ redirect to the slug.
 Development uses a local Convex deployment per checkout, never a cloud dev
 deployment. Run `pnpm dev:setup` from the repository root (with Node 20, 22, or
 24; `vp env` selects the pinned 24, and local `"use node"` actions need it) to create it, push, set
-`SITE_URL`, `MOBILE_TRUSTED_ORIGINS`, and `BETTER_AUTH_SECRET`, seed the sample
-account, and copy its URLs into the web and mobile `.env.local` files. Then
+`SITE_URL`, `MOBILE_TRUSTED_ORIGINS`, `BETTER_AUTH_SECRET`, and
+`CONCEPT_GENERATOR_FAKE`, seed the sample account, and copy its URLs into the web and mobile `.env.local` files. Then
 `pnpm dev` runs the local backend and web client together. Email and Google
 secrets still need the configuration below. To copy URLs without pushing, run
 `pnpm --filter @armin/backend dev:clients`. See
@@ -309,19 +467,22 @@ Set these on the Convex deployment with `npx convex env set <NAME> <value>` from
 `packages/backend` (values are never stored in the repository). For the local
 dev deployment, keep `pnpm dev` running while you set them:
 
-| Name                                                    | Purpose                                                                                                                                                                                                                                    |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `BETTER_AUTH_SECRET`                                    | Session signing secret. Generate with `openssl rand -base64 32`.                                                                                                                                                                           |
-| `SITE_URL`                                              | Public web origin, `http://localhost:3000` in development. Used for auth callbacks and email links.                                                                                                                                        |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`              | Google OAuth web client. Register `${SITE_URL}/api/auth/callback/google` as a redirect URI.                                                                                                                                                |
-| `RESEND_API_KEY`                                        | Resend key for verification and password-reset email.                                                                                                                                                                                      |
-| `EMAIL_FROM`                                            | Optional. Defaults to `Armin <onboarding@resend.dev>`, which Resend only delivers to the Resend account's own address.                                                                                                                     |
-| `MOBILE_TRUSTED_ORIGINS`                                | Optional comma-separated origins for the Expo app. Defaults to `armin://`. The development deployment adds `exp://,exp://**` for Expo Go; never use `exp://` wildcards in production.                                                      |
-| `POLAR_ORGANIZATION_TOKEN`                              | Polar organization access token (sandbox and production tokens differ). Scopes: `checkouts:write`, `customers:read`, `customers:write`, `customer_sessions:write`, `subscriptions:read`, `subscriptions:write`. Billing is off without it. |
-| `POLAR_WEBHOOK_SECRET`                                  | Signing secret of the Polar webhook endpoint (`<site>/polar/events`), or of `polar webhook listen` locally. Billing is off without it.                                                                                                     |
-| `POLAR_SERVER`                                          | `production` or `sandbox` (default).                                                                                                                                                                                                       |
-| `POLAR_PRODUCT_PRO_MONTHLY`, `POLAR_PRODUCT_PRO_YEARLY` | Polar product IDs of the monthly and yearly Pro subscriptions. Billing is off unless both are set.                                                                                                                                         |
-| `OPENAI_APPS_CHALLENGE`                                 | Optional. The exact domain-verification token from OpenAI's plugin portal, served at `/.well-known/openai-apps-challenge`. See [plugin publishing](../../plugins/PUBLISHING.md).                                                           |
+| Name                                                    | Purpose                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `BETTER_AUTH_SECRET`                                    | Session signing secret. Generate with `openssl rand -base64 32`.                                                                                                                                                                                                                                 |
+| `SITE_URL`                                              | Public web origin, `http://localhost:3000` in development. Used for auth callbacks and email links.                                                                                                                                                                                              |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`              | Google OAuth web client. Register `${SITE_URL}/api/auth/callback/google` as a redirect URI.                                                                                                                                                                                                      |
+| `RESEND_API_KEY`                                        | Resend key for verification and password-reset email.                                                                                                                                                                                                                                            |
+| `EMAIL_FROM`                                            | Optional. Defaults to `Armin <onboarding@resend.dev>`, which Resend only delivers to the Resend account's own address.                                                                                                                                                                           |
+| `MOBILE_TRUSTED_ORIGINS`                                | Optional comma-separated origins for the Expo app. Defaults to `armin://`. The development deployment adds `exp://,exp://**` for Expo Go; never use `exp://` wildcards in production.                                                                                                            |
+| `POLAR_ORGANIZATION_TOKEN`                              | Polar organization access token (sandbox and production tokens differ). Scopes: `checkouts:write`, `customers:read`, `customers:write`, `customer_sessions:write`, `subscriptions:read`, `subscriptions:write`. Billing is off without it.                                                       |
+| `POLAR_WEBHOOK_SECRET`                                  | Signing secret of the Polar webhook endpoint (`<site>/polar/events`), or of `polar webhook listen` locally. Billing is off without it.                                                                                                                                                           |
+| `POLAR_SERVER`                                          | `production` or `sandbox` (default).                                                                                                                                                                                                                                                             |
+| `POLAR_PRODUCT_PRO_MONTHLY`, `POLAR_PRODUCT_PRO_YEARLY` | Polar product IDs of the monthly and yearly Pro subscriptions. Billing is off unless both are set.                                                                                                                                                                                               |
+| `CONCEPT_GENERATOR_FAKE`                                | Development only. `true` makes concept card generation use the generator's deterministic fake provider. It takes effect only on a local deployment (a loopback `CONVEX_CLOUD_URL`) that isn't self-hosted; anywhere else it is ignored. It wins over the gateway variables. Local setup sets it. |
+| `AI_GATEWAY_API_KEY`                                    | Vercel AI Gateway API key for concept card generation. Secret: set it only on the deployment, never in the repository or logs.                                                                                                                                                                   |
+| `AI_GATEWAY_MODEL`                                      | Gateway model ID for concept card generation, in `creator/model` form (such as `openai/gpt-5-mini`). Generation uses the gateway only when this and `AI_GATEWAY_API_KEY` are both set; with neither them nor the fake, concept cards are unavailable. Not chosen yet for armincards.app (#102).  |
+| `OPENAI_APPS_CHALLENGE`                                 | Optional. The exact domain-verification token from OpenAI's plugin portal, served at `/.well-known/openai-apps-challenge`. See [plugin publishing](../../plugins/PUBLISHING.md).                                                                                                                 |
 
 Without `RESEND_API_KEY`, sign-up, password reset, and verification resends are
 disabled and say that email is unavailable; existing verified accounts can still
@@ -410,7 +571,9 @@ for a year. Every media route requires the session.
 
 Local launchers place temporary files under `.convex/tmp`, on the same
 filesystem as local storage, so installing external Node packages does not fail
-with a cross-filesystem rename. The pinned Sharp version remains distinct from
+with a cross-filesystem rename. In a deeply nested checkout, where a Unix socket
+path under `.convex/tmp` would exceed the operating system's limit, they use a
+short symlink in the system temp directory that points back to it. The pinned Sharp version remains distinct from
 Expo's transitive version so Convex 1.47's workspace-local external dependency
 lookup works with this repo's hoisted pnpm layout. Recheck that lookup when
 upgrading Sharp or changing the package layout.

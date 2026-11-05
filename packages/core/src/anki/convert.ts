@@ -209,6 +209,8 @@ const SHRINKABLE: Record<FlashcardType, string[]> = {
   cloze: ["extra", "text"],
   type_answer: ["prompt"],
   image_occlusion: ["extra", "header"],
+  // Never produced by the converter (ADR 0023).
+  concept: [],
 };
 
 /** Remove a dangling cloze or image marker left at the end of cut text. */

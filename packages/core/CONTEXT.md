@@ -38,6 +38,34 @@ generate several review units (e.g. forward and reverse, or one per cloze
 deletion).
 _Avoid_: Card, review item
 
+**Concept card**:
+A flashcard type for practicing a skill through exercises. It holds a template
+and a variant pool, and generates exactly one review unit, so FSRS schedules the
+concept while each review poses a different variant. See ADR 0023.
+_Avoid_: Exercise card, template card, generated card
+
+**Template**:
+The authored part of a concept card: a brief naming the concept, what to vary,
+the intended difficulty, and what to avoid, plus one worked example. Variants
+are generated from it.
+_Avoid_: Prompt, recipe, pattern
+
+**Variant**:
+One exercise for a concept card, with its worked solution. A review shows one
+variant; the learner solves it, reveals the solution, and rates the concept.
+_Avoid_: Instance, question, sample
+
+**Variant pool**:
+The variants attached to one concept card. Reviews draw unseen variants first,
+then reuse the one seen longest ago; the pool is refilled when its unseen
+variants run low.
+_Avoid_: Question bank, exercise set
+
+**Variant allowance**:
+The monthly number of variants the hosted service generates for one library.
+When it runs out, reviews reuse existing variants until the next month.
+_Avoid_: Generation quota, credits
+
 **Prerequisite**:
 A flashcard that must be learned before another flashcard should be studied.
 _Avoid_: Parent, dependency

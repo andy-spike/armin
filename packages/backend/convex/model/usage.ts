@@ -74,6 +74,30 @@ export function libraryPlan(
   return library?.plan ?? "free";
 }
 
+/**
+ * Whether a library may create, edit, generate for, and review concept cards
+ * (ADR 0023): Pro only, which includes complimentary Pro and every
+ * self-hosted instance (`libraryPlan`). A library that leaves Pro keeps its
+ * concept cards untouched; queue selection, cram, rating, and edits skip or
+ * refuse them until Pro returns, so nothing needs migrating either way.
+ */
+export function conceptCardsAllowed(
+  library: Pick<Doc<"libraries">, "plan" | "complimentaryPro"> | null,
+) {
+  return libraryPlan(library) === "pro";
+}
+
+/** Refuse a concept card write for a library without Pro. */
+export function requireConceptCards(
+  library: Pick<Doc<"libraries">, "plan" | "complimentaryPro"> | null,
+) {
+  if (!conceptCardsAllowed(library))
+    fail(
+      "QUOTA",
+      "Concept cards are a Pro feature. Upgrade to Pro to create, edit, or review them.",
+    );
+}
+
 /** Who a limit belongs to, for quota messages. */
 export function limitOwnerName(plan: PlanId) {
   if (isSelfHosted()) return "This instance";

@@ -35,6 +35,7 @@ function CramPage() {
   return (
     <ReviewSession
       resetKey={cramSessionKey(deckId, search)}
+      practiceSeed={seed}
       queue={queue}
       isLoading={deckQuery.isLoading || queueQuery.isLoading}
       isError={deckQuery.isError || queueQuery.isError}

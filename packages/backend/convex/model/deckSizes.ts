@@ -1,4 +1,5 @@
 import { summarizeReviewUnitStates } from "@armin/core/stats";
+import { CONCEPT_SUBKEY } from "@armin/core/concept";
 import { isPendingSchedule, State } from "@armin/core/scheduler";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
@@ -15,7 +16,7 @@ import { MAX_FLASHCARDS_PER_DECK, MAX_REVIEW_UNITS_PER_DECK } from "./limits";
 
 type CountedUnit = Pick<
   Doc<"reviewUnits">,
-  "deckId" | "state" | "locked" | "archived" | "lastReview" | "reps" | "due"
+  "deckId" | "subKey" | "state" | "locked" | "archived" | "lastReview" | "reps" | "due"
 >;
 export type DeckSizes = Omit<
   Doc<"deckUnitCounts">,
@@ -26,6 +27,7 @@ const ZERO: DeckSizes = {
   flashcards: 0,
   total: 0,
   frontierCandidates: 0,
+  conceptFrontierCandidates: 0,
   newCount: 0,
   learningCount: 0,
   reviewCount: 0,
@@ -50,12 +52,17 @@ function unitSizes(units: Omit<CountedUnit, "deckId">[]): Omit<DeckSizes, "flash
   return {
     ...summarizeReviewUnitStates(units),
     frontierCandidates: units.filter(isFrontierCandidate).length,
+    conceptFrontierCandidates: units.filter(
+      (unit) => unit.subKey === CONCEPT_SUBKEY && isFrontierCandidate(unit),
+    ).length,
   };
 }
 
 function add(a: DeckSizes, b: Partial<DeckSizes>, sign = 1) {
   const out = { ...a };
-  for (const key of Object.keys(ZERO) as (keyof DeckSizes)[]) out[key] += sign * (b[key] ?? 0);
+  // Rows written before a counter existed lack it; they count from zero.
+  for (const key of Object.keys(ZERO) as (keyof DeckSizes)[])
+    out[key] = (out[key] ?? 0) + sign * (b[key] ?? 0);
   return out;
 }
 

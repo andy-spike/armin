@@ -19,16 +19,20 @@ export function useCardContent({
   cards,
   index,
   resetKey,
+  practiceSeed,
 }: {
   cards: SessionCard<UiReviewUnit>[];
   index: number;
   resetKey?: string;
+  /** Cram's session seed: concept cards show a random exercise, not the assigned one. */
+  practiceSeed?: number;
 }) {
   const descriptor = cards[index];
   const contentWindow = cards.slice(index, index + CONTENT_WINDOW);
   const contents = useQuery({
     ...convexQuery(api.review.items, {
       ids: contentWindow.map((item) => item.id as Id<"reviewUnits">),
+      ...(practiceSeed === undefined ? {} : { practiceSeed }),
     }),
     enabled: Boolean(descriptor && descriptor.hydrated === false),
     gcTime: 30_000,

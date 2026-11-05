@@ -60,6 +60,12 @@ export type ReviewSessionEvent<Unit extends ReviewSessionUnit> =
   | { type: "buryRejected"; flashcardId: string; message: string }
   | { type: "undone"; entry: HistoryEntry; result: SessionUndoResult }
   | { type: "acceptStale" }
+  /**
+   * The card on screen now shows other content under a new version, without
+   * being answered, such as a concept card whose flagged exercise was swapped
+   * for the next one. It starts a fresh turn.
+   */
+  | { type: "replaced"; turnId: string; version: number }
   | { type: "step"; delta: -1 | 1 }
   | { type: "notice"; message: string | null }
   | { type: "reset" };
@@ -200,6 +206,14 @@ function apply<Unit extends ReviewSessionUnit>(
           }
         : removeUnits(state, [active.id]);
       return { ...accepted, stale: null };
+    }
+    case "replaced": {
+      const cards = state.cards.map((c) =>
+        c.turnId === event.turnId && !c.reviewed && event.version > c.version
+          ? { ...c, version: event.version, turnId: `${c.id}:${event.version}` }
+          : c,
+      );
+      return { ...state, cards, stale: null };
     }
     case "step": {
       const index = state.index + event.delta;

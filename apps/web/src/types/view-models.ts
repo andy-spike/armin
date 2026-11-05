@@ -15,6 +15,7 @@ import type {
   AccountSettings,
 } from "@armin/backend/types";
 import type { FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
+import { isPendingSchedule, PENDING_DUE } from "@armin/core/scheduler";
 
 export type Grade = 1 | 2 | 3 | 4;
 
@@ -57,6 +58,13 @@ export type UiFlashcard = {
   tags: string[];
   /** Version the UI loaded; edits name it so stale saves are rejected. */
   version: number;
+  /** A concept card whose active variants have all been shown, so reviews repeat them. */
+  lowOnVariants: boolean;
+  /**
+   * An unlocked concept card with no exercise assigned yet: it stays out of
+   * review until its first variants are stored, so it isn't shown as New.
+   */
+  awaitingExercises: boolean;
 };
 
 export type UiBrowseFlashcard = UiFlashcard & {
@@ -132,6 +140,8 @@ export function formatDueLabel(
   now = new Date(),
 ) {
   if (card.locked) return "Locked";
+  if (card.state === 0 && (toDate(card.due)?.getTime() ?? 0) >= PENDING_DUE.getTime())
+    return "Waiting";
   if (card.state === 0) return "New";
 
   const due = toDate(card.due);
@@ -154,6 +164,15 @@ export function toUiFlashcard(flashcard: FlashcardWithMeta): UiFlashcard {
     createdAt: toDate(flashcard.createdAt)?.toISOString() ?? "",
     tags: flashcard.tags,
     version: flashcard.version,
+    lowOnVariants: flashcard.lowOnVariants,
+    awaitingExercises:
+      flashcard.type === "concept" &&
+      !flashcard.locked &&
+      isPendingSchedule({
+        due: toDate(flashcard.due)?.getTime() ?? 0,
+        lastReview: null,
+        reps: flashcard.state === 0 ? 0 : 1,
+      }),
   };
 }
 
