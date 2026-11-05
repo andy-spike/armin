@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { FunctionReturnType } from "convex/server";
 import {
+  ChevronRight,
   CircleCheck,
   CircleSlash,
   FlagOff,
@@ -19,6 +20,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/toast";
 import { formatAllowanceReset } from "@/components/variant-usage";
 import { armin, errorMessage } from "@/lib/armin-client";
+import { cn } from "@/lib/utils";
 import { conceptPoolQuery } from "@/lib/queries";
 
 type PoolVariant = NonNullable<FunctionReturnType<typeof api.concepts.pool>>["variants"][number];
@@ -49,7 +51,7 @@ export function ConceptVariantsPanel({ flashcardId }: { flashcardId: string }) {
 
   if (isPending || !pool) {
     return (
-      <p className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-muted">
+      <p className="rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-muted">
         {isPending ? "Loading variants…" : "Variants are unavailable."}
       </p>
     );
@@ -65,10 +67,13 @@ export function ConceptVariantsPanel({ flashcardId }: { flashcardId: string }) {
   // Numbered by place in the pool, so a variant keeps its number when flagged.
   const number = new Map(pool.variants.map((variant, index) => [variant.id, index + 1]));
   return (
-    <section aria-label="Variants" className="space-y-2">
+    <section
+      aria-label="Variants"
+      className="overflow-hidden rounded-md border border-border-strong bg-surface"
+    >
       <div
         role="status"
-        className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-border bg-surface px-3 py-2 text-sm"
+        className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 text-sm"
       >
         {pool.status === "generating" && (
           <span className="flex items-center gap-2 text-ink">
@@ -136,9 +141,10 @@ export function ConceptVariantsPanel({ flashcardId }: { flashcardId: string }) {
         )}
       </div>
       {count > 0 && (
-        <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+        // A pool holds up to 500 variants, so the list scrolls inside its frame.
+        <div className="max-h-[28rem] overflow-y-auto border-t border-border">
           {active.length > 0 && (
-            <ol aria-label="Active variants" className="space-y-2">
+            <ol aria-label="Active variants" className="divide-y divide-border">
               {active.map((variant) => (
                 <VariantItem
                   key={variant.id}
@@ -152,11 +158,11 @@ export function ConceptVariantsPanel({ flashcardId }: { flashcardId: string }) {
             </ol>
           )}
           {flagged.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted">
+            <div className={cn(active.length > 0 && "border-t border-border")}>
+              <p className="border-b border-border bg-surface-sunken px-3 py-1.5 text-xs font-medium text-muted">
                 Flagged ({flagged.length}) · not shown in review
               </p>
-              <ol aria-label="Flagged variants" className="space-y-2">
+              <ol aria-label="Flagged variants" className="divide-y divide-border">
                 {flagged.map((variant) => (
                   <VariantItem
                     key={variant.id}
@@ -197,6 +203,7 @@ function VariantItem({
   const [draft, setDraft] = useState({ exercise: "", solution: "", version: 0 });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showSolution, setShowSolution] = useState(false);
   const flagged = variant.status === "flagged";
 
   const startEdit = () => {
@@ -248,8 +255,8 @@ function VariantItem({
   };
 
   return (
-    <li className="rounded-md border border-border bg-surface px-3 py-2">
-      <div className="mb-1 flex min-h-8 items-center gap-2">
+    <li className={cn("px-3 py-2.5", flagged && "bg-surface-sunken/40")}>
+      <div className="flex min-h-8 items-center gap-2">
         <p className="min-w-0 flex-1 text-xs font-medium text-muted">
           {label}
           {variant.origin === "edited" && <span> · Edited</span>}
@@ -350,9 +357,29 @@ function VariantItem({
         </div>
       ) : (
         <>
-          <MarkdownContent content={variant.exercise} className="text-sm" />
-          <p className="mb-1 mt-2 text-xs font-medium text-muted">Solution</p>
-          <MarkdownContent content={variant.solution} className="text-sm text-muted" />
+          <MarkdownContent content={variant.exercise} className="text-sm text-ink" />
+          {/* Solutions fold away so the list scans by exercise. */}
+          <button
+            type="button"
+            aria-expanded={showSolution}
+            onClick={() => setShowSolution((open) => !open)}
+            className="-ml-1 mt-1.5 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs font-medium text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <ChevronRight
+              className={cn(
+                "h-3.5 w-3.5 transition-transform duration-150 ease-out motion-reduce:transition-none",
+                showSolution && "rotate-90",
+              )}
+              aria-hidden
+            />
+            Solution
+          </button>
+          {showSolution && (
+            <MarkdownContent
+              content={variant.solution}
+              className="mt-1 border-l border-border-strong pl-3 text-sm text-muted"
+            />
+          )}
         </>
       )}
 

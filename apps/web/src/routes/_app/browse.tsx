@@ -176,104 +176,112 @@ function BrowsePage() {
 
       {hasLibrary && (
         <>
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <div className="relative w-full sm:w-auto sm:min-w-56 sm:flex-1">
-              <Search
-                className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted"
-                aria-hidden
-              />
-              <Input
-                type="search"
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Search front, back, or answer…"
-                aria-label="Search flashcards"
-                autoComplete="off"
-                className="pl-8"
-              />
+          {/* Search and sort on the first row, filters below: the filters don't
+              fit beside them once the type filter joins. */}
+          <div className="mb-4 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full sm:w-auto sm:min-w-56 sm:flex-1">
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted"
+                  aria-hidden
+                />
+                <Input
+                  type="search"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder="Search front, back, or answer…"
+                  aria-label="Search flashcards"
+                  autoComplete="off"
+                  className="pl-8"
+                />
+              </div>
+
+              <div className="w-full sm:w-auto">
+                <SortControl
+                  value={sort}
+                  onChange={setSort}
+                  options={BROWSE_SORT_OPTIONS}
+                  layout="inline"
+                  triggerClassName="min-w-0 w-full sm:w-44"
+                />
+              </div>
             </div>
 
-            <Select
-              value={stateFilter}
-              items={stateItems}
-              onValueChange={(value) => setStateFilter(value ?? ALL_STATES)}
-            >
-              <SelectTrigger
-                className="w-36 border-border-strong bg-surface"
-                aria-label="Filter by state"
+            {/* Two even columns on phones; a single row from `sm` up. */}
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <Select
+                value={stateFilter}
+                items={stateItems}
+                onValueChange={(value) => setStateFilter(value ?? ALL_STATES)}
               >
-                <CircleDot className="size-3.5 text-muted" aria-hidden />
-                <SelectValue className="flex-1 text-left" />
-              </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
-                <SelectGroup>
-                  <SelectItem value={ALL_STATES}>All states</SelectItem>
-                  {STATE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={String(opt.value)}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+                <SelectTrigger
+                  className="w-full border-border-strong bg-surface sm:w-36"
+                  aria-label="Filter by state"
+                >
+                  <CircleDot className="size-3.5 text-muted" aria-hidden />
+                  <SelectValue className="flex-1 text-left" />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    <SelectItem value={ALL_STATES}>All states</SelectItem>
+                    {STATE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={String(opt.value)}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
 
-            <Select
-              value={typeFilter}
-              items={TYPE_ITEMS}
-              onValueChange={(value) => setTypeFilter(value ?? ALL_TYPES)}
-            >
-              <SelectTrigger
-                className="w-40 border-border-strong bg-surface"
-                aria-label="Filter by card type"
+              <Select
+                value={typeFilter}
+                items={TYPE_ITEMS}
+                onValueChange={(value) => setTypeFilter(value ?? ALL_TYPES)}
               >
-                <Shapes className="size-3.5 text-muted" aria-hidden />
-                <SelectValue className="flex-1 text-left" />
-              </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
-                <SelectGroup>
-                  {TYPE_ITEMS.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+                <SelectTrigger
+                  className="w-full border-border-strong bg-surface sm:w-40"
+                  aria-label="Filter by card type"
+                >
+                  <Shapes className="size-3.5 text-muted" aria-hidden />
+                  <SelectValue className="flex-1 text-left" />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {TYPE_ITEMS.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
 
-            <SearchableSelect
-              value={deckFilter}
-              onValueChange={setDeckFilter}
-              options={deckOptions}
-              placeholder="All decks"
-              searchPlaceholder="Search decks…"
-              emptyText="No decks found."
-              aria-label="Filter by deck"
-              icon={<Layers className="size-3.5 shrink-0 text-muted" aria-hidden />}
-              className="w-48"
-            />
-
-            {allTags.length > 0 && (
-              <SearchableMultiSelect
-                value={tagFilter}
-                onValueChange={setTagFilter}
-                options={tagOptions}
-                placeholder="All tags"
-                searchPlaceholder="Search tags…"
-                emptyText="No tags found."
-                aria-label="Filter by tag"
-                icon={<Tag className="size-3.5 shrink-0 text-muted" aria-hidden />}
-                className="w-40"
+              <SearchableSelect
+                value={deckFilter}
+                onValueChange={setDeckFilter}
+                options={deckOptions}
+                placeholder="All decks"
+                searchPlaceholder="Search decks…"
+                emptyText="No decks found."
+                aria-label="Filter by deck"
+                icon={<Layers className="size-3.5 shrink-0 text-muted" aria-hidden />}
+                className="w-full sm:w-48"
               />
-            )}
 
-            <SortControl
-              value={sort}
-              onChange={setSort}
-              options={BROWSE_SORT_OPTIONS}
-              layout="inline"
-              className="sm:ml-auto"
-              triggerClassName="min-w-0 w-44"
-            />
+              {allTags.length > 0 && (
+                <SearchableMultiSelect
+                  value={tagFilter}
+                  onValueChange={setTagFilter}
+                  options={tagOptions}
+                  placeholder="All tags"
+                  searchPlaceholder="Search tags…"
+                  emptyText="No tags found."
+                  aria-label="Filter by tag"
+                  icon={<Tag className="size-3.5 shrink-0 text-muted" aria-hidden />}
+                  className="w-full sm:w-40"
+                />
+              )}
+            </div>
           </div>
 
           <p className="mb-3 text-xs text-muted">

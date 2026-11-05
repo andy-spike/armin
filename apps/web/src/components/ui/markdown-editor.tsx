@@ -98,7 +98,12 @@ function needsSourceMode(value: string) {
     /(?:```|~~~)\s*latex\b/i.test(value)
   )
     return true;
-  if (/\$\d/.test(prose)) return true;
+  // A dollar before a digit is currency, unless it opens an equation such as
+  // `$3x^2$`: test only the text outside the math `splitMath` recognizes.
+  const outsideMath = splitMath(prose)
+    .flatMap((part) => (part.kind === "text" ? [part.raw] : []))
+    .join(" ");
+  if (/\$\d/.test(outsideMath)) return true;
   // Rich text can't show audio, superscript, subscript, or highlights; keep them as written.
   if (AUDIO_REF_RE.test(value) || hasInlineMarks(value)) return true;
   let offset = 0;

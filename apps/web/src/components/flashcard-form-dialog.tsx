@@ -55,7 +55,7 @@ const TYPE_OPTIONS: { value: FlashcardType; label: string }[] = [
   { value: "basic", label: "Basic" },
   { value: "basic_reversed", label: "Reversed" },
   { value: "cloze", label: "Cloze" },
-  { value: "type_answer", label: "Type answer" },
+  { value: "type_answer", label: "Type" },
   { value: "concept", label: "Concept" },
 ];
 
@@ -548,10 +548,10 @@ export function FlashcardFormDialog({
               <Field label="Brief">
                 <MarkdownContent content={fields.brief} className="text-sm" />
               </Field>
-              <Field label="Example exercise">
+              <Field label="Example">
                 <MarkdownContent content={fields.exercise} className="text-sm" />
               </Field>
-              <Field label="Example solution">
+              <Field label="Solution">
                 <MarkdownContent content={fields.solution} className="text-sm" />
               </Field>
               {displayCardId && (
@@ -578,7 +578,7 @@ export function FlashcardFormDialog({
                   placeholder="Derivatives of polynomials with 2–4 terms. Vary the coefficients and exponents; avoid fractional exponents."
                 />
               </Field>
-              <Field label="Example exercise" hint="One worked example, in the format you expect.">
+              <Field label="Example" hint="One exercise, in the format you expect.">
                 <MarkdownEditor
                   textOnly
                   key={`exercise-${editorKey}`}
@@ -588,7 +588,7 @@ export function FlashcardFormDialog({
                   placeholder="Differentiate $3x^4 - 2x + 5$."
                 />
               </Field>
-              <Field label="Example solution" hint="Worked step by step.">
+              <Field label="Solution" hint="The example's worked solution, step by step.">
                 <MarkdownEditor
                   textOnly
                   key={`solution-${editorKey}`}
