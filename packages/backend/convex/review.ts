@@ -13,9 +13,11 @@ import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { owned, readableDeck, readableLibrary, writableLibrary } from "./model/access";
+import { advanceVariant, refillIfLow, restoreVariant } from "./model/concepts";
 import {
   checkEligible,
   isBuried,
+  isWithheldConcept,
   selectSession,
   toQueueItems,
   queueDescriptors,
@@ -112,7 +114,8 @@ async function nextDueAfter(
     // Bounded: past this many skipped rows, the next study day refresh suffices.
     let scanned = 0;
     for await (const unit of rows) {
-      if (decks.has(unit.deckId) && !isBuried(unit, now)) return unit.due;
+      if (decks.has(unit.deckId) && !isBuried(unit, now) && !isWithheldConcept(unit, library))
+        return unit.due;
       if (++scanned >= 2000) break;
     }
     return null;
@@ -125,7 +128,9 @@ async function nextDueAfter(
         q.eq("deckId", id).eq("locked", false).eq("archived", false).gt("due", now),
       )
       .take(11);
-    const due = units.find((unit) => !isBuried(unit, now))?.due;
+    const due = units.find(
+      (unit) => !isBuried(unit, now) && !isWithheldConcept(unit, library),
+    )?.due;
     if (due != null && (earliest == null || due < earliest)) earliest = due;
   }
   return earliest;
@@ -287,9 +292,11 @@ export type RateResult =
 /**
  * Rate a review unit. One transaction validates ownership, the version the
  * client displayed, and eligibility (lock, archive, due, shared Frontier);
- * computes FSRS at accepted server time; writes the schedule and history; and
- * refreshes every prerequisite consequence. A repeated `requestId` returns the
- * first outcome instead of applying the answer again.
+ * computes FSRS at accepted server time; writes the schedule and history
+ * (for a concept card, also marking the shown variant seen, assigning the
+ * next, and refilling a pool that runs low); and refreshes every
+ * prerequisite consequence. A repeated `requestId` returns the first outcome
+ * instead of applying the answer again.
  */
 export const rate = mutation({
   args: {
@@ -314,7 +321,7 @@ export const rate = mutation({
         message: "This card changed since it was shown. Reload it to continue.",
       };
     }
-    const ineligible = await checkEligible(unit, now);
+    const ineligible = await checkEligible(unit, library, now);
     if (ineligible) return { status: "ineligible", message: ineligible };
 
     const settings = new SettingsCache(ctx, library._id);
@@ -327,8 +334,12 @@ export const rate = mutation({
     );
     const version = unit.version + 1;
     const fields = fsrsFieldsToMs(fromFsrsCard(next));
+    // A concept card's unit moves on to its next variant in the same write,
+    // so the version bump also retires the exercise just answered.
+    const concept = await advanceVariant(ctx, unit, now);
     await ctx.db.patch(unit._id, {
       ...fields,
+      ...concept?.display,
       version,
       updatedAt: now,
     });
@@ -338,6 +349,9 @@ export const rate = mutation({
     if (flashcard && !flashcard.prerequisiteAccessGranted) {
       await ctx.db.patch(flashcard._id, { prerequisiteAccessGranted: true });
     }
+    // A concept card low on unseen variants starts one refill job, in this
+    // transaction, unless its pool already has a job (see `refillIfLow`).
+    if (flashcard && concept) await refillIfLow(ctx, flashcard, concept.pool, now);
     const reviewLogId = await ctx.db.insert("reviewLogs", {
       libraryId: library._id,
       deckId: unit.deckId,
@@ -354,6 +368,7 @@ export const rate = mutation({
       learningSteps: log.learning_steps,
       review: log.review.getTime(),
       before: fsrsSnapshot(unit),
+      ...(concept?.beforeVariant ? { beforeVariant: concept.beforeVariant } : {}),
       unitVersionAfter: version,
     });
     // Dependents' locks depend only on whether this flashcard's units are
@@ -386,7 +401,9 @@ export type UndoResult =
 /**
  * Undo exactly one review: it must still be the unit's latest review, and the
  * unit must still be in the state that review produced. Restores the saved
- * pre-review schedule, removes the log, and refreshes prerequisite effects.
+ * pre-review schedule (and, for a concept card, the variant it showed and
+ * that variant's last-shown time), removes the log, and refreshes
+ * prerequisite effects.
  */
 export const undo = mutation({
   args: {
@@ -421,8 +438,12 @@ export const undo = mutation({
         message: "This card changed after that review, so it can't be undone.",
       };
     }
+    // A concept card's review also changed which variant shows; put it back.
+    const display = log.beforeVariant
+      ? await restoreVariant(ctx, unit, log.beforeVariant)
+      : undefined;
     const version = unit.version + 1;
-    await ctx.db.patch(unit._id, { ...log.before, version, updatedAt: now });
+    await ctx.db.patch(unit._id, { ...log.before, ...display, version, updatedAt: now });
     await ctx.db.delete(log._id);
     const settings = new SettingsCache(ctx, library._id);
     await refreshAfterPrereqChange(ctx, unit.flashcardId, settings, now);
@@ -561,7 +582,14 @@ export const unbury = mutation({
 
 /** Card text is subscribed only for a small look-ahead window. */
 export const items = query({
-  args: { ids: v.array(v.id("reviewUnits")) },
+  args: {
+    ids: v.array(v.id("reviewUnits")),
+    /**
+     * Cram's session seed. A concept card then shows a random active variant
+     * rather than its assigned one, and nothing about the pool changes.
+     */
+    practiceSeed: v.optional(v.number()),
+  },
   returns: v.array(
     v.object({
       reviewUnitId: v.id("reviewUnits"),
@@ -574,6 +602,7 @@ export const items = query({
         v.literal("cloze"),
         v.literal("type_answer"),
         v.literal("image_occlusion"),
+        v.literal("concept"),
       ),
       content: v.any(),
       subKey: v.string(),
@@ -586,7 +615,7 @@ export const items = query({
       hydrated: v.boolean(),
     }),
   ),
-  handler: async (ctx, { ids }) => {
+  handler: async (ctx, { ids, practiceSeed }) => {
     const library = await readableLibrary(ctx);
     if (!library) return [];
     const units = [];
@@ -594,6 +623,6 @@ export const items = query({
       const unit = await owned(ctx, library, id);
       if (unit) units.push(unit);
     }
-    return toQueueItems(ctx, units);
+    return toQueueItems(ctx, units, { practiceSeed });
   },
 });

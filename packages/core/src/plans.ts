@@ -15,6 +15,8 @@ export const PLAN_LIMITS = {
     mediaBytes: 1024 * 1024 * 1024,
     agentCardsPerMonth: 300,
     agentWritesPerHour: 60,
+    /** Generated concept card variants (ADR 0023); concept cards are a Pro feature. */
+    conceptVariantsPerMonth: 0,
   },
   pro: {
     decks: 1000,
@@ -23,6 +25,7 @@ export const PLAN_LIMITS = {
     mediaBytes: 5 * 1024 * 1024 * 1024,
     agentCardsPerMonth: 10_000,
     agentWritesPerHour: 600,
+    conceptVariantsPerMonth: 2000,
   },
 } satisfies Record<PlanId, Record<string, number>>;
 
@@ -43,7 +46,16 @@ export function planLimits(plan: PlanId | undefined) {
   return PLAN_LIMITS[plan ?? "free"];
 }
 
-/** UTC calendar month key for the monthly assistant card allowance, such as "2026-10". */
+/**
+ * UTC calendar month key for the monthly allowances (assistant cards and
+ * concept card variants), such as "2026-10".
+ */
 export function usageMonth(now: number) {
   return new Date(now).toISOString().slice(0, 7);
+}
+
+/** When the UTC month containing `now` ends and the monthly allowances reset. */
+export function nextUsageMonthStart(now: number) {
+  const date = new Date(now);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1);
 }

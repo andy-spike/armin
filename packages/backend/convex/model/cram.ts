@@ -1,5 +1,6 @@
-import { queueUnit, type QueueUnit } from "./queue";
+import { isWithheldConcept, queueUnit, type QueueUnit } from "./queue";
 import { MAX_REVIEW_UNITS_PER_DECK } from "./limits";
+import { CONCEPT_SUBKEY, isAwaitingVariant } from "@armin/core/concept";
 import { State } from "@armin/core/scheduler";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
@@ -68,9 +69,20 @@ export async function selectCramUnits(
       unit.libraryId === library._id &&
       !unit.archived &&
       (args.includeLocked || !unit.locked) &&
-      states.has(unit.state),
+      states.has(unit.state) &&
+      // Outside Pro, concept cards stay out of cram too (ADR 0023).
+      !isWithheldConcept(unit, library),
   );
   if (units.length === 0) return [];
+  // A concept card's unit has nothing to show until a variant is assigned.
+  // Only its fixed subKey needs the unit row to tell.
+  const awaiting = new Set<Id<"reviewUnits">>();
+  for (const unit of units) {
+    if (unit.subKey !== CONCEPT_SUBKEY) continue;
+    const row = await ctx.db.get(unit._id);
+    if (!row || isAwaitingVariant(row)) awaiting.add(unit._id);
+  }
+  if (awaiting.size) units = units.filter((unit) => !awaiting.has(unit._id));
 
   if (args.tag) {
     const tag = args.tag;

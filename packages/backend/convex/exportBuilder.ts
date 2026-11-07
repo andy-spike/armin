@@ -26,6 +26,9 @@ This archive contains one Armin account's study library.
 - \`data/flashcards.json\` — authored flashcards with type, content, tags,
   archive and lock state, permanent prerequisite access, and graph canvas positions.
 - \`data/review-units.json\` — generated review units with their FSRS schedule.
+- \`data/concept-variants.json\` — every exercise variant of each concept card,
+  with its status (active or flagged) and when a review last showed it. The
+  card's template is its content in \`data/flashcards.json\`.
 - \`data/review-logs.json\` — every review, oldest first.
 - \`data/prerequisites.json\` — prerequisite edges (prerequisite → dependent).
 - \`data/settings.json\` — account time zone, study settings, deck overrides.
@@ -41,6 +44,7 @@ type Snapshot = {
   decks: Doc<"decks">[];
   flashcards: Doc<"flashcards">[];
   reviewUnits: Doc<"reviewUnits">[];
+  variants: Doc<"conceptVariants">[];
   prereqs: Doc<"prereqs">[];
   deckSettings: Doc<"deckSettings">[];
   media: Doc<"media">[];
@@ -93,9 +97,10 @@ async function collectSnapshot(ctx: ActionCtx, libraryId: Id<"libraries">) {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const meta = await ctx.runQuery(internal.exports.snapshotCore, { libraryId });
     const core: Snapshot = {
-      ...(meta as Omit<Snapshot, "flashcards" | "reviewUnits" | "prereqs">),
+      ...(meta as Omit<Snapshot, "flashcards" | "reviewUnits" | "variants" | "prereqs">),
       flashcards: [],
       reviewUnits: [],
+      variants: [],
       prereqs: [],
     };
     for (const deck of meta.decks) {
@@ -111,6 +116,12 @@ async function collectSnapshot(ctx: ActionCtx, libraryId: Id<"libraries">) {
         (core[table] as unknown[]).push(...rows);
       }
     }
+    const variants = await collectPages(
+      (cursor) =>
+        ctx.runQuery(internal.exports.variantPage, { libraryId, cursor }) as Promise<
+          Page<Doc<"conceptVariants">>
+        >,
+    );
     const pages = await collectPages(
       (cursor) =>
         ctx.runQuery(internal.exports.logPage, { libraryId, cursor }) as Promise<
@@ -122,6 +133,9 @@ async function collectSnapshot(ctx: ActionCtx, libraryId: Id<"libraries">) {
     // History of a just-deleted deck may still be awaiting cleanup.
     const unitIds = new Set<string>(core.reviewUnits.map((unit) => unit._id));
     const currentDeck = new Map(core.reviewUnits.map((unit) => [unit._id, unit.deckId]));
+    // A deleted card's variants may still be awaiting cleanup too.
+    const cardIds = new Set<string>(core.flashcards.map((card) => card._id));
+    core.variants = variants.filter((variant) => cardIds.has(variant.flashcardId));
     const logs = pages
       .filter((log) => unitIds.has(log.reviewUnitId))
       .map((log) => ({ ...log, deckId: currentDeck.get(log.reviewUnitId)! }));
@@ -175,6 +189,19 @@ function dataFiles(snapshot: Snapshot, logs: Doc<"reviewLogs">[], timeZone: stri
       locked: unit.locked,
       archived: unit.archived,
       schedule: fsrs(unit),
+    })),
+  );
+  files["data/concept-variants.json"] = json(
+    snapshot.variants.map((variant) => ({
+      id: variant._id,
+      flashcardId: variant.flashcardId,
+      exercise: variant.exercise,
+      solution: variant.solution,
+      status: variant.status,
+      origin: variant.origin,
+      lastShownAt: iso(variant.lastShownAt),
+      createdAt: iso(variant.createdAt),
+      updatedAt: iso(variant.updatedAt),
     })),
   );
   files["data/review-logs.json"] = json(
@@ -244,6 +271,7 @@ async function buildManifest(
       decks: snapshot.decks.length,
       flashcards: snapshot.flashcards.length,
       reviewUnits: snapshot.reviewUnits.length,
+      conceptVariants: snapshot.variants.length,
       reviewLogs: logs.length,
       prerequisites: snapshot.prereqs.length,
       media: media.length,

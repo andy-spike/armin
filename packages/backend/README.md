@@ -31,7 +31,8 @@ Clients import only `@armin/backend/api` (function references) and
   a `now` argument instead of ticking.
 - **Plan limits live in `@armin/core/plans`** and are enforced by
   `model/usage.ts` (`checkCapacity`). Every write that adds decks, flashcards, or
-  media checks them.
+  media checks them, and concept card generation reserves variants against the
+  monthly allowance (`model/variantAllowance.ts`) before calling a model.
 - **Media is private.** Files are validated by their bytes, content-addressed,
   and served only through authenticated routes; no storage URL reaches a client.
 
@@ -59,21 +60,23 @@ the Resend component's `emails` and `content` tables
 Set with `pnpm exec convex env set <NAME> <value>` from `packages/backend`
 (add `--prod` for production). Values never go in the repository.
 
-| Name                                                    | Purpose                                                                                                                                              |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET`                                    | Session signing secret (`openssl rand -base64 32`).                                                                                                  |
-| `SITE_URL`                                              | Public web origin. Used for auth callbacks and email links.                                                                                          |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`              | Google OAuth. Register `${SITE_URL}/api/auth/callback/google`. Google sign-in is hidden without both.                                                |
-| `RESEND_API_KEY`                                        | Verification and reset email. Without it, sign-up and resets are disabled; verified accounts can still sign in.                                      |
-| `EMAIL_FROM`                                            | Optional sender. Defaults to `Armin <onboarding@resend.dev>`, which only delivers to the Resend account's own address.                               |
-| `MOBILE_TRUSTED_ORIGINS`                                | Optional comma-separated Expo origins. Defaults to `armin://`. Development adds `exp://,exp://**`; never use those in production.                    |
-| `POLAR_ORGANIZATION_TOKEN`                              | Polar token. Scopes: `checkouts:write`, `customers:read`, `customers:write`, `customer_sessions:write`, `subscriptions:read`, `subscriptions:write`. |
-| `POLAR_WEBHOOK_SECRET`                                  | Signing secret of the `<site>/polar/events` webhook (or of `polar webhook listen` locally).                                                          |
-| `POLAR_SERVER`                                          | `production` or `sandbox` (default).                                                                                                                 |
-| `POLAR_PRODUCT_PRO_MONTHLY`, `POLAR_PRODUCT_PRO_YEARLY` | Pro product IDs. Billing is off unless the token, webhook secret, and both products are set.                                                         |
-| `OPENAI_APPS_CHALLENGE`                                 | Optional domain-verification token served at `/.well-known/openai-apps-challenge`. See [plugin publishing](../../plugins/PUBLISHING.md).             |
-| `REVIEWER_ACCOUNT_USER_ID`, `REVIEWER_RESET_HOURS`      | Optional public reviewer account; see below.                                                                                                         |
-| `SELF_HOSTED`                                           | `true` on self-hosted instances; hides billing.                                                                                                      |
+| Name                                                    | Purpose                                                                                                                                                |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `BETTER_AUTH_SECRET`                                    | Session signing secret (`openssl rand -base64 32`).                                                                                                    |
+| `SITE_URL`                                              | Public web origin. Used for auth callbacks and email links.                                                                                            |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`              | Google OAuth. Register `${SITE_URL}/api/auth/callback/google`. Google sign-in is hidden without both.                                                  |
+| `RESEND_API_KEY`                                        | Verification and reset email. Without it, sign-up and resets are disabled; verified accounts can still sign in.                                        |
+| `EMAIL_FROM`                                            | Optional sender. Defaults to `Armin <onboarding@resend.dev>`, which only delivers to the Resend account's own address.                                 |
+| `MOBILE_TRUSTED_ORIGINS`                                | Optional comma-separated Expo origins. Defaults to `armin://`. Development adds `exp://,exp://**`; never use those in production.                      |
+| `POLAR_ORGANIZATION_TOKEN`                              | Polar token. Scopes: `checkouts:write`, `customers:read`, `customers:write`, `customer_sessions:write`, `subscriptions:read`, `subscriptions:write`.   |
+| `POLAR_WEBHOOK_SECRET`                                  | Signing secret of the `<site>/polar/events` webhook (or of `polar webhook listen` locally).                                                            |
+| `POLAR_SERVER`                                          | `production` or `sandbox` (default).                                                                                                                   |
+| `POLAR_PRODUCT_PRO_MONTHLY`, `POLAR_PRODUCT_PRO_YEARLY` | Pro product IDs. Billing is off unless the token, webhook secret, and both products are set.                                                           |
+| `AI_GATEWAY_API_KEY`, `AI_GATEWAY_MODEL`                | Vercel AI Gateway key and `creator/model` ID for concept card generation. Concept cards are unavailable unless both are set (or the fake below is on). |
+| `CONCEPT_GENERATOR_FAKE`                                | Development only. `true` uses a free deterministic generator; it wins over the gateway and is ignored outside a local deployment. Local setup sets it. |
+| `OPENAI_APPS_CHALLENGE`                                 | Optional domain-verification token served at `/.well-known/openai-apps-challenge`. See [plugin publishing](../../plugins/PUBLISHING.md).               |
+| `REVIEWER_ACCOUNT_USER_ID`, `REVIEWER_RESET_HOURS`      | Optional public reviewer account; see below.                                                                                                           |
+| `SELF_HOSTED`                                           | `true` on self-hosted instances; hides billing.                                                                                                        |
 
 Local setup also sets `JWKS` from the deployment's own Better Auth keys so
 token verification doesn't call back into the local backend. Leave it unset in

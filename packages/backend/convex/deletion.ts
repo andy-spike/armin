@@ -3,6 +3,7 @@ import { type MutationCtx } from "./_generated/server";
 import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import { bumpRevision } from "./model/study";
+import { settleVariants } from "./model/variantAllowance";
 import type { Id, TableNames } from "./_generated/dataModel";
 
 /** Rows deleted per cleanup transaction; the job reschedules until done. */
@@ -32,6 +33,30 @@ export const cleanupUnitLogs = internalMutation({
     for (const log of cramLogs) await ctx.db.delete(log._id);
     if (logs.length + cramLogs.length >= BATCH) {
       await ctx.scheduler.runAfter(0, internal.deletion.cleanupUnitLogs, { reviewUnitId });
+    }
+  },
+});
+
+// A variant holds up to two 5,000-character fields; a hundred stay far below
+// a transaction's read limit.
+const VARIANT_BATCH = 100;
+
+/**
+ * Remove a deleted concept card's variant pool in bounded batches (ADR 0023).
+ * Card and deck deletion schedule it once the card row is gone, so no review,
+ * Browse summary, or generation job can reach these variants meanwhile.
+ */
+export const cleanupConceptVariants = internalMutation({
+  args: { flashcardId: v.id("flashcards") },
+  handler: async (ctx, { flashcardId }) => {
+    if (await ctx.db.get(flashcardId)) return;
+    const variants = await ctx.db
+      .query("conceptVariants")
+      .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcardId))
+      .take(VARIANT_BATCH);
+    for (const variant of variants) await ctx.db.delete(variant._id);
+    if (variants.length === VARIANT_BATCH) {
+      await ctx.scheduler.runAfter(0, internal.deletion.cleanupConceptVariants, { flashcardId });
     }
   },
 });
@@ -125,7 +150,15 @@ export const cleanupDeck = internalMutation({
         }
         budget -= links.length;
         if (!budget) break;
+        // As card deletion does: a job still generating for this card can no
+        // longer settle its reservation once the card row is gone.
+        if (card.conceptPool?.status === "generating")
+          await settleVariants(ctx, card.conceptPool.reserved, 0);
         await ctx.db.delete(card._id);
+        if (card.type === "concept")
+          await ctx.scheduler.runAfter(0, internal.deletion.cleanupConceptVariants, {
+            flashcardId: card._id,
+          });
         if (--budget === 0) break;
       }
       if (files.size)
@@ -175,6 +208,8 @@ const LIBRARY_TABLES: [TableNames, string][] = [
   ["cramLogs", "by_library_review"],
   ["reviewUnits", "by_library"],
   ["prereqs", "by_library"],
+  ["conceptVariants", "by_library"],
+  ["conceptVariantUsage", "by_library_month"],
   ["flashcardMedia", "by_library_file"],
   ["flashcards", "by_library"],
   ["deckSettings", "by_library"],
@@ -216,11 +251,13 @@ export const cleanupLibrary = internalMutation({
   },
 });
 
-// Keep assistant connections, their rate limits, and the monotonic revision
+// Keep assistant connections, their rate limits, the month's variant
+// allowance, and the monotonic revision
 // while replacing a reviewer's study content.
 const RESET_PRESERVED_TABLES = new Set<TableNames>([
   "agentConnections",
   "agentRateLimits",
+  "conceptVariantUsage",
   "libraryCounters",
 ]);
 
@@ -231,6 +268,16 @@ export async function cleanupLibraryData(
   reset: boolean,
 ) {
   let budget = BATCH;
+
+  // A reset keeps the allowance rows but removes every card, so no running
+  // job can settle its batch afterwards: release all reservations up front.
+  if (reset) {
+    const usage = await ctx.db
+      .query("conceptVariantUsage")
+      .withIndex("by_library_month", (q) => q.eq("libraryId", libraryId))
+      .collect();
+    for (const row of usage) if (row.reserved > 0) await ctx.db.patch(row._id, { reserved: 0 });
+  }
 
   const media = await ctx.db
     .query("media")

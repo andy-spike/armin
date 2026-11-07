@@ -188,7 +188,7 @@ export function BillingSettings() {
       ) : !pro ? (
         <Row
           label="Upgrade to Pro"
-          hint="Unlimited cards and decks (fair use), 10,000 AI assistant cards a month, and room for the largest Anki collections."
+          hint="Unlimited cards and decks (fair use), 10,000 AI assistant cards a month, concept cards with generated practice exercises, and room for the largest Anki collections."
           last
         >
           <div className="flex flex-col items-end gap-2 max-sm:items-start">

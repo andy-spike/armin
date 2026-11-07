@@ -64,6 +64,38 @@ const agentImportDeck = v.object({
   cardCount: v.number(),
 });
 
+/**
+ * A concept card's variant pool (ADR 0023): where its latest generation job
+ * stands. Jobs are numbered so a superseded job's result is discarded.
+ */
+/** The variant allowance a running generation job holds: a count in one library's month. */
+export const variantReservation = v.object({
+  libraryId: v.id("libraries"),
+  month: v.string(),
+  count: v.number(),
+});
+
+const conceptPool = v.object({
+  status: v.union(
+    v.literal("generating"),
+    v.literal("ready"),
+    v.literal("failed"),
+    /** No job started: the library's monthly variant allowance was used up. */
+    v.literal("allowanceUsed"),
+  ),
+  /** Why the latest job failed, shown with Retry. Set only with `failed`. */
+  reason: v.optional(v.string()),
+  /** The latest job's number; only that job may store variants or fail the pool. */
+  job: v.number(),
+  /** When the latest job was scheduled. */
+  requestedAt: v.number(),
+  /**
+   * The variant allowance a `generating` job holds, released when the job
+   * stores, fails, or is superseded. Absent where no allowance applies.
+   */
+  reserved: v.optional(variantReservation),
+});
+
 export default defineSchema({
   /**
    * One app-side record per approved assistant connection. The `@convex-dev/mcp`
@@ -298,6 +330,11 @@ export default defineSchema({
      */
     prerequisiteAccessGranted: v.optional(v.boolean()),
     archived: v.boolean(),
+    /**
+     * Concept cards only: the variant pool's generation state. Not authored
+     * content, so changing it leaves `version` alone.
+     */
+    conceptPool: v.optional(conceptPool),
     /** Incremented on every authored change; edits must name the version they started from. */
     version: v.number(),
     createdAt: v.number(),
@@ -305,6 +342,43 @@ export default defineSchema({
   })
     .index("by_library", ["libraryId"])
     .index("by_deck", ["deckId"]),
+
+  /**
+   * A concept card's variants: generated exercises with worked solutions
+   * (ADR 0023). Each belongs to one library and one concept card; the card's
+   * single review unit shows whichever variant is assigned to it.
+   */
+  /**
+   * A library's concept card variant allowance for one UTC month (ADR 0023,
+   * `usageMonth`): variants stored, and variants held by running jobs. A job
+   * reserves its batch before calling the model and, when it ends, charges
+   * what it stored and releases the reservation. Self-hosted instances keep
+   * no rows.
+   */
+  conceptVariantUsage: defineTable({
+    libraryId: v.id("libraries"),
+    month: v.string(),
+    used: v.number(),
+    reserved: v.number(),
+  }).index("by_library_month", ["libraryId", "month"]),
+
+  conceptVariants: defineTable({
+    libraryId: v.id("libraries"),
+    flashcardId: v.id("flashcards"),
+    exercise: v.string(),
+    solution: v.string(),
+    /** Active variants can be shown in review; flagged ones are set aside. */
+    status: v.union(v.literal("active"), v.literal("flagged")),
+    /** When a review last showed it; absent means unseen. */
+    lastShownAt: v.optional(v.number()),
+    origin: v.union(v.literal("generated"), v.literal("edited")),
+    /** Incremented on every change; edits must name the version they started from. */
+    version: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_flashcard", ["flashcardId"])
+    .index("by_library", ["libraryId"]),
 
   /** Generated review items; FSRS state inline. */
   reviewUnits: defineTable({
@@ -328,6 +402,12 @@ export default defineSchema({
      * deck's own order on import. Absent means the hash of the flashcard id.
      */
     frontierKey: v.optional(v.number()),
+    /**
+     * Concept cards only: the variant this unit shows as its front and back.
+     * Absent until the first variant exists; the unit waits on the pending
+     * schedule until then (ADR 0023).
+     */
+    variantId: v.optional(v.id("conceptVariants")),
     /** Incremented on every schedule or display change; reviews name the version shown. */
     version: v.number(),
     createdAt: v.number(),
@@ -355,6 +435,16 @@ export default defineSchema({
     learningSteps: v.number(),
     review: v.number(),
     before: fsrsSnapshot,
+    /**
+     * Concept cards only: the variant this review showed and its last-shown
+     * time before the review, so Undo can reassign it and restore that time.
+     */
+    beforeVariant: v.optional(
+      v.object({
+        variantId: v.id("conceptVariants"),
+        lastShownAt: v.optional(v.number()),
+      }),
+    ),
     /** Review-unit version written by this review; undo requires it unchanged. */
     unitVersionAfter: v.number(),
     statsGeneration: v.optional(v.string()),
@@ -404,6 +494,11 @@ export default defineSchema({
     introducedAt: v.optional(v.number()),
     /** Fixed new-card order (`frontierKey` in model/performance.ts). */
     frontierKey: v.optional(v.number()),
+    /**
+     * Set on a concept card's unit only, so a library without Pro can select
+     * from its other units by index (ADR 0023). Absent on every other unit.
+     */
+    concept: v.optional(v.literal(true)),
   })
     .index("by_unit", ["reviewUnitId"])
     .index("by_flashcard", ["flashcardId"])
@@ -415,6 +510,32 @@ export default defineSchema({
     .index("by_deck_state_due", ["deckId", "locked", "archived", "state", "due"])
     .index("by_library_frontier", ["libraryId", "locked", "archived", "state", "frontierKey"])
     .index("by_deck_frontier", ["deckId", "locked", "archived", "state", "frontierKey"])
+    // The same selections without withheld concept units, for libraries without Pro.
+    .index("by_library_kind_state_due", [
+      "libraryId",
+      "locked",
+      "archived",
+      "concept",
+      "state",
+      "due",
+    ])
+    .index("by_deck_kind_state_due", ["deckId", "locked", "archived", "concept", "state", "due"])
+    .index("by_library_kind_frontier", [
+      "libraryId",
+      "locked",
+      "archived",
+      "concept",
+      "state",
+      "frontierKey",
+    ])
+    .index("by_deck_kind_frontier", [
+      "deckId",
+      "locked",
+      "archived",
+      "concept",
+      "state",
+      "frontierKey",
+    ])
     .index("by_library_buried", ["libraryId", "buriedUntil"])
     .index("by_library_introduced", ["libraryId", "introducedAt"]),
 
@@ -475,6 +596,13 @@ export default defineSchema({
     units: v.number(),
     newUnits: v.number(),
     learningUnits: v.number(),
+    /**
+     * The flashcard's type, for Browse's type filter. Absent on summaries not
+     * rebuilt since it was added, none of them a concept card's.
+     */
+    type: v.optional(v.string()),
+    /** Set on concept cards only: true when active variants remain but every one has been shown. */
+    lowOnVariants: v.optional(v.boolean()),
   })
     .index("by_flashcard", ["flashcardId"])
     .index("by_library_created", ["libraryId", "createdAt"])
@@ -525,6 +653,12 @@ export default defineSchema({
     archivedCount: v.number(),
     /** New, unlocked, unarchived, never-reviewed units. */
     frontierCandidates: v.number(),
+    /**
+     * The concept card units among `frontierCandidates`, which a library
+     * without Pro withholds (ADR 0023). Absent on rows from before it was
+     * counted, which hold none.
+     */
+    conceptFrontierCandidates: v.optional(v.number()),
   })
     .index("by_deck", ["deckId"])
     .index("by_library", ["libraryId"]),

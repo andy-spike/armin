@@ -14,7 +14,9 @@ import {
   writableLibrary,
 } from "./model/access";
 import schema from "./schema";
-import { checkCapacity } from "./model/usage";
+import { checkCapacity, requireConceptCards } from "./model/usage";
+import { fail } from "./model/errors";
+import { selectProvider } from "./model/generator";
 import {
   deleteFlashcardCascade,
   editFlashcard,
@@ -115,18 +117,22 @@ const browseFilters = {
   deckId: v.optional(v.string()),
   tags: v.optional(v.array(v.string())),
   search: v.optional(v.string()),
+  // Only concept cards for now: summaries written before `type` was kept
+  // lack it, and none of those is a concept card.
+  type: v.optional(v.literal("concept")),
 };
 
-type BrowseFilters = { state?: number; tags?: string[]; search?: string };
+type BrowseFilters = { state?: number; tags?: string[]; search?: string; type?: "concept" };
 
 /** The filter as a summary test, or null when nothing is filtered. */
-function summaryMatcher({ state, tags, search }: BrowseFilters) {
+function summaryMatcher({ state, tags, search, type }: BrowseFilters) {
   const tagKeys = new Set((tags ?? []).map((tag) => tag.toLocaleLowerCase()));
   const needle = search?.toLocaleLowerCase() ?? "";
-  if (state === undefined && tagKeys.size === 0 && !needle) return null;
+  if (state === undefined && tagKeys.size === 0 && !needle && type === undefined) return null;
   return (summary: Summary) =>
     (tagKeys.size === 0 || summary.tagKeys.some((tag) => tagKeys.has(tag))) &&
     (state === undefined || (summary.stateMask & (1 << state)) !== 0) &&
+    (type === undefined || summary.type === type) &&
     (!needle || summary.searchText.includes(needle));
 }
 
@@ -339,7 +345,14 @@ export const create = mutation({
     if (previous) return previous.result as { id: Id<"flashcards"> };
     const deck = await ownedOrFail(ctx, library, args.deckId, "Deck");
     await checkCapacity(ctx, library._id, { flashcards: 1 });
-    const input = validateFlashcardInput(args.type, args.content);
+    const input = validateFlashcardInput(args.type, args.content, { concept: true });
+    // A concept card is only useful with generated exercises, so it can't be
+    // created while this deployment has no generator.
+    if (input.type === "concept") {
+      requireConceptCards(library);
+      const { unavailable } = selectProvider();
+      if (unavailable) fail("INVALID", unavailable);
+    }
     const now = Date.now();
     const id = await insertFlashcard(ctx, {
       libraryId: library._id,
@@ -382,10 +395,18 @@ export const update = mutation({
         message: "This flashcard was changed elsewhere after you opened it.",
       };
     }
+    // A concept card outside Pro keeps its data but can't be edited until Pro
+    // returns (ADR 0023).
+    if (flashcard.type === "concept") requireConceptCards(library);
     let input: ValidatedFlashcard | undefined;
     if (args.content !== undefined || args.type !== undefined) {
       const current = parseFlashcard(flashcard);
-      input = validateFlashcardInput(args.type ?? current.type, args.content ?? current.content);
+      const type = args.type ?? current.type;
+      // A concept card's review unit and variant pool have no counterpart in
+      // other types, so neither side of that change is allowed.
+      if (type !== current.type && (type === "concept" || current.type === "concept"))
+        fail("INVALID", "A card can't be changed to or from a concept card.");
+      input = validateFlashcardInput(type, args.content ?? current.content, { concept: true });
     }
     const version = await editFlashcard(ctx, flashcard, { input, tags: args.tags }, Date.now());
     await bumpRevision(ctx, library._id);

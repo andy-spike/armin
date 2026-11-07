@@ -1,4 +1,5 @@
 import { internal } from "../_generated/api";
+import { isAwaitingVariant } from "@armin/core/concept";
 import {
   flashcardDisplay,
   generateReviewUnits,
@@ -242,16 +243,19 @@ export async function reconcileReviewUnits(
   for (const spec of specs) {
     const found = existingBySubKey.get(spec.subKey);
     if (found) {
+      // A concept card's unit shows its assigned variant, which a template
+      // edit leaves in place.
+      const display = type === "concept" ? found : spec;
       const changed =
-        found.front !== spec.front ||
-        found.back !== spec.back ||
+        found.front !== display.front ||
+        found.back !== display.back ||
         found.locked !== flashcard.locked ||
         found.archived !== flashcard.archived ||
         found.deckId !== flashcard.deckId;
       if (changed) {
         await ctx.db.patch(found._id, {
-          front: spec.front,
-          back: spec.back,
+          front: display.front,
+          back: display.back,
           locked: flashcard.locked,
           archived: flashcard.archived,
           deckId: flashcard.deckId,
@@ -261,7 +265,9 @@ export async function reconcileReviewUnits(
       }
     } else {
       const schedule = fsrsFieldsToMs(
-        flashcard.locked ? pendingReviewUnitFields() : newReviewUnitFields(new Date(now)),
+        waitsPending(flashcard.locked, spec)
+          ? pendingReviewUnitFields()
+          : newReviewUnitFields(new Date(now)),
       );
       await ctx.db.insert("reviewUnits", {
         libraryId: flashcard.libraryId,
@@ -353,16 +359,43 @@ async function computeLocked(
 }
 
 /**
- * Persist lock state for a flashcard and keep its never-reviewed units in the
- * matching schedule: locked units wait on the far-future pending date, newly
- * unlocked ones become New.
+ * Whether a never-reviewed unit waits on the far-future pending schedule
+ * instead of being New: while its card is locked, or, for a concept card,
+ * while no variant is assigned for it to show (ADR 0023). Pending is the one
+ * admission rule queues, Frontier counts, rating, and cram already respect.
+ */
+function waitsPending(locked: boolean, unit: Parameters<typeof isAwaitingVariant>[0]) {
+  return locked || isAwaitingVariant(unit);
+}
+
+/**
+ * The schedule change a never-reviewed unit needs under `waitsPending`: onto
+ * the pending date when it must wait, or New when it no longer must. Null
+ * when it already has the right one, or once it has been reviewed.
  *
- * An unlocked unit is due from its creation, not from the unlock. Queries take
- * the client's study clock as `now`, which lags server time until the next
- * refresh, so a unit due at the unlock instant would stay out of an open
- * session's queue until that clock caught up: the session would end on "All
- * caught up" and the card would appear seconds later. Due time doesn't order
- * new units (`frontierKey` does), so the earlier date changes nothing else.
+ * A unit that stops waiting is due from its creation, not from that moment.
+ * Queries take the client's study clock as `now`, which lags server time
+ * until the next refresh, so a unit due at the unlock instant would stay out
+ * of an open session's queue until that clock caught up: the session would
+ * end on "All caught up" and the card would appear seconds later. Due time
+ * doesn't order new units (`frontierKey` does), so the earlier date changes
+ * nothing else.
+ */
+export function waitingSchedule(unit: Doc<"reviewUnits">, locked: boolean, now: number) {
+  if (unit.reps !== 0 || unit.lastReview != null) return null;
+  const pending = isPendingSchedule(unit);
+  const waits = waitsPending(locked, unit);
+  if (waits && !pending) return fsrsFieldsToMs(pendingReviewUnitFields());
+  if (!waits && pending)
+    return fsrsFieldsToMs(newReviewUnitFields(new Date(Math.min(unit.createdAt, now))));
+  return null;
+}
+
+/**
+ * Persist lock state for a flashcard and keep its never-reviewed units in the
+ * matching schedule (`waitsPending`): units that must wait sit on the pending
+ * date, and the rest become New, such as a newly unlocked card or a concept
+ * card whose first variant was just assigned.
  */
 async function applyLockState(
   ctx: MutationCtx,
@@ -384,20 +417,8 @@ async function applyLockState(
       .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcard._id))
       .collect());
   for (const unit of units) {
-    const patch: Partial<Doc<"reviewUnits">> = {};
+    const patch: Partial<Doc<"reviewUnits">> = { ...waitingSchedule(unit, locked, now) };
     if (unit.locked !== locked) patch.locked = locked;
-    const neverReviewed = unit.reps === 0 && unit.lastReview == null;
-    if (neverReviewed) {
-      const pending = isPendingSchedule(unit);
-      if (locked && !pending) {
-        Object.assign(patch, fsrsFieldsToMs(pendingReviewUnitFields()));
-      } else if (!locked && pending) {
-        Object.assign(
-          patch,
-          fsrsFieldsToMs(newReviewUnitFields(new Date(Math.min(unit.createdAt, now)))),
-        );
-      }
-    }
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(unit._id, {
         ...patch,

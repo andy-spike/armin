@@ -36,3 +36,4 @@ export type ExportRow = NonNullable<FunctionReturnType<typeof api.exports.list>>
 export type { BuryResult, BuryUnit, RateResult, UndoResult, UnburyResult } from "../review";
 export type { CramRateResult, CramUndoResult } from "../cram";
 export type { UpdateResult } from "../flashcards";
+export type { EditVariantResult, FlagShownResult } from "../concepts";
