@@ -5,7 +5,8 @@ import { FlashcardDeleteDialog, type FlashcardDeleteRequest } from "@/components
 import { MoveFlashcardDialog } from "@/components/move-flashcard-dialog";
 import { useToast } from "@/components/ui/toast";
 import { armin } from "@/lib/armin-client";
-import type { FlashcardDeleteConsequences, UiFlashcard } from "@/types/view-models";
+import { useDeleteConsequences } from "@/lib/use-delete-consequences";
+import type { UiFlashcard } from "@/types/view-models";
 
 /**
  * The per-card actions every flashcard grid offers: move, card info, archive,
@@ -17,8 +18,7 @@ export function useFlashcardTileActions() {
   const [moveTarget, setMoveTarget] = useState<UiFlashcard | null>(null);
   const [infoCardId, setInfoCardId] = useState<string | null>(null);
   const [deleteRequest, setDeleteRequest] = useState<FlashcardDeleteRequest | null>(null);
-  const [consequences, setConsequences] = useState<FlashcardDeleteConsequences | null>(null);
-  const [consequencesError, setConsequencesError] = useState(false);
+  const deleteConsequences = useDeleteConsequences();
 
   const archiveCard = useMutation({
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
@@ -36,18 +36,12 @@ export function useFlashcardTileActions() {
 
   const requestDelete = (request: FlashcardDeleteRequest) => {
     setDeleteRequest(request);
-    setConsequences(null);
-    setConsequencesError(false);
-    request
-      .loadDeleteConsequences?.(request.card.id)
-      ?.then(setConsequences)
-      .catch(() => setConsequencesError(true));
+    deleteConsequences.open(request.card.id, request.loadDeleteConsequences);
   };
 
   const closeDeleteDialog = () => {
     setDeleteRequest(null);
-    setConsequences(null);
-    setConsequencesError(false);
+    deleteConsequences.close();
   };
 
   const tileProps = (card: UiFlashcard) => ({
@@ -75,8 +69,8 @@ export function useFlashcardTileActions() {
       />
       <FlashcardDeleteDialog
         request={deleteRequest}
-        consequences={consequences}
-        consequencesError={consequencesError}
+        consequences={deleteConsequences.consequences}
+        consequencesError={deleteConsequences.unavailable}
         onClose={closeDeleteDialog}
         onArchiveInstead={() => {
           const request = deleteRequest;

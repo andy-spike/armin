@@ -18,6 +18,7 @@ import { useKeybindings, useScope } from "@/keybindings/keybindings-provider";
 import { errorMessage } from "@/lib/armin-client";
 import { isEditableTarget } from "@/lib/keybindings/editable";
 import { replayCardAudio } from "@/lib/card-audio";
+import { useDeleteConsequences } from "@/lib/use-delete-consequences";
 import { useReviewSession } from "@/lib/use-review-session";
 import type {
   FlashcardDeleteConsequences,
@@ -166,11 +167,7 @@ export function ReviewSession({
   const [typed, setTyped] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [editCard, setEditCard] = useState<UiFlashcard | null>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteConsequences, setDeleteConsequences] = useState<FlashcardDeleteConsequences | null>(
-    null,
-  );
-  const [deleteConsequencesError, setDeleteConsequencesError] = useState(false);
+  const deleteConfirm = useDeleteConsequences();
   const [flashcardActionPending, setCardActionPending] = useState(false);
   const [infoCardId, setInfoCardId] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -249,11 +246,14 @@ export function ReviewSession({
   };
 
   const handleArchive = async () => {
-    if (!card || !onArchiveFlashcard || flashcardActionPending) return;
+    // While the delete dialog is open it owns the target, which may no longer be
+    // the card on screen; from the actions menu, archive the current card.
+    const flashcardId = deleteConfirm.targetId ?? card?.flashcardId;
+    if (!flashcardId || !onArchiveFlashcard || flashcardActionPending) return;
     setCardActionPending(true);
     try {
-      await session.removeFlashcard(card.flashcardId, () => onArchiveFlashcard(card.flashcardId));
-      setDeleteConfirmOpen(false);
+      await session.removeFlashcard(flashcardId, () => onArchiveFlashcard(flashcardId));
+      deleteConfirm.close();
     } finally {
       setCardActionPending(false);
     }
@@ -292,22 +292,16 @@ export function ReviewSession({
 
   const openDeleteConfirm = () => {
     if (!card) return;
-    setDeleteConsequences(null);
-    setDeleteConsequencesError(false);
-    setDeleteConfirmOpen(true);
-    if (loadDeleteConsequences) {
-      void loadDeleteConsequences(card.flashcardId)
-        .then((summary) => setDeleteConsequences(summary))
-        .catch(() => setDeleteConsequencesError(true));
-    }
+    deleteConfirm.open(card.flashcardId, loadDeleteConsequences);
   };
 
   const handleDelete = async () => {
-    if (!card || !onDeleteFlashcard || flashcardActionPending) return;
+    const flashcardId = deleteConfirm.targetId;
+    if (!flashcardId || !onDeleteFlashcard || flashcardActionPending) return;
     setCardActionPending(true);
     try {
-      await session.removeFlashcard(card.flashcardId, () => onDeleteFlashcard(card.flashcardId));
-      setDeleteConfirmOpen(false);
+      await session.removeFlashcard(flashcardId, () => onDeleteFlashcard(flashcardId));
+      deleteConfirm.close();
     } finally {
       setCardActionPending(false);
     }
@@ -610,14 +604,16 @@ export function ReviewSession({
       )}
 
       <DeleteFlashcardDialog
-        open={deleteConfirmOpen}
-        consequences={deleteConsequences}
-        consequencesUnavailable={deleteConsequencesError || !loadDeleteConsequences}
+        open={deleteConfirm.isOpen}
+        consequences={deleteConfirm.consequences}
+        consequencesUnavailable={deleteConfirm.unavailable}
         waitForConsequences={Boolean(loadDeleteConsequences)}
         pending={flashcardActionPending}
-        onClose={() => setDeleteConfirmOpen(false)}
+        onClose={deleteConfirm.close}
         onConfirm={() => void handleDelete()}
-        onArchiveInstead={onArchiveFlashcard && card ? () => void handleArchive() : undefined}
+        onArchiveInstead={
+          onArchiveFlashcard && deleteConfirm.targetId ? () => void handleArchive() : undefined
+        }
       />
 
       <CardInfoDialog

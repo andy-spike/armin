@@ -6,7 +6,7 @@ import {
 } from "@/lib/queries";
 import { useStudyClock } from "@/lib/study-clock";
 import { armin } from "@/lib/armin-client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { GitBranch } from "lucide-react";
 import type { Viewport, XYPosition } from "@xyflow/react";
@@ -19,9 +19,9 @@ import { AllDecksLink, DeckNotFound } from "@/components/deck-not-found";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { useGraphCanvasEdits } from "@/lib/use-graph-canvas-edits";
+import { useDeleteConsequences } from "@/lib/use-delete-consequences";
 import {
   type FlashcardContent,
-  type FlashcardDeleteConsequences,
   type FlashcardType,
   toUiDeckGraph,
   type UiDeckGraph,
@@ -46,6 +46,29 @@ function readSavedViewport(storageKey: string): Viewport | undefined {
   }
   return undefined;
 }
+
+/**
+ * The card form dialog is either closed, creating a card (optionally at a
+ * canvas placement and linked from another node), or editing a loaded card.
+ * `open` stays true through the exit animation so the dialog keeps its content
+ * until `onExitComplete` clears the whole state.
+ */
+type CardDialogState =
+  | { mode: "closed" }
+  | {
+      mode: "create";
+      open: boolean;
+      placement: XYPosition | null;
+      connectFrom: string | null;
+    }
+  | {
+      mode: "edit";
+      open: boolean;
+      id: string;
+      version: number | null;
+      type: FlashcardType;
+      content: FlashcardContent | null;
+    };
 
 function DeckGraphPage() {
   const { resolvedDeckId: deckId, deckSlug } = Route.useRouteContext();
@@ -93,18 +116,9 @@ function DeckGraphPage() {
   );
 
   const [graph, setGraph] = useState<UiDeckGraph>({ nodes: [], edges: [] });
-  const [open, setOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingVersion, setEditingVersion] = useState<number | null>(null);
-  const [editingType, setEditingType] = useState<FlashcardType>("basic");
-  const [editingContent, setEditingContent] = useState<FlashcardContent | null>(null);
-  const [pendingPlacement, setPendingPlacement] = useState<XYPosition | null>(null);
-  const [pendingConnectFrom, setPendingConnectFrom] = useState<string | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleteConsequences, setDeleteConsequences] = useState<FlashcardDeleteConsequences | null>(
-    null,
-  );
-  const [deleteConsequencesError, setDeleteConsequencesError] = useState(false);
+  const [cardDialog, setCardDialog] = useState<CardDialogState>({ mode: "closed" });
+  const cardDialogRequest = useRef(0);
+  const deleteConsequences = useDeleteConsequences();
 
   const [graphReady, setGraphReady] = useState(false);
   const [canvasMounted, setCanvasMounted] = useState(false);
@@ -131,54 +145,61 @@ function DeckGraphPage() {
     }, 100);
   }, [graphReady, canvasMounted]);
 
-  const closeDialog = () => setOpen(false);
+  const closeDialog = () =>
+    setCardDialog((current) => (current.mode === "closed" ? current : { ...current, open: false }));
 
-  const handleDialogExitComplete = () => {
-    setEditingId(null);
-    setPendingPlacement(null);
-    setPendingConnectFrom(null);
-  };
+  const handleDialogExitComplete = () =>
+    setCardDialog((current) =>
+      // A dialog opened again mid-exit must survive the old exit finishing.
+      current.mode !== "closed" && current.open ? current : { mode: "closed" },
+    );
 
   const openCreate = (placement?: XYPosition, connectFromNodeId?: string) => {
-    setEditingId(null);
-    setPendingPlacement(placement ?? null);
-    setPendingConnectFrom(connectFromNodeId ?? null);
-    setOpen(true);
+    // A pending edit load must not open over the new form.
+    cardDialogRequest.current += 1;
+    setCardDialog({
+      mode: "create",
+      open: true,
+      placement: placement ?? null,
+      connectFrom: connectFromNodeId ?? null,
+    });
   };
 
   const openEdit = async (nodeId: string) => {
     const node = graph.nodes.find((n) => n.id === nodeId);
     if (!node) return;
-    setEditingId(nodeId);
-    setPendingPlacement(null);
-    setPendingConnectFrom(null);
+    const request = ++cardDialogRequest.current;
     // Fetch the full flashcard content before opening: the form hydrates on the
     // open transition, and graph nodes only carry display strings.
     const card = await armin.flashcards.get(nodeId);
-    setEditingVersion(card?.version ?? null);
-    setEditingType(card?.type ?? node.type);
-    setEditingContent(card?.content ?? null);
-    setOpen(true);
+    // Only the latest open may win: an earlier fetch resolving late must not
+    // open the dialog with another card's content.
+    if (cardDialogRequest.current !== request) return;
+    setCardDialog({
+      mode: "edit",
+      open: true,
+      id: nodeId,
+      version: card?.version ?? null,
+      type: card?.type ?? node.type,
+      content: card?.content ?? null,
+    });
   };
 
   const openDelete = (nodeId: string) => {
-    setDeleteId(nodeId);
-    setDeleteConsequences(null);
-    setDeleteConsequencesError(false);
-    void armin.flashcards
-      .deleteConsequences(nodeId)
-      .then((summary) => setDeleteConsequences(summary))
-      .catch(() => setDeleteConsequencesError(true));
+    deleteConsequences.open(nodeId, (id) => armin.flashcards.deleteConsequences(id));
   };
+
+  const editDialog = cardDialog.mode === "edit" ? cardDialog : null;
+  const createDialog = cardDialog.mode === "create" ? cardDialog : null;
 
   const graphEdits = useGraphCanvasEdits({
     graph,
     setGraph,
     deckId,
-    pendingPlacement,
-    pendingConnectFrom,
-    editingId,
-    editingVersion,
+    pendingPlacement: createDialog?.placement ?? null,
+    pendingConnectFrom: createDialog?.connectFrom ?? null,
+    editingId: editDialog?.id ?? null,
+    editingVersion: editDialog?.version ?? null,
     closeDialog,
     resetGraph: () => {
       if (persistedGraph) setGraph(persistedGraph);
@@ -188,8 +209,8 @@ function DeckGraphPage() {
 
   const confirmGraphDelete = async () => {
     try {
-      if (await graphEdits.confirmGraphDelete(deleteId)) {
-        setDeleteId(null);
+      if (await graphEdits.confirmGraphDelete(deleteConsequences.targetId)) {
+        deleteConsequences.close();
       }
     } catch {
       // The mutation already reported the failure and reset the graph.
@@ -275,23 +296,23 @@ function DeckGraphPage() {
       )}
 
       <FlashcardFormDialog
-        open={open}
+        open={cardDialog.mode !== "closed" && cardDialog.open}
         onClose={closeDialog}
         onExitComplete={handleDialogExitComplete}
-        mode={editingId ? "edit" : "create"}
-        reviewUnitId={editingId}
-        initialType={editingId ? editingType : "basic"}
-        initialContent={editingId ? editingContent : null}
+        mode={editDialog ? "edit" : "create"}
+        reviewUnitId={editDialog?.id}
+        initialType={editDialog?.type ?? "basic"}
+        initialContent={editDialog?.content ?? null}
         onSubmit={graphEdits.saveCard}
         deckId={deckId}
       />
       <DeleteFlashcardDialog
-        open={Boolean(deleteId)}
-        consequences={deleteConsequences}
-        consequencesUnavailable={deleteConsequencesError}
+        open={deleteConsequences.isOpen}
+        consequences={deleteConsequences.consequences}
+        consequencesUnavailable={deleteConsequences.unavailable}
         waitForConsequences
         pending={graphEdits.deletePending}
-        onClose={() => setDeleteId(null)}
+        onClose={deleteConsequences.close}
         onConfirm={() => void confirmGraphDelete()}
       />
     </div>

@@ -4,7 +4,7 @@ import { internalQuery, query } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import { getViewer, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
-import { EXPORT_TTL_MS } from "./model/limits";
+import { EXPORT_BUILD_TIMEOUT_MS, EXPORT_TTL_MS } from "./model/limits";
 import { getSettingsRow, libraryRevision } from "./model/study";
 
 /** Start building a ZIP export of the caller's library. */
@@ -30,6 +30,12 @@ export const start = mutation({
       expiresAt: now + EXPORT_TTL_MS,
     });
     await ctx.scheduler.runAfter(0, internal.exportBuilder.build, { exportId: id });
+    // A build can stop without reporting back (an action timeout or a deploy
+    // mid-run). The watchdog then fails the row, so the user can export again;
+    // it does nothing once the build has stored or failed.
+    await ctx.scheduler.runAfter(EXPORT_BUILD_TIMEOUT_MS, internal.exports.expireBuild, {
+      exportId: id,
+    });
     await ctx.scheduler.runAfter(EXPORT_TTL_MS, internal.exports.expire, { exportId: id });
     return id;
   },
@@ -67,6 +73,24 @@ export const expire = internalMutation({
   },
 });
 
+/**
+ * The watchdog `start` schedules: a build still pending after
+ * `EXPORT_BUILD_TIMEOUT_MS` stopped without reporting back, so the row fails
+ * with an error and the user can start another export. A late result from that
+ * build is dropped by `markResult`.
+ */
+export const expireBuild = internalMutation({
+  args: { exportId: v.id("exports") },
+  handler: async (ctx, { exportId }) => {
+    const row = await ctx.db.get(exportId);
+    if (row?.status !== "pending") return;
+    await ctx.db.patch(row._id, {
+      status: "failed",
+      error: "The export stopped before it finished. Try again.",
+    });
+  },
+});
+
 export const markResult = internalMutation({
   args: {
     exportId: v.id("exports"),
@@ -76,8 +100,10 @@ export const markResult = internalMutation({
   },
   handler: async (ctx, { exportId, storageId, size, error }) => {
     const row = await ctx.db.get(exportId);
-    if (!row) {
-      // Expired or the account was deleted while building.
+    // Expired, failed by its watchdog, or the account was deleted while
+    // building. A late result must not overwrite a terminal state, so drop the
+    // file it stored too.
+    if (row?.status !== "pending") {
       if (storageId) await ctx.storage.delete(storageId);
       return;
     }

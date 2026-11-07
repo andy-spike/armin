@@ -23,6 +23,9 @@ type Submission = {
 
 type BuryOutcome = { status: "ok"; units: BuriedUnit[] } | { status: "stale"; message: string };
 
+/** One session-level operation runs at a time; answers wait while one does. */
+type Operation = "idle" | "undoing" | "burying";
+
 const RETRY_DELAYS_MS = [500, 1_000, 2_000, 5_000];
 
 /**
@@ -74,8 +77,20 @@ export function useReviewSession({
   const unsavedRef = useRef(new Set<string>());
   const [saving, setSaving] = useState(0);
   const drainWaitersRef = useRef<(() => void)[]>([]);
-  const [undoing, setUndoing] = useState(false);
-  const [burying, setBurying] = useState(false);
+  // Held in a ref so two calls in the same tick cannot both start, and in state
+  // so the UI rerenders.
+  const operationRef = useRef<Operation>("idle");
+  const [operation, setOperation] = useState<Operation>("idle");
+  const beginOperation = (next: Exclude<Operation, "idle">) => {
+    if (operationRef.current !== "idle") return false;
+    operationRef.current = next;
+    setOperation(next);
+    return true;
+  };
+  const endOperation = () => {
+    operationRef.current = "idle";
+    setOperation("idle");
+  };
   // Missing queue entries may have been deleted elsewhere; preview returns
   // null once the unit is gone. Each is checked once while it stays missing.
   const missingCheckedRef = useRef(new Set<string>());
@@ -137,7 +152,8 @@ export function useReviewSession({
 
   /** Answer the card on screen; the next card shows while the answer saves. False when ignored. */
   const rate = (grade: Grade) => {
-    if (!card || card.reviewed || undoing || state.stale || !online) return false;
+    if (!card || card.reviewed || operationRef.current !== "idle" || state.stale || !online)
+      return false;
     if (unsavedRef.current.has(card.turnId)) return false;
     const requestId = crypto.randomUUID();
     unsavedRef.current.add(card.turnId);
@@ -149,9 +165,9 @@ export function useReviewSession({
 
   /** Undo the latest answer or bury. Resolves true when an answer came back on screen. */
   const undoLast = async () => {
-    if (!onUndo || undoing || !online) return false;
+    if (!onUndo || !online) return false;
     if (stateRef.current.history.length === 0 && unsavedRef.current.size === 0) return false;
-    setUndoing(true);
+    if (!beginOperation("undoing")) return false;
     dispatch({ type: "notice", message: null });
     try {
       // The latest answer may still be saving.
@@ -167,14 +183,14 @@ export function useReviewSession({
       dispatch({ type: "notice", message: "Couldn't undo. Check your connection and try again." });
       return false;
     } finally {
-      setUndoing(false);
+      endOperation();
     }
   };
 
   /** Hide every unit of the card on screen until tomorrow. */
   const bury = async () => {
-    if (!card || !onBury || burying || !online) return;
-    setBurying(true);
+    if (!card || !onBury || !online) return;
+    if (!beginOperation("burying")) return;
     dispatch({ type: "notice", message: null });
     try {
       // Let answers already given (including siblings of this flashcard) land
@@ -197,7 +213,7 @@ export function useReviewSession({
         message: "Couldn't bury this card. Check your connection and try again.",
       });
     } finally {
-      setBurying(false);
+      endOperation();
     }
   };
 
@@ -222,7 +238,7 @@ export function useReviewSession({
   useEffect(() => {
     // While answers are saving, a refreshed queue can still list a card that
     // was just answered; merge once the server has every answer.
-    if (!ready || saving > 0 || undoing) return;
+    if (!ready || saving > 0 || operation !== "idle") return;
     dispatch({ type: "queue", incoming: queue, allowNewCards });
     // A card that reappears may go missing again later (e.g. it is deleted
     // after being answered elsewhere), so forget earlier checks on presence.
@@ -255,7 +271,7 @@ export function useReviewSession({
         notice: "This card was deleted in another tab. It was removed from the session.",
       });
     });
-  }, [ready, queue, saving, undoing, allowNewCards, dispatch]);
+  }, [ready, queue, saving, operation, allowNewCards, dispatch]);
 
   return {
     cards,
@@ -266,8 +282,8 @@ export function useReviewSession({
     notice: state.notice,
     saving,
     saveFailing,
-    undoing,
-    burying,
+    undoing: operation === "undoing",
+    burying: operation === "burying",
     rate,
     undoLast,
     bury,
@@ -275,7 +291,7 @@ export function useReviewSession({
     /** The card on screen now shows other content under `version`, unanswered. */
     replace: (turnId: string, version: number) => dispatch({ type: "replaced", turnId, version }),
     step: (delta: -1 | 1) => {
-      if (!undoing) dispatch({ type: "step", delta });
+      if (operationRef.current === "idle") dispatch({ type: "step", delta });
     },
     /** Drop a unit from the session, such as a missing card the user skips. */
     remove: (reviewUnitId: string) => dispatch({ type: "removed", reviewUnitIds: [reviewUnitId] }),
