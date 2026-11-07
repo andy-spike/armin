@@ -9,5 +9,4 @@ error. Upstream connection failures and unrelated application errors still log.
 It changes shipped JavaScript and source TypeScript. pnpm reapplies it through
 `patchedDependencies` in `pnpm-workspace.yaml`.
 
-Reevaluate this patch when upgrading TanStack Start. See
-`docs/qa/2026-10-20-dev-startup.md` for reproduction and verification.
+Reevaluate this patch when upgrading TanStack Start.

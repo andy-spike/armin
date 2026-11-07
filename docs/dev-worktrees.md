@@ -55,9 +55,8 @@ settings are machine/app settings; another machine must register the same action
    `pnpm --filter @armin/backend exec convex run billing:setComplimentaryPro
    '{"email":"test@example.com","enabled":false}'`; rerunning setup turns it
    back on.
-4. Make changes and run the validation required by `AGENTS.md`. Record app
-   walkthroughs under `docs/qa/`. Commit regenerated Convex and route files when
-   they change. Keep `.armin/`, `.env.local`, and `.convex/` out of commits.
+4. Make changes and run the validation required by `AGENTS.md`. Commit
+   regenerated Convex and route files when they change. Keep `.armin/`, `.env.local`, and `.convex/` out of commits.
 5. Open a PR against `master` only when the user asks for one. When you do, bring
    it up to date with `master` and wait for the required `Verify` check to pass
    before merging through GitHub. Direct pushes and local Worktrunk merges into

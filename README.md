@@ -119,7 +119,6 @@ maximum interval, FSRS parameters) come along, and optionally review progress,
 including buried cards and Anki's new-card order. Video, text-to-speech, card
 styling, and per-deck daily limits don't. The file is read in the browser and
 the preview lists anything left out before importing. See
-[ADR 0022](packages/core/docs/adr/0022-anki-import-runs-in-the-browser.md) and
 [AI assistant Anki import](docs/agent-connections.md#anki-import).
 
 ## Equations
@@ -200,9 +199,8 @@ Run `pnpm check`, `pnpm --filter @armin/web build`, and
 `pnpm --filter @armin/mobile check:bundle`. `pnpm check` runs `vp check`, which
 checks formatting (Oxfmt), lints (Oxlint), and type checks every workspace in one
 pass; `pnpm format` fixes formatting. Lint and format settings live in the root
-`vite.config.ts` ([ADR 0003](docs/adr/0003-vite-plus-toolchain.md)). Web, backend,
-and mobile changes use running-app walkthroughs recorded in [`docs/qa/`](docs/qa/),
-without automated test suites.
+`vite.config.ts`. Web, backend, and mobile changes are verified in the running
+app, without automated test suites.
 
 ## License
 

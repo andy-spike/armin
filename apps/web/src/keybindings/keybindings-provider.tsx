@@ -4,8 +4,6 @@
  * modal isolation, and typing suppression. Components activate their Scope and
  * register handlers via {@link useScope}; the palette, cheatsheet, and settings
  * read the effective keymap from {@link useKeybindings}.
- *
- * See docs/adr/0018 (dispatch) and docs/adr/0019 (per-profile override storage).
  */
 
 import { armin } from "@/lib/armin-client";

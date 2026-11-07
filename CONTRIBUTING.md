@@ -43,14 +43,9 @@ for the private reporting process.
 
 ## Project layout
 
-Armin is a monorepo with web and mobile clients and a Convex backend. The repository's
-conventions, domain language, and architectural decisions are documented in:
+Armin is a monorepo with web and mobile clients and a Convex backend. Start with:
 
 - [`README.md`](README.md) — what Armin is and how to install it.
-- [`CONTEXT-MAP.md`](CONTEXT-MAP.md) — the contexts and where their language lives.
 - [`packages/backend/README.md`](packages/backend/README.md) and the client READMEs cover development and validation.
-- [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md) and
-  [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md) — how issues are
-  tracked and triaged.
 
 [issues]: https://github.com/andy-spike/armin/issues
