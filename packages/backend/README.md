@@ -118,8 +118,11 @@ Client entry points (see `package.json` `exports`):
   file through the authenticated `/media/*` route, checks it, and writes the
   finished ZIP (`zip-writer.ts`, ZIP64 past 4 GiB), streaming it to disk where
   the browser allows. A media file deleted mid-export fails the export rather
-  than leaving the backup incomplete. No server
-  function holds a library's media, so exports have no media size limit.
+  than leaving the backup incomplete. `exports.start` schedules
+  `exports.expireBuild`, a watchdog just past an action's 10-minute limit: a
+  build that stops without reporting back fails with an error and can be
+  started again, and a late result is dropped instead of overwriting it. No
+  server function holds a library's media, so exports have no media size limit.
 
 ## Anki import
 
