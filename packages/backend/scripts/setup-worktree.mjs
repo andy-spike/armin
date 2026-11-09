@@ -16,6 +16,7 @@ import {
   mainState,
   readEnv,
   readState,
+  refreshSiteUrl,
   run,
   saveState,
   statePath,
@@ -82,7 +83,11 @@ try {
     if (process.env[key]) throw new Error(`Unset shell ${key} before setup.`);
   }
   const main = isMainCheckout();
-  const state = existsSync(statePath) ? readState() : main ? mainState() : await allocate();
+  const state = existsSync(statePath)
+    ? refreshSiteUrl(readState())
+    : main
+      ? mainState()
+      : await allocate();
   saveState(state);
   const envFile = join(backend, ".env.local");
   const values = readEnv(envFile);
