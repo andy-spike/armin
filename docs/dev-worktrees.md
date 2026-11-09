@@ -61,8 +61,7 @@ settings are machine/app settings; another machine must register the same action
    they change. Keep `.armin/`, `.env.local`, and `.convex/` out of commits.
 5. Open a PR against `master` only when the user asks for one. When you do, bring
    it up to date with `master` and wait for the required `Verify` check to pass
-   before merging through GitHub. Direct pushes and local Worktrunk merges into
-   `master` are not part of this workflow.
+   before merging through GitHub. Never push directly to `master`.
    After merging into `master`, complete the cleanup steps below. Code merges
    through Git; fixture accounts, data, and environment variables stay in the
    local deployment.
