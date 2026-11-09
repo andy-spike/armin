@@ -46,19 +46,12 @@ const protectedReviewerPaths = new Set([
 
 const authFunctions: AuthFunctions = internal.auth;
 
-/**
- * Better Auth runs inside Convex through the component adapter. Triggers keep
- * the library lifecycle in the same transaction as the auth record change.
- */
 export const authComponent = createClient<DataModel>(components.betterAuth, {
   authFunctions,
   triggers: {
     user: {
       onCreate: async (ctx, user) => {
         if (!isSelfHosted()) return;
-        // The single-owner guard that cannot race: this runs in the same
-        // transaction as the insert, so of two concurrent owner creations one
-        // conflicts, retries, sees the other, and is rolled back here.
         const { page } = await ctx.runQuery(components.betterAuth.adapter.findMany, {
           model: "user",
           paginationOpts: { numItems: 2, cursor: null },
@@ -68,8 +61,6 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
         }
       },
       onDelete: async (ctx, user) => {
-        // Revoke library access in the same transaction as the user deletion,
-        // then let the bounded cleanup job remove study rows and files.
         await markLibraryDeleting(ctx, user._id);
       },
     },
@@ -79,8 +70,6 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 
 export const resend: Resend = new Resend(components.resend, {
-  // Real delivery. Without a verified domain Resend only delivers
-  // onboarding@resend.dev mail to the Resend account's own address.
   testMode: false,
 });
 
@@ -92,22 +81,14 @@ function emailFrom() {
   return process.env.EMAIL_FROM ?? "Armin <onboarding@resend.dev>";
 }
 
-/** Whether this deployment can deliver verification and password-reset mail. */
 function emailConfigured() {
   return Boolean(process.env.RESEND_API_KEY);
 }
 
-/** Whether this deployment can start Google OAuth. */
 function googleConfigured() {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
-/**
- * A production deployment without optional auth providers still serves
- * existing verified accounts, but sign-up and password reset cannot work.
- * Warn when the module loads so the gap shows up in deployment logs. Local
- * development and self-hosted instances intentionally run without them.
- */
 if (!isSelfHosted() && !/localhost|127\.0\.0\.1/.test(siteUrl())) {
   if (!emailConfigured()) {
     console.warn(
@@ -162,7 +143,6 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
             const user = await ctx.context.internalAdapter.findUserByEmail(ctx.body.email);
             if (user) rejectReviewerAccountChange(user.user.id);
           }
-          // Reject even a reset token issued before this protection was enabled.
           if (ctx.path === "/reset-password") {
             const token = ctx.body?.token || ctx.query?.token;
             if (typeof token === "string") {
@@ -173,14 +153,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
             }
           }
         }
-        // A self-hosted instance's only account is created on the server by
-        // selfhost/create-owner.sh, so no request can claim it first.
         if (isSelfHosted() && ctx.path.startsWith("/sign-up")) throw signUpClosed();
-        // Better Auth logs a failed email send and still answers 200. When
-        // this deployment cannot send mail at all, reject the flows that
-        // depend on it before an account or token is created, so the client
-        // never claims a message was sent. Existing verified users can still
-        // sign in with a password.
         if (emailConfigured()) return;
         if (isSelfHosted()) {
           if (ctx.path === "/request-password-reset" || ctx.path === "/send-verification-email") {
@@ -206,8 +179,6 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     },
     emailAndPassword: {
       enabled: true,
-      // A self-hosted instance has no email service; its owner is verified
-      // when selfHost:createOwner creates the account.
       requireEmailVerification: !isSelfHosted(),
       minPasswordLength: 10,
       revokeSessionsOnPasswordReset: true,
@@ -225,8 +196,6 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     },
     emailVerification: {
       sendOnSignUp: !isSelfHosted(),
-      // Without a provider the send is silently dropped, so skip it and let
-      // the client explain why an unverified account can't sign in.
       sendOnSignIn: emailConfigured(),
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
@@ -252,8 +221,6 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
       : {},
     account: {
       accountLinking: {
-        // Link only when the provider vouches for the email. No trusted
-        // provider shortcut: an unverified Google email never links.
         enabled: true,
         allowDifferentEmails: false,
       },
@@ -269,8 +236,6 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
         create: {
           before: async (user, context) => {
             if (!isSelfHosted()) return;
-            // Every request runs inside an endpoint context; only the
-            // operator's selfHost:createOwner creates a user outside one.
             if (context) throw signUpClosed();
             return { data: { ...user, emailVerified: true } };
           },
@@ -280,9 +245,6 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
         create: {
           before: async (account, context) => {
             rejectReviewerAccountChange(account.userId);
-            // A verified social identity is about to join an existing user. If
-            // that user never verified their email, a password set by whoever
-            // registered the address must not survive the link.
             if (account.providerId === "credential" || !context) return;
             const adapter = context.context.internalAdapter;
             const user = await adapter.findUserById(account.userId);

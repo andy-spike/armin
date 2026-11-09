@@ -20,7 +20,6 @@ import { linkPrerequisites, unlinkPrerequisite } from "./model/prereqs";
 import { bumpRevision, libraryRevision, type TagCache } from "./model/study";
 import { checkCapacity } from "./model/usage";
 
-/** A card in the connection's library, in a deck it may use. */
 async function cardForAccess(ctx: QueryCtx, connection: Doc<"agentConnections">, id: string) {
   const cardId = ctx.db.normalizeId("flashcards", id);
   const card = cardId ? await ctx.db.get(cardId) : null;
@@ -29,7 +28,6 @@ async function cardForAccess(ctx: QueryCtx, connection: Doc<"agentConnections">,
   return card;
 }
 
-/** `cardForAccess`, for an edit that started from `expectedVersion`. */
 async function cardForEdit(
   ctx: QueryCtx,
   connection: Doc<"agentConnections">,
@@ -177,10 +175,6 @@ async function saveCards(ctx: MutationCtx, connection: Doc<"agentConnections">, 
   };
 }
 
-/**
- * Assistants may change a card's text and tags, but not remove review items
- * (and their history) or touch cards with images; those edits stay in Armin.
- */
 async function editCard(ctx: MutationCtx, connection: Doc<"agentConnections">, input: unknown) {
   const args = agentToolSchemas.update_card.parse(input);
   const card = await cardForEdit(ctx, connection, args.cardId, args.expectedVersion);
@@ -263,10 +257,6 @@ async function setPrerequisite(
   };
 }
 
-/**
- * Assistants may not silently cut a learner's prerequisite chain, so a card
- * with links must have them removed explicitly before it moves.
- */
 async function moveCard(ctx: MutationCtx, connection: Doc<"agentConnections">, input: unknown) {
   const args = agentToolSchemas.move_card.parse(input);
   const card = await cardForEdit(ctx, connection, args.cardId, args.expectedVersion);
@@ -315,7 +305,6 @@ export const write = internalMutation({
       connection,
       { requestId: parsed.requestId, fingerprint },
       {
-        // A retry still needs access to the deck the first attempt wrote.
         replay: async (saved) => {
           await requireDeck(ctx, connection, saved.deckId);
           return saved;

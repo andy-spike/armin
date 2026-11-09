@@ -4,11 +4,6 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-/**
- * Tracks whether the referenced element's content is clipped, across (an
- * ellipsis) or down (a line clamp). Re-measures via a `ResizeObserver`, so it stays
- * correct when the container width changes (e.g. a popup anchored to a trigger).
- */
 export function useIsTruncated<T extends HTMLElement>() {
   const ref = useRef<T>(null);
   const [truncated, setTruncated] = useState(false);
@@ -31,11 +26,6 @@ export function useIsTruncated<T extends HTMLElement>() {
   return { ref, truncated, measure };
 }
 
-/**
- * Single-line label that fills the available width and ellipsizes when it
- * overflows. Only when the text is actually clipped does it expose the full
- * value through a hover/focus tooltip, so short labels stay tooltip-free.
- */
 export function TruncatedLabel({
   label,
   tooltip = label,
@@ -43,7 +33,6 @@ export function TruncatedLabel({
   className,
 }: {
   label: string;
-  /** What the tooltip shows when the label is clipped; defaults to the label. */
   tooltip?: React.ReactNode;
   side?: "top" | "bottom" | "left" | "right";
   className?: string;
@@ -64,10 +53,6 @@ export function TruncatedLabel({
   );
 }
 
-/**
- * Text clamped to a fixed number of lines. Like `TruncatedLabel`, it shows the
- * full text in a tooltip only when lines are actually cut off.
- */
 export function ClampedLabel({
   label,
   lines,

@@ -38,7 +38,6 @@ function MathNode({ tex, display }: { tex: string; display: string }) {
   );
 }
 
-/** Protect math before Markdown's block/escape rules can change its source. */
 function mathDocument(content: string) {
   const parts = splitMath(content);
   let marker = "\uE000math";
@@ -80,29 +79,16 @@ function mathDocument(content: string) {
   return { source, extensions: [...EXTENSIONS, math] };
 }
 
-/**
- * Card images are stored as `armin-media:` references to private library
- * media. Everything else keeps the parser's sanitised URL, which drops
- * script-capable schemes such as `javascript:`.
- */
 const cardUrlTransform: UrlTransform = (url, kind, defaultUrl) =>
   kind === "image" && parseMediaRef(url) ? mediaDisplayUrl(url) : defaultUrl;
 
 const TRAILING_PUNCTUATION = /[.,:;!?'"*_~]+$/;
 
-/** Link node for an address shown as its own text. */
 const linkTo = (href: string, text: string, length: number) => ({
   node: { type: "link" as const, href, children: [{ type: "text" as const, value: text }] },
   length,
 });
 
-/**
- * Links written as addresses, which the parser leaves as text while raw HTML
- * is off: CommonMark `<https://…>` autolinks (limited to web, mail, and phone
- * schemes) and GFM bare `https://…`, `http://…`, and `www.…` addresses, as
- * remark-gfm rendered them. Trailing punctuation and an unbalanced closing
- * parenthesis stay outside a bare link.
- */
 const autolinks: MarkdownExtension = {
   name: "autolinks",
   inlineParser: {
@@ -135,17 +121,10 @@ const autolinks: MarkdownExtension = {
 const EXTENSIONS = [autolinks, inlineMarks];
 
 type MarkdownContentProps = {
-  /** Markdown source to render read-only. */
   content: string;
   className?: string;
-  /** In compact previews, replace images with numbered placeholders. */
   images?: "show" | "placeholder";
-  /** Rendered after the Markdown, inside the same styled container. */
   imageLoading?: "eager" | "lazy";
-  /**
-   * A review card side: its audio clips form one group the replay shortcut
-   * plays, and `autoplay` plays them as soon as the side appears.
-   */
   audio?: "autoplay" | "manual";
   children?: ReactNode;
 };
@@ -164,16 +143,13 @@ function createComponents(
     ),
     img:
       images === "placeholder"
-        ? // Numbered by a CSS counter (`.md-image-placeholder`) in document order.
-          ({ src }: ComponentProps<"img">) =>
+        ? ({ src }: ComponentProps<"img">) =>
             typeof src === "string" && isAudioFile(src) ? (
               <CardAudioPlaceholder />
             ) : (
               <span className="md-image-placeholder" />
             )
-        : // Apply the stored display width (encoded in the title) and let
-          // clicking the image open the centered zoom preview.
-          ({ src, alt, title }: ComponentProps<"img">) => {
+        : ({ src, alt, title }: ComponentProps<"img">) => {
             const source = typeof src === "string" ? src : "";
             if (isAudioFile(source)) return <CardAudio src={source} />;
             const rawTitle = typeof title === "string" ? title : null;
@@ -201,11 +177,6 @@ function createComponents(
   };
 }
 
-/**
- * Read-only renderer for the Markdown cards are authored in: CommonMark plus
- * the GFM tables, strikethrough, task lists, and autolinks cards use. Raw HTML
- * is shown as text. Styling lives under `.markdown-content`.
- */
 export function MarkdownContent({
   content,
   className,
@@ -215,7 +186,6 @@ export function MarkdownContent({
   children,
 }: MarkdownContentProps) {
   const group = useMemo(() => (audio ? new AudioGroup() : null), [audio]);
-  // Runs again for each new card shown in the same place (new content).
   useEffect(() => {
     if (!group) return;
     const untrack = trackGroup(group);
@@ -223,7 +193,6 @@ export function MarkdownContent({
     return () => {
       untrack();
       cancelAutoplay();
-      // A side that leaves (next card, other page) stops the audio it started.
       stopAudioOf(group);
     };
   }, [group, audio, content]);

@@ -6,15 +6,11 @@ import cloudflare from "@astrojs/cloudflare";
 
 const nimbusConfig = defineNimbusConfig({
   rendering: { default: "request" },
-  // The canonical origin (no trailing slash). Drives canonical URLs, absolute
-  // OG image URLs, robots.txt, the sitemap, and the links in /llms.txt.
   site: "https://docs.armincards.app",
   title: "Armin",
   description: "How to study with Armin: decks, cards, prerequisites, reviews, and imports.",
   locale: "en",
   github: "https://github.com/andy-spike/armin",
-  // "Edit this page on GitHub" under every page; {path} is the source file's
-  // path from this workspace (src/content/docs/…).
   editPattern: "https://github.com/andy-spike/armin/edit/master/apps/docs/{path}",
   socialImageAlt: "Armin user guide",
   // The home page leads the sidebar; every other page joins it automatically.

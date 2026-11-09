@@ -13,7 +13,6 @@ export default function MathEquation({ tex, display }: { tex: string; display: s
       </span>
     );
   }
-  // KaTeX emits this markup with trust:false; raw card HTML is never passed in.
   return (
     <span
       className={display === "true" ? "math-display" : "math-inline"}

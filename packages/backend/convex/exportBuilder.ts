@@ -69,7 +69,6 @@ function fsrs(row: Doc<"reviewUnits">) {
 type Page<T> = { page: T[]; isDone: boolean; continueCursor: string };
 type ExportJob = NonNullable<FunctionReturnType<typeof internal.exports.jobLibrary>>;
 
-/** Every row a paginated internal query returns, page by page. */
 async function collectPages<T>(load: (cursor: string | null) => Promise<Page<T>>) {
   const rows: T[] = [];
   let cursor: string | null = null;
@@ -88,11 +87,6 @@ async function sha256Hex(bytes: Uint8Array) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/**
- * Read the library in pages and keep the result only if its revision didn't
- * change meanwhile, so the archive is internally consistent. Null after
- * `MAX_ATTEMPTS` changed reads.
- */
 async function collectSnapshot(ctx: ActionCtx, libraryId: Id<"libraries">) {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const meta = await ctx.runQuery(internal.exports.snapshotCore, { libraryId });
@@ -130,10 +124,8 @@ async function collectSnapshot(ctx: ActionCtx, libraryId: Id<"libraries">) {
     );
     const after = await ctx.runQuery(internal.exports.revision, { libraryId });
     if (after !== core.revision) continue;
-    // History of a just-deleted deck may still be awaiting cleanup.
     const unitIds = new Set<string>(core.reviewUnits.map((unit) => unit._id));
     const currentDeck = new Map(core.reviewUnits.map((unit) => [unit._id, unit.deckId]));
-    // A deleted card's variants may still be awaiting cleanup too.
     const cardIds = new Set<string>(core.flashcards.map((card) => card._id));
     core.variants = variants.filter((variant) => cardIds.has(variant.flashcardId));
     const logs = pages
@@ -144,7 +136,6 @@ async function collectSnapshot(ctx: ActionCtx, libraryId: Id<"libraries">) {
   return null;
 }
 
-/** The archive's JSON data files and README, keyed by path. */
 function dataFiles(snapshot: Snapshot, logs: Doc<"reviewLogs">[], timeZone: string) {
   const files: Record<string, Uint8Array> = {};
 
@@ -247,7 +238,6 @@ function dataFiles(snapshot: Snapshot, logs: Doc<"reviewLogs">[], timeZone: stri
   return files;
 }
 
-/** The manifest: format, counts, and a checksum for every file, media included. */
 async function buildManifest(
   job: ExportJob,
   snapshot: Snapshot,
@@ -257,9 +247,6 @@ async function buildManifest(
 ) {
   const checksums: Record<string, string> = {};
   for (const [path, bytes] of Object.entries(files)) checksums[path] = await sha256Hex(bytes);
-  // Media files are named by the SHA-256 of their bytes. The browser
-  // downloads each one, checks it against this checksum, and adds it to
-  // the final ZIP, so the server never holds every file at once.
   for (const row of media) checksums[`media/${row.fileName}`] = row.fileName.split(".")[0];
   return {
     format: FORMAT,
@@ -280,12 +267,6 @@ async function buildManifest(
   };
 }
 
-/**
- * Build the data part of a versioned library export: the manifest (with a
- * checksum for every file, media included) and the JSON data. The web app
- * downloads it, then adds each media file in the browser, so the finished
- * ZIP has no server-side size ceiling.
- */
 export const build = internalAction({
   args: { exportId: v.id("exports") },
   handler: async (ctx, { exportId }) => {
@@ -299,7 +280,6 @@ export const build = internalAction({
       const media = snapshot.media.filter((row) => job.includeAudio || !isAudioFile(row.fileName));
       const manifest = await buildManifest(job, snapshot, logs, files, media);
 
-      // The stored ZIP holds the manifest and data; the browser adds media.
       const zippable: Zippable = { "manifest.json": json(manifest), ...files };
       const zip = zipSync(zippable, { level: 6 });
       if (zip.byteLength > MAX_EXPORT_BYTES) {
@@ -309,7 +289,6 @@ export const build = internalAction({
       await ctx.runMutation(internal.exports.markResult, {
         exportId,
         storageId,
-        // About the size of the finished download, which also holds the media.
         size: zip.byteLength + media.reduce((sum, row) => sum + row.size, 0),
       });
     } catch (error) {

@@ -11,11 +11,6 @@ export type Viewer = {
   library: Doc<"libraries"> | null;
 };
 
-/**
- * The signed-in user and their library, or null when there is no valid
- * session. `safeGetAuthUser` checks the session row, so sign-out and account
- * deletion revoke access immediately even while a JWT is still unexpired.
- */
 export async function getViewer(ctx: QueryCtx): Promise<Viewer | null> {
   const user = await authComponent.safeGetAuthUser(ctx);
   if (!user) return null;
@@ -32,14 +27,12 @@ export async function getViewer(ctx: QueryCtx): Promise<Viewer | null> {
   };
 }
 
-/** Library for reads; null when signed out, unprovisioned, or being deleted. */
 export async function readableLibrary(ctx: QueryCtx): Promise<Doc<"libraries"> | null> {
   const viewer = await getViewer(ctx);
   if (!viewer?.library || viewer.library.status !== "active") return null;
   return viewer.library;
 }
 
-/** Library for a write. Throws a coded error when the caller may not write. */
 export async function writableLibrary(ctx: MutationCtx): Promise<Doc<"libraries">> {
   const viewer = await getViewer(ctx);
   if (!viewer) fail("UNAUTHENTICATED", "Sign in to continue.");
@@ -53,15 +46,12 @@ export async function writableLibrary(ctx: MutationCtx): Promise<Doc<"libraries"
   return viewer.library;
 }
 
-/** Load a document and confirm it belongs to the library. */
 export async function owned<
   T extends "decks" | "flashcards" | "reviewUnits" | "reviewLogs" | "exports",
 >(ctx: QueryCtx, library: Doc<"libraries">, id: Id<T>): Promise<Doc<T> | null> {
   const doc = (await ctx.db.get(id)) as (Doc<T> & { libraryId: Id<"libraries"> }) | null;
   if (!doc || doc.libraryId !== library._id || ("staging" in doc && doc.staging)) return null;
   if ("deckId" in doc) {
-    // Moved cards keep historical log.deckId; ownership follows the unit's
-    // current deck, just as export and Undo do.
     const deckId =
       "reviewUnitId" in doc
         ? (await ctx.db.get(doc.reviewUnitId as Id<"reviewUnits">))?.deckId
@@ -73,7 +63,6 @@ export async function owned<
   return doc;
 }
 
-/** A client's deck id string, resolved to a deck of the library; null if foreign or missing. */
 export async function readableDeck(ctx: QueryCtx, library: Doc<"libraries">, deckId: string) {
   const id = ctx.db.normalizeId("decks", deckId);
   return id ? owned(ctx, library, id) : null;
@@ -87,7 +76,6 @@ export async function ownedOrFail<
   return doc;
 }
 
-/** One deck-range read, shared by library-wide queries during bounded cleanup. */
 export async function activeDeckIds(ctx: QueryCtx, libraryId: Id<"libraries">) {
   return new Set(
     (
@@ -101,7 +89,6 @@ export async function activeDeckIds(ctx: QueryCtx, libraryId: Id<"libraries">) {
   );
 }
 
-/** Read only existing decks' rows; never load deleted-deck payloads to filter later. */
 export async function rowsInDecks<
   T extends "flashcards" | "reviewUnits" | "prereqs" | "deckSettings",
 >(ctx: QueryCtx, table: T, deckIds: Iterable<Id<"decks">>) {
@@ -110,7 +97,6 @@ export async function rowsInDecks<
     rows.push(
       ...(await ctx.db
         .query(table)
-        // These four tables share a deckId-first index.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .withIndex("by_deck" as never, (q: any) => q.eq("deckId", deckId))
         .collect()),

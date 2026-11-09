@@ -2,7 +2,6 @@ import * as React from "react";
 import { Lock, Plus, RotateCcw, Check, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** FSRS card states: 0=New, 1=Learning, 2=Review, 3=Relearning. */
 export type ReviewState = 0 | 1 | 2 | 3;
 
 export function Badge({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
@@ -32,10 +31,6 @@ const STATE_CONFIG: Record<ReviewState, { label: string; cls: string; Icon: type
   },
 };
 
-/**
- * Card-state chip. Color is always paired with a text label (and icon), so
- * meaning survives color-blindness. A locked card overrides the state.
- */
 export function StateBadge({
   state,
   locked = false,

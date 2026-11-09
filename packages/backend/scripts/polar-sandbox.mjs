@@ -217,7 +217,6 @@ async function serve() {
             }
             await result.arrayBuffer();
           } catch (error) {
-            // A stopped checkout has no listener. Other delivery failures merit a retry.
             if (error.cause?.code !== "ECONNREFUSED") {
               failed = true;
               console.error("Polar forwarding failed; delivery should be retried.");
@@ -235,7 +234,6 @@ async function serve() {
     server.listen(settings.port, "127.0.0.1", resolve);
   });
   console.log(`Polar sandbox relay listening on http://127.0.0.1:${settings.port}`);
-  // The CLI banner contains the signing secret. Keep its output private.
   const listener = spawn(
     "polar",
     [

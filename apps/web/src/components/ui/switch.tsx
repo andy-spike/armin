@@ -1,7 +1,6 @@
 import { Switch as SwitchPrimitive } from "@base-ui/react/switch";
 import { cn } from "@/lib/utils";
 
-/** shadcn's Switch on Base UI: a track with a sliding thumb, accent when on. */
 function Switch({ className, ...props }: SwitchPrimitive.Root.Props) {
   return (
     <SwitchPrimitive.Root

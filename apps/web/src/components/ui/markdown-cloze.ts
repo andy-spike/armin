@@ -6,21 +6,11 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { $inputRule, $markSchema, $remark } from "@milkdown/kit/utils";
 import { parseClozes } from "@armin/core/flashcard-rules";
 
-/*
- * Cloze deletions as an inline mark, so the card editor shows them as chips
- * instead of `{{1::answer}}` syntax. The stored text is unchanged: Markdown
- * `{{N::answer::hint}}` loads into a `cloze` mark and saves back to exactly that
- * form. Clozes whose answer or hint carries Markdown or math are left to the
- * source editor (see `clozeNeedsSource`), since a chip couldn't round-trip them.
- */
-
-/** One `{{…}}` wrapper with plain-text parts: `{{answer}}`, `{{N::answer}}`, `{{N::answer::hint}}`. */
 const CLOZE_SOURCE = /\{\{(?:(\d+)::)?([^{}]*?)(?:::([^{}]*?))?\}\}/g;
 const MARKDOWN_SYNTAX = /[*_`~[\]<>\\$|]/;
 
 type ClozeAttrs = { cluster: number | null; hint: string | null };
 
-/** True when some cloze can't be shown as a chip without changing its text. */
 export function clozeNeedsSource(value: string) {
   const plain = [...value.matchAll(CLOZE_SOURCE)];
   if (plain.length !== parseClozes(value).length) return true;
@@ -36,7 +26,6 @@ export function clozeNeedsSource(value: string) {
 
 type MdNode = { type: string; value?: string; children?: MdNode[]; [key: string]: unknown };
 
-/** Splits plain-text `{{…}}` runs inside text nodes into `cloze` nodes. */
 function splitClozes(node: MdNode) {
   if (!node.children) return;
   const next: MdNode[] = [];
@@ -70,10 +59,6 @@ const remarkCloze = $remark("remarkCloze", () => () => (tree: unknown) => {
   splitClozes(tree as MdNode);
 });
 
-/**
- * Writes a `cloze` node back as `{{N::answer::hint}}`. Registered on
- * remark-stringify's handlers by the editor, next to its other overrides.
- */
 export function clozeStringifyHandler(
   node: MdNode,
   _parent: unknown,
@@ -93,7 +78,6 @@ export const clozeSchema = $markSchema("cloze", () => ({
     cluster: { default: null },
     hint: { default: null },
   },
-  // Typing at a chip's edge stays outside it.
   inclusive: false,
   excludes: "cloze",
   parseDOM: [
@@ -105,8 +89,6 @@ export const clozeSchema = $markSchema("cloze", () => ({
       }),
     },
   ],
-  // The answer sits in an inner span so its card number can follow it as a
-  // superscript, footnote-style, with the hint after that.
   toDOM: (mark) => {
     const cluster = mark.attrs.cluster == null ? "?" : String(mark.attrs.cluster);
     return [
@@ -143,7 +125,6 @@ function clozeType(state: EditorState): MarkType | undefined {
   return state.schema.marks.cloze;
 }
 
-/** One above the highest cloze number in the document. */
 export function nextClozeCluster(state: EditorState) {
   const type = clozeType(state);
   let max = 0;
@@ -156,7 +137,6 @@ export function nextClozeCluster(state: EditorState) {
 
 export type ClozeRange = { from: number; to: number; mark: Mark };
 
-/** The whole chip around `pos`, or null when `pos` isn't in one. */
 export function clozeRangeAt(state: EditorState, pos: number): ClozeRange | null {
   const type = clozeType(state);
   if (!type) return null;
@@ -173,8 +153,6 @@ export function clozeRangeAt(state: EditorState, pos: number): ClozeRange | null
     }
   });
   if (!found) return null;
-  // Extend across neighbours carrying the same mark (bold text inside a chip
-  // splits it into several text nodes).
   const range: ClozeRange = found;
   const sameMark = (node: { marks: readonly Mark[] } | null | undefined) =>
     Boolean(node && range.mark.isInSet(node.marks));
@@ -189,7 +167,6 @@ export function clozeRangeAt(state: EditorState, pos: number): ClozeRange | null
   return { from, to, mark: range.mark };
 }
 
-/** Rewrites one chip's number or hint. */
 export function updateCloze(view: EditorView, range: ClozeRange, attrs: Partial<ClozeAttrs>) {
   const type = clozeType(view.state);
   if (!type) return;
@@ -199,20 +176,12 @@ export function updateCloze(view: EditorView, range: ClozeRange, attrs: Partial<
   );
 }
 
-/** Turns a chip back into plain text. */
 export function removeCloze(view: EditorView, range: ClozeRange) {
   const type = clozeType(view.state);
   if (!type) return;
   view.dispatch(view.state.tr.removeMark(range.from, range.to, type));
 }
 
-/**
- * Typing into a chip keeps the chip. Chips don't extend at their edges, so
- * without this, typing over a chip's whole text (like the "answer"
- * placeholder) would leave plain text. After a keystroke lands in a chip, the
- * chip's marks stay stored so the next keystroke continues the answer; moving
- * the cursor clears them, and typing at a chip's edge then stays outside it.
- */
 export function typeIntoCloze(view: EditorView, from: number, to: number, text: string) {
   const { state } = view;
   const type = clozeType(state);
@@ -235,11 +204,6 @@ export function typeIntoCloze(view: EditorView, from: number, to: number, text: 
 
 const ANSWER_PLACEHOLDER = "answer";
 
-/**
- * Make cloze: wraps the selection in a chip with the next number, inserts a
- * selected "answer" chip at an empty cursor, or unwraps the chip the cursor is
- * in.
- */
 export function toggleCloze(view: EditorView) {
   const { state } = view;
   const type = clozeType(state);
@@ -263,7 +227,6 @@ export function toggleCloze(view: EditorView) {
   return true;
 }
 
-/** Typing a whole `{{…}}` turns it into a chip as soon as the `}}` closes it. */
 const clozeInputRule = $inputRule(
   (ctx: Ctx) =>
     new InputRule(/\{\{(?:(\d+)::)?([^{}:]+?)(?:::([^{}]+?))?\}\}$/, (state, match, start, end) => {

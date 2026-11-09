@@ -25,12 +25,10 @@ const { monthlyUsd, yearlyUsd } = PLAN_PRICES.pro;
 const yearlySavingUsd = monthlyUsd * 12 - yearlyUsd;
 const yearlySavingPercent = Math.round((yearlySavingUsd / (monthlyUsd * 12)) * 100);
 
-/** The shared image and audio pool, with roughly how many pictures it holds. */
 function storage(bytes: number) {
   return `${formatStorage(bytes)}, about ${n(picturesIn(bytes))} pictures`;
 }
 
-/** The headline allowances each plan card lists, most important first. */
 const highlights = {
   free: [
     <>
@@ -60,7 +58,6 @@ const highlights = {
   ],
 } satisfies Record<"free" | "pro", ReactNode[]>;
 
-/** A cell value: text, or `true` for "included". */
 type Cell = string | true;
 
 const comparison: {
@@ -164,7 +161,6 @@ const questions = [
   },
 ];
 
-/** Monthly or yearly billing; the labels on either side also pick a period. */
 function IntervalToggle({
   value,
   onChange,
@@ -303,8 +299,6 @@ export function PricingPage() {
                 ? "Billed once a year. Cancel anytime."
                 : "Billed every month. Cancel anytime."}
             </p>
-            {/* Settings → Billing opens checkout; signed-out visitors sign in
-                first and return there with the chosen period. */}
             <Link
               to="/settings"
               search={{ tab: "billing", interval }}
@@ -382,8 +376,6 @@ export function PricingPage() {
             Questions
           </h2>
           <p className="mt-2 text-sm text-muted">Billing, refunds, and limits.</p>
-          {/* Two columns from md, each item ruled on top like the table rows;
-              the first row takes the table's strong rule. */}
           <Accordion multiple className="mt-6 grid items-start gap-x-10 md:grid-cols-2">
             {questions.map(({ q, a }) => (
               <AccordionItem

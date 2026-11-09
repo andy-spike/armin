@@ -7,11 +7,6 @@ import { useModalIsolation } from "@/keybindings/keybindings-provider";
 const EXIT_MS = 200;
 const VIEW_SWAP_MS = 250;
 
-/**
- * The element focus returns to when the dialog closes. A dialog opened from a
- * dropdown item would lose its opener when the menu unmounts, so use the
- * menu's trigger instead.
- */
 function captureReturnFocus() {
   const active = document.activeElement;
   if (!(active instanceof HTMLElement) || active === document.body) return null;
@@ -22,12 +17,6 @@ function captureReturnFocus() {
   return active;
 }
 
-/**
- * Accessible modal: portaled to <body> (escapes stacking contexts), focus is
- * trapped while open and restored on close, Escape and backdrop-click dismiss.
- * The panel never exceeds the viewport; with a `footer`, the header and footer
- * stay fixed while the body scrolls.
- */
 export function Dialog({
   open,
   onClose,
@@ -39,6 +28,8 @@ export function Dialog({
   className,
   ariaLabel,
   view,
+  fullscreen = false,
+  headerActions,
 }: {
   open: boolean;
   onClose: () => void;
@@ -48,14 +39,10 @@ export function Dialog({
   children: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
-  /** Accessible name for dialogs that render their own heading instead of `title`. */
   ariaLabel?: string;
-  /**
-   * Names the content currently shown, for a dialog that switches between
-   * views (an editor and its "Discard changes?" step). Changing it glides the
-   * panel to its new height and fades the new view in instead of snapping.
-   */
   view?: string;
+  fullscreen?: boolean;
+  headerActions?: React.ReactNode;
 }) {
   const panelRef = React.useRef<HTMLDivElement>(null);
   const onCloseRef = React.useRef(onClose);
@@ -64,12 +51,15 @@ export function Dialog({
   const [present, setPresent] = React.useState(open);
   const [wasOpen, setWasOpen] = React.useState(false);
   const [returnFocus, setReturnFocus] = React.useState<HTMLElement | null>(null);
-  const [snapshot, setSnapshot] = React.useState({ title, description, children, footer });
+  const [snapshot, setSnapshot] = React.useState({
+    title,
+    description,
+    children,
+    footer,
+    headerActions,
+  });
   const exiting = present && !open;
 
-  // Capture the opener before the dialog content (and its autoFocus) mounts.
-  // This must happen during render: React applies native `autoFocus` during
-  // commit, before effects run.
   if (open !== wasOpen && typeof document !== "undefined") {
     setWasOpen(open);
     if (open) {
@@ -78,24 +68,21 @@ export function Dialog({
     }
   }
 
-  // While a dialog is mounted, isolate app-level keybindings beneath it so a
-  // stray chord or rating key can't fire behind the modal. The dialog's own
-  // Escape/Tab handlers (below) are intrinsic and unaffected.
   useModalIsolation(present);
 
-  // Keep the last open render's content to show through the exit animation
-  // (ADR 0016).
   if (
     open &&
     (snapshot.title !== title ||
       snapshot.description !== description ||
       snapshot.children !== children ||
-      snapshot.footer !== footer)
+      snapshot.footer !== footer ||
+      snapshot.headerActions !== headerActions)
   ) {
-    setSnapshot({ title, description, children, footer });
+    setSnapshot({ title, description, children, footer, headerActions });
   }
 
-  const content = exiting ? snapshot : { title, description, children, footer };
+  const content = exiting ? snapshot : { title, description, children, footer, headerActions };
+  const gutter = fullscreen ? "px-[max(1.5rem,calc((100%-72rem)/2))]" : "px-6";
 
   React.useEffect(() => {
     onCloseRef.current = onClose;
@@ -110,14 +97,9 @@ export function Dialog({
 
     const panel = panelRef.current;
     const focusFrame = requestAnimationFrame(() => {
-      // React applies `autoFocus` itself (no DOM attribute), so keep any
-      // focus it already placed inside the panel.
       if (panel?.contains(document.activeElement)) return;
       const autofocusHost = panel?.querySelector<HTMLElement>("[data-autofocus]");
       const hostEditor = autofocusHost?.querySelector<HTMLElement>('[contenteditable="true"]');
-      // A field that asked for focus but isn't editable yet (the Markdown
-      // editor's first-paint copy) focuses itself once ready; moving focus to
-      // a later input meanwhile would scroll the dialog away from it.
       if (autofocusHost && !hostEditor) return;
       const target =
         hostEditor ??
@@ -190,7 +172,12 @@ export function Dialog({
   if (!present) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      className={cn(
+        "fixed inset-0 z-50 flex items-center justify-center",
+        fullscreen ? "p-0" : "p-4",
+      )}
+    >
       <div
         className={cn(
           "absolute inset-0 cursor-pointer bg-bg/90",
@@ -213,16 +200,18 @@ export function Dialog({
             : "overflow-y-auto overscroll-contain p-6",
           exiting ? "animate-pop-out" : "animate-pop",
           className,
+          fullscreen && "h-dvh max-h-dvh w-full max-w-none rounded-none border-0",
         )}
       >
-        <ViewSwap view={view} panelRef={panelRef} />
+        <ViewSwap view={view} fullscreen={fullscreen} panelRef={panelRef} />
         {content.title && (
           <div
             className={cn(
               "flex items-start justify-between gap-4",
               content.footer
-                ? "shrink-0 px-6 pt-6 pb-4"
+                ? cn("shrink-0 pt-6 pb-4", gutter)
                 : "sticky -top-6 z-10 -mx-6 -mt-6 mb-4 rounded-t-lg bg-surface px-6 pt-6 pb-4",
+              fullscreen && "border-b border-border",
             )}
           >
             <div>
@@ -233,26 +222,32 @@ export function Dialog({
                 <p className="mt-1 text-sm text-muted">{content.description}</p>
               )}
             </div>
-            <button
-              onClick={onClose}
-              aria-label="Close dialog"
-              className="-mr-1.5 -mt-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="-mr-1.5 -mt-1.5 flex shrink-0 items-center gap-1">
+              {content.headerActions}
+              <button
+                onClick={onClose}
+                aria-label="Close dialog"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         )}
         {content.footer ? (
           <>
             <div
               className={cn(
-                "min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6",
-                !content.title && "pt-6",
+                "min-h-0 flex-1 overflow-y-auto overscroll-contain pb-6",
+                gutter,
+                (!content.title || fullscreen) && "pt-6",
               )}
             >
               {content.children}
             </div>
-            <div className="shrink-0 border-t border-border px-6 py-4">{content.footer}</div>
+            <div className={cn("shrink-0 border-t border-border py-4", gutter)}>
+              {content.footer}
+            </div>
           </>
         ) : (
           content.children
@@ -263,28 +258,31 @@ export function Dialog({
   );
 }
 
-/**
- * Dissolves a dialog between views instead of snapping. Just before React
- * swaps the DOM, the outgoing view is copied into a frozen, inert ghost; after
- * the swap the incoming view fades in over it while the panel morphs to its
- * new height.
- * Renders nothing; `getSnapshotBeforeUpdate` is React's hook for reading the
- * DOM before an update lands.
- */
-class ViewSwap extends React.Component<{
-  view: string | undefined;
-  panelRef: React.RefObject<HTMLDivElement | null>;
-}> {
+type SwapSnapshot =
+  | { kind: "view"; ghost: HTMLElement; from: number }
+  | { kind: "resize"; from: DOMRect };
+
+class ViewSwap extends React.Component<
+  {
+    view: string | undefined;
+    fullscreen: boolean;
+    panelRef: React.RefObject<HTMLDivElement | null>;
+  },
+  object,
+  SwapSnapshot | null
+> {
   ghost: HTMLElement | null = null;
 
-  getSnapshotBeforeUpdate(prev: { view: string | undefined }) {
+  getSnapshotBeforeUpdate(prev: { view: string | undefined; fullscreen: boolean }) {
     const panel = this.props.panelRef.current;
-    if (prev.view === this.props.view || !panel) return null;
+    const resized = prev.fullscreen !== this.props.fullscreen;
+    if ((prev.view === this.props.view && !resized) || !panel) return null;
     this.ghost?.remove();
-    // Stop only the swap's own animations; the panel's CSS open animation stays.
+    this.ghost = null;
     for (const animation of panel.getAnimations({ subtree: true })) {
       if (!(animation instanceof CSSAnimation)) animation.cancel();
     }
+    if (resized) return { kind: "resize" as const, from: panel.getBoundingClientRect() };
     const from = panel.getBoundingClientRect().height;
     const ghost = document.createElement("div");
     ghost.className = panel.className;
@@ -303,22 +301,19 @@ class ViewSwap extends React.Component<{
       pointerEvents: "none",
       animation: "none",
     });
-    return { ghost, from };
+    return { kind: "view" as const, ghost, from };
   }
 
-  componentDidUpdate(
-    _prev: unknown,
-    _state: unknown,
-    snapshot: { ghost: HTMLElement; from: number } | null,
-  ) {
+  componentDidUpdate(_prev: unknown, _state: unknown, snapshot: SwapSnapshot | null) {
     const panel = this.props.panelRef.current;
     if (!snapshot || !panel) return;
+    if (snapshot.kind === "resize") {
+      resizePanel(panel, snapshot.from);
+      return;
+    }
     const { ghost, from } = snapshot;
     const to = panel.getBoundingClientRect().height;
     const incoming = Array.from(panel.children) as HTMLElement[];
-    // The old view sits underneath; the new one dissolves in on top with the
-    // panel's own background, covering it as it arrives. The dialog is never
-    // empty mid-swap, which is what read as a flash.
     ghost.style.zIndex = "0";
     panel.prepend(ghost);
     this.ghost = ghost;
@@ -332,8 +327,6 @@ class ViewSwap extends React.Component<{
     });
     const overflow = panel.style.overflow;
     panel.style.overflow = "hidden";
-    // While the panel resizes, its scrolling body is squeezed and would flash a
-    // scrollbar it doesn't need. Scrolling waits for the final size.
     const scrollers = incoming.filter((child) =>
       /auto|scroll/.test(getComputedStyle(child).overflowY),
     );
@@ -342,9 +335,6 @@ class ViewSwap extends React.Component<{
       paddingRight: child.style.paddingRight,
     }));
     for (const child of scrollers) {
-      // The panel is already at its final size here, so the body's width with
-      // its scrollbar (if it will have one) is known. Hold exactly that space
-      // while scrolling is off, so the content doesn't shift when it returns.
       const withScrollbar = child.clientWidth;
       child.style.overflowY = "hidden";
       const gutter = child.clientWidth - withScrollbar;
@@ -360,7 +350,6 @@ class ViewSwap extends React.Component<{
       scrollers.forEach((child, index) => {
         Object.assign(child.style, scrollerStyle[index]);
         if (child.scrollHeight <= child.clientHeight) return;
-        // The content really overflows: fade the scrollbar in, don't pop it.
         child.animate(
           [
             { scrollbarColor: "transparent transparent" },
@@ -377,12 +366,9 @@ class ViewSwap extends React.Component<{
       child.animate([{ opacity: 0 }, { opacity: 1 }], { ...fade, fill: "backwards" });
     }
     if (reduce) {
-      // Fewer, gentler: the dissolve alone, no resize.
       window.setTimeout(finish, fade.duration + 10);
       return;
     }
-    // An on-screen size change takes the strong ease-in-out. Whatever of the
-    // old view the new one doesn't cover fades out under the moving edge.
     ghost.animate([{ opacity: 1 }, { opacity: 0 }], {
       duration: VIEW_SWAP_MS,
       easing: "linear",
@@ -402,4 +388,41 @@ class ViewSwap extends React.Component<{
   render() {
     return null;
   }
+}
+
+function resizePanel(panel: HTMLElement, from: DOMRect) {
+  const to = panel.getBoundingClientRect();
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const easing = "cubic-bezier(0.23, 1, 0.32, 1)";
+  if (reduce) {
+    panel.animate([{ opacity: 0.6 }, { opacity: 1 }], { duration: 150, easing });
+    return;
+  }
+  if (to.width >= from.width && to.height >= from.height) {
+    const clip = (top: number, right: number, bottom: number, left: number, radius: number) =>
+      `inset(${top}px ${right}px ${bottom}px ${left}px round ${radius}px)`;
+    panel.animate(
+      [
+        {
+          clipPath: clip(
+            from.top - to.top,
+            to.right - from.right,
+            to.bottom - from.bottom,
+            from.left - to.left,
+            8,
+          ),
+        },
+        { clipPath: clip(0, 0, 0, 0, 0) },
+      ],
+      { duration: 300, easing: "cubic-bezier(0.77, 0, 0.175, 1)" },
+    );
+    return;
+  }
+  panel.animate(
+    [
+      { opacity: 0, transform: "scale(1.03)" },
+      { opacity: 1, transform: "none" },
+    ],
+    { duration: 200, easing },
+  );
 }

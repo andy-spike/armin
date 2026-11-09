@@ -8,7 +8,6 @@ export type ComboboxOption = { value: string; label: string };
 
 type SearchableSelectProps = {
   options: ComboboxOption[];
-  /** Currently selected value; "" (or no match) shows the placeholder. */
   value: string;
   onValueChange: (value: string) => void;
   placeholder?: string;
@@ -17,14 +16,9 @@ type SearchableSelectProps = {
   "aria-label"?: string;
   size?: "sm" | "default";
   className?: string;
-  /** Leading icon inside the trigger, naming what the control filters. */
   icon?: ReactNode;
 };
 
-/**
- * A Select whose dropdown includes a search field, built on Base UI's
- * Combobox. Single selection over a flat list of string-valued options.
- */
 export function SearchableSelect({
   options,
   value,
@@ -120,14 +114,9 @@ type SearchableMultiSelectProps = {
   "aria-label"?: string;
   size?: "sm" | "default";
   className?: string;
-  /** Leading icon inside the trigger, naming what the control filters. */
   icon?: ReactNode;
 };
 
-/**
- * Searchable combobox with multiple selection. The popup stays open while
- * toggling items; selected options show checkmarks in the list.
- */
 export function SearchableMultiSelect({
   options,
   value,

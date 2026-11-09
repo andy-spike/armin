@@ -41,7 +41,7 @@ _Avoid_: Card, review item
 **Concept card**:
 A flashcard type for practicing a skill through exercises. It holds a template
 and a variant pool, and generates exactly one review unit, so FSRS schedules the
-concept while each review poses a different variant. See ADR 0023.
+concept while each review poses a different variant.
 _Avoid_: Exercise card, template card, generated card
 
 **Template**:

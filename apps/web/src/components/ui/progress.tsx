@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils";
 
-/** Slim progress meter. Accent fill on a border-toned track. */
 export function Progress({
   value,
   max = 100,
@@ -10,7 +9,6 @@ export function Progress({
 }: {
   value: number;
   max?: number;
-  /** Accessible name; give every progress bar one. */
   label?: string;
   className?: string;
   tone?: "accent" | "good" | "ink";

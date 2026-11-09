@@ -69,10 +69,6 @@ async function checkVersion(
   }
 }
 
-/**
- * Add a prerequisite edge. Rejected when the cards are in different decks or
- * the edge would close a cycle. Every write checks the displayed graph revision.
- */
 export const addPrereq = mutation({
   args: {
     prereqId: v.id("flashcards"),
@@ -117,16 +113,12 @@ export const removePrereq = mutation({
   },
 });
 
-/** Persist canvas positions for the supplied flashcards of one deck. */
 export const saveLayout = mutation({
   args: {
     deckId: v.id("decks"),
     expectedVersion: v.number(),
     placements: v.array(v.object({ flashcardId: v.string(), x: v.number(), y: v.number() })),
   },
-  // Positions are last-write-wins and can't break graph rules, so a layout
-  // save never conflicts. When the library changed elsewhere, return the
-  // caller's version unchanged so its next link edit still detects that.
   handler: async (ctx, { deckId, placements, expectedVersion }) => {
     const library = await writableLibrary(ctx);
     const current = (await libraryRevision(ctx, library._id)) === expectedVersion;

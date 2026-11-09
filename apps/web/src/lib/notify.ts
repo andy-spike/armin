@@ -6,11 +6,6 @@ type Toast = (input: {
   tone?: "default" | "success" | "error";
 }) => void;
 
-/**
- * Report a failed save. A conflict means another tab or device saved first:
- * the draft stays open so nothing typed is lost, and reopening loads the
- * accepted version.
- */
 export function notifySaveError(toast: Toast, title: string, error: unknown) {
   if (error instanceof StaleError) {
     toast({

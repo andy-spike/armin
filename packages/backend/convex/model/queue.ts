@@ -31,15 +31,8 @@ export const queueUnit = (row: Doc<"unitSummaries">) => ({
   _id: row.reviewUnitId,
 });
 
-/** Variants a cram pick chooses among per concept unit (up to 30 KB each). */
 const PRACTICE_VARIANT_SAMPLE = 40;
 
-/**
- * Queue-shaped items for the review and cram renderers. With `practiceSeed`
- * (cram), a concept card shows a random active variant (among its newest
- * `PRACTICE_VARIANT_SAMPLE`) instead of the one
- * assigned for review (`pickPracticeVariant`), read without writing anything.
- */
 export async function toQueueItems(
   ctx: QueryCtx,
   units: QueueUnit[],
@@ -62,8 +55,6 @@ export async function toQueueItems(
     const { type, content } = parseFlashcard(flashcard);
     let { front, back } = unit;
     if (options.practiceSeed !== undefined && unit.subKey === CONCEPT_SUBKEY) {
-      // The newest variants only: eight units of full pools could pass a
-      // query's read limit, and recent batches give practice enough variety.
       const variants = await ctx.db
         .query("conceptVariants")
         .withIndex("by_flashcard", (q) => q.eq("flashcardId", unit.flashcardId))
@@ -92,10 +83,6 @@ export async function toQueueItems(
   return items;
 }
 
-/**
- * Distinct review units first rated today (account time zone), across all
- * decks, plus the flashcards they belong to. This is the shared Frontier.
- */
 export async function introducedToday(ctx: QueryCtx, library: Doc<"libraries">, now: number) {
   const since = startOfStudyDayMs(now, library.timeZone);
   const units = new Set<Id<"reviewUnits">>();
@@ -107,7 +94,6 @@ export async function introducedToday(ctx: QueryCtx, library: Doc<"libraries">, 
       .withIndex("by_library_introduced", (q) =>
         q.eq("libraryId", library._id).gte("introducedAt", since),
       )
-      // Today's introductions are bounded by the daily new-unit cap.
       .take(MAX_SESSION_REVIEWS);
     for (const row of rows) {
       if (!decks.has(row.deckId)) continue;
@@ -132,15 +118,10 @@ export async function introducedToday(ctx: QueryCtx, library: Doc<"libraries">, 
   return { units, flashcards, since };
 }
 
-/** True while a bury hides the unit. It reappears once `buriedUntil` passes. */
 export function isBuried(unit: { buriedUntil?: number }, now: number) {
   return unit.buriedUntil != null && unit.buriedUntil > now;
 }
 
-/**
- * Review logs recorded since the start of the library's study day, across
- * every deck. Each counts against the account-wide daily review budget.
- */
 export async function reviewsDoneToday(
   ctx: QueryCtx,
   library: Doc<"libraries">,
@@ -151,16 +132,10 @@ export async function reviewsDoneToday(
     await ctx.db
       .query("reviewLogs")
       .withIndex("by_library_review", (q) => q.eq("libraryId", library._id).gte("review", since))
-      // One past the budget is enough to know it is spent.
       .take(limit + 1)
   ).length;
 }
 
-/**
- * A concept card's unit in a library without Pro (ADR 0023). It keeps its
- * schedule and history but is withheld from every selection, count, and
- * rating until Pro returns. Only concept units carry `CONCEPT_SUBKEY`.
- */
 export function isWithheldConcept(
   unit: Pick<QueueUnit, "subKey">,
   library: Pick<Doc<"libraries">, "plan" | "complimentaryPro">,
@@ -168,7 +143,6 @@ export function isWithheldConcept(
   return unit.subKey === CONCEPT_SUBKEY && !conceptCardsAllowed(library);
 }
 
-/** Unlocked, unarchived, unburied, due by `now`, and not withheld: the unit can be studied. */
 function isStudyable(unit: QueueUnit, library: Doc<"libraries">, now: number) {
   return (
     unit.libraryId === library._id &&
@@ -181,15 +155,9 @@ function isStudyable(unit: QueueUnit, library: Doc<"libraries">, now: number) {
   );
 }
 
-/** Learning, Review, and Relearning: every state a due review can be in. */
 const REVIEW_STATES = [State.Learning, State.Review, State.Relearning];
-/**
- * Rows read past a selection's size, so buried, pending, or out-of-scope rows
- * (a deck awaiting deletion or an import still staging) don't shorten it.
- */
 const SCAN_SLACK = 1000;
 
-/** The decks a selection may draw from: one deck, or every active deck. */
 export async function scopeDecks(
   ctx: QueryCtx,
   library: Doc<"libraries">,
@@ -200,7 +168,6 @@ export async function scopeDecks(
   return new Set(deck?.libraryId === library._id && !deck.staging ? [deckId] : []);
 }
 
-/** Studyable due reviews (not new units), oldest due first, at most `limit`. */
 export async function dueReviewUnits(
   ctx: QueryCtx,
   library: Doc<"libraries">,
@@ -212,8 +179,6 @@ export async function dueReviewUnits(
   if (limit <= 0) return [];
   let units: QueueUnit[] = [];
   if (library.statsReady) {
-    // Without Pro, concept units are withheld; skip them in the index so they
-    // can't fill the scan and hide the library's other due reviews.
     const withheld = !conceptCardsAllowed(library);
     for (const state of REVIEW_STATES) {
       const rows = withheld
@@ -268,8 +233,6 @@ export async function dueReviewUnits(
       units.push(...rows.map(queueUnit));
     }
   } else {
-    // Until the projections are built (a new library, or a timezone change),
-    // read units per deck. Such libraries are small or briefly rebuilding.
     for (const id of decks) {
       units.push(
         ...(await ctx.db
@@ -288,10 +251,6 @@ export async function dueReviewUnits(
     .slice(0, limit);
 }
 
-/**
- * Studyable new units in their fixed Frontier order (`frontierKey`), at most
- * `limit`. Siblings share a key, so they come out together.
- */
 export async function frontierCandidates(
   ctx: QueryCtx,
   library: Doc<"libraries">,
@@ -330,7 +289,6 @@ export async function frontierCandidates(
       )
       .slice(0, limit);
   }
-  // Without Pro, skip withheld concept units in the index (see `dueReviewUnits`).
   const withheld = !conceptCardsAllowed(library);
   const rows = withheld
     ? deckId
@@ -381,7 +339,6 @@ export async function frontierCandidates(
   return out;
 }
 
-/** New units of flashcards started today, which join today's session together. */
 async function continuingUnits(
   ctx: QueryCtx,
   library: Doc<"libraries">,
@@ -411,10 +368,8 @@ async function continuingUnits(
   );
 }
 
-/** Reads a caller has already made, so listing many decks repeats none of them. */
 export type SessionReads = {
   today?: Awaited<ReturnType<typeof introducedToday>>;
-  /** Review logs studied since the start of today, capped at the daily budget. */
   reviewsDoneToday?: number;
   settings?: SettingsCache;
 };
@@ -424,7 +379,6 @@ export type SessionSelection = {
   frontier: QueueUnit[];
 };
 
-/** The account-wide daily allowances that every deck's selection shares. */
 async function dailyBudgets(
   ctx: QueryCtx,
   library: Doc<"libraries">,
@@ -434,7 +388,6 @@ async function dailyBudgets(
   const settings = reads.settings ?? new SettingsCache(ctx, library._id);
   const global = await settings.globalSettings();
   const today = reads.today ?? (await introducedToday(ctx, library, now));
-  // Budgets are Infinity when unlimited; slice() and arithmetic handle that.
   const reviewLimit = global.reviewsPerDay;
   let reviewBudget = Infinity;
   if (reviewLimit != null) {
@@ -446,15 +399,6 @@ async function dailyBudgets(
   return { settings, today, reviewBudget, newAllowance };
 }
 
-/**
- * Due reviews plus today's capped Frontier. Both caps are account-wide: units
- * already introduced today count against the new-unit cap in every deck, and
- * reviews already logged today count against the daily review cap. Due
- * reviews (oldest due first) take the review budget first, then new units get
- * what is left of both allowances. New units from a flashcard already started
- * today are admitted with their siblings. Every read is an index range bounded
- * by the budgets, so selection cost does not grow with the library.
- */
 export async function selectSession(
   ctx: QueryCtx,
   library: Doc<"libraries">,
@@ -477,8 +421,6 @@ export async function selectSession(
     now,
     Math.min(reviewBudget, MAX_SESSION_REVIEWS),
   );
-  // New units share what is left of the daily total, so a spent review budget
-  // leaves nothing for them.
   const totalLeft = reviewBudget - reviews.length;
   const keepSiblingsByDeck = new Map<Id<"decks">, boolean>();
   const keepSiblings = async (unit: QueueUnit) => {
@@ -490,8 +432,6 @@ export async function selectSession(
     return keepSiblingsByDeck.get(unit.deckId)!;
   };
 
-  // Siblings of a flashcard started today skip the new-unit allowance, but
-  // still count against the daily total.
   const continuing: QueueUnit[] = [];
   for (const unit of await continuingUnits(ctx, library, decks, today, now)) {
     if (continuing.length >= totalLeft) break;
@@ -499,7 +439,6 @@ export async function selectSession(
   }
   const frontierBudget = totalLeft - continuing.length;
   const newSlots = Math.min(newAllowance, frontierBudget);
-  // Read enough candidates to finish the last flashcard's siblings.
   const candidates = await frontierCandidates(
     ctx,
     library,
@@ -509,13 +448,9 @@ export async function selectSession(
     Math.min(frontierBudget, newSlots + MAX_REVIEW_UNITS_PER_FLASHCARD),
     new Set(continuing.map((unit) => unit._id)),
   );
-  // Represent each deck's grouping choice as a batch identity. Selecting all
-  // batches together keeps one shared budget, including mixed deck settings.
   const batches = [];
   for (const unit of candidates)
     batches.push({ flashcardId: (await keepSiblings(unit)) ? unit.flashcardId : unit._id, unit });
-  // Grouping may overshoot a unit budget by a flashcard's siblings; the daily
-  // total is a hard cap, so trim the last group at the budget boundary.
   const frontier = [
     ...continuing,
     ...selectFrontier(batches, newSlots, true, (items) => items)
@@ -525,13 +460,6 @@ export async function selectSession(
   return { reviews, frontier };
 }
 
-/**
- * Due counts for every active deck and for the whole library, for navigation.
- * The library total is an exact selection. Per-deck totals come from one
- * shared read of due reviews and the deck Frontier counters, so they cost the
- * same with one deck or a thousand; with more than `MAX_SESSION_REVIEWS` due
- * across the library, a deck's review count can read low.
- */
 export async function dueCounts(ctx: QueryCtx, library: Doc<"libraries">, now: number) {
   const settings = new SettingsCache(ctx, library._id);
   await settings.preloadDecks();
@@ -548,7 +476,6 @@ export async function dueCounts(ctx: QueryCtx, library: Doc<"libraries">, now: n
     Math.min(reviewBudget, MAX_SESSION_REVIEWS),
   );
   const continuing = await continuingUnits(ctx, library, decks, today, now);
-  // Units the counters include but that cannot be studied right now.
   const buried = library.statsReady
     ? await ctx.db
         .query("unitSummaries")
@@ -561,7 +488,6 @@ export async function dueCounts(ctx: QueryCtx, library: Doc<"libraries">, now: n
     .query("deckUnitCounts")
     .withIndex("by_library", (q) => q.eq("libraryId", library._id))
     .collect();
-  // Outside Pro, concept units are withheld, so they leave each deck's Frontier count.
   const withheld = !conceptCardsAllowed(library);
   const candidatesByDeck = new Map(
     counters.map((row) => [
@@ -582,7 +508,6 @@ export async function dueCounts(ctx: QueryCtx, library: Doc<"libraries">, now: n
         row.lastReview == null &&
         !row.locked &&
         !row.archived &&
-        // Withheld concept units are already out of the count above.
         !isWithheldConcept(row, library),
     ),
   );
@@ -597,8 +522,7 @@ export async function dueCounts(ctx: QueryCtx, library: Doc<"libraries">, now: n
     const counted = candidatesByDeck.get(deckId);
     const available =
       counted === undefined
-        ? // A deck untouched since its counters were introduced: read just enough.
-          (
+        ? (
             await frontierCandidates(
               ctx,
               library,
@@ -618,16 +542,6 @@ export async function dueCounts(ctx: QueryCtx, library: Doc<"libraries">, now: n
   };
 }
 
-/**
- * May this unit be rated now? Mirrors queue eligibility at accept time.
- *
- * The daily Frontier and review caps are admission budgets, not rating gates:
- * the queue selects at most the remaining capacity (`selectSession`), and a
- * unit admitted to a session stays answerable. Recomputing the selection here
- * would reject a card already on screen when other ratings, an unlock, or a
- * settings change exhausts a budget (ADR 0021 keeps both caps account-wide and
- * lets the chosen view consume what remains).
- */
 export async function checkEligible(
   unit: Doc<"reviewUnits">,
   library: Doc<"libraries">,
@@ -640,12 +554,10 @@ export async function checkEligible(
     return "This flashcard is locked until its prerequisites are secured.";
   }
   if (isBuried(unit, now)) return "This flashcard is buried until the next study day.";
-  // Allow small clock skew between the displayed queue and acceptance.
   if (unit.due > now + 60_000) return "This review unit is not due yet.";
   return null;
 }
 
-/** Stable descriptors keep admission/progress intact without sending card text. */
 export function queueDescriptors(units: QueueUnit[]) {
   return units.map((unit) => ({
     reviewUnitId: unit._id,

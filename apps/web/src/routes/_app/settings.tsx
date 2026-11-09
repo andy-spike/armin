@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { Row, Section } from "@/components/settings-layout";
@@ -71,11 +72,9 @@ const SETTINGS_TABS = [
 ] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number];
-/** `checkout=success` marks the return from Polar checkout (Billing). */
 type SettingsSearch = {
   tab?: SettingsTab;
   checkout?: "success";
-  /** Billing period picked on the pricing page, preselected at checkout. */
   interval?: "month" | "year";
 };
 
@@ -119,14 +118,11 @@ function SettingsPage() {
   const billing = useBillingStatus();
   const billingEnabled = billing.data?.enabled === true;
   const requestedTab = Route.useSearch().tab ?? "scheduling";
-  // Billing is hidden on self-hosted instances and for the shared reviewer.
   const activeTab =
     requestedTab === "billing" && billing.data && !billingEnabled ? "account" : requestedTab;
 
   const selectTab = (value: string | number | null) => {
     if (!isSettingsTab(value) || value === activeTab) return;
-    // Tab switches are a view change, not a navigation step: replace so Back
-    // returns to the page the user came from.
     void navigate({
       to: "/settings",
       search: (previous) => ({ ...previous, tab: value }),
@@ -200,16 +196,10 @@ function SettingsPage() {
   );
 }
 
-/**
- * The account's scheduling settings as an editable form that saves itself.
- * Every change saves at once; saves run one at a time, and only the latest
- * pending change is sent once the previous save settles.
- */
 function useSchedulingSettings() {
   const toast = useToast();
   const query = useQuery(settingsQueryOptions());
   const [settings, setSettings] = useState(initial);
-  // Read synchronously by the save queue, ahead of the next render.
   const settingsRef = useRef(initial);
   const loadedRef = useRef(false);
   const savingRef = useRef(false);
@@ -242,14 +232,11 @@ function useSchedulingSettings() {
     const next = change(settingsRef.current);
     if (settingsEqual(next, settingsRef.current)) return;
     replace(next);
-    // Nothing saves until the server's values have loaded once.
     if (!loadedRef.current) return;
     pendingSaveRef.current = next;
     savePending();
   };
 
-  // Server values replace the form only while no save is in flight, so a live
-  // update can't undo a change the user just made.
   useEffect(() => {
     if (!query.data || savingRef.current || pendingSaveRef.current) return;
     replace(toSettingsState(query.data));
@@ -259,13 +246,11 @@ function useSchedulingSettings() {
   const set = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) =>
     update((current) => ({ ...current, [key]: value }));
 
-  /** Switch profile; a named preset also replaces every scheduling value. */
   const selectPreset = (preset: SchedulingPreset) => {
     if (preset === "custom") return set("schedulingPreset", "custom");
     update((current) => ({ ...current, ...PRESET_VALUES[preset], schedulingPreset: preset }));
   };
 
-  /** Copy a named preset's values into Custom, to start from. */
   const fillCustomFrom = (source: NamedSchedulingPreset) =>
     update((current) => ({ ...current, ...PRESET_VALUES[source], schedulingPreset: "custom" }));
 
@@ -276,8 +261,6 @@ function SchedulingTab() {
   const { settings, query, set, selectPreset, fillCustomFrom } = useSchedulingSettings();
   const preset = settings.schedulingPreset;
 
-  // A named preset shows a reset button on each field that differs from it.
-  // Spread onto a <Row>.
   const resetProps = (key: keyof PresetValues) => {
     if (preset === "custom" || !fieldDiffersFromPreset(preset, key, settings[key])) return {};
     const presetValue = PRESET_VALUES[preset][key];
@@ -505,7 +488,6 @@ function SchedulingTab() {
   );
 }
 
-/** Review behavior saved to the account, so it follows you across devices. */
 function AudioSection() {
   const toast = useToast();
   const query = useQuery(settingsQueryOptions());
@@ -534,10 +516,46 @@ function AudioSection() {
   );
 }
 
+type CardEditorLayout = Settings["cardEditorLayout"];
+
+const CARD_EDITOR_LAYOUT_OPTIONS: { value: CardEditorLayout; label: string }[] = [
+  { value: "dialog", label: "Dialog" },
+  { value: "fullPage", label: "Full page" },
+];
+
+function CardEditorSection() {
+  const toast = useToast();
+  const query = useQuery(settingsQueryOptions());
+  const save = useMutation({
+    mutationFn: (cardEditorLayout: CardEditorLayout) => armin.settings.update({ cardEditorLayout }),
+    onError: () => toast({ tone: "error", title: "Couldn’t save settings" }),
+  });
+  const layout = save.isPending ? save.variables : (query.data?.cardEditorLayout ?? "dialog");
+  return (
+    <Section title="Card editor" description="How the editor opens when you add or edit a card.">
+      <Row
+        label="Open as"
+        hint="Full page fills the window, with room for long cards and images. The button in the editor's corner still switches between the two while you edit."
+        last
+      >
+        <Segmented
+          aria-label="Card editor layout"
+          options={CARD_EDITOR_LAYOUT_OPTIONS}
+          value={layout}
+          onChange={(value) => {
+            if (query.data && value !== layout) save.mutate(value);
+          }}
+        />
+      </Row>
+    </Section>
+  );
+}
+
 function AppearanceTab() {
   return (
     <>
       <ThemeSection />
+      <CardEditorSection />
       <AudioSection />
     </>
   );

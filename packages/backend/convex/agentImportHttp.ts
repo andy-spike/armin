@@ -16,12 +16,6 @@ function json(data: unknown, status = 200) {
   });
 }
 
-/**
- * Scoped raw-image upload for one staging MCP Anki import. The upload token is
- * separate from the MCP bearer token, so an agent can use curl without seeing
- * its OAuth credential. The body is sniffed and content-addressed; there is no
- * URL fetch and no caller-supplied filename.
- */
 export async function uploadAgentImportMedia(ctx: ActionCtx, request: Request) {
   const match = new URL(request.url).pathname.match(/^\/agent-imports\/([^/]+)\/media$/);
   if (!match) return new Response("Not found", { status: 404 });

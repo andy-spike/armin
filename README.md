@@ -16,7 +16,7 @@ FSRS continues scheduling that prerequisite for practice.
 
 - [`apps/web`](apps/web/README.md): TanStack Start web client.
 - [`apps/mobile`](apps/mobile/README.md): Expo mobile client for the same backend.
-- [`apps/docs`](apps/docs/README.md): the user guide, a static [Nimbus](https://nimbus-docs.com) docs site.
+- [`apps/docs`](apps/docs/README.md): the user guide, a [Nimbus](https://nimbus-docs.com) docs site on Cloudflare Workers.
 - [`packages/backend`](packages/backend/README.md): Convex backend and Better Auth,
   with account-owned libraries, server-side scheduling, images, and ZIP export.
 - [`packages/core`](packages/core): portable study types and rules.
@@ -59,6 +59,10 @@ the Expo trusted origins, and a session secret, and seeds a sample account
 (`test@example.com` / `armin1234`). For real email or Google sign-in, set the
 variables in [the backend README](packages/backend/README.md#deployment-environment-variables)
 on the local deployment. Data lives in `packages/backend/.convex/local/`.
+
+Coding agents get Convex and Cloudflare skills from `.agents/skills/` in this
+repository (installed with the `skills` CLI and recorded in `skills-lock.json`).
+Refresh them with `npx skills update -p`.
 
 `dev:setup` refreshes only the Convex URL entries in the web and mobile
 `.env.local` files, preserving other settings. To refresh those URLs without
@@ -121,7 +125,6 @@ maximum interval, FSRS parameters) come along, and optionally review progress,
 including buried cards and Anki's new-card order. Video, text-to-speech, card
 styling, and per-deck daily limits don't. The file is read in the browser and
 the preview lists anything left out before importing. See
-[ADR 0022](packages/core/docs/adr/0022-anki-import-runs-in-the-browser.md) and
 [AI assistant Anki import](docs/agent-connections.md#anki-import).
 
 ## Equations
@@ -203,9 +206,8 @@ Run `pnpm check`, `pnpm --filter @armin/web build`, and
 `pnpm --filter @armin/docs typecheck` and `pnpm --filter @armin/docs build`. `pnpm check` runs `vp check`, which
 checks formatting (Oxfmt), lints (Oxlint), and type checks every workspace in one
 pass; `pnpm format` fixes formatting. Lint and format settings live in the root
-`vite.config.ts` ([ADR 0003](docs/adr/0003-vite-plus-toolchain.md)). Web, backend,
-and mobile changes use running-app walkthroughs recorded in [`docs/qa/`](docs/qa/),
-without automated test suites.
+`vite.config.ts`. Check web, backend, and mobile changes in the running app;
+there are no automated test suites.
 
 ## License
 

@@ -9,7 +9,6 @@ import {
 } from "@armin/core/limits";
 import { fail } from "./errors";
 
-/** Shared validation for study and deck settings, including settings an import carries. */
 export function checkSteps(value: string | null | undefined) {
   if (value == null) return;
   const steps = value

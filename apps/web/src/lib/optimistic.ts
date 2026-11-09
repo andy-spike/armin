@@ -2,23 +2,8 @@ import type { OptimisticLocalStore } from "convex/browser";
 import { api } from "@armin/backend/api";
 import type { DeckWithStats, Id } from "@armin/backend/types";
 
-/*
- * Convex optimistic updates for writes whose result the user should see at
- * once. Convex shows the edited query results from the moment the mutation is
- * sent and drops the edit only when the server's results include the
- * mutation, or when it fails. That covers the slow case here: deck lists
- * recompute every deck's due count before they update, which can take seconds
- * on a large library, and a result computed before the write can still
- * arrive after it.
- *
- * Every page reads these queries through TanStack Query, whose Convex adapter
- * subscribes with `watchQuery`, so the edits reach every page and the sidebar.
- */
-
-/** Placeholder id prefix for a deck the server hasn't created yet. */
 const PENDING_DECK_PREFIX = "pending:";
 
-/** A placeholder for a deck still being created: shown, but not openable. */
 export function isPendingDeck(deck: { id: string }) {
   return deck.id.startsWith(PENDING_DECK_PREFIX);
 }
@@ -26,7 +11,6 @@ export function isPendingDeck(deck: { id: string }) {
 type DeckRow = DeckWithStats;
 type DeckRowEdit = (decks: DeckRow[]) => DeckRow[];
 
-/** Apply `edit` to every cached deck list: the Decks page (one per study-clock value) and the sidebar. */
 function editDeckRows(store: OptimisticLocalStore, edit: DeckRowEdit) {
   for (const { args, value } of store.getAllQueries(api.decks.list)) {
     if (value) store.setQuery(api.decks.list, args, edit(value));
@@ -36,7 +20,6 @@ function editDeckRows(store: OptimisticLocalStore, edit: DeckRowEdit) {
   }
 }
 
-/** Apply `edit` to the deck-name lists that pickers read. */
 function editDeckNames(
   store: OptimisticLocalStore,
   edit: (decks: { id: Id<"decks">; name: string }[]) => { id: Id<"decks">; name: string }[],
@@ -68,8 +51,6 @@ export function createDeckOptimistically(
     learning: 0,
     learned: 0,
   };
-  // Only the grid and sidebar, which render placeholders inert. Pickers read
-  // `listNames`, and a picked placeholder id would reach queries and mutations.
   editDeckRows(store, (decks) => [...decks, placeholder]);
 }
 
@@ -83,7 +64,6 @@ export function renameDeckOptimistically(
     decks.map((deck) => (deck.id === deckId ? { ...deck, name } : deck));
   editDeckRows(store, rename);
   editDeckNames(store, rename);
-  // The deck's own page; renaming keeps its slug, so its links stay valid.
   for (const { args: queryArgs, value } of store.getAllQueries(api.decks.get)) {
     if (value?.id === deckId) store.setQuery(api.decks.get, queryArgs, { ...value, name });
   }
@@ -113,15 +93,19 @@ export function pinDeckOptimistically(
   );
 }
 
-/** Display preferences the settings query returns exactly as they are saved. */
 export function updateSettingsOptimistically(
   store: OptimisticLocalStore,
-  args: { keybindings?: string | null; autoplayAudio?: boolean },
+  args: {
+    keybindings?: string | null;
+    autoplayAudio?: boolean;
+    cardEditorLayout?: "fullPage" | "dialog";
+  },
 ) {
   const settings = store.getQuery(api.settings.get, {});
   if (!settings) return;
   const next = { ...settings };
   if (args.keybindings !== undefined) next.keybindings = args.keybindings;
   if (args.autoplayAudio !== undefined) next.autoplayAudio = args.autoplayAudio;
+  if (args.cardEditorLayout !== undefined) next.cardEditorLayout = args.cardEditorLayout;
   store.setQuery(api.settings.get, {}, next);
 }

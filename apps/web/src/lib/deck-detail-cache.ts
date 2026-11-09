@@ -1,7 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { decksQuery } from "@/lib/queries";
 
-/** A deck's row from the cached deck list, to show its page before its own query loads. */
 export function getCachedDeckDetail(queryClient: QueryClient, deckId: string) {
   return queryClient.getQueryData(decksQuery().queryKey)?.find((deck) => deck.id === deckId);
 }

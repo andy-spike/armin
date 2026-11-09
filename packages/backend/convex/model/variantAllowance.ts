@@ -6,16 +6,6 @@ import type { variantReservation } from "../schema";
 import { isSelfHosted } from "./selfHost";
 import { libraryLimits } from "./usage";
 
-/*
- * The monthly concept card variant allowance (ADR 0023), per library and UTC
- * month (`usageMonth`, the same key as the assistant card allowance). A
- * generation job reserves its batch in the mutation that schedules it, before
- * the action calls the model; when the job ends, it charges only the variants
- * it stored and releases the rest. Reads and writes of the month's row run in
- * Convex mutations, which are serializable, so concurrent jobs in one library
- * cannot reserve past the limit. Self-hosted instances have no allowance.
- */
-
 export type VariantReservation = Infer<typeof variantReservation> | undefined;
 
 function usageRow(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">, month: string) {
@@ -25,7 +15,6 @@ function usageRow(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">, month: 
     .unique();
 }
 
-/** This month's allowance for a library, or null where none applies (self-hosted). */
 export async function variantAllowance(
   ctx: Pick<QueryCtx, "db">,
   libraryId: Id<"libraries">,
@@ -51,11 +40,6 @@ export async function variantAllowance(
   };
 }
 
-/**
- * Reserve up to `wanted` variants for a job. Returns how many the job may
- * generate (0 when the allowance is used up) and the reservation to settle
- * later, which is absent where no allowance applies.
- */
 export async function reserveVariants(
   ctx: MutationCtx,
   libraryId: Id<"libraries">,
@@ -78,10 +62,6 @@ export async function reserveVariants(
   return { count, reservation: { libraryId, month: allowance.month, count } };
 }
 
-/**
- * End a job's reservation: charge the variants it stored to the month it
- * reserved in and release the rest. A failed or superseded job stores 0.
- */
 export async function settleVariants(
   ctx: MutationCtx,
   reservation: VariantReservation,

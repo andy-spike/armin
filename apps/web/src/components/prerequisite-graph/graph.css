@@ -1,22 +1,14 @@
-/*
- * React Flow makes each card a focusable `.react-flow__node` wrapper but
- * suppresses the browser outline on it. Draw the keyboard focus ring on the
- * card surface instead so focused cards are visible.
- */
 .react-flow__node.selectable:focus-visible > div {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-/* Match the app's themed surfaces instead of React Flow's light defaults. */
 .react-flow__minimap {
   border: 1px solid var(--color-border-strong);
   background: var(--color-surface);
   box-shadow: var(--shadow-overlay);
 }
 
-/* React Flow sizes the map's SVG to the whole minimap, which with the border
- * pushes it over the right and bottom edges. Fit it inside the border. */
 .react-flow__minimap svg {
   display: block;
   width: 100%;

@@ -25,7 +25,6 @@ type UseGraphCanvasEditsInput = {
   editingId: string | null;
   editingVersion: number | null;
   closeDialog: () => void;
-  /** Replace the canvas's working copy with the server's graph. */
   resetGraph: () => void;
   toast: Toast;
 };
@@ -48,9 +47,6 @@ export function useGraphCanvasEdits({
 }: UseGraphCanvasEditsInput) {
   const [nodePlacements, setNodePlacements] = useState<Record<string, XYPosition>>({});
 
-  // Graph writes name the library revision they start from. Ours run one at a
-  // time in one TanStack Query mutation scope, each starting from the
-  // revision the previous one saved; between writes, the server's is adopted.
   const scope = { id: `graph:${deckId}` };
   const revision = useRef(graph.version ?? 0);
   const writing = useIsMutating({ mutationKey: ["graph", deckId] }) > 0;
@@ -66,7 +62,6 @@ export function useGraphCanvasEdits({
     return saved;
   };
 
-  // A failed write puts the canvas back to the server's graph.
   const failed = (title: string, error?: unknown) => {
     toast({ tone: "error", title, description: error ? errorMessage(error) : undefined });
     resetGraph();
@@ -99,7 +94,6 @@ export function useGraphCanvasEdits({
   const createCard = useMutation({
     mutationFn: (values: CardFormValues) => armin.flashcards.create({ deckId, ...values }),
     onSuccess: async (card) => {
-      // Creation also changes the graph revision. Read it before placing/linking.
       const fresh = await armin.graph.getDeck(deckId);
       revision.current = fresh.version;
       if (pendingPlacement) {
@@ -145,7 +139,6 @@ export function useGraphCanvasEdits({
     }
   };
 
-  /** Persist the links the canvas added or removed. */
   const applyEdgeChange = (nextEdges: GraphEdge[]) => {
     const previousEdges = graph.edges;
     setGraph((current) => ({ ...current, edges: nextEdges }));

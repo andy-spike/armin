@@ -1,4 +1,3 @@
-/** Only an operator-selected auth user is ever treated as a disposable account. */
 export function isReviewer(userId: string) {
   return (
     Boolean(process.env.REVIEWER_ACCOUNT_USER_ID) && userId === process.env.REVIEWER_ACCOUNT_USER_ID

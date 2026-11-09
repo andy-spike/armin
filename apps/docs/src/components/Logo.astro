@@ -1,8 +1,4 @@
 ---
-/* The Armin tree and serif wordmark, drawn exactly as the app draws them
-   (apps/web/src/components/brand.tsx): branches in the text colour, learned
-   tips in the accent. The social cards use the single-colour version in
-   logo.ts. */
 import {
   markEdges,
   markNodes,
@@ -13,7 +9,6 @@ import {
 
 interface Props {
   class?: string;
-  /** Show the "armin" wordmark beside the mark. */
   wordmark?: boolean;
 }
 const { class: cls = "h-6 w-6", wordmark = false } = Astro.props;

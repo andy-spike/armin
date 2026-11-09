@@ -1,7 +1,4 @@
-/** Sidebar runtime: persistence of open groups and scroll.
- *
- * The sidebar has no filter of its own; the header search (Ctrl/⌘ K or "/")
- * searches every page.
+/** Sidebar runtime: persistence.
  *
  * Groups are native `<details>`: open state is the element's own `open`
  * property, and changes arrive as `toggle` events (captured on the root —

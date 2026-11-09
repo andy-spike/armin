@@ -17,13 +17,6 @@ import {
   agentImportToolTitles,
 } from "./model/agentImportTools";
 
-/**
- * The hosted MCP server. The component owns OAuth, token storage, audience
- * binding, and the protocol. Every tool passes the component-verified identity
- * to an internal function, which re-reads the grant and the library in the same
- * transaction as the read or write.
- */
-
 const READ_ONLY = new Set<AgentToolName>(["list_decks", "read_deck", "read_prerequisites"]);
 
 const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
@@ -45,8 +38,6 @@ async function run<R extends GenericValidator>(
   input: unknown,
   user: McpUser<string>,
 ): Promise<Infer<R>> {
-  // Record the connection (and its recent use) before the data operation. A
-  // revoked grant fails here, and each operation re-checks it again.
   await ctx.runMutation(internal.agents.touchConnection, { user });
   const result = READ_ONLY.has(name)
     ? await ctx.runQuery(internal.agentAuthoring.read, { user, tool: name, input })
@@ -115,7 +106,6 @@ const importTools = Object.fromEntries(
   ]),
 );
 
-/** Bound tool request bodies before the component parses JSON. */
 class ArminMcpServer extends McpServer<string> {
   override async handleMcp(ctx: ToolCtx, request: Request) {
     const maxBytes = 1_048_576;
@@ -149,14 +139,11 @@ export const mcp = new ArminMcpServer(components.mcp, {
   title: "Armin",
   version: "1.0.0",
   instructions: agentInstructions,
-  // The component sends users to `${consentUrl}?request=<id>`; the web app's
-  // existing /connect-agent page already reads that parameter.
   consentUrl: new URL("/connect-agent", siteUrl).toString(),
   scopes: {
     [AGENT_SCOPE]: "Create, read, and edit cards, decks, and prerequisites in your Armin library",
   },
   allowedOrigins,
-  // Device authorization is off: browser consent is the only approval path.
   deviceFlow: false,
   tools: {
     ...importTools,

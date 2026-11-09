@@ -3,7 +3,6 @@ import { Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-/** A password field with an eye toggle that reveals or hides what was typed. */
 export const PasswordInput = React.forwardRef<
   HTMLInputElement,
   Omit<React.InputHTMLAttributes<HTMLInputElement>, "type">
@@ -23,7 +22,6 @@ export const PasswordInput = React.forwardRef<
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}
-        // Keep focus (and the caret) in the field while toggling.
         onMouseDown={(e) => e.preventDefault()}
         disabled={disabled}
         aria-label={visible ? "Hide password" : "Show password"}

@@ -1,15 +1,3 @@
-// Records the landing page's four clips from the real app, once in light mode
-// and once in dark: writing a card, linking it in the graph, reviewing, and the
-// unlocked graph. The landing page shows the set matching the visitor's theme.
-//
-//   pnpm --filter @armin/web landing:clips
-//
-// Needs `pnpm dev` running in this checkout, agent-browser, and ffmpeg. Each
-// run resets the "Fundamentals of LLMs" deck in its own demo account on this
-// checkout's local deployment, then writes MP4s and posters to
-// apps/web/public/landing/ (`<clip>-light.mp4`, `<clip>-dark.mp4`, and a JPEG
-// poster for each) and their sizes to src/components/landing/clips.json.
-// Each clip is cropped to the part of the screen its step is about.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -28,9 +16,7 @@ const SCHEMES = ["dark", "light"];
 const WIDTH = 1280;
 const HEIGHT = 800;
 const SCALE = 1.5;
-/** Clips play this much faster than they were recorded. */
 const SPEED = 1.2;
-/** The widest a clip is encoded, in pixels. */
 const MAX_WIDTH = 1440;
 
 const ab = (...args) =>
@@ -38,7 +24,6 @@ const ab = (...args) =>
 const wait = (ms) => ab("wait", String(ms));
 const evaluate = (js) => JSON.parse(JSON.parse(ab("eval", `JSON.stringify(${js})`)));
 
-/** The bounding box of the first element the expression returns, in CSS pixels. */
 function rect(find) {
   const box = evaluate(`(() => {
     const el = ${find};
@@ -61,7 +46,6 @@ const byText = (selector, text, scope = "document") =>
 const graphNode = (text) =>
   `[...document.querySelectorAll(".react-flow__node")].find((el) => el.textContent.includes(${JSON.stringify(text)}))`;
 
-/** The frame for a clip: the elements it is about, padded and kept inside the viewport. */
 function frame(finds, pad = 28) {
   const boxes = finds.map(rect);
   const left = Math.min(...boxes.map((b) => b.left)) - pad;
@@ -88,7 +72,6 @@ function click(point, duration) {
   wait(80);
   ab("mouse", "up");
 }
-/** Types a few words at a time, so the text appears at a quick typing pace. */
 function typeQuickly(text) {
   const words = text.split(/(?<= )/);
   for (let i = 0; i < words.length; i += 3) ab("keyboard", "type", words.slice(i, i + 3).join(""));
@@ -102,7 +85,6 @@ function startClip(name) {
 function stopClip(name, crop) {
   ab("record", "stop");
   const source = join(raw, `${name}-${scheme}.mp4`);
-  // Recorded pixels per CSS pixel, from the recording's own width.
   const recorded = Number(
     execFileSync("ffprobe", [
       "-v",
@@ -120,8 +102,6 @@ function stopClip(name, crop) {
   const even = (n) => Math.round(n / 2) * 2;
   const width = even(Math.min(MAX_WIDTH, crop.width * k));
   const height = even((width * crop.height) / crop.width);
-  // Both schemes share one layout, so their crops match; the page reserves
-  // space from one size per clip.
   const previous = sizes[name];
   if (previous && (previous.width !== width || previous.height !== height)) {
     console.warn(
@@ -130,7 +110,6 @@ function stopClip(name, crop) {
   }
   sizes[name] = { width, height };
   const target = join(out, `${name}-${scheme}.mp4`);
-  // Small, widely playable H.264 with no audio track, ready to stream.
   execFileSync("ffmpeg", [
     "-y",
     "-loglevel",
@@ -158,7 +137,6 @@ function stopClip(name, crop) {
     "+faststart",
     target,
   ]);
-  // The poster is the clip's last frame: what reduced motion shows.
   execFileSync("ffmpeg", [
     "-y",
     "-loglevel",
@@ -175,7 +153,6 @@ function stopClip(name, crop) {
   ]);
 }
 
-/** Opens the deck graph framed on every card, with the pointer out of the way. */
 function openGraph(site, deckPath) {
   ab("open", `${site}${deckPath}/graph`);
   wait(2000);
@@ -199,15 +176,12 @@ async function main() {
   console.log(`Wrote the landing clips to ${out}`);
 }
 
-/** Resets the demo deck and records all four clips in the current scheme. */
 async function recordScheme() {
   const demo = await prepareLandingDemo();
   const site = demo.siteUrl;
   try {
     ab("close");
-  } catch {
-    // No earlier session to close.
-  }
+  } catch {}
   ab("set", "viewport", String(WIDTH), String(HEIGHT), String(SCALE));
   ab("set", "media", scheme);
   ab("open", `${site}/sign-in`);
@@ -218,8 +192,6 @@ async function recordScheme() {
   wait(2500);
 
   try {
-    // 1. Write a card: Add card, type the front and back, save. The frame holds
-    // the Add card button and the dialog, measured once before recording.
     ab("open", `${site}${demo.deckPath}`);
     wait(2000);
     const addCard = byText("button", "Add card");
@@ -245,7 +217,6 @@ async function recordScheme() {
 
     await demo.afterWrittenCard();
 
-    // 2. Link it: drag from each prerequisite's lower handle onto the new card.
     openGraph(site, demo.deckPath);
     const linkFrame = frame(
       [
@@ -260,7 +231,6 @@ async function recordScheme() {
     for (const prereq of ["What is a token?", "What is an embedding?"]) {
       move(centre(graphNode(prereq)), 600);
       wait(200);
-      // The card clips its handles to their inner half, so press just inside.
       move(
         centre(
           `${graphNode(prereq)}?.querySelector('.card-graph-handle[data-handleid="bottom"]')`,
@@ -282,8 +252,6 @@ async function recordScheme() {
 
     await demo.beforeReview();
 
-    // 3. Review: show each foundation's answer and grade it Easy. The frame is
-    // the review column, from its heading to the answer buttons.
     ab("open", `${site}${demo.deckPath}/review`);
     wait(2000);
     const reviewFrame = frame(
@@ -304,7 +272,6 @@ async function recordScheme() {
     wait(1100);
     stopClip("review", reviewFrame);
 
-    // 4. Unlock: the graph after review; the new card and Context window opened.
     openGraph(site, demo.deckPath);
     const nodeCount = evaluate('document.querySelectorAll(".react-flow__node").length');
     const unlockFrame = frame(

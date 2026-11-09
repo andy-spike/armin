@@ -22,22 +22,12 @@ import { ToastProvider } from "@/components/ui/toast";
 import { KeybindingsProvider } from "@/keybindings/keybindings-provider";
 import { RouteNotFound } from "@/components/route-status";
 
-/** Read the Better Auth session cookie on the server and mint a Convex token. */
 const getAuth = createServerFn({ method: "GET" }).handler(async () => {
   return (await getToken()) ?? null;
 });
 
 type AuthContext = { isAuthenticated: boolean; token: string | null };
 
-/**
- * The browser's signed-in state, remembered across client navigations so each
- * click doesn't wait on a server round trip. It can't go stale: every sign-in,
- * sign-out, reset, and account deletion is a full page load, which clears it,
- * and the Convex client refreshes its own tokens. A session that ends elsewhere
- * shows up through the viewer query instead. Holding the promise lets the
- * router's back-to-back loads at startup share one request; signed-out and
- * failed results are dropped, so the auth pages always ask the server.
- */
 let browserAuth: Promise<AuthContext> | null = null;
 
 async function loadAuth(convexQueryClient: ConvexQueryClient): Promise<AuthContext> {
@@ -58,8 +48,6 @@ export const Route = createRootRouteWithContext<{
       { title: "Armin" },
     ],
     links: [
-      // The stylesheet only reveals these fonts once parsed; preloading the
-      // Latin files used above the fold starts them with the document instead.
       {
         rel: "preload",
         href: interLatin,
@@ -82,7 +70,6 @@ export const Route = createRootRouteWithContext<{
   }),
   beforeLoad: (ctx) => {
     if (typeof window === "undefined") {
-      // Public documents are cached: never read cookies or serialize a session token.
       if (
         ctx.matches.some((match) =>
           ["/privacy", "/terms", "/docs/mcp", "/pricing"].includes(match.routeId),
@@ -104,15 +91,9 @@ export const Route = createRootRouteWithContext<{
     );
     return browserAuth;
   },
-  // Server-render the providers so the signed-in frame below can render too;
-  // routes that don't opt in still render only in the browser (`src/start.ts`).
   ssr: true,
-  // A signed-in page carries the viewer's Convex token for hydration, so no
-  // shared cache may keep a copy.
   headers: () => ({ "Cache-Control": "private, no-store" }),
   shellComponent: RootDocument,
-  // React hoists this title for the unmatched-URL page, which has no route
-  // of its own to carry a `head`.
   notFoundComponent: () => (
     <>
       <title>Page not found · Armin</title>
@@ -124,9 +105,6 @@ export const Route = createRootRouteWithContext<{
 
 function RootComponent() {
   const context = useRouteContext({ from: Route.id });
-  // A server-rendered load ran `beforeLoad` on the server, so the browser
-  // starts out remembering that answer instead of asking again on first click.
-  // `browserAuth` is a module-level cache shared across renders by design.
   if (typeof window !== "undefined" && !browserAuth && context.isAuthenticated) {
     // oxlint-disable-next-line react/globals
     browserAuth = Promise.resolve({ isAuthenticated: true, token: context.token });
@@ -134,9 +112,6 @@ function RootComponent() {
   return (
     <ConvexBetterAuthProvider
       client={context.convexQueryClient.convexClient}
-      // The provider's AuthClient type collapses the session type under this
-      // monorepo's mixed Better Auth installs; the runtime client is the
-      // documented `createAuthClient({ plugins: [convexClient()] })`.
       authClient={authClient as never}
       initialToken={context.token}
     >
@@ -154,11 +129,6 @@ function RootComponent() {
 }
 
 function RootDocument({ children }: { children: ReactNode }) {
-  // The app frame scrolls inside its own panes, so the root is locked; the
-  // landing and legal pages scroll the document instead, which keeps Space,
-  // Page Down, and the browser's own scroll restoration working. An attribute
-  // set while rendering, rather than `html:has(...)`, which Chrome re-checks on
-  // every DOM change anywhere in the page.
   const documentScroll = useMatches({
     select: (matches) =>
       matches.some(

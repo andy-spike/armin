@@ -1,7 +1,6 @@
 export const MEDIA_PROTOCOL = "armin-media";
 export const MEDIA_REF_PREFIX = `${MEDIA_PROTOCOL}:`;
 
-/** Every stored media extension, images then audio. Shared by all route and reference checks. */
 export const MEDIA_EXT_PATTERN = "png|jpg|gif|webp|svg|bmp|avif|mp3|ogg|m4a|wav|flac|aac";
 const MEDIA_FILE_PATTERN = `[a-f0-9]{64}\\.(?:${MEDIA_EXT_PATTERN})`;
 const MEDIA_FILE_RE = new RegExp(`^${MEDIA_FILE_PATTERN}$`);

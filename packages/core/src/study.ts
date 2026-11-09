@@ -1,10 +1,3 @@
-/**
- * Portable study rules shared by every Armin backend and client: effective
- * scheduling settings, the account-local study day, Frontier selection, and
- * interval labels. Values are plain transport-safe data (epoch milliseconds,
- * strings, numbers) so this module runs in Convex, React Native, and browsers.
- */
-
 import { PRESET_VALUES, type SchedulingPreset } from "./scheduling-presets";
 
 export type SchedulingSettings = {
@@ -14,16 +7,9 @@ export type SchedulingSettings = {
   enableShortTerm: boolean;
   learningSteps: string;
   relearningSteps: string;
-  /** JSON array of FSRS weights; null = library defaults. */
   weights: string | null;
   prereqStabilityFloor: number;
   newReviewUnitsPerDay: number;
-  /**
-   * Maximum review units (due reviews plus new Frontier units) admitted per
-   * study day, account-wide across every deck. `null` means no limit. Like
-   * `newReviewUnitsPerDay` this is an admission budget, not a rating gate: a
-   * unit already in a session stays answerable if the budget runs out.
-   */
   reviewsPerDay: number | null;
   keepSiblingReviewUnitsTogether: boolean;
 };
@@ -42,7 +28,6 @@ export const SCHEDULING_SETTING_KEYS = [
   "keepSiblingReviewUnitsTogether",
 ] as const satisfies readonly (keyof SchedulingSettings)[];
 
-/** The Frontier and daily review caps are account-wide, so decks cannot override them. */
 export type DeckSettingOverrideKey = Exclude<
   keyof SchedulingSettings,
   "newReviewUnitsPerDay" | "reviewsPerDay"
@@ -90,8 +75,6 @@ export function defaultSchedulingSettings(): SchedulingSettings & {
   return { ...PRESET_VALUES.balanced, weights: null, schedulingPreset: "balanced" };
 }
 
-// --- Account-local study day ---
-
 export const DEFAULT_TIME_ZONE = "UTC";
 
 export function isValidTimeZone(timeZone: string): boolean {
@@ -125,23 +108,17 @@ function zonedParts(ms: number, timeZone: string) {
   };
 }
 
-/** Offset (local − UTC) in milliseconds for `timeZone` at instant `ms`. */
 function timeZoneOffsetMs(ms: number, timeZone: string): number {
   const p = zonedParts(ms, timeZone);
   const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
   return asUtc - (ms - (ms % 1000));
 }
 
-/** Calendar date (YYYY-MM-DD) of `ms` in `timeZone`. */
 export function studyDayKey(ms: number, timeZone: string): string {
   const p = zonedParts(ms, timeZone);
   return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
 }
 
-/**
- * Epoch milliseconds of local midnight that starts the study day containing
- * `ms` in `timeZone`. Handles DST by re-evaluating the offset at the guess.
- */
 export function startOfStudyDayMs(ms: number, timeZone: string): number {
   const p = zonedParts(ms, timeZone);
   const localMidnightAsUtc = Date.UTC(p.year, p.month - 1, p.day);
@@ -150,16 +127,11 @@ export function startOfStudyDayMs(ms: number, timeZone: string): number {
   return guess;
 }
 
-/** Epoch milliseconds of the next local midnight after `ms`. */
 export function startOfNextStudyDayMs(ms: number, timeZone: string): number {
   const start = startOfStudyDayMs(ms, timeZone);
-  // 26h always lands inside the next local day, even across DST changes.
   return startOfStudyDayMs(start + 26 * 3_600_000, timeZone);
 }
 
-// --- Frontier selection ---
-
-/** In-place Fisher–Yates shuffle; `random` is injectable for determinism. */
 export function shuffle<T>(items: T[], random: () => number = Math.random): T[] {
   for (let i = items.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
@@ -168,12 +140,6 @@ export function shuffle<T>(items: T[], random: () => number = Math.random): T[] 
   return items;
 }
 
-/**
- * Pick the Frontier review units admitted today. With sibling grouping, a
- * flashcard's eligible new review units enter together, and the cap counts
- * individual review units admitted. `arrange` orders the candidates (random
- * by default; pass an identity function when the caller pre-ranked them).
- */
 export function selectFrontier<T extends { flashcardId: string }>(
   frontier: T[],
   remaining: number,
@@ -201,7 +167,6 @@ export function selectFrontier<T extends { flashcardId: string }>(
   return selected;
 }
 
-/** Compact interval label for rating previews (e.g. "10m", "3d"). */
 export function formatInterval(fromMs: number, toMs: number): string {
   const ms = Math.max(0, toMs - fromMs);
   const mins = Math.round(ms / 60000);
@@ -215,7 +180,6 @@ export function formatInterval(fromMs: number, toMs: number): string {
   return `${(days / 365).toFixed(1)}y`;
 }
 
-/** Lower values sort closer to the front of a due-soon list. */
 export function dueSortPriority(
   row: { locked: boolean; state: number; due: number },
   nowMs: number,
@@ -254,7 +218,6 @@ export const BROWSE_SORT_KEYS = [
 
 export type BrowseSortKey = (typeof BROWSE_SORT_KEYS)[number];
 
-/** Normalize and de-duplicate tags case-insensitively, preserving first casing. */
 export function normalizeTags(input: string[] = []): string[] {
   const seen = new Set<string>();
   const result: string[] = [];

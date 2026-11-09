@@ -45,7 +45,5 @@ jobs:
       - name: Check mobile bundles
         run: pnpm --filter ./apps/mobile check:bundle
 
-      # `astro check` type-checks .astro files, which `pnpm check` can't read;
-      # the build validates frontmatter, MDX components, and internal links.
       - name: Check and build docs site
         run: pnpm --filter @armin/docs typecheck && pnpm --filter @armin/docs build

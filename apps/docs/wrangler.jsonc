@@ -1,13 +1,9 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "armin-docs",
-  // Matches the web app. A date newer than the installed Workers runtime
-  // supports stops `wrangler dev` and a deploy from starting.
   "compatibility_date": "2026-10-19",
   "compatibility_flags": ["nodejs_compat"],
-  // Server output (`nimbus-docs add adapter-cloudflare`): the Astro Cloudflare
-  // adapter writes the full deploy config, with the Worker entry and the
-  // static assets, to dist/server/wrangler.json at build time.
+  "routes": [{ "pattern": "docs.armincards.app", "custom_domain": true }],
   "assets": {
     "not_found_handling": "none",
   },

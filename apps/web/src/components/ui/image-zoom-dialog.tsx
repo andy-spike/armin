@@ -8,13 +8,6 @@ const STEP = 1.2;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-/**
- * Centered modal that shows a card image at full size with zoom in/out, reset,
- * scroll-wheel zoom, and drag-to-pan. Used both from the composer (hover
- * magnifier) and the read-only renderer (click image). It is a self-contained
- * portal — not the shared `Dialog` — so its Escape handler can stop at the
- * capture phase and not also close a flashcard form dialog it may be nested in.
- */
 export function ImageZoomDialog({
   src,
   open,
@@ -40,7 +33,6 @@ export function ImageZoomDialog({
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  // Each open starts at the fitted, centered view.
   const [wasOpen, setWasOpen] = React.useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -53,16 +45,12 @@ export function ImageZoomDialog({
   React.useEffect(() => {
     if (!open) return;
 
-    // Pull focus into the preview so its own trap owns Tab from the start; a
-    // parent dialog (e.g. the flashcard form) would otherwise keep it.
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const focusFrame = requestAnimationFrame(() => {
       panelRef.current?.querySelector<HTMLElement>("button:not([disabled])")?.focus();
     });
 
     const onKey = (event: KeyboardEvent) => {
-      // Capture phase + stopImmediatePropagation so a parent dialog's own
-      // document-level key handlers (Escape close, Tab trap) never also fire.
       if (event.key === "Escape") {
         event.stopImmediatePropagation();
         event.preventDefault();
@@ -107,8 +95,6 @@ export function ImageZoomDialog({
     };
   }, [open]);
 
-  // React attaches wheel listeners passively, so bind our own to preventDefault
-  // and keep the page from scrolling while zooming.
   React.useEffect(() => {
     const viewport = viewportRef.current;
     if (!open || !viewport) return;
@@ -151,9 +137,7 @@ export function ImageZoomDialog({
     setDragging(false);
     try {
       event.currentTarget.releasePointerCapture(event.pointerId);
-    } catch {
-      // Pointer capture may already be released; ignore.
-    }
+    } catch {}
   };
 
   const controlClass =

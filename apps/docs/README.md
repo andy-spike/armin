@@ -106,9 +106,8 @@ the real type checking for them. CI runs the typecheck and build.
 files beside it. The adapter writes the full deploy config to
 `dist/server/wrangler.json`; `wrangler.jsonc` holds only the name, the
 compatibility date, and flags. Its compatibility date matches the web app's: a
-date newer than the installed Workers runtime stops `wrangler dev` and deploys. To serve it at
-`docs.armincards.app`, add that custom domain to the Worker in the Cloudflare
-dashboard (or as a `routes` entry in `wrangler.jsonc`).
+date newer than the installed Workers runtime stops `wrangler dev` and deploys. The `routes` entry in `wrangler.jsonc` attaches the `docs.armincards.app` custom
+domain on deploy.
 
 ## Look
 

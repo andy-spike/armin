@@ -15,8 +15,6 @@ import { root } from "astro:config/server";
 
 import { logo } from "@/components/logo";
 
-// The app's Flexoki light theme (apps/web/src/styles/flexoki-palette.css),
-// in hex for Satori: ink, muted 700, border 100, and paper.
 const FOREGROUND = "#100f0f";
 const MUTED = "#575653";
 const BORDER = "#e6e4d9";

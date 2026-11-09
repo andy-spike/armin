@@ -11,11 +11,6 @@ import {
 } from "@armin/core/anki/reader";
 import type { AnkiWorkerRequest, AnkiWorkerResponse } from "./reader-types";
 
-/**
- * Hosts one open Anki file. SQLite's WASM binary is fetched only when a ZIP
- * package is opened, never for plain-text files.
- */
-
 let opened: OpenedAnkiPackage | null = null;
 
 function send(message: AnkiWorkerResponse, transfer: Transferable[] = []) {
@@ -29,7 +24,7 @@ async function open(file: File) {
     );
   }
   const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
-  const isZip = head[0] === 0x50 && head[1] === 0x4b; // "PK"
+  const isZip = head[0] === 0x50 && head[1] === 0x4b;
   if (isZip) {
     const SQL = await initSqlJs({ locateFile: () => sqlWasmUrl });
     opened = await openAnkiPackage(blobSource(file), SQL);
@@ -88,7 +83,6 @@ self.onmessage = async (event: MessageEvent<AnkiWorkerRequest>) => {
       send({ type: "media", requestId: request.requestId, bytes: null });
       return;
     }
-    // Copy when the bytes are a view into a larger buffer so the transfer is exact.
     const buffer =
       bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
         ? (bytes.buffer as ArrayBuffer)

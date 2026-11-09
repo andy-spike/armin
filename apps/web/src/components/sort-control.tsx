@@ -20,10 +20,6 @@ type SortControlProps<T extends string> = {
   onChange: (value: T) => void;
   options: readonly SortOption<T>[];
   className?: string;
-  /**
-   * Where the sort icon goes: beside the select (default), above it with
-   * `label` to match filter fields, or inside the trigger.
-   */
   layout?: "beside" | "field" | "inline";
   label?: ReactNode;
   triggerClassName?: string;

@@ -6,14 +6,6 @@ import type { MutationCtx } from "../_generated/server";
 import { fail } from "./errors";
 import { MAX_FLASHCARDS_PER_DECK, MAX_REVIEW_UNITS_PER_DECK } from "./limits";
 
-/*
- * Per-deck sizes in `deckUnitCounts`, kept by the flashcard and review-unit
- * triggers. They are the one place a deck's size bound is enforced, so every
- * create, import, and move into a deck is checked. Their unit-state totals and
- * Frontier counts let Stats and navigation total a library without reading
- * every unit.
- */
-
 type CountedUnit = Pick<
   Doc<"reviewUnits">,
   "deckId" | "subKey" | "state" | "locked" | "archived" | "lastReview" | "reps" | "due"
@@ -36,7 +28,6 @@ const ZERO: DeckSizes = {
   archivedCount: 0,
 };
 
-/** New, unlocked, unarchived, never reviewed: a candidate for the Frontier. */
 export function isFrontierCandidate(unit: Omit<CountedUnit, "deckId">) {
   return (
     unit.state === State.New &&
@@ -47,7 +38,6 @@ export function isFrontierCandidate(unit: Omit<CountedUnit, "deckId">) {
   );
 }
 
-/** What a set of units contributes to its deck's sizes. */
 function unitSizes(units: Omit<CountedUnit, "deckId">[]): Omit<DeckSizes, "flashcards"> {
   return {
     ...summarizeReviewUnitStates(units),
@@ -60,17 +50,11 @@ function unitSizes(units: Omit<CountedUnit, "deckId">[]): Omit<DeckSizes, "flash
 
 function add(a: DeckSizes, b: Partial<DeckSizes>, sign = 1) {
   const out = { ...a };
-  // Rows written before a counter existed lack it; they count from zero.
   for (const key of Object.keys(ZERO) as (keyof DeckSizes)[])
     out[key] = (out[key] ?? 0) + sign * (b[key] ?? 0);
   return out;
 }
 
-/**
- * Move a deck's sizes by `delta`. A deck without a row yet is counted from its
- * rows as they stand now, after the triggering write, so that change is
- * already included. Decks from before the counters held at most 2,000 cards.
- */
 async function adjust(ctx: MutationCtx, deckId: Id<"decks">, delta: DeckSizes) {
   const row = await ctx.db
     .query("deckUnitCounts")
@@ -83,7 +67,7 @@ async function adjust(ctx: MutationCtx, deckId: Id<"decks">, delta: DeckSizes) {
     await ctx.db.patch(_id, next);
   } else {
     const deck = await ctx.db.get(deckId);
-    if (!deck) return; // Deleted decks drop their counters.
+    if (!deck) return;
     const [flashcards, units] = await Promise.all([
       ctx.db
         .query("flashcards")
@@ -109,7 +93,6 @@ async function adjust(ctx: MutationCtx, deckId: Id<"decks">, delta: DeckSizes) {
     );
 }
 
-/** Apply one flashcard write to its deck sizes. */
 export async function countFlashcardChange(
   ctx: MutationCtx,
   before: Pick<Doc<"flashcards">, "deckId"> | null,
@@ -120,7 +103,6 @@ export async function countFlashcardChange(
   if (after) await adjust(ctx, after.deckId, { ...ZERO, flashcards: 1 });
 }
 
-/** Apply one review-unit write to its deck sizes. */
 export async function countUnitChange(
   ctx: MutationCtx,
   before: CountedUnit | null,
@@ -139,7 +121,6 @@ export async function countUnitChange(
   }
 }
 
-/** Sum deck sizes, for library totals. */
 export function sumSizes(rows: DeckSizes[]) {
   return rows.reduce((sum, row) => add(sum, row), ZERO);
 }

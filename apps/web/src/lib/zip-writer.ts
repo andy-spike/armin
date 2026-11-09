@@ -1,12 +1,5 @@
 import { deflateSync } from "fflate";
 
-/**
- * Streaming ZIP writer for library exports. Each file is written as soon as it
- * is added, so only the file being written is held in memory. Archives,
- * offsets, and sizes past 4 GiB use ZIP64 records; smaller archives are
- * ordinary ZIP files. Names are UTF-8.
- */
-
 const MAX_32 = 0xffffffff;
 const MAX_16 = 0xffff;
 
@@ -32,7 +25,6 @@ function dosDateTime(date: Date) {
   };
 }
 
-/** Little-endian record builder. */
 class Record {
   private bytes: number[] = [];
   u16(value: number) {
@@ -79,7 +71,6 @@ export class ZipWriter {
     this.offset += chunk.length;
   }
 
-  /** Add one file. `compress` deflates it when that makes it smaller. */
   async add(path: string, data: Uint8Array, compress: boolean) {
     const name = new TextEncoder().encode(path);
     const deflated = compress ? deflateSync(data, { level: 6 }) : null;
@@ -97,7 +88,7 @@ export class ZipWriter {
     const header = new Record()
       .u32(0x04034b50)
       .u16(zip64 ? 45 : 20)
-      .u16(0x0800) // UTF-8 names
+      .u16(0x0800)
       .u16(entry.method)
       .u16(this.stamp.time)
       .u16(this.stamp.date)
@@ -113,7 +104,6 @@ export class ZipWriter {
     this.entries.push(entry);
   }
 
-  /** Write the central directory and end records. */
   async finish() {
     const directoryOffset = this.offset;
     for (const entry of this.entries) {
@@ -126,7 +116,7 @@ export class ZipWriter {
       const zip64 = bigSize || bigOffset;
       const record = new Record()
         .u32(0x02014b50)
-        .u16(45) // made by: ZIP 4.5
+        .u16(45)
         .u16(zip64 ? 45 : 20)
         .u16(0x0800)
         .u16(entry.method)
@@ -137,10 +127,10 @@ export class ZipWriter {
         .u32(bigSize ? MAX_32 : entry.size)
         .u16(entry.name.length)
         .u16(zip64 ? 4 + extraBytes.length : 0)
-        .u16(0) // comment
-        .u16(0) // disk
-        .u16(0) // internal attributes
-        .u32(0) // external attributes
+        .u16(0)
+        .u16(0)
+        .u16(0)
+        .u32(0)
         .u32(bigOffset ? MAX_32 : entry.offset)
         .raw(entry.name);
       if (zip64) record.u16(0x0001).u16(extraBytes.length).raw(extraBytes);

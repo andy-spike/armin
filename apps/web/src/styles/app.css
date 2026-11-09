@@ -6,10 +6,6 @@
 @import "./flexoki-palette.css";
 @import "./flexoki-theme.css";
 
-/* ------------------------------------------------------------------ *
- * Armin design tokens — Flexoki semantic aliases for Tailwind.
- * Light/dark values live in flexoki-theme.css. See DESIGN.md.
- * ------------------------------------------------------------------ */
 @theme inline {
   --color-paper: var(--armin-surface);
   --color-bg-2: var(--armin-bg-2);
@@ -58,8 +54,6 @@
   --color-relearning: var(--armin-relearning);
   --color-relearning-bg: var(--armin-relearning-bg);
 
-  /* shadcn Sidebar slots: a sunken desk beside the ruled page. Hover steps one
-     tone further down; the current row is lifted back to paper in the app. */
   --color-sidebar: var(--armin-bg-2);
   --color-sidebar-foreground: var(--armin-ink);
   --color-sidebar-accent: var(--armin-border);
@@ -69,13 +63,11 @@
 
   --shadow-overlay: var(--armin-shadow-overlay);
 
-  /* Radii — sharp corners throughout */
   --radius-sm: 0;
   --radius-md: 0;
   --radius-lg: 0;
   --radius-xl: 0;
 
-  /* Type */
   --font-sans:
     "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
@@ -83,7 +75,6 @@
   --font-mono:
     "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Motion */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
@@ -142,9 +133,6 @@
   }
 }
 
-/* ------------------------------------------------------------------ *
- * Motion. Every animation has a reduced-motion fallback below.
- * ------------------------------------------------------------------ */
 @layer utilities {
   @keyframes a-fade-in {
     from {
@@ -278,17 +266,13 @@
   .animate-settle {
     animation: a-settle 0.3s var(--ease-out) both;
   }
-  /* Set --animate-delay on the element to stagger a group. */
   .animate-rise-sm {
     animation: a-rise-sm 0.2s var(--ease-out) var(--animate-delay, 0s) both;
   }
-  /* <details> that open and close smoothly where ::details-content is
-     supported (Chromium); other browsers keep the instant toggle. */
   .details-reveal {
     interpolate-size: allow-keywords;
   }
   .details-reveal::details-content {
-    /* Contains the content's top margin, so closing doesn't end in a snap. */
     display: flow-root;
     block-size: 0;
     opacity: 0;
@@ -357,9 +341,6 @@
     -webkit-app-region: no-drag;
   }
 
-  /* Paper on a desk: soft light from above, a faint dot grid like a
-     bullet-journal page, and a fine static grain. Texture without lines, so it
-     never reads as one more border behind the interface. */
   .notebook-bg {
     --notebook-cell: 1.5rem;
 
@@ -375,14 +356,9 @@
     background-repeat: no-repeat, repeat, repeat;
   }
 
-  /* A full-bleed route (e.g. the prerequisite graph) opts out of the centered
-     page box and page scroll; the app frame marks both wrappers from the
-     matched route's `staticData.fullbleed`. */
   .route-scroll[data-fullbleed] {
     overflow: hidden;
   }
-  /* A full-bleed canvas draws its own dots, which pan and zoom with it, so the
-     page keeps only its light and grain there. */
   .route-scroll[data-fullbleed].notebook-bg {
     background-image:
       radial-gradient(ellipse 90% 40rem at 50% 0, var(--armin-paper-light), transparent),
@@ -399,13 +375,6 @@
     padding: 0;
   }
 
-  /* One scrollbar for every scroll region in the app: pages, dialogs, menus,
-     lists, and text areas. Thin, no arrow buttons, a flat thumb on a clear
-     track. Chrome, Edge, and Safari use the ::-webkit-scrollbar rules, the
-     only way to hide the arrow buttons there: Chrome ignores those rules and
-     draws arrows whenever the standard properties are set, so those are kept
-     for Firefox alone. The thumb's transparent border insets it without
-     needing to know the background. */
   @supports not selector(::-webkit-scrollbar) {
     * {
       scrollbar-width: thin;
@@ -440,15 +409,6 @@
   }
 }
 
-/* ------------------------------------------------------------------ *
- * Milkdown Crepe card authoring
- * ------------------------------------------------------------------ */
-/* A cloze deletion in the card editor: the hidden text gets a soft accent
- * wash with its card number after it as a superscript, like a footnote
- * marker, and any hint after that in muted italics. Everything stays inline
- * text at the paragraph's own line height, so the caret and line spacing
- * behave as in plain text. Unlayered, like Crepe's own theme, which would
- * otherwise reset these styles. */
 .card-markdown-editor .cloze-chip {
   padding: 0.1em 0.2em;
   border-radius: 3px;
@@ -477,8 +437,6 @@
 }
 
 @layer components {
-  /* Read-only rendered Markdown (react-markdown, review cards). Typography
-   * (size, weight, leading) is inherited from the wrapper's utility classes. */
   .markdown-content {
     overflow-wrap: anywhere;
     counter-reset: md-image;
@@ -516,7 +474,6 @@
     text-decoration: line-through;
   }
 
-  /* `==highlight==`: imported Anki colors, underline, and highlights all land here. */
   .markdown-content mark {
     background-color: color-mix(in oklab, var(--color-hard) 24%, transparent);
     color: inherit;
@@ -531,7 +488,6 @@
     line-height: 0;
   }
 
-  /* Audio clip: a compact play button that sits in the line of text. */
   .markdown-content .md-audio {
     display: inline-flex;
     align-items: center;
@@ -650,7 +606,6 @@
     border: 1px solid var(--color-border);
   }
 
-  /* Clicking a rendered card image opens the zoom preview. */
   .markdown-content .md-image-zoom {
     display: inline-block;
     padding: 0;
@@ -665,9 +620,6 @@
   }
 }
 
-/* ------------------------------------------------------------------ *
- * React Flow — theme overrides (Flexoki)
- * ------------------------------------------------------------------ */
 .react-flow__controls {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -693,11 +645,6 @@
   stroke-width: 2;
 }
 
-/*
- * Card graph handles: one per side, centered on the border. Hidden until the
- * card is hovered/selected or a connection is in progress, so the canvas stays
- * calm but every side is reachable for drawing links in any direction.
- */
 .react-flow__node .card-graph-handle {
   width: 11px;
   height: 11px;
@@ -721,20 +668,12 @@
   background: var(--color-accent-deep);
 }
 
-/* ------------------------------------------------------------------ *
- * Landing page (`/` signed out). Each step of using Armin, shown with
- * a short clip recorded from the real app.
- * ------------------------------------------------------------------ */
-/* The app frame scrolls inside its own panes, so the root is locked; the
-   landing and legal pages scroll the document instead (`data-scroll`, set by
-   the root document from the matched route). */
 html[data-scroll="document"],
 html[data-scroll="document"] body {
   height: auto;
   overflow: visible;
 }
 
-/* The hero rises in once on load. */
 @keyframes landing-rise {
   from {
     opacity: 0;
@@ -751,9 +690,6 @@ html[data-scroll="document"] body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Fewer, gentler animations: keep fades and color changes, drop movement.
-     The moving keyframes become fades, so components keep their timing and
-     the animationend handlers that unmount them. */
   @keyframes a-rise {
     from {
       opacity: 0;
@@ -826,8 +762,6 @@ html[data-scroll="document"] body {
       opacity: 0;
     }
   }
-  /* tw-animate popups keep their fade but lose zoom and slide; transitions on
-     position and size jump to their end state. */
   *,
   *::before,
   *::after {
@@ -847,7 +781,6 @@ html[data-scroll="document"] body {
   }
 }
 
-/* Keep table relationships explicit while exposing every field on narrow screens. */
 .legal-table-label {
   display: none;
 }
@@ -886,7 +819,6 @@ html[data-scroll="document"] body {
   }
 }
 
-/* KaTeX remains inline with prose; display equations scroll on narrow cards. */
 .math-display {
   display: block;
   max-width: 100%;
@@ -913,7 +845,6 @@ html[data-scroll="document"] body {
   font-size: 1.1em;
 }
 
-/* Unlayered to override the vendor theme, which is also unlayered. */
 .card-markdown-editor .milkdown {
   --crepe-color-background: var(--color-surface);
   --crepe-color-on-background: var(--color-ink);
@@ -948,11 +879,12 @@ html[data-scroll="document"] body {
   line-height: inherit;
   overflow-wrap: anywhere;
 }
-/* Crepe's reset clears list indentation; match the card renderer instead. */
+.card-markdown-editor[data-tall] .milkdown > .ProseMirror {
+  min-height: 10rem;
+}
 .card-markdown-editor .milkdown > .ProseMirror :is(ul, ol) {
   padding-left: 1.4em;
 }
-/* Crepe's link and equation popovers, drawn like Armin's own popovers. */
 .card-markdown-editor .milkdown :is(.link-preview, .link-edit, .milkdown-latex-inline-edit) {
   height: auto;
   min-height: 2.25rem;

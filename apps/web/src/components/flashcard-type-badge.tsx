@@ -10,7 +10,6 @@ const CARD_TYPE_LABELS: Record<FlashcardType, string> = {
   concept: "Concept",
 };
 
-/** Small chip showing a note's card type. Hidden for plain basic cards. */
 export function FlashcardTypeBadge({
   type,
   className,

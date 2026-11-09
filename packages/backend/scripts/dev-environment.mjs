@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -11,8 +11,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createServer } from "node:net";
-import { networkInterfaces, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { homedir, networkInterfaces, tmpdir } from "node:os";
+import { basename, dirname, join, resolve } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
 
@@ -30,7 +31,6 @@ export function run(command, args, options = {}) {
     encoding: "utf8",
   });
   if (result.error || result.status !== 0) {
-    // Captured stdout can contain deploy keys, env values, or auth records.
     throw new Error(
       `${command} ${args.slice(0, 2).join(" ")} failed. ${result.error?.message ?? "Check the preceding diagnostic or your Convex login."}`,
     );
@@ -42,8 +42,6 @@ export function convex(args, options) {
   return run("pnpm", ["exec", "convex", ...args], options);
 }
 
-// The local backend runs "use node" actions with the Node on PATH, and only
-// accepts these majors. The repository pins 24 in .nvmrc.
 export function assertNode() {
   const major = Number(process.versions.node.split(".")[0]);
   if (![20, 22, 24].includes(major))
@@ -52,11 +50,6 @@ export function assertNode() {
     );
 }
 
-// Temporary files go under .convex/tmp, on the same filesystem as local storage,
-// so installing external Node packages never needs a cross-filesystem rename.
-// The Node executor listens on a Unix socket inside a subdirectory, and socket
-// paths are limited to about 100 bytes; a deep checkout uses a short symlink
-// in the system temp directory that points back at .convex/tmp.
 export function convexTempDir() {
   const tempDir = join(backend, ".convex", "tmp");
   mkdirSync(tempDir, { recursive: true });
@@ -83,8 +76,6 @@ export function convexPortArgs(state) {
   ];
 }
 
-// Expo Go runs on another device, so mobile URLs need an address it can reach.
-// The local backend listens on all interfaces. Override with ARMIN_DEV_HOST.
 export function lanHost() {
   if (process.env.ARMIN_DEV_HOST) return process.env.ARMIN_DEV_HOST;
   for (const entries of Object.values(networkInterfaces()))
@@ -182,7 +173,6 @@ function portFree(port) {
   });
 }
 
-// The main checkout keeps the conventional ports.
 export function mainState() {
   return {
     version: 2,
@@ -195,6 +185,84 @@ export function mainState() {
     siteUrl: "http://localhost:3000",
   };
 }
+
+const slug = (value) => value.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const label = (value, length = 63) => slug(value.slice(0, length));
+
+function branchLabel(branch, path) {
+  return label(slug((branch.replace(/^t3\//, "") || basename(path)).toLowerCase())) || "worktree";
+}
+
+export function hostLabel(id) {
+  const own = branchLabel(
+    run("git", ["branch", "--show-current"], { cwd: root, stdio: "pipe" }),
+    root,
+  );
+  const others = run("git", ["worktree", "list", "--porcelain"], { cwd: root, stdio: "pipe" })
+    .split(/\n\n+/)
+    .map((block) => ({
+      path: block.match(/^worktree (.+)$/m)?.[1] ?? "",
+      branch: block.match(/^branch refs\/heads\/(.+)$/m)?.[1] ?? "",
+    }))
+    .slice(1)
+    .filter(({ path }) => resolve(path) !== resolve(root))
+    .map(({ branch, path }) => branchLabel(branch, path));
+  if (!others.includes(own)) return own;
+  const suffix = `-${id.slice(0, 6)}`;
+  return `${label(own, 63 - suffix.length)}${suffix}`;
+}
+
+function worktreeSiteUrl(id, webPort) {
+  return `http://${hostLabel(id)}.armin.localhost:${webPort}`;
+}
+
+export function refreshSiteUrl(state) {
+  if (state.id === "main") return state;
+  const siteUrl = worktreeSiteUrl(state.id, state.webPort);
+  if (siteUrl === state.siteUrl) return state;
+  const next = { ...state, siteUrl };
+  saveState(next);
+  const webEnv = join(root, "apps/web/.env.local");
+  if (existsSync(webEnv)) updateEnv(webEnv, { VITE_SITE_URL: siteUrl });
+  console.log(`Web origin follows the branch name: ${state.siteUrl} -> ${siteUrl}`);
+  return next;
+}
+
+export async function syncConvexSiteUrl(state, signal) {
+  const deadline = Date.now() + 300_000;
+  for (;;) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${state.convexPort}/version`, {
+        signal: AbortSignal.any([signal, AbortSignal.timeout(2_000)]),
+      });
+      if (response.ok) break;
+    } catch {
+      signal.throwIfAborted();
+    }
+    if (Date.now() > deadline) throw new Error("The local backend did not start within 5 minutes.");
+    await sleep(500, undefined, { signal });
+  }
+  const exec = (args) =>
+    new Promise((resolveExec, rejectExec) =>
+      execFile(
+        "pnpm",
+        ["exec", "convex", ...args],
+        { cwd: backend, signal, timeout: 60_000 },
+        (error, stdout) => {
+          if (signal.aborted) rejectExec(signal.reason);
+          else if (error) rejectExec(new Error(`convex ${args[0]} ${args[1]} failed.`));
+          else resolveExec(stdout);
+        },
+      ),
+    );
+  if ((await exec(["env", "get", "SITE_URL"])).trim() === state.siteUrl) return;
+  await exec(["env", "set", "SITE_URL", state.siteUrl]);
+  console.log(`Set the local deployment's SITE_URL to ${state.siteUrl}`);
+}
+
+const SLOT_BASE = 4100;
+const SLOT_STEP = 10;
+const SLOT_COUNT = 590;
 
 export async function allocate() {
   const common = run("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
@@ -223,8 +291,14 @@ export async function allocate() {
     for (const path of Object.keys(registry)) if (!existsSync(path)) delete registry[path];
     if (registry[root]?.version === 2) return registry[root];
     const id = createHash("sha256").update(root).digest("hex").slice(0, 10);
-    const taken = new Set(
-      Object.entries(registry)
+    const main = mainState();
+    const taken = new Set([
+      main.webPort,
+      main.mobilePort,
+      main.convexPort,
+      main.convexSitePort,
+      Number(readEnv(join(homedir(), ".config/armin/polar-sandbox.env")).POLAR_RELAY_PORT ?? 3219),
+      ...Object.entries(registry)
         .filter(([path]) => path !== root)
         .flatMap(([, entry]) => [
           entry.webPort,
@@ -232,11 +306,9 @@ export async function allocate() {
           entry.convexPort,
           entry.convexSitePort,
         ]),
-    );
-    // Each checkout gets a block of four: web, Expo, Convex API, Convex HTTP.
-    const start = Number.parseInt(id.slice(0, 6), 16) % 7500;
-    for (let offset = 0; offset < 7500; offset++) {
-      const webPort = 10000 + ((start + offset) % 7500) * 4;
+    ]);
+    for (let slot = 0; slot < SLOT_COUNT; slot++) {
+      const webPort = SLOT_BASE + slot * SLOT_STEP;
       const ports = [webPort, webPort + 1, webPort + 2, webPort + 3];
       if (ports.some((port) => taken.has(port))) continue;
       let free = true;
@@ -250,7 +322,7 @@ export async function allocate() {
         mobilePort: webPort + 1,
         convexPort: webPort + 2,
         convexSitePort: webPort + 3,
-        siteUrl: `http://armin-${id}.localhost:${webPort}`,
+        siteUrl: worktreeSiteUrl(id, webPort),
       };
       registry[root] = state;
       writeFileSync(registryPath, `${JSON.stringify(registry, null, 2)}\n`);

@@ -5,16 +5,16 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { parseClozes } from "@armin/core/flashcard-rules";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 
-// Inputs used by the flashcard form dialog.
-
 export function ClozeField({
   value,
   onChange,
   onUploadChange,
+  tall,
 }: {
   value: string;
   onChange: (next: string) => void;
   onUploadChange?: (delta: number) => void;
+  tall?: boolean;
 }) {
   const emptyDeletion = parseClozes(value).find((deletion) => deletion.answer.trim().length === 0);
 
@@ -57,6 +57,7 @@ export function ClozeField({
       <div className="space-y-2">
         <MarkdownEditor
           cloze
+          tall={tall}
           autoFocus
           aria-label="Cloze text"
           value={value}

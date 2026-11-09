@@ -95,8 +95,6 @@ const resolvedMarkdownUrl =
           const mode = resolveMode();
           if (mode === "dark") root.setAttribute("data-mode", "dark");
           else root.removeAttribute("data-mode");
-          // The app's Flexoki tokens (apps/web/src/styles/flexoki-theme.css)
-          // switch on data-theme.
           root.setAttribute("data-theme", mode);
           root.style.colorScheme = mode;
           document.querySelectorAll("[data-nb-theme-toggle]").forEach((b) => {

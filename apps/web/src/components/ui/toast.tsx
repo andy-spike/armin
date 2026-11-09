@@ -37,8 +37,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = React.useState<ToastItem[]>([]);
   const idRef = React.useRef(0);
   const timeoutsRef = React.useRef<Map<number, number>>(new Map());
-  // The app frame is server-rendered, where there is no document to portal
-  // into; nothing can raise a toast before mount anyway.
   const mounted = React.useSyncExternalStore(
     subscribeNever,
     () => true,

@@ -1,22 +1,13 @@
-/**
- * Portable review statistics: account-local day buckets, streaks, retention,
- * and review-unit state totals. Everything here is pure and works on plain
- * numbers and strings, so the backend and every client share one definition.
- */
-
 import { startOfNextStudyDayMs, startOfStudyDayMs, studyDayKey } from "./study";
 
 export const STATS_HEATMAP_WEEKS = 52;
-/** The Decks page shows a full year in small cells, so the calendar fills its panel. */
 export const STATS_COMPACT_HEATMAP_WEEKS = 52;
 export const STATS_RECENT_DAYS = 30;
 export const STATS_FORECAST_DAYS = 30;
 
 export type StudyDayCount = {
-  /** Calendar date (YYYY-MM-DD) in the library's time zone. */
   key: string;
   count: number;
-  /** 0 = Sunday … 6 = Saturday, so heatmaps can align to calendar weeks. */
   weekday: number;
 };
 
@@ -46,7 +37,6 @@ function weekdayOfDayKey(key: string) {
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 }
 
-/** Local midnights for the `days` study days ending today, oldest first. */
 export function studyDayStarts(now: number, timeZone: string, days: number) {
   const count = Math.max(1, Math.floor(days));
   const starts = [startOfStudyDayMs(now, timeZone)];
@@ -56,8 +46,6 @@ export function studyDayStarts(now: number, timeZone: string, days: number) {
   return starts;
 }
 
-/** Like {@link studyDayStarts}, but walks back to the requested weekday so the
- * first day begins a calendar week. Heatmaps then start on a full column. */
 export function studyDayWindowStarts(
   now: number,
   timeZone: string,
@@ -72,7 +60,6 @@ export function studyDayWindowStarts(
   return starts;
 }
 
-/** Local midnights for today and the following `days - 1` study days. */
 export function studyDayForwardStarts(now: number, timeZone: string, days: number) {
   const count = Math.max(1, Math.floor(days));
   const starts = [startOfStudyDayMs(now, timeZone)];
@@ -82,7 +69,6 @@ export function studyDayForwardStarts(now: number, timeZone: string, days: numbe
   return starts;
 }
 
-/** Largest study-day start at or before `ms`. `starts` must be ascending. */
 function dayIndexAt(starts: readonly number[], ms: number) {
   let low = 0;
   let high = starts.length - 1;
@@ -94,7 +80,6 @@ function dayIndexAt(starts: readonly number[], ms: number) {
   return low;
 }
 
-/** Count timestamps per study day, ignoring anything outside the range. */
 export function bucketStudyDayCounts(
   timestamps: readonly number[],
   starts: readonly number[],
@@ -113,7 +98,6 @@ export function bucketStudyDayCounts(
   });
 }
 
-/** Total and peak for a day series, for chart headers and bar heights. */
 export function studyDaySeries(days: readonly StudyDayCount[]): StudyDaySeries {
   let total = 0;
   let max = 0;
@@ -124,10 +108,6 @@ export function studyDaySeries(days: readonly StudyDayCount[]): StudyDaySeries {
   return { days: [...days], total, max };
 }
 
-/**
- * Due counts per study day. Anything already overdue is folded into the first
- * day (today), so today's bar is the work waiting at the start of the window.
- */
 export function bucketForecast(
   dues: readonly number[],
   starts: readonly number[],
@@ -142,11 +122,6 @@ export function bucketForecast(
   );
 }
 
-/**
- * Current and longest runs of consecutive days with at least one review. A day
- * with no reviews yet does not end the current streak until yesterday is also
- * empty, so the streak survives until a full missed day.
- */
 export function reviewStreaks(days: readonly StudyDayCount[]): ReviewStreak {
   let longest = 0;
   let run = 0;
@@ -169,7 +144,6 @@ export function reviewStreaks(days: readonly StudyDayCount[]): ReviewStreak {
   return { current, longest };
 }
 
-/** Non-overlapping active state totals plus separate locked/archived counts. */
 export function summarizeReviewUnitStates(
   units: readonly { state: number; locked: boolean; archived: boolean }[],
 ): ReviewUnitStateCounts {

@@ -2,17 +2,6 @@ import { mount } from "@cloudflare/nimbus-docs/client";
 import type { SearchProvider } from "@cloudflare/nimbus-docs/types";
 import { provider, type SectionedSearchResult } from "./providers/pagefind";
 
-/**
- * The search dialog's behaviour.
- *
- * Focus stays in the input. Every page and every matching heading under it is
- * one option in a single listbox, so the arrow keys reach all of them, and
- * `aria-activedescendant` names the highlighted one. The top result is
- * highlighted as soon as results arrive, so Enter opens it. Pages opened from
- * search are remembered (in this browser only) and listed before the reader
- * types.
- */
-
 interface RecentPage {
   title: string;
   url: string;
@@ -39,9 +28,7 @@ function readRecent(): RecentPage[] {
 function writeRecent(pages: RecentPage[]): void {
   try {
     localStorage.setItem(RECENT_KEY, JSON.stringify(pages.slice(0, RECENT_LIMIT)));
-  } catch {
-    // Storage refused (private window, blocked site data): recents just don't persist.
-  }
+  } catch {}
 }
 
 function rememberPage(page: RecentPage): void {
@@ -80,15 +67,10 @@ export function initSearch(
       .querySelector<HTMLTemplateElement>(`template[data-search-icon="${name}"]`)
       ?.content.cloneNode(true) ?? null;
 
-  // ---- Status line ---------------------------------------------------------
-
-  /** A message for everyone, or (quiet) for screen readers only. */
   function setStatus(message: string, quiet = false): void {
     status.textContent = message;
     status.toggleAttribute("data-quiet", quiet || message === "");
   }
-
-  // ---- Options and highlighting -------------------------------------------
 
   const options = (): HTMLElement[] =>
     Array.from(listbox.querySelectorAll<HTMLElement>("[role='option']"));
@@ -125,7 +107,6 @@ export function initSearch(
     highlight(0, { scroll: false });
   }
 
-  /** One option: an <a>, so a click, middle-click, or Enter opens it natively. */
   function option(page: RecentPage, kind: "page" | "heading" | "recent"): HTMLAnchorElement {
     const link = document.createElement("a");
     link.id = `search-option-${optionCounter++}`;
@@ -173,7 +154,6 @@ export function initSearch(
     link.append(enter);
 
     link.addEventListener("click", () => {
-      // A heading is remembered under its page's name, which `section` holds.
       if (kind !== "recent") rememberPage(page);
       dialog.close();
     });
@@ -191,9 +171,6 @@ export function initSearch(
     return row;
   }
 
-  // ---- States --------------------------------------------------------------
-
-  /** Before the reader types: recent pages, then suggested searches. */
   function showIdle(): void {
     clearOptions();
     const recent = readRecent();
@@ -250,7 +227,6 @@ export function initSearch(
         const snippet = document.createElement("span");
         snippet.className =
           "mt-0.5 line-clamp-2 block text-[0.8125rem] leading-snug text-muted-foreground";
-        // Pagefind escapes page text and adds only <mark> around matches.
         snippet.innerHTML = result.snippet;
         page.querySelector(".min-w-0")?.append(snippet);
       }
@@ -265,8 +241,6 @@ export function initSearch(
     }
     showOptions();
   }
-
-  // ---- Searching -----------------------------------------------------------
 
   let ready: Promise<boolean> | undefined;
 
@@ -285,8 +259,6 @@ export function initSearch(
     const controller = new AbortController();
     activeController = controller;
 
-    // Keep the previous results on screen until the new ones arrive, so the
-    // list doesn't flash empty on every keystroke.
     if (!(await ensureReady())) {
       if (controller.signal.aborted) return;
       clearOptions();
@@ -344,7 +316,6 @@ export function initSearch(
       event.preventDefault();
       highlight(activeIndex - 5);
     } else if (event.key === "Enter") {
-      // Search the current text right away rather than waiting out the debounce.
       const query = input.value.trim();
       if (debounceTimer && query && query !== lastQuery) {
         event.preventDefault();
@@ -355,7 +326,6 @@ export function initSearch(
       const active = options()[activeIndex];
       if (!active) return;
       event.preventDefault();
-      // Ctrl/⌘+Enter opens in a new tab, as a modified click would.
       if (event.metaKey || event.ctrlKey) {
         window.open((active as HTMLAnchorElement).href, "_blank", "noopener");
         return;
@@ -364,7 +334,6 @@ export function initSearch(
     }
   }
 
-  // The pointer moves the highlight too, so Enter and a click agree.
   function handlePointerMove(event: PointerEvent): void {
     const target = (event.target as Element | null)?.closest<HTMLElement>("[role='option']");
     if (!target) return;
@@ -398,7 +367,6 @@ export function initSearch(
   return {
     open() {
       if (!dialog.open) dialog.showModal();
-      // Reopening keeps the last search, selected so typing replaces it.
       const query = input.value.trim();
       syncClearButton();
       if (query) {
@@ -421,11 +389,6 @@ export function initSearch(
     },
   };
 }
-
-// ---------------------------------------------------------------------------
-// Bootstrap — imported for its side effects by SearchDialog.astro. Wires each
-// dialog through mount() and binds the global shortcuts once.
-// ---------------------------------------------------------------------------
 
 type SearchDialogElement = HTMLDialogElement & {
   __openSearchDialog?: () => void;
@@ -454,8 +417,6 @@ function bindGlobals() {
     primaryDialog()?.__openSearchDialog?.();
   });
 
-  // Load the index as soon as a reader reaches for the search button, so the
-  // first query answers without waiting for it.
   const preload = (event: Event) => {
     if ((event.target as Element | null)?.closest?.("[data-search-trigger]"))
       void provider.init?.();
@@ -466,14 +427,12 @@ function bindGlobals() {
   document.addEventListener("keydown", (event) => {
     const dialog = primaryDialog();
     if (!dialog) return;
-    // Ctrl/⌘ K toggles search from anywhere.
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
       event.preventDefault();
       if (dialog.open) dialog.close();
       else dialog.__openSearchDialog?.();
       return;
     }
-    // "/" opens it too, as on most docs sites, unless the reader is typing.
     if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
       if (dialog.open || isTyping(document.activeElement)) return;
       event.preventDefault();

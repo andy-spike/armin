@@ -28,7 +28,6 @@ export function RouteNotFound() {
   );
 }
 
-/** A page's data failed to load; `onRetry` loads it again. */
 export function QueryError({ title, onRetry }: { title: string; onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center border border-border bg-bg-2 px-6 py-14 text-center">

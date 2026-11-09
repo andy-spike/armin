@@ -17,39 +17,13 @@ import { bumpRevision, waitingSchedule } from "./study";
 import { requireConceptCards } from "./usage";
 import { reserveVariants, settleVariants, variantAllowance } from "./variantAllowance";
 
-/*
- * A concept card's variant pool (ADR 0023). Generation runs as a scheduled
- * action (`conceptGeneration.generate`), the only caller of the generator
- * module. Each job gets the next number in the card's `conceptPool`; only the
- * card's latest job may store variants or fail the pool, so a superseded job's
- * late result is dropped.
- */
-
-/**
- * A job still "generating" after this long has stopped without reporting
- * back (an action timeout or a deploy mid-run). Convex actions run at most 10
- * minutes, so `concepts.expireGeneration` then fails it and releases its
- * reservation, and the card offers Retry.
- */
 export const GENERATION_STALL_MS = 10 * 60_000;
 
-/**
- * Start the card's next generation job and mark its pool as generating. The
- * job's batch is reserved from the monthly variant allowance here, in the
- * mutation, before the action can call the model; a superseded job's
- * reservation is released first. With no allowance left, no job is scheduled
- * and the pool shows that the allowance is used, until a later request (Retry,
- * or a refill) finds room again in a new month or on a larger plan. When the
- * deployment has no generator, the pool fails with that reason instead, so no
- * allowance is reserved for a job that can't run. A library without Pro is
- * refused outright.
- */
 export async function requestGeneration(
   ctx: MutationCtx,
   flashcard: Doc<"flashcards">,
   now: number,
 ) {
-  // Generation is a Pro feature; every request (create, Retry, refill) passes here.
   requireConceptCards(await ctx.db.get(flashcard.libraryId));
   const previous = flashcard.conceptPool;
   if (previous?.status === "generating") await settleVariants(ctx, previous.reserved, 0);
@@ -94,21 +68,12 @@ export async function requestGeneration(
     count,
     reserved: reservation,
   });
-  // An action can stop without reporting back (a timeout or a deploy
-  // mid-run). The watchdog then fails the pool and releases the batch, so the
-  // allowance isn't held and the card offers Retry; it does nothing once the
-  // job has stored, failed, or been superseded.
   await ctx.scheduler.runAfter(GENERATION_STALL_MS, internal.concepts.expireGeneration, {
     flashcardId: flashcard._id,
     job,
   });
 }
 
-/**
- * The pool's state as the card editor shows it, with whether Retry applies.
- * `allowance` is the library's current month (null where none applies): a
- * pool stopped by the allowance offers Retry again once it has room.
- */
 export function poolView(
   flashcard: Doc<"flashcards">,
   now: number,
@@ -136,7 +101,6 @@ export function poolView(
   };
 }
 
-/** The card's variants, oldest first, within the per-card bound. */
 export function variantsOf(ctx: QueryCtx, flashcardId: Id<"flashcards">) {
   return ctx.db
     .query("conceptVariants")
@@ -144,7 +108,6 @@ export function variantsOf(ctx: QueryCtx, flashcardId: Id<"flashcards">) {
     .take(MAX_VARIANTS_PER_CONCEPT);
 }
 
-/** The card's latest job, if it is still running; null when it was superseded. */
 export async function runningJob(ctx: QueryCtx, flashcardId: Id<"flashcards">, job: number) {
   const flashcard = await ctx.db.get(flashcardId);
   if (
@@ -154,8 +117,6 @@ export async function runningJob(ctx: QueryCtx, flashcardId: Id<"flashcards">, j
     flashcard.conceptPool.status !== "generating"
   )
     return null;
-  // Deck deletion and reviewer reset hide cards before their bounded cleanup
-  // reaches them. Do not store or charge a result during that interval.
   const [deck, library] = await Promise.all([
     ctx.db.get(flashcard.deckId),
     ctx.db.get(flashcard.libraryId),
@@ -164,7 +125,6 @@ export async function runningJob(ctx: QueryCtx, flashcardId: Id<"flashcards">, j
   return flashcard;
 }
 
-/** A concept card's one review unit, by its fixed subKey. */
 export async function conceptUnit(ctx: QueryCtx, flashcardId: Id<"flashcards">) {
   const units = await ctx.db
     .query("reviewUnits")
@@ -173,34 +133,14 @@ export async function conceptUnit(ctx: QueryCtx, flashcardId: Id<"flashcards">) 
   return units.find((unit) => unit.subKey === CONCEPT_SUBKEY) ?? null;
 }
 
-/**
- * The display half of assigning a variant: the unit's front and back become
- * the variant's exercise and solution. Callers write it in the same patch as
- * the version bump, so an open review of the previous variant goes stale.
- */
 export function showVariant(variant: Doc<"conceptVariants">) {
   return { variantId: variant._id, front: variant.exercise, back: variant.solution };
 }
 
-/**
- * Pick the variant a concept unit shows next (`pickNextVariant`). Inside a
- * mutation Convex seeds `Math.random` per mutation, so the choice is
- * deterministic for a given transaction yet varies between reviews; that is
- * all a varied exercise needs.
- */
 export async function nextVariant(ctx: QueryCtx, flashcardId: Id<"flashcards">) {
   return pickNextVariant(await variantsOf(ctx, flashcardId), Math.random);
 }
 
-/**
- * A concept card's part of a rating, written in the rating mutation (ADR
- * 0023): mark the shown variant seen and assign the next one. Returns the
- * unit's new display, to patch together with its schedule and version, and
- * the shown variant's prior state for the review log, so Undo can restore
- * both. Null for any other unit. When no variant is active the unit keeps
- * showing what it showed. `pool` is the pool after the rating, for
- * `refillIfLow`.
- */
 export async function advanceVariant(ctx: MutationCtx, unit: Doc<"reviewUnits">, now: number) {
   if (!unit.variantId) return null;
   const shown = await ctx.db.get(unit.variantId);
@@ -218,17 +158,6 @@ export async function advanceVariant(ctx: MutationCtx, unit: Doc<"reviewUnits">,
   };
 }
 
-/**
- * After a rating, refill a concept card whose pool is below the low-water mark
- * with one more batch through `requestGeneration`, so the monthly allowance
- * applies. Only a `ready` pool refills, or an `allowanceUsed` one whose
- * allowance has room again: a `generating` pool already has its job (a
- * stalled one counts as failed), and a failed pool waits for Retry rather
- * than calling a failing generator on every review. Because a refill moves
- * the pool to `generating` in the rating's own transaction, and Convex
- * mutations are serializable, any later rating sees that job and schedules
- * none, however fast a session rates. A full pool doesn't refill.
- */
 export async function refillIfLow(
   ctx: MutationCtx,
   flashcard: Doc<"flashcards">,
@@ -244,14 +173,6 @@ export async function refillIfLow(
   await requestGeneration(ctx, flashcard, now);
 }
 
-/**
- * Undo's counterpart of `advanceVariant`: give the shown variant back its
- * previous last-shown time and reassign it. When the learner has since
- * deleted or flagged that variant, Undo still restores the schedule but
- * keeps the unit on the active variant it shows now, so a removed exercise
- * never comes back (ADR 0023); a flagged one still gets its last-shown time
- * back. Returns the display to write, or undefined to keep the current one.
- */
 export async function restoreVariant(
   ctx: MutationCtx,
   unit: Doc<"reviewUnits">,
@@ -263,12 +184,6 @@ export async function restoreVariant(
   return variant.status === "active" ? showVariant(variant) : undefined;
 }
 
-/**
- * Assign a variant to a concept unit that has none yet (its first batch, or a
- * variant restored to a pool that had none active). The unit moves off the
- * pending schedule to New in the same patch, unless prerequisites still lock
- * the card. Does nothing when the unit already shows a variant.
- */
 export async function assignIfAwaiting(
   ctx: MutationCtx,
   flashcard: Doc<"flashcards">,
@@ -286,20 +201,6 @@ export async function assignIfAwaiting(
   });
 }
 
-/**
- * A learner's change to one variant (curation, ADR 0023): `edit` replaces its
- * text, `flag` sets it aside, `unflag` returns it to selection, and `delete`
- * removes it. One transaction keeps the review in step: when the card's unit
- * shows this variant, an edit rewrites what it shows, and a flag or delete
- * assigns the next variant without rating the concept; either way the unit's
- * version is bumped, so an open review of the old text goes stale. A change
- * that leaves fewer than `CONCEPT_LOW_WATER_MARK` unseen variants refills the
- * pool, as a rating does.
- *
- * A concept card always keeps one active variant once it has one: flagging or
- * deleting the last is refused. A reviewed unit has no pending schedule to
- * fall back on, so an empty pool would leave a due card with no exercise.
- */
 export async function curateVariant(
   ctx: MutationCtx,
   flashcard: Doc<"flashcards">,

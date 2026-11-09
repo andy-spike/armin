@@ -4,11 +4,6 @@ import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-/**
- * Records an image's intrinsic dimensions so cards reserve layout space.
- * The web app shrinks images before upload, so no display preview is made;
- * older images keep any preview they already have.
- */
 export const generate = internalAction({
   args: { mediaId: v.id("media") },
   returns: v.null(),
@@ -29,7 +24,6 @@ export const generate = internalAction({
         height: rotated ? metadata.width : metadata.height,
       });
     } catch (error) {
-      // A corrupt or oversized image must never break the original.
       console.warn(
         "Image dimensions unavailable",
         error instanceof Error ? error.message : "Image processing failed",

@@ -2,12 +2,8 @@ import { graphlib, layout } from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import { CARD_NODE_HEIGHT, CARD_NODE_WIDTH } from "@/lib/graph-dimensions";
 
-// This module runs in the layout worker; it must not import React Flow (or
-// anything else that pulls the canvas and d3) at runtime.
-
 const NODE_SEP = 48;
 const RANK_SEP = 72;
-// Spacing between disconnected components once they're packed into a grid.
 const COMPONENT_GAP_X = 64;
 const COMPONENT_GAP_Y = 64;
 
@@ -21,7 +17,6 @@ type Component<T extends Record<string, unknown>> = {
   edges: Edge[];
 };
 
-/** Group nodes into connected components, treating edges as undirected. */
 function connectedComponents<T extends Record<string, unknown>>(
   nodes: Node<T>[],
   edges: Edge[],
@@ -36,7 +31,6 @@ function connectedComponents<T extends Record<string, unknown>>(
   const find = (id: string): string => {
     let root = id;
     while (parent.get(root) !== root) root = parent.get(root)!;
-    // Path compression.
     let cursor = id;
     while (parent.get(cursor) !== root) {
       const next = parent.get(cursor)!;
@@ -75,7 +69,6 @@ function connectedComponents<T extends Record<string, unknown>>(
   return [...groups.values()];
 }
 
-/** Lay out a single component with dagre, normalised so its top-left is (0, 0). */
 function layoutComponent<T extends Record<string, unknown>>(
   nodes: Node<T>[],
   edges: Edge[],
@@ -125,12 +118,6 @@ function layoutComponent<T extends Record<string, unknown>>(
   return { placements, width: maxX - minX, height: maxY - minY };
 }
 
-/**
- * Auto-arrange the graph. Each connected component keeps its dagre tree shape;
- * the components are then packed into a wrapped grid so a deck made of many
- * isolated cards (or several small trees) reads as a navigable grid rather than
- * one long horizontal row.
- */
 export function layoutGraph<T extends Record<string, unknown>>(
   nodes: Node<T>[],
   edges: Edge[],
@@ -141,8 +128,6 @@ export function layoutGraph<T extends Record<string, unknown>>(
     layoutComponent(component.nodes, component.edges),
   );
 
-  // Pack components into rows, wrapping once a row exceeds a target width that
-  // keeps the overall arrangement roughly square.
   const totalArea = laidOut.reduce(
     (sum, c) => sum + (c.width + COMPONENT_GAP_X) * (c.height + COMPONENT_GAP_Y),
     0,

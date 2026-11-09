@@ -23,7 +23,6 @@ try {
     ["apps/mobile/.env.local", "EXPO_PUBLIC"],
   ]) {
     const file = join(root, path);
-    // Expo Go runs off this machine, so it reaches the backend over the LAN.
     const host = prefix === "VITE" ? "127.0.0.1" : lanHost();
     const updates = Object.fromEntries(
       ["CONVEX_URL", "CONVEX_SITE_URL"].map((key) => {

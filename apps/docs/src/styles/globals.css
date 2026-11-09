@@ -22,15 +22,7 @@
  *     `shadow-lg`, etc. as color names — they collide with built-ins)
  * ============================================================ */
 
-/* ---- Armin theme ----
- * The docs wear the app's design system (DESIGN.md): Flexoki warm paper and
- * ink, the cyan accent, serif headings, sharp corners, and flat surfaces.
- * Colours come straight from the web app's Flexoki tokens (imported above),
- * which switch on `data-theme`; BaseLayout sets it with `data-mode`. The
- * Nimbus tokens below only point at them, so every component follows.
- */
 :root {
-  /* Surfaces: a warm paper page beside a sunken bg-2 sidebar. */
   --nb-background: var(--armin-bg);
   --nb-foreground: var(--armin-ink);
 
@@ -38,19 +30,15 @@
   --nb-card-foreground: var(--armin-ink);
 
   --nb-muted: var(--armin-surface-sunken);
-  /* Labels and secondary text, at least 4.5:1 on paper. */
   --nb-muted-foreground: var(--armin-muted);
 
-  /* Hover rows step one tone further down, as in the app's sidebar. */
   --nb-accent: var(--armin-border);
   --nb-accent-foreground: var(--armin-ink);
 
-  /* Primary action: the cyan accent with paper text. */
   --nb-primary: var(--armin-accent);
   --nb-primary-foreground: var(--armin-on-accent);
   --nb-primary-hover: var(--armin-accent-deep);
 
-  /* Wayfinding (current page, focus, link hover) uses the same accent. */
   --nb-brand: var(--armin-accent);
   --nb-brand-wash: var(--armin-surface);
 
@@ -60,8 +48,6 @@
   --nb-code-tint: var(--armin-surface-sunken);
   --nb-ring: var(--armin-accent);
 
-  /* Callouts. Rating hues are reserved for review, so these use the Flexoki
-     accents directly: cyan for notes, green for tips, orange, red. */
   --nb-info: var(--flexoki-cyan-700);
   --nb-info-foreground: var(--flexoki-cyan-700);
   --nb-info-muted: var(--flexoki-cyan-50);
@@ -78,7 +64,6 @@
   --nb-danger-foreground: var(--flexoki-red-700);
   --nb-danger-muted: var(--flexoki-red-50);
 
-  /* API method palette (unused until an API reference is added). */
   --nb-m-get: var(--nb-success);
   --nb-m-get-tint: var(--nb-success-muted);
   --nb-m-get-line: var(--nb-border-strong);
@@ -95,7 +80,6 @@
   --nb-m-other-tint: var(--nb-accent);
   --nb-m-other-line: var(--nb-border);
 
-  /* Layout: the app's 16rem sidebar. */
   --nb-sidebar-width: 16rem;
   --nb-toc-width: 16rem;
   --nb-content-max: 43.5rem;
@@ -105,15 +89,11 @@
   /* Used only by the API reference (registry: api-layout); harmless elsewhere. */
   --nb-code-rail-width: 34rem;
 
-  /* Typography: Inter for text and UI, Source Serif 4 for headings, JetBrains
-     Mono for code, as in the app. Self-hosted via @fontsource-variable in
-     BaseLayout.astro. */
   --nb-font-sans:
     "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --nb-font-serif: "Source Serif 4 Variable", "Source Serif 4", Georgia, "Times New Roman", serif;
   --nb-font-mono:
     "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  /* Serif headings at the app's display weight (600, -0.015em). */
   --nb-h1-size: 2.25rem;
   --nb-h1-leading: 2.75rem;
   --nb-h1-weight: 600;
@@ -128,12 +108,9 @@
   --nb-h3-tracking: -0.01em;
   --nb-h4-weight: 600;
 
-  /* Sharp corners throughout, as in the app. */
   --nb-radius: 0;
   --nb-radius-sm: 0;
 
-  /* Flat by default: hairlines, not shadows. Overlays (search, menus) keep
-     the app's overlay shadow. */
   --nb-shadow-sm: none;
   --nb-shadow: none;
   --nb-shadow-lg: var(--armin-shadow-overlay);
@@ -146,8 +123,6 @@
   }
 }
 
-/* Dark mode: the Flexoki tokens switch on `data-theme`; only the fixed
-   callout shades need their dark values here. */
 [data-mode="dark"] {
   --nb-info: var(--flexoki-cyan-400);
   --nb-info-foreground: var(--flexoki-cyan-400);
@@ -634,7 +609,6 @@ pre.astro-code .highlighted-word {
     background-color: var(--nb-accent);
     color: var(--nb-foreground);
   }
-  /* You are here: lifted back to paper with ink text, as in the app. */
   :is(
     .nb-sidebar-link,
     :is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) li > a
@@ -734,10 +708,6 @@ body:not(:has([data-mobile-sidebar])) [data-menu-btn] {
   }
 }
 
-/* ---- Armin finish ---- */
-
-/* The page is paper on a desk, as in the app (`notebook-bg`): soft light from
-   above, a faint 24px dot grid, and a fine static grain. */
 body {
   background-color: var(--armin-bg);
   background-image:
@@ -752,7 +722,6 @@ body {
   font-feature-settings: "cv11", "ss01";
 }
 
-/* Serif for page titles and section headings; components keep sans. */
 [data-nb-page-title],
 .docs-content :where(h1:not([class]), h2:not([class]), h3:not([class])) {
   font-family: var(--nb-font-serif);
@@ -763,14 +732,12 @@ body {
   color: var(--armin-accent-deep);
 }
 
-/* Sharp corners everywhere, as in the app. */
 *,
 *::before,
 *::after {
   border-radius: 0 !important;
 }
 
-/* Matched words in search results, in the app's selection colours. */
 [data-search-results] mark {
   background-color: var(--armin-accent-tint);
   color: var(--armin-accent-deep);

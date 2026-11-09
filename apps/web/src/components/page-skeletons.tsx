@@ -3,15 +3,6 @@ import type { ReactNode } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-/*
- * Loading placeholders that mirror each page's loaded layout box for box, so
- * real content replaces them in place instead of pushing the page around.
- * Static chrome (page titles) renders as real text; anything that depends on
- * data renders as a Skeleton with the same line box as the text it stands in
- * for. Keep these in step with the pages when their layout changes.
- */
-
-/** A Skeleton bar vertically centered in a line box of the given height. */
 function Line({ box, className }: { box: string; className: string }) {
   return (
     <div className={cn("flex items-center", box)}>
@@ -24,7 +15,6 @@ function PageTitle({ children }: { children: ReactNode }) {
   return <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">{children}</h1>;
 }
 
-/** One filter field: a label line above a 36px control. */
 function FieldSkeleton({ className }: { className?: string }) {
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
@@ -34,7 +24,6 @@ function FieldSkeleton({ className }: { className?: string }) {
   );
 }
 
-/** Mirrors Browse's State, Deck, Tag, and Sort fields, including their widths. */
 function BrowseFilterBarSkeleton() {
   return (
     <div className="mb-5 border border-border bg-bg-2 px-4 py-3">
@@ -49,8 +38,6 @@ function BrowseFilterBarSkeleton() {
     </div>
   );
 }
-
-/* ----------------------------------------------------------------- Decks */
 
 function DeckTileSkeleton() {
   return (
@@ -70,7 +57,6 @@ function DeckTileSkeleton() {
   );
 }
 
-/** Sort row and deck grid; the Decks page renders its own header above. */
 export function DeckGridSkeleton() {
   return (
     <>
@@ -101,9 +87,6 @@ function DecksPageSkeleton() {
   );
 }
 
-/* ------------------------------------------------------------ Flashcards */
-
-/** Mirrors FlashcardTile; `showDeck` adds Browse's deck-name line. */
 function FlashcardTileSkeleton({ showDeck = false }: { showDeck?: boolean }) {
   const badges = (
     <div className="flex items-center gap-1.5">
@@ -132,7 +115,6 @@ function FlashcardTileSkeleton({ showDeck = false }: { showDeck?: boolean }) {
   );
 }
 
-/** Count line and tile grid shared by Browse and the deck page. */
 export function FlashcardGridSkeleton({ showDeck = false }: { showDeck?: boolean }) {
   return (
     <>
@@ -146,7 +128,6 @@ export function FlashcardGridSkeleton({ showDeck = false }: { showDeck?: boolean
   );
 }
 
-/** Filter bar and grid; the Browse page renders its own header above. */
 export function BrowseContentSkeleton() {
   return (
     <>
@@ -170,8 +151,6 @@ function BrowsePageSkeleton() {
   );
 }
 
-/* ------------------------------------------------------------------ Deck */
-
 export function DeckHeaderSkeleton() {
   return (
     <header className="mb-6 mt-4 flex flex-wrap items-end justify-between gap-4">
@@ -189,7 +168,6 @@ export function DeckHeaderSkeleton() {
   );
 }
 
-/** Tag filter, sort, and card grid below the deck header. */
 export function DeckCardsSkeleton({ withFilters = true }: { withFilters?: boolean }) {
   return (
     <>
@@ -209,7 +187,6 @@ export function DeckCardsSkeleton({ withFilters = true }: { withFilters?: boolea
 function DeckPageSkeleton() {
   return (
     <div>
-      {/* The inline "All decks" link sits in a 24px line box. */}
       <Line box="h-6" className="h-3.5 w-20" />
       <DeckHeaderSkeleton />
       <DeckCardsSkeleton />
@@ -217,13 +194,6 @@ function DeckPageSkeleton() {
   );
 }
 
-/* ---------------------------------------------------------------- Review */
-
-/** Progress row, card face, and answer controls of a review session. */
-/**
- * The progress row, card, and answer bar of a review session, laid out like the
- * session's fixed frame so the real card lands in the same place.
- */
 export function ReviewCardSkeleton() {
   return (
     <>
@@ -266,22 +236,10 @@ function ReviewPageSkeleton({ backLink, title = "Review" }: { backLink: boolean;
   );
 }
 
-/* ----------------------------------------------------------------- Graph */
-
-/** Where the canvas puts a deck's cards before any are saved: one column from the origin. */
 const GRAPH_FALLBACK_NODES = [0, 188, 376].map((y) => ({ x: 0, y }));
-/** The canvas's first-visit view, matching `DEFAULT_VIEWPORT` in the graph. */
 const GRAPH_DEFAULT_VIEWPORT = { x: 48, y: 48, zoom: 1 };
-/** Enough placeholders to fill a view without mounting a large deck. */
 const GRAPH_SKELETON_NODE_LIMIT = 40;
 
-/**
- * The graph canvas chrome (back/search, tidy, zoom, minimap) at React Flow's
- * panel positions, plus card placeholders drawn through the same view the
- * canvas opens with, so they sit where the cards land. Pass the deck's saved
- * view and, once loaded, its card positions; without them the placeholders
- * follow the canvas's first-visit layout.
- */
 export function GraphSkeleton({
   viewport = GRAPH_DEFAULT_VIEWPORT,
   nodes,
@@ -334,8 +292,6 @@ function GraphPageSkeleton() {
   );
 }
 
-/* -------------------------------------------------------------- Settings */
-
 function SettingsSectionSkeleton({ rows, hintLines = 1 }: { rows: number; hintLines?: number }) {
   return (
     <section className="grid gap-x-10 gap-y-4 md:grid-cols-[240px_1fr]">
@@ -387,12 +343,6 @@ function SettingsPageSkeleton() {
   );
 }
 
-/* ---------------------------------------------------------------- Router */
-
-/**
- * The skeleton for whichever page `pathname` will show. Used by the signed-in
- * frame while it waits for the account, before any page can mount.
- */
 export function PageSkeleton({ pathname }: { pathname: string }) {
   if (pathname === "/browse") return <BrowsePageSkeleton />;
   if (pathname === "/review") return <ReviewPageSkeleton backLink={false} />;

@@ -1,10 +1,3 @@
-/**
- * Color themes. A theme is seven seed colors; every other color the app uses
- * is derived from them here, so web and mobile resolve the same palette.
- * Flexoki is the default and keeps its hand-tuned CSS tokens on the web; every
- * other theme, built-in or custom, is applied as the derived token set.
- */
-
 export const THEME_SEED_KEYS = [
   "background",
   "text",
@@ -24,13 +17,11 @@ export type ThemeDefinition = {
   id: string;
   name: string;
   seeds: ThemeSeeds;
-  /** Built-in high-contrast themes draw borders and secondary text at full strength. */
   highContrast?: boolean;
 };
 
 export type CustomTheme = { id: string; name: string; seeds: ThemeSeeds };
 
-/** A user's theme choice, stored per account. */
 export type Appearance = {
   mode: ThemeMode;
   lightTheme: string;
@@ -38,7 +29,6 @@ export type Appearance = {
   customThemes: CustomTheme[];
 };
 
-/** CSS custom property name (without `--armin-`) to value. */
 export type ThemeTokens = Record<string, string>;
 
 export const MAX_CUSTOM_THEMES = 20;
@@ -53,7 +43,6 @@ export const DEFAULT_APPEARANCE: Appearance = {
   customThemes: [],
 };
 
-/** Flexoki's tokens live in CSS; these seeds only start a custom copy. */
 const FLEXOKI_THEMES: ThemeDefinition[] = [
   {
     id: FLEXOKI_LIGHT_ID,
@@ -83,11 +72,6 @@ const FLEXOKI_THEMES: ThemeDefinition[] = [
   },
 ];
 
-/**
- * VS Code's built-in color themes, taken from each theme's workbench and
- * terminal colors. "Dark (Visual Studio)" and "Light (Visual Studio)" differ
- * from Dark+ and Light+ only in syntax colors, so they are left out.
- */
 const VSCODE_THEMES: ThemeDefinition[] = [
   {
     id: "vscode-light-modern",
@@ -294,10 +278,6 @@ export function isFlexokiTheme(id: string) {
   return id === FLEXOKI_LIGHT_ID || id === FLEXOKI_DARK_ID;
 }
 
-/* ------------------------------------------------------------------ *
- * Color math (sRGB, matching CSS `color-mix(in srgb, ...)`)
- * ------------------------------------------------------------------ */
-
 const HEX_COLOR = /^#[0-9a-f]{6}$/;
 
 export function isHexColor(value: string) {
@@ -321,7 +301,6 @@ function toHex([r, g, b]: Rgb) {
     .join("")}`;
 }
 
-/** `amount` of `to` mixed into `from`. */
 export function mixColors(from: string, to: string, amount: number) {
   const a = toRgb(from);
   const b = toRgb(to);
@@ -336,23 +315,17 @@ function luminance(hex: string) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-/** WCAG contrast ratio between two colors. */
 export function contrastRatio(a: string, b: string) {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/** Dark when white text reads better on the background than black text. */
 export function themeScheme(seeds: Pick<ThemeSeeds, "background">): ThemeScheme {
   return contrastRatio(seeds.background, "#ffffff") > contrastRatio(seeds.background, "#000000")
     ? "dark"
     : "light";
 }
 
-/**
- * The color moved toward black (light themes) or white (dark themes) only as
- * far as needed to reach `target` contrast against every surface given.
- */
 function readableOn(color: string, surfaces: string[], target: number, scheme: ThemeScheme) {
   const toward = scheme === "light" ? "#000000" : "#ffffff";
   for (let step = 0; step <= 20; step++) {
@@ -367,20 +340,14 @@ function translucent(hex: string, alpha: number) {
   return `rgb(${r} ${g} ${b} / ${alpha})`;
 }
 
-/**
- * The page's paper grain: a fine static noise tile in `color`, as a CSS image.
- * It matches the hand-tuned Flexoki grain in apps/web's flexoki-theme.css.
- */
 function paperGrain(color: string, alpha: number) {
   const [r, g, b] = toRgb(color).map((c) => (c / 255).toFixed(3));
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 ${r} 0 0 0 0 ${g} 0 0 0 0 ${b} 0 0 0 ${alpha} 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-/** Text and controls must clear WCAG AA. */
 const AA = 4.5;
 
-/** Every `--armin-*` token for a theme. */
 export function deriveThemeTokens(theme: Pick<ThemeDefinition, "seeds" | "highContrast">) {
   const { seeds } = theme;
   const scheme = themeScheme(seeds);
@@ -391,16 +358,12 @@ export function deriveThemeTokens(theme: Pick<ThemeDefinition, "seeds" | "highCo
   const bg2 = toward(hc ? 0 : 0.04);
   const surfaces = [bg, bg2];
 
-  // Accent and rating colors carry `on-accent` text, which is the background
-  // color, so keeping them readable on the background keeps their labels
-  // readable too (contrast is symmetric).
   const solid = (seed: string) => readableOn(seed, surfaces, AA, scheme);
   const accent = solid(seeds.accent);
   const again = solid(seeds.again);
   const hard = solid(seeds.hard);
   const good = solid(seeds.good);
   const easy = solid(seeds.easy);
-  // Hovers move toward the text color, which raises contrast with the label.
   const hover = (color: string) => mixColors(color, ink, 0.14);
   const deep = (color: string) => mixColors(color, scheme === "light" ? ink : bg, 0.2);
 
@@ -459,7 +422,6 @@ export function deriveThemeTokens(theme: Pick<ThemeDefinition, "seeds" | "highCo
       scheme === "light"
         ? "0 12px 40px -8px rgb(0 0 0 / 0.18)"
         : "0 12px 40px -8px rgb(0 0 0 / 0.45)",
-    // The page's paper: light from above, a faint dot grid, and grain.
     "paper-light": scheme === "light" ? "rgb(255 255 255 / 0.5)" : translucent(ink, 0.035),
     "paper-dot": translucent(
       mixColors(ink, bg, scheme === "light" ? 0.7 : 0.6),
@@ -470,20 +432,14 @@ export function deriveThemeTokens(theme: Pick<ThemeDefinition, "seeds" | "highCo
   return tokens;
 }
 
-/* ------------------------------------------------------------------ *
- * Resolution
- * ------------------------------------------------------------------ */
-
 export function findTheme(appearance: Appearance, id: string): ThemeDefinition | undefined {
   return (
     BUILT_IN_THEMES.find((t) => t.id === id) ?? appearance.customThemes.find((t) => t.id === id)
   );
 }
 
-/** A theme ready to apply: Flexoki uses its CSS (`tokens: null`). */
 export type ResolvedTheme = { id: string; scheme: ThemeScheme; tokens: ThemeTokens | null };
 
-/** The theme in one slot, falling back to Flexoki when it no longer exists. */
 export function resolveSlot(appearance: Appearance, slot: ThemeScheme): ResolvedTheme {
   const id = slot === "light" ? appearance.lightTheme : appearance.darkTheme;
   const theme = findTheme(appearance, id);
@@ -494,17 +450,12 @@ export function resolveSlot(appearance: Appearance, slot: ThemeScheme): Resolved
   return { id: theme.id, scheme: themeScheme(theme.seeds), tokens: deriveThemeTokens(theme) };
 }
 
-/* ------------------------------------------------------------------ *
- * Validation (shared by the client and the server)
- * ------------------------------------------------------------------ */
-
 const CUSTOM_ID = /^custom-[a-z0-9-]{1,40}$/;
 
 export function isCustomThemeId(id: string) {
   return CUSTOM_ID.test(id);
 }
 
-/** Why an appearance can't be saved, or null when it is valid. */
 export function appearanceProblem(appearance: Appearance): string | null {
   if (!["light", "dark", "system"].includes(appearance.mode)) return "Unknown theme mode.";
   if (appearance.customThemes.length > MAX_CUSTOM_THEMES) {

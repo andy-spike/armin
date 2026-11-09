@@ -1,23 +1,12 @@
-/*
- * The review session engine: which occurrences of review units a study
- * session holds, which one is on screen, what Undo can reverse, and how a
- * fresh queue merges into a running session. It is pure (state in, state
- * out), so any client can drive it; saving answers to a server is the
- * caller's job, reported back through `saved` and `rejected` events.
- */
-
-/** What the engine needs from a queued review unit; clients may carry more. */
 export type ReviewSessionUnit = { id: string; flashcardId: string; version: number };
 
 export type SessionCard<Unit extends ReviewSessionUnit> = Unit & {
-  /** Stable identity for this occurrence, even when its unit version changes. */
   turnId: string;
   reviewed: boolean;
 };
 
 export type BuriedUnit = {
   reviewUnitId: string;
-  /** Version the bury wrote, which Undo must still find unchanged. */
   version: number;
   previousBuriedUntil: number | null;
 };
@@ -30,7 +19,6 @@ export type SessionRateResult =
   | { status: "ok"; reviewLogId: string; version: number }
   | { status: "stale" | "ineligible"; message: string };
 
-/** Undo result for either a rating or a bury. */
 export type SessionUndoResult =
   | { status: "ok"; reviewUnitId: string; version: number }
   | { status: "ok"; flashcardId: string }
@@ -38,33 +26,22 @@ export type SessionUndoResult =
 
 export type ReviewSessionState<Unit extends ReviewSessionUnit> = {
   cards: SessionCard<Unit>[];
-  /** Position of the card on screen; `cards.length` once the session is done. */
   index: number;
-  /** Saved answers and buries, oldest first; Undo reverses the last. */
   history: HistoryEntry[];
-  /** The card on screen changed elsewhere; the user decides what to do. */
   stale: { next: Unit | null; message: string } | null;
   notice: string | null;
 };
 
 export type ReviewSessionEvent<Unit extends ReviewSessionUnit> =
-  /** A fresh queue arrived. `allowNewCards: false` freezes practice membership. */
   | { type: "queue"; incoming: Unit[]; allowNewCards: boolean }
-  /** The card on screen was answered; `repeatAgainOffset` re-queues an Again. */
   | { type: "rated"; grade: 1 | 2 | 3 | 4; requestId: string; repeatAgainOffset?: number }
   | { type: "saved"; turnId: string; reviewUnitId: string; reviewLogId: string; version: number }
   | { type: "rejected"; reviewUnitId: string; message: string }
-  /** A unit left the session (archived, deleted, or gone elsewhere). */
   | { type: "removed"; reviewUnitIds: string[]; notice?: string }
   | { type: "buried"; turnId: string; flashcardId: string; units: BuriedUnit[] }
   | { type: "buryRejected"; flashcardId: string; message: string }
   | { type: "undone"; entry: HistoryEntry; result: SessionUndoResult }
   | { type: "acceptStale" }
-  /**
-   * The card on screen now shows other content under a new version, without
-   * being answered, such as a concept card whose flagged exercise was swapped
-   * for the next one. It starts a fresh turn.
-   */
   | { type: "replaced"; turnId: string; version: number }
   | { type: "step"; delta: -1 | 1 }
   | { type: "notice"; message: string | null }
@@ -79,7 +56,6 @@ export function reduceReviewSession<Unit extends ReviewSessionUnit>(
   event: ReviewSessionEvent<Unit>,
 ): ReviewSessionState<Unit> {
   const next = apply(state, event);
-  // Each new turn starts without the previous card's stale warning.
   const before = state.cards[state.index]?.turnId;
   const after = next.cards[next.index]?.turnId;
   return before !== after && next.stale ? { ...next, stale: null } : next;
@@ -92,7 +68,6 @@ function apply<Unit extends ReviewSessionUnit>(
   const active = state.cards[state.index];
   switch (event.type) {
     case "queue": {
-      // The first response seeds the session even when membership is frozen.
       const merged = reconcileSessionCards(
         state.cards,
         event.incoming,
@@ -113,9 +88,6 @@ function apply<Unit extends ReviewSessionUnit>(
         c.turnId === active.turnId ? { ...c, reviewed: true } : c,
       );
       if (event.grade === 1 && event.repeatAgainOffset !== undefined) {
-        // Practice sessions give a forgotten card another turn a few cards
-        // later. The copy is a new occurrence of the same unit, so its answer
-        // is logged separately.
         const at = Math.min(state.index + 1 + event.repeatAgainOffset, cards.length);
         const repeat = {
           ...active,
@@ -144,8 +116,6 @@ function apply<Unit extends ReviewSessionUnit>(
         ),
       };
     case "rejected":
-      // Rejected (changed or deleted elsewhere, or not eligible yet). A later
-      // queue brings the card back if it is still due.
       return {
         ...removeUnits(state, [event.reviewUnitId]),
         notice: `${event.message} Your answer to that card wasn't saved.`,
@@ -176,8 +146,6 @@ function apply<Unit extends ReviewSessionUnit>(
       const { entry, result } = event;
       const history = state.history.slice(0, -1);
       if (result.status === "ok" && "reviewUnitId" in result && entry.kind === "review") {
-        // Undo returns to the exact occurrence that was answered, removing any
-        // waiting repeat of that unit so it cannot appear twice.
         const cards = state.cards
           .filter((c) => c.id !== entry.reviewUnitId || c.reviewed)
           .map((c) =>
@@ -192,7 +160,6 @@ function apply<Unit extends ReviewSessionUnit>(
           stale: null,
         };
       }
-      // Unburied cards return through the live queue.
       const notice = result.status === "ok" ? "Card unburied." : result.message;
       return { ...state, history, notice };
     }
@@ -226,7 +193,6 @@ function apply<Unit extends ReviewSessionUnit>(
   }
 }
 
-/** Pending cards missing from a queue: deleted elsewhere, or held back by a budget. */
 export function missingFromQueue<Unit extends ReviewSessionUnit>(
   cards: SessionCard<Unit>[],
   incoming: { id: string }[],
@@ -243,20 +209,12 @@ function nextUnreviewedIndex(cards: { reviewed: boolean }[], reviewedIndex: numb
   for (let i = reviewedIndex + 1; i < cards.length; i++) {
     if (!cards[i]!.reviewed) return i;
   }
-  // Skipped cards are revisited at the end of the session, so completion can
-  // never hide a due card behind "All caught up".
   for (let i = 0; i < reviewedIndex; i++) {
     if (!cards[i]!.reviewed) return i;
   }
   return cards.length;
 }
 
-/**
- * Merge a fresh queue into the running session. Cards not yet on screen take
- * the latest data, new due cards are appended, and the card being answered
- * keeps the prompt the user is looking at: if it changed elsewhere it is
- * reported as stale instead of being swapped under them.
- */
 function reconcileSessionCards<Unit extends ReviewSessionUnit>(
   current: SessionCard<Unit>[],
   incoming: Unit[],
@@ -282,8 +240,6 @@ function reconcileSessionCards<Unit extends ReviewSessionUnit>(
     }
     return { ...c, ...next };
   });
-  // A completed occurrence stays in history. A newly due occurrence belongs
-  // ahead of the cursor, but an old queue response must not resurrect it.
   const appended = allowNewCards
     ? incoming
         .filter((c) => !pendingIds.has(c.id) && c.version >= (reviewedVersions.get(c.id) ?? 0))
@@ -292,7 +248,6 @@ function reconcileSessionCards<Unit extends ReviewSessionUnit>(
   return { cards: [...updated, ...appended], staleActive: staleActive as Unit | null };
 }
 
-/** Drop units from the session; Undo can't restore a unit that is gone. */
 function removeUnits<Unit extends ReviewSessionUnit>(
   state: ReviewSessionState<Unit>,
   reviewUnitIds: string[],
@@ -315,8 +270,6 @@ function removeWhere<Unit extends ReviewSessionUnit>(
   const shifted = state.index - state.cards.slice(0, state.index).filter(matches).length;
   let index = Math.min(shifted, cards.length);
   if (index >= cards.length) {
-    // Removing the last card does not complete the session while an earlier
-    // skipped card is still waiting.
     const firstPending = cards.findIndex((c) => !c.reviewed);
     index = firstPending >= 0 ? firstPending : cards.length;
   }

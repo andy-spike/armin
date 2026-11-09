@@ -1,13 +1,3 @@
-/**
- * The keyboard-shortcuts settings surface. Lists every app-level Command grouped
- * by section, lets the user re-record a binding through a modal recorder (press
- * the keys, then Enter to save / Esc to cancel), and resets a single Command or
- * all of them back to the factory defaults.
- *
- * Only the Commands the user changed are persisted (factory ◁ override diff);
- * the provider owns that diffing — this component just calls setBinding/reset.
- */
-
 import { useEffect, useEffectEvent, useState } from "react";
 import { Keyboard, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,7 +20,6 @@ import {
 import { serializeSteps, stepFromEvent, type ChordStep } from "@/lib/keybindings/keys";
 import { cn } from "@/lib/utils";
 
-/** Longest chord the recorder accepts (e.g. "g d"); extra keys are ignored. */
 const MAX_CHORD_STEPS = 2;
 
 function describeConflict(conflict: Conflict): string {
@@ -48,13 +37,6 @@ function describeConflict(conflict: Conflict): string {
   }
 }
 
-/**
- * Modal keybinding recorder. While open it captures every keystroke (capture
- * phase + stopPropagation, so the live dispatcher never sees the keys being
- * recorded), appending each non-modifier key to the draft chord. Enter saves the
- * draft, Escape cancels; Tab is swallowed so focus stays put. Same-scope
- * conflicts are surfaced inline so the user can re-record without leaving.
- */
 function KeybindingRecorderDialog({
   command,
   open,
@@ -73,7 +55,6 @@ function KeybindingRecorderDialog({
   const [draft, setDraft] = useState<ChordStep[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset the draft each time the recorder opens.
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -98,8 +79,6 @@ function KeybindingRecorderDialog({
     onSave(binding);
   };
 
-  // Keep the live key listener pointed at the latest confirm/close handlers
-  // without re-attaching it on every keystroke.
   const confirmFromKey = useEffectEvent(confirm);
   const closeFromKey = useEffectEvent(onClose);
 
@@ -116,9 +95,9 @@ function KeybindingRecorderDialog({
         closeFromKey();
         return;
       }
-      if (event.key === "Tab") return; // keep focus put; don't record Tab
+      if (event.key === "Tab") return;
       const step = stepFromEvent(event);
-      if (!step) return; // bare modifier press — wait for the real key
+      if (!step) return;
       setDraft((prev) => (prev.length >= MAX_CHORD_STEPS ? prev : [...prev, step]));
       setError(null);
     };

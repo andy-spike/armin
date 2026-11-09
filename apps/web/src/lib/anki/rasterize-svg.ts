@@ -1,9 +1,3 @@
-/**
- * Draw an SVG from an Anki package into a PNG. Armin never stores SVG (it can
- * carry script and is served from an authenticated route), but the browser can
- * render it safely as an image: an `<img>` never runs SVG scripts or loads
- * external resources. Returns null when the file doesn't render.
- */
 const MAX_SIDE = 2048;
 const FALLBACK_SIDE = 512;
 
@@ -17,7 +11,6 @@ export async function rasterizeSvg(bytes: Uint8Array): Promise<Uint8Array | null
     image.decoding = "async";
     image.src = url;
     await image.decode();
-    // SVGs without intrinsic dimensions report 0; give them a sensible canvas.
     let width = image.naturalWidth || FALLBACK_SIDE;
     let height = image.naturalHeight || FALLBACK_SIDE;
     const scale = Math.min(1, MAX_SIDE / Math.max(width, height));

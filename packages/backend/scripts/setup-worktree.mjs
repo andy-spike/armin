@@ -16,14 +16,13 @@ import {
   mainState,
   readEnv,
   readState,
+  refreshSiteUrl,
   run,
   saveState,
   statePath,
   unsetEnv,
 } from "./dev-environment.mjs";
 
-// Starts this checkout's local backend and resolves once functions are pushed.
-// CONVEX_AGENT_MODE=anonymous creates a deployment without a Convex account.
 function startBackend(state) {
   const tempDir = convexTempDir();
   const child = spawn(
@@ -82,7 +81,11 @@ try {
     if (process.env[key]) throw new Error(`Unset shell ${key} before setup.`);
   }
   const main = isMainCheckout();
-  const state = existsSync(statePath) ? readState() : main ? mainState() : await allocate();
+  const state = existsSync(statePath)
+    ? refreshSiteUrl(readState())
+    : main
+      ? mainState()
+      : await allocate();
   saveState(state);
   const envFile = join(backend, ".env.local");
   const values = readEnv(envFile);
@@ -91,7 +94,6 @@ try {
       throw new Error(
         "Found a Convex cloud selection in packages/backend/.env.local. Start with a fresh worktree instead of copying backend .env.local.",
       );
-    // The main checkout moves from its cloud dev deployment to a local one.
     copyFileSync(envFile, `${envFile}.cloud-backup`);
     unsetEnv(envFile, ["CONVEX_DEPLOYMENT", "CONVEX_URL", "CONVEX_SITE_URL", "CONVEX_DEPLOY_KEY"]);
     console.log("Moved the cloud selection to packages/backend/.env.local.cloud-backup.");
@@ -111,8 +113,6 @@ try {
   };
   if (!names.has("BETTER_AUTH_SECRET"))
     settings.BETTER_AUTH_SECRET = randomBytes(32).toString("base64");
-  // Concept card variants come from the generator's fake provider locally.
-  // A value already set (such as `false` to try the failure path) is kept.
   if (!names.has("CONCEPT_GENERATOR_FAKE")) settings.CONCEPT_GENERATOR_FAKE = "true";
   convex(["env", "set", "--force"], {
     input: Object.entries(settings)
@@ -123,9 +123,6 @@ try {
   configureSandbox(state);
   run("node", [join(backend, "scripts/configure-clients.mjs")]);
   await seedWorktree();
-  // The test account gets complimentary Pro on every local deployment, so
-  // Pro-only features such as concept cards work right after setup. It only
-  // sets `libraries.complimentaryPro` on this checkout's local deployment.
   convex(
     [
       "run",
@@ -135,9 +132,6 @@ try {
     { stdio: ["ignore", "pipe", "inherit"] },
   );
   if (!names.has("JWKS")) {
-    // Seeding obtains a token and therefore creates the Better Auth signing key.
-    // Embed that same key in the local deployment so token verification does not
-    // recursively fetch a JWKS HTTP action from the local backend under load.
     const keys = JSON.parse(
       convex(["data", "jwks", "--component", "betterAuth", "--format", "json"], {
         stdio: ["ignore", "pipe", "inherit"],

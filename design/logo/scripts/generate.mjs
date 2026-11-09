@@ -1,6 +1,3 @@
-// Generates every Armin logo SVG, plus the shape data the web app renders inline.
-// Usage (from the repo root): node design/logo/scripts/generate.mjs
-// The wordmark comes from svg/armin-wordmark.svg, made by wordmark.py; run that first if it changes.
 import { readFileSync, writeFileSync } from "node:fs";
 
 const svgDir = new URL("../svg/", import.meta.url);
@@ -15,8 +12,6 @@ const C = {
 };
 const f = (n) => +n.toFixed(2);
 
-// The "wide tree": cards are nodes, prerequisites are edges. Nodes are [x, y, r, goal].
-// The crown's tips sit on an arch, and every inner tip has two parents.
 const full = {
   nodes: [
     [50, 90, 7.2],
@@ -51,7 +46,6 @@ const full = {
     [7, 12],
   ],
 };
-// 32px: drop some shared links so the crown doesn't clot, keeping the silhouette.
 const medium = {
   nodes: full.nodes,
   edges: [
@@ -70,7 +64,6 @@ const medium = {
     [7, 12],
   ],
 };
-// 16px and small UI sizes: root, fork, two branches, four tips on the arch.
 const small = {
   nodes: [
     [50, 88, 9],
@@ -99,7 +92,6 @@ const themes = {
   paper: { bg: C.paper, line: C.ink, node: C.ink, goal: C.cyan6 },
 };
 
-// Lays the graph out in a `box`-sized area (percent of `side`) centred in a side x side square.
 function layout(g, { box = 64, grow = 1, ox = 0, oy = 0, side = 100 } = {}) {
   const xs = g.nodes.flatMap(([x, , r]) => [x - r * grow, x + r * grow]);
   const ys = g.nodes.flatMap(([, y, r]) => [y - r * grow, y + r * grow]);
@@ -136,11 +128,9 @@ const files = {
   "armin-icon-64": icon(full, themes.teal, { box: 70, stroke: 3.4, grow: 1.12 }),
   "armin-icon-32": icon(medium, themes.teal, { box: 78, stroke: 4.6, grow: 1.25 }),
   "armin-icon-16": icon(small, themes.teal, { box: 86, stroke: 8, grow: 1.05 }),
-  // Android adaptive icon foreground: transparent, mark inside the 66% safe zone.
   "armin-adaptive-foreground": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${mark(full, themes.teal, { box: 50, stroke: 2.2 })}</svg>\n`,
 };
 
-// Wordmark: outlined once from Source Serif 4 Semibold; every lockup reuses these paths.
 const wm = readFileSync(new URL("armin-wordmark.svg", svgDir), "utf8");
 const [wx, wy, ww, wh] = wm
   .match(/viewBox="([^"]+)"/)[1]
@@ -149,7 +139,6 @@ const [wx, wy, ww, wh] = wm
 const wordPath = wm.match(/ d="([^"]+)"/)[1];
 const XH = Number(wm.match(/data-x-height="(\d+)"/)[1]);
 
-// Lockup rule: wordmark x-height = 0.4 x icon side; gap = 0.3 x icon side; x-height centred on the icon.
 const SIDE = 80;
 const s = (0.4 * SIDE) / XH;
 const word = (x, baseline, fill) =>
@@ -170,18 +159,15 @@ function lockup(t, text, panel) {
 files["armin-lockup-light"] = lockup(themes.teal, C.ink, C.paper);
 files["armin-lockup-dark"] = lockup(themes.teal, C.paper, C.ink);
 
-// Bare marks without the square, for use on the app's own background.
 const bare = (g, opts) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${mark(g, { line: C.ink, node: C.ink, goal: C.cyan6 }, { box: 96, ...opts })}</svg>\n`;
 files["armin-mark"] = bare(full, { stroke: 3 });
-// 16-24 px UI sizes: the full tree with heavier nodes and strokes keeps the arched crown legible.
 const ui = { stroke: 6, grow: 1.3 };
 files["armin-mark-small"] = bare(full, ui);
 
 for (const [name, content] of Object.entries(files))
   writeFileSync(new URL(`${name}.svg`, svgDir), content);
 
-// Shape data for the web app's inline <ArminMark> and <ArminWordmark>, so the UI uses the same geometry.
 const uiMark = layout(full, { box: 96, grow: ui.grow });
 writeFileSync(
   brandPaths,

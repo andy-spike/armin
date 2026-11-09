@@ -1,32 +1,17 @@
 import { decodeEntities } from "./html";
 
-/**
- * Anki image occlusion (23.10+) stores its masks as cloze markers in the
- * occlusion field, one per shape:
- *
- *   {{c1::image-occlusion:rect:left=.12:top=.3:width=.2:height=.1:oi=1}}
- *   {{c2::image-occlusion:ellipse:left=.5:top=.5:rx=.1:ry=.05}}
- *   {{c3::image-occlusion:polygon:points=0.1,0.1 0.4,0.1 0.2,0.5}}
- *
- * Coordinates are fractions (0–1) of the image, the same unit Armin uses for
- * mask geometry, so no pixel conversion is needed.
- */
-
 const SHAPE_RE = /\{\{c(\d+)::image-occlusion:(rect|ellipse|polygon):([^}]*)\}\}/g;
 
 export type OcclusionBox = { x: number; y: number; w: number; h: number };
 
 export type OcclusionMask = {
-  /** Anki cloze number; the review unit is `c<number>`. */
   num: number;
   box: OcclusionBox;
-  /** True when the box stands in for an ellipse, polygon, or several shapes. */
   approximated: boolean;
 };
 
 export type OcclusionParse = {
   masks: OcclusionMask[];
-  /** Anki's "hide all, guess one" mode (`oi=1`); false means hide one. */
   hideAll: boolean;
 };
 
@@ -41,11 +26,6 @@ function props(source: string) {
   return out;
 }
 
-/**
- * Bounding box of a box rotated clockwise by `degrees` around its top-left
- * corner, which is how Anki's fabric.js shapes rotate. The image's aspect ratio
- * isn't known here, so rotating in fractional units is itself approximate.
- */
 function rotatedBox(box: OcclusionBox, degrees: number): OcclusionBox {
   const rad = (degrees * Math.PI) / 180;
   const cos = Math.cos(rad);
@@ -59,7 +39,6 @@ function rotatedBox(box: OcclusionBox, degrees: number): OcclusionBox {
   return boundsOf(corners);
 }
 
-/** The smallest box holding every `[x, y]` point. */
 function boundsOf(points: number[][]): OcclusionBox {
   const xs = points.map(([x]) => x);
   const ys = points.map(([, y]) => y);
@@ -78,7 +57,6 @@ function shapeBox(kind: string, values: Record<string, string>) {
     return placed({ x: num("left"), y: num("top"), w: num("width"), h: num("height") }, false);
   }
   if (kind === "ellipse") {
-    // Anki stores the ellipse's top-left corner and its radii.
     return placed({ x: num("left"), y: num("top"), w: num("rx") * 2, h: num("ry") * 2 }, true);
   }
   const points = (values.points ?? "")
@@ -96,10 +74,6 @@ function union(a: OcclusionBox, b: OcclusionBox): OcclusionBox {
   return { x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y };
 }
 
-/**
- * Read the shapes of an occlusion field. Shapes sharing a cloze number become
- * one mask (their bounding box), so every Anki card keeps exactly one review unit.
- */
 export function parseOcclusion(field: string): OcclusionParse {
   const text = decodeEntities(field.replace(/<[^>]*>/g, ""));
   const byNum = new Map<number, OcclusionMask>();
@@ -131,7 +105,6 @@ export function parseOcclusion(field: string): OcclusionParse {
   return { masks, hideAll };
 }
 
-/** Does this field hold Anki occlusion markers? */
 export function hasOcclusionMarkers(field: string) {
   return field.includes("image-occlusion:");
 }

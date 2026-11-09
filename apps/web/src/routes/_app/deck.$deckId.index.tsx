@@ -72,12 +72,6 @@ function DeckPage() {
     [cardsQuery.flashcards],
   );
 
-  // Rendering a page of flashcard tiles is the heavy part of opening a deck —
-  // each tile mounts two Base UI menu trees, so 30 of them block the main
-  // thread for a few hundred ms while the (sub-20ms) data is long since loaded.
-  // Deferring the rendered list keeps the route's first paint cheap: the
-  // skeleton shows instantly and the tiles stream in through a non-blocking
-  // concurrent render instead of freezing the navigation.
   const deferredDisplayed = useDeferredValue(displayed);
   const cardsRendering = deferredDisplayed !== displayed;
 
@@ -127,9 +121,6 @@ function DeckPage() {
   const deck = deckQuery.data;
   const dueCount = deck?.due ?? 0;
   const cardsLoading = cardsQuery.isLoading;
-  // Skeleton covers both the fetch and the deferred tile render that follows it,
-  // but only when nothing is on screen yet. Once tiles are rendered, a later
-  // data change re-renders them concurrently without flashing back to skeleton.
   const showCardsSkeleton = (cardsLoading || cardsRendering) && deferredDisplayed.length === 0;
   const isError = deckQuery.isError || cardsQuery.isError;
 
@@ -331,7 +322,6 @@ function DeckHeader({
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        {/* Review is the one filled action while cards are due. */}
         <Button variant={dueCount > 0 ? "outline" : "primary"} onClick={onAddCard}>
           <Plus className="h-4 w-4" /> Add card
         </Button>

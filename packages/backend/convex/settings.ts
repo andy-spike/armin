@@ -26,6 +26,7 @@ function publicSettings(row: Omit<Doc<"settings">, "_id" | "_creationTime">) {
     schedulingPreset: row.schedulingPreset,
     keybindings: row.keybindings,
     autoplayAudio: row.autoplayAudio ?? true,
+    cardEditorLayout: row.cardEditorLayout ?? "dialog",
   };
 }
 
@@ -57,6 +58,7 @@ export const update = mutation({
     schedulingPreset: v.optional(v.string()),
     keybindings: v.optional(v.union(v.string(), v.null())),
     autoplayAudio: v.optional(v.boolean()),
+    cardEditorLayout: v.optional(v.union(v.literal("fullPage"), v.literal("dialog"))),
   },
   handler: async (ctx, patch) => {
     const library = await writableLibrary(ctx);
@@ -80,8 +82,6 @@ export const update = mutation({
       await ctx.db.insert("settings", { ...rest, ...patch, updatedAt: now });
     }
     if (patch.prereqStabilityFloor !== undefined) {
-      // A library can hold more cards than one transaction reads; walk it a
-      // deck at a time. Locks catch up within moments of the settings change.
       await ctx.scheduler.runAfter(0, internal.settings.refreshLibraryLocks, {
         libraryId: library._id,
         cursor: null,
@@ -161,7 +161,6 @@ export const updateDeck = mutation({
   },
 });
 
-/** Recompute prerequisite locks one deck per transaction, across a library. */
 export const refreshLibraryLocks = internalMutation({
   args: { libraryId: v.id("libraries"), cursor: v.union(v.string(), v.null()) },
   returns: v.null(),

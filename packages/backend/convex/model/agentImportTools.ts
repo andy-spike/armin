@@ -135,7 +135,6 @@ export const agentImportToolDescriptions = {
     "Cancel a staged or materializing Anki import and remove its cards, staging decks, and unshared uploaded images. Late uploads and batches are refused.",
 } as const;
 
-/** Component input schemas; Zod above enforces bounds and exact input at the write boundary. */
 export const agentImportToolArgs = {
   get_anki_import_guide: {},
   anki_import_status: { importId: v.optional(v.string()) },

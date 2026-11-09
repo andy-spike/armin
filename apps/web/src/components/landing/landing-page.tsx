@@ -9,11 +9,6 @@ import { LandingClip } from "./landing-clip";
 
 const GITHUB_URL = SOURCE_CODE_URL;
 
-/**
- * The steps of using Armin, each with a clip of the real app working through
- * one example deck, "Fundamentals of LLMs". The clips are recorded by
- * apps/web/scripts/record-landing-clips.mjs.
- */
 const STEPS = [
   {
     clip: "write",
@@ -45,11 +40,6 @@ const STEPS = [
   },
 ] as const;
 
-/**
- * A rule with a small label at its centre, between the page's sections. With
- * `headingId` the label is the section's heading; otherwise it only marks the
- * break and is hidden from assistive technology.
- */
 function SectionRule({ headingId, children }: { headingId?: string; children: string }) {
   const label = "font-mono text-xs tracking-[0.14em] text-muted uppercase";
   return (
@@ -69,7 +59,6 @@ function SectionRule({ headingId, children }: { headingId?: string; children: st
   );
 }
 
-/** Public landing page, shown at `/` to signed-out visitors. */
 export function LandingPage() {
   return (
     <div className="landing notebook-bg min-h-dvh overflow-x-clip">
@@ -121,7 +110,6 @@ export function LandingPage() {
               className="border-t border-border-strong py-14 first:border-t-0 first:pt-12 lg:py-20 lg:first:pt-16"
               aria-labelledby={`landing-step-${step.clip}`}
             >
-              {/* Text beside its clip on wide screens, so both stay in view. */}
               <div className="grid items-center gap-x-14 gap-y-8 lg:grid-cols-12">
                 <div className="lg:col-span-5">
                   <h3

@@ -1,7 +1,3 @@
-/**
- * Client-safe type exports for web and mobile. Only types are exported, so
- * importing this module never bundles backend implementation code.
- */
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "../_generated/api";
 

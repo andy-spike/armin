@@ -3,12 +3,6 @@ import { convertAnkiCloze } from "./cloze";
 import { decodeEntities } from "./html";
 import type { AnkiNotetype, AnkiTemplate } from "./types";
 
-/**
- * A small renderer for Anki card templates, used for notetypes that don't map
- * onto an Armin type. It covers what real decks use: field substitution,
- * conditional sections, `FrontSide`, special fields, and the common filters.
- */
-
 type Node =
   | { kind: "text"; text: string }
   | { kind: "var"; name: string; filters: string[] }
@@ -39,7 +33,6 @@ function parseTemplate(source: string) {
       current().push({
         kind: "var",
         name: parts[parts.length - 1].trim(),
-        // The filter next to the field name runs first.
         filters: parts
           .slice(0, -1)
           .map((p) => p.trim())
@@ -54,7 +47,6 @@ function parseTemplate(source: string) {
 export const escapeHtml = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/** Anki treats a field as empty when only markup and whitespace remain. */
 export function isFieldEmpty(html: string) {
   const text = html.replace(/<(?!img\b)[^>]*>/gi, "").replace(/&nbsp;/gi, " ");
   return /^[\s​]*$/.test(text);
@@ -82,20 +74,12 @@ export type TemplateContext = {
   subdeck: string;
   notetype: string;
   card: string;
-  /** Cloze number for `{{cloze:Field}}` (card ord + 1). */
   clozeNum: number;
-  /** The rendered front, substituted for `{{FrontSide}}`. */
   frontSide: string;
   side: "front" | "back";
-  /** Whether a substituted field still shows content after conversion. */
   fieldIsUsable?: (html: string) => boolean;
 };
 
-/**
- * `usedField`: a field shows something (Anki generates the card only then).
- * `unusableField`: a field had content, but none of it survives conversion.
- * `tts`: a `{{tts …:Field}}` reference was dropped (Armin doesn't speak text).
- */
 type RenderResult = {
   html: string;
   usedField: boolean;
@@ -123,7 +107,6 @@ function applyFilters(
       const { text } = convertAnkiCloze(out);
       out = renderClozeText(text, ctx.side === "front" ? ctx.clozeNum : null);
     }
-    // hint and unknown filters show the plain field value.
   }
   return out;
 }
@@ -185,12 +168,6 @@ export function renderTemplate(source: string, ctx: TemplateContext): RenderResu
 const FRONT_MARK = "\u{F8FF}FRONT\u{F8FF}";
 const ANSWER_RULE_RE = /<hr\s+id\s*=\s*["']?answer["']?\s*\/?>/i;
 
-/**
- * Render one card: the front, and the back with the repeated front removed.
- * Returns null when Anki would not generate the card (the front shows no field),
- * and `{ unusableFront: true }` when its front content doesn't survive conversion.
- * `tts` says a text-to-speech reference was dropped from either side.
- */
 export function renderCard(
   notetype: AnkiNotetype,
   template: AnkiTemplate,
@@ -215,7 +192,6 @@ export function renderCard(
   let backHtml = (rule ? back.html.slice(rule.index + rule[0].length) : back.html)
     .split(FRONT_MARK)
     .join("");
-  // A back that only repeats the front has nothing new to show.
   if (isFieldEmpty(backHtml)) backHtml = front.html;
   return { front: front.html, back: backHtml, tts: front.tts || back.tts };
 }

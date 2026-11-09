@@ -21,8 +21,6 @@ const baseBtn =
 // ones. Rendered here so an action that renders nothing adds no separator.
 const extra = Astro.slots.has("default") ? (await Astro.slots.render("default")).trim() : "";
 
-// "Ask ChatGPT" and "Ask Claude" start a chat that reads this page's
-// Markdown version from the public site, so the answer cites the docs.
 const absoluteMarkdownUrl =
   resolvedMarkdownUrl && Astro.site ? new URL(resolvedMarkdownUrl, Astro.site).href : undefined;
 const assistantPrompt = absoluteMarkdownUrl
@@ -57,7 +55,6 @@ const formattedDate = lastUpdated
     class={cn("not-prose -ms-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-[0.8125rem] leading-5", className)}
     {...attrs}
   >
-    {/* No separators: the row wraps on narrow layouts, and each action has its own icon and hover fill. Phones get the short forms ("Oct 12, 2026", "ChatGPT"). */}
     {lastUpdated && (
       <span class="inline-flex items-center gap-1.5 px-2 py-1 text-muted-foreground">
         <Icon name="ph:clock" class="w-3.5 h-3.5" />
