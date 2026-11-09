@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { Row, Section } from "@/components/settings-layout";
@@ -534,10 +535,47 @@ function AudioSection() {
   );
 }
 
+type CardEditorLayout = Settings["cardEditorLayout"];
+
+const CARD_EDITOR_LAYOUT_OPTIONS: { value: CardEditorLayout; label: string }[] = [
+  { value: "dialog", label: "Dialog" },
+  { value: "fullPage", label: "Full page" },
+];
+
+/** How the card editor first opens, saved to the account like audio. */
+function CardEditorSection() {
+  const toast = useToast();
+  const query = useQuery(settingsQueryOptions());
+  const save = useMutation({
+    mutationFn: (cardEditorLayout: CardEditorLayout) => armin.settings.update({ cardEditorLayout }),
+    onError: () => toast({ tone: "error", title: "Couldn’t save settings" }),
+  });
+  const layout = save.isPending ? save.variables : (query.data?.cardEditorLayout ?? "dialog");
+  return (
+    <Section title="Card editor" description="How the editor opens when you add or edit a card.">
+      <Row
+        label="Open as"
+        hint="Full page fills the window, with room for long cards and images. The button in the editor's corner still switches between the two while you edit."
+        last
+      >
+        <Segmented
+          aria-label="Card editor layout"
+          options={CARD_EDITOR_LAYOUT_OPTIONS}
+          value={layout}
+          onChange={(value) => {
+            if (query.data && value !== layout) save.mutate(value);
+          }}
+        />
+      </Row>
+    </Section>
+  );
+}
+
 function AppearanceTab() {
   return (
     <>
       <ThemeSection />
+      <CardEditorSection />
       <AudioSection />
     </>
   );

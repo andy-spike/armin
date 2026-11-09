@@ -39,6 +39,8 @@ export function Dialog({
   className,
   ariaLabel,
   view,
+  fullscreen = false,
+  headerActions,
 }: {
   open: boolean;
   onClose: () => void;
@@ -56,6 +58,14 @@ export function Dialog({
    * panel to its new height and fades the new view in instead of snapping.
    */
   view?: string;
+  /**
+   * Fills the viewport instead of floating as a panel, with the header, body,
+   * and footer aligned to one centered column. Toggling it keeps the content
+   * mounted and animates the panel between the two sizes.
+   */
+  fullscreen?: boolean;
+  /** Buttons shown in the header, before the close button. */
+  headerActions?: React.ReactNode;
 }) {
   const panelRef = React.useRef<HTMLDivElement>(null);
   const onCloseRef = React.useRef(onClose);
@@ -64,7 +74,13 @@ export function Dialog({
   const [present, setPresent] = React.useState(open);
   const [wasOpen, setWasOpen] = React.useState(false);
   const [returnFocus, setReturnFocus] = React.useState<HTMLElement | null>(null);
-  const [snapshot, setSnapshot] = React.useState({ title, description, children, footer });
+  const [snapshot, setSnapshot] = React.useState({
+    title,
+    description,
+    children,
+    footer,
+    headerActions,
+  });
   const exiting = present && !open;
 
   // Capture the opener before the dialog content (and its autoFocus) mounts.
@@ -90,12 +106,16 @@ export function Dialog({
     (snapshot.title !== title ||
       snapshot.description !== description ||
       snapshot.children !== children ||
-      snapshot.footer !== footer)
+      snapshot.footer !== footer ||
+      snapshot.headerActions !== headerActions)
   ) {
-    setSnapshot({ title, description, children, footer });
+    setSnapshot({ title, description, children, footer, headerActions });
   }
 
-  const content = exiting ? snapshot : { title, description, children, footer };
+  const content = exiting ? snapshot : { title, description, children, footer, headerActions };
+  // Full screen, every row's padding grows to keep its content in one centered
+  // 72rem column, so the header, body, and footer line up.
+  const gutter = fullscreen ? "px-[max(1.5rem,calc((100%-72rem)/2))]" : "px-6";
 
   React.useEffect(() => {
     onCloseRef.current = onClose;
@@ -190,7 +210,12 @@ export function Dialog({
   if (!present) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      className={cn(
+        "fixed inset-0 z-50 flex items-center justify-center",
+        fullscreen ? "p-0" : "p-4",
+      )}
+    >
       <div
         className={cn(
           "absolute inset-0 cursor-pointer bg-bg/90",
@@ -213,16 +238,18 @@ export function Dialog({
             : "overflow-y-auto overscroll-contain p-6",
           exiting ? "animate-pop-out" : "animate-pop",
           className,
+          fullscreen && "h-dvh max-h-dvh w-full max-w-none rounded-none border-0",
         )}
       >
-        <ViewSwap view={view} panelRef={panelRef} />
+        <ViewSwap view={view} fullscreen={fullscreen} panelRef={panelRef} />
         {content.title && (
           <div
             className={cn(
               "flex items-start justify-between gap-4",
               content.footer
-                ? "shrink-0 px-6 pt-6 pb-4"
+                ? cn("shrink-0 pt-6 pb-4", gutter)
                 : "sticky -top-6 z-10 -mx-6 -mt-6 mb-4 rounded-t-lg bg-surface px-6 pt-6 pb-4",
+              fullscreen && "border-b border-border",
             )}
           >
             <div>
@@ -233,26 +260,32 @@ export function Dialog({
                 <p className="mt-1 text-sm text-muted">{content.description}</p>
               )}
             </div>
-            <button
-              onClick={onClose}
-              aria-label="Close dialog"
-              className="-mr-1.5 -mt-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="-mr-1.5 -mt-1.5 flex shrink-0 items-center gap-1">
+              {content.headerActions}
+              <button
+                onClick={onClose}
+                aria-label="Close dialog"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         )}
         {content.footer ? (
           <>
             <div
               className={cn(
-                "min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6",
-                !content.title && "pt-6",
+                "min-h-0 flex-1 overflow-y-auto overscroll-contain pb-6",
+                gutter,
+                (!content.title || fullscreen) && "pt-6",
               )}
             >
               {content.children}
             </div>
-            <div className="shrink-0 border-t border-border px-6 py-4">{content.footer}</div>
+            <div className={cn("shrink-0 border-t border-border py-4", gutter)}>
+              {content.footer}
+            </div>
           </>
         ) : (
           content.children
@@ -271,20 +304,33 @@ export function Dialog({
  * Renders nothing; `getSnapshotBeforeUpdate` is React's hook for reading the
  * DOM before an update lands.
  */
-class ViewSwap extends React.Component<{
-  view: string | undefined;
-  panelRef: React.RefObject<HTMLDivElement | null>;
-}> {
+type SwapSnapshot =
+  | { kind: "view"; ghost: HTMLElement; from: number }
+  | { kind: "resize"; from: DOMRect };
+
+class ViewSwap extends React.Component<
+  {
+    view: string | undefined;
+    fullscreen: boolean;
+    panelRef: React.RefObject<HTMLDivElement | null>;
+  },
+  object,
+  SwapSnapshot | null
+> {
   ghost: HTMLElement | null = null;
 
-  getSnapshotBeforeUpdate(prev: { view: string | undefined }) {
+  getSnapshotBeforeUpdate(prev: { view: string | undefined; fullscreen: boolean }) {
     const panel = this.props.panelRef.current;
-    if (prev.view === this.props.view || !panel) return null;
+    const resized = prev.fullscreen !== this.props.fullscreen;
+    if ((prev.view === this.props.view && !resized) || !panel) return null;
     this.ghost?.remove();
+    this.ghost = null;
     // Stop only the swap's own animations; the panel's CSS open animation stays.
     for (const animation of panel.getAnimations({ subtree: true })) {
       if (!(animation instanceof CSSAnimation)) animation.cancel();
     }
+    // A size change (which may also switch the view) gets its own animation.
+    if (resized) return { kind: "resize" as const, from: panel.getBoundingClientRect() };
     const from = panel.getBoundingClientRect().height;
     const ghost = document.createElement("div");
     ghost.className = panel.className;
@@ -303,16 +349,16 @@ class ViewSwap extends React.Component<{
       pointerEvents: "none",
       animation: "none",
     });
-    return { ghost, from };
+    return { kind: "view" as const, ghost, from };
   }
 
-  componentDidUpdate(
-    _prev: unknown,
-    _state: unknown,
-    snapshot: { ghost: HTMLElement; from: number } | null,
-  ) {
+  componentDidUpdate(_prev: unknown, _state: unknown, snapshot: SwapSnapshot | null) {
     const panel = this.props.panelRef.current;
     if (!snapshot || !panel) return;
+    if (snapshot.kind === "resize") {
+      resizePanel(panel, snapshot.from);
+      return;
+    }
     const { ghost, from } = snapshot;
     const to = panel.getBoundingClientRect().height;
     const incoming = Array.from(panel.children) as HTMLElement[];
@@ -402,4 +448,47 @@ class ViewSwap extends React.Component<{
   render() {
     return null;
   }
+}
+
+/**
+ * Animates the panel after it switches between floating and full screen. The
+ * panel already has its new layout: growing reveals it outward from the old
+ * panel's outline, and shrinking settles it in place, since a clip can't reach
+ * past the smaller panel and scaling it would stretch the text.
+ */
+function resizePanel(panel: HTMLElement, from: DOMRect) {
+  const to = panel.getBoundingClientRect();
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const easing = "cubic-bezier(0.23, 1, 0.32, 1)";
+  if (reduce) {
+    panel.animate([{ opacity: 0.6 }, { opacity: 1 }], { duration: 150, easing });
+    return;
+  }
+  if (to.width >= from.width && to.height >= from.height) {
+    const clip = (top: number, right: number, bottom: number, left: number, radius: number) =>
+      `inset(${top}px ${right}px ${bottom}px ${left}px round ${radius}px)`;
+    panel.animate(
+      [
+        {
+          clipPath: clip(
+            from.top - to.top,
+            to.right - from.right,
+            to.bottom - from.bottom,
+            from.left - to.left,
+            8,
+          ),
+        },
+        { clipPath: clip(0, 0, 0, 0, 0) },
+      ],
+      { duration: 300, easing: "cubic-bezier(0.77, 0, 0.175, 1)" },
+    );
+    return;
+  }
+  panel.animate(
+    [
+      { opacity: 0, transform: "scale(1.03)" },
+      { opacity: 1, transform: "none" },
+    ],
+    { duration: 200, easing },
+  );
 }
