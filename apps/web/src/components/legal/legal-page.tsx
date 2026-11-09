@@ -1,5 +1,6 @@
 /* oxlint-disable jsx-a11y/no-redundant-roles, jsx-a11y/no-interactive-element-to-noninteractive-role */
 import { Children, cloneElement, createContext, isValidElement, useContext } from "react";
+import { DOCS_URL } from "@/lib/docs-site";
 import { SOURCE_CODE_URL } from "@/lib/source-code";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -132,9 +133,9 @@ export function LegalPage({ source }: { source: string }) {
           aria-label="Documentation and policies"
           className="mx-auto flex max-w-3xl flex-wrap items-center gap-x-6 gap-y-2 px-5 py-6 text-sm text-muted sm:px-8"
         >
-          <Link to="/docs/mcp" className="hover:text-ink" activeProps={{ "aria-current": "page" }}>
-            MCP documentation
-          </Link>
+          <a href={DOCS_URL} className="hover:text-ink">
+            Documentation
+          </a>
           <Link to="/privacy" className="hover:text-ink" activeProps={{ "aria-current": "page" }}>
             Privacy Policy
           </Link>

@@ -1,7 +1,7 @@
 {
   "name": "armin",
   "displayName": "Armin",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Turn articles, notes, documents, and Anki decks into Armin spaced-repetition cards, with prerequisites and a guided, image-preserving Anki import.",
   "author": {
     "name": "Andy Spike",
@@ -12,7 +12,7 @@
   "license": "AGPL-3.0-only",
   "keywords": ["flashcards", "spaced-repetition", "study", "learning", "fsrs", "anki"],
   "icon": "./assets/logo.png",
-  "documentationUrl": "https://armincards.app/docs/mcp",
+  "documentationUrl": "https://docs.armincards.app/reference/mcp-server/",
   "supportUrl": "https://github.com/andy-spike/armin/issues",
   "privacyPolicyUrl": "https://armincards.app/privacy",
   "termsOfServiceUrl": "https://armincards.app/terms"
