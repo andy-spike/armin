@@ -11,7 +11,7 @@ import Header from "@/components/Header.astro";
 import Logo from "@/components/Logo.astro";
 import { config } from "virtual:nimbus/config";
 import { Banner } from "@/components/ui/banner";
-import { Sidebar, SidebarFilter } from "@/components/ui/sidebar";
+import { Sidebar } from "@/components/ui/sidebar";
 import { TOC, MobileTOC } from "@/components/ui/toc";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Pagination } from "@/components/ui/pagination";
@@ -59,6 +59,9 @@ const homeHref = withBase("/", import.meta.env.BASE_URL);
 //   - Otherwise → mark as a Pagefind body, plus emit per-version and
 //     per-status filters so the search UI can scope by them.
 const pagefindAttrs: Record<string, string> = {};
+// The sidebar group a page sits in ("Guides"), shown above its title in
+// search results. Top-level pages have none.
+const searchSection = breadcrumbs.length > 2 ? breadcrumbs[1]?.label : undefined;
 // The status filter rides its own element below: an inline `name:value` filter
 // captures to the end of the string, so a second inline filter can't share the
 // attribute (it would corrupt the version value to "v1, status:deprecated").
@@ -73,12 +76,6 @@ if (!effectiveSearchable || versionStatus?.isHidden) {
   }
 }
 
-// The filter earns its place only once the sidebar is long enough to search.
-const countLinks = (items: typeof sidebar): number =>
-  Array.isArray(items)
-    ? items.reduce((n, item) => n + (item.type === "group" ? countLinks(item.children) + (item.indexHref ? 1 : 0) : 1), 0)
-    : 0;
-const showFilter = countLinks(sidebar) >= 12;
 
 // Below xl the On this page bar's own borders separate the header from the
 // content, so the header rule only draws where that bar is hidden.
@@ -113,7 +110,6 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
                   <slot name="sidebar" />
                 ) : (
                   <nav class="px-4 pb-12 pt-5">
-                    {showFilter && <SidebarFilter />}
                     <Sidebar items={sidebar} persist />
                   </nav>
                 )}
@@ -214,6 +210,7 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
               <Breadcrumbs items={breadcrumbs} class="pb-2" />
               <div {...pagefindAttrs}>
                 {pagefindDeprecated && <span hidden data-pagefind-filter="status:deprecated"></span>}
+                {searchSection && <span hidden data-pagefind-meta={`section:${searchSection}`}></span>}
                 {hasPageTitle ? (
                   <slot name="page-title" />
                 ) : (
@@ -256,7 +253,7 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
                 {hasContentFooter ? (
                   <slot name="content-footer" />
                 ) : editUrl && (
-                  <div class="mt-8 mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <div data-pagefind-ignore class="mt-8 mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <a href={editUrl} class="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors no-underline" target="_blank" rel="noopener">
                       <Icon name="ph:github-logo" class="w-3.5 h-3.5" />
                       Edit this page on GitHub

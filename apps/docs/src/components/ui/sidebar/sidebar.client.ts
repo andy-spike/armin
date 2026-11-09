@@ -1,4 +1,7 @@
-/** Sidebar runtime: filter, persistence, "/" shortcut.
+/** Sidebar runtime: persistence of open groups and scroll.
+ *
+ * The sidebar has no filter of its own; the header search (Ctrl/⌘ K or "/")
+ * searches every page.
  *
  * Groups are native `<details>`: open state is the element's own `open`
  * property, and changes arrive as `toggle` events (captured on the root —
@@ -24,114 +27,12 @@ function initSidebar(root: HTMLElement): () => void {
   const teardowns: Array<() => void> = [];
   const persist = root.hasAttribute("data-nb-sidebar-persist");
 
-  const filterTeardown = initFilter(root);
-  if (filterTeardown) teardowns.push(filterTeardown);
-
   if (persist) {
     const persistTeardown = initPersistence(root);
     if (persistTeardown) teardowns.push(persistTeardown);
   }
 
   return () => teardowns.forEach((t) => t());
-}
-
-// ---------------------------------------------------------------------------
-// Filter
-// ---------------------------------------------------------------------------
-
-function initFilter(root: HTMLElement): (() => void) | null {
-  const input = root.querySelector<HTMLInputElement>("[data-nb-sidebar-filter-input]");
-  // SidebarFilter is rendered *next to* Sidebar (sibling), so also look in
-  // the parent — preserves the existing layout where filter sits above.
-  const inputElement =
-    input ??
-    root.parentElement?.querySelector<HTMLInputElement>("[data-nb-sidebar-filter-input]") ??
-    null;
-  if (!inputElement) return null;
-
-  function handleInput() {
-    const query = inputElement!.value.trim().toLowerCase();
-    if (!query) {
-      resetFilter(root);
-      return;
-    }
-    applyFilter(root, query);
-  }
-
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === "Escape") {
-      inputElement!.value = "";
-      handleInput();
-      inputElement!.blur();
-    }
-  }
-
-  inputElement.addEventListener("input", handleInput);
-  inputElement.addEventListener("keydown", handleKeydown);
-
-  return () => {
-    inputElement.removeEventListener("input", handleInput);
-    inputElement.removeEventListener("keydown", handleKeydown);
-    resetFilter(root);
-  };
-}
-
-function resetFilter(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>("[data-nb-sidebar-hidden]").forEach((el) => {
-    el.removeAttribute("data-nb-sidebar-hidden");
-  });
-  // Close groups the filter opened, restoring the reader's previous state.
-  root
-    .querySelectorAll<HTMLDetailsElement>("details[data-nb-opened-by-filter]")
-    .forEach((group) => {
-      group.open = false;
-      group.removeAttribute("data-nb-opened-by-filter");
-    });
-}
-
-function applyFilter(root: HTMLElement, query: string): void {
-  const links = root.querySelectorAll<HTMLElement>("li > a");
-  const groups = root.querySelectorAll<HTMLElement>("details");
-
-  links.forEach((link) => link.setAttribute("data-nb-sidebar-hidden", ""));
-  groups.forEach((group) => group.setAttribute("data-nb-sidebar-hidden", ""));
-
-  links.forEach((link) => {
-    // A method chip's `data-m` adds the full verb its label may abbreviate.
-    const method = link.querySelector<HTMLElement>("i[data-m]")?.dataset.m ?? "";
-    const text = `${link.textContent ?? ""} ${method}`.toLowerCase();
-    if (!text.includes(query)) return;
-    link.removeAttribute("data-nb-sidebar-hidden");
-    revealAncestors(link, root);
-  });
-
-  groups.forEach((group) => {
-    const label = group.querySelector(":scope > summary");
-    const text = label?.textContent?.toLowerCase() ?? "";
-    if (!text.includes(query)) return;
-    group.removeAttribute("data-nb-sidebar-hidden");
-    openGroup(group);
-    group
-      .querySelectorAll<HTMLElement>("li > a, details")
-      .forEach((child) => child.removeAttribute("data-nb-sidebar-hidden"));
-  });
-}
-
-function revealAncestors(el: HTMLElement, scope: Element): void {
-  let parent: HTMLElement | null = el.parentElement;
-  while (parent && parent !== scope) {
-    if (parent instanceof HTMLDetailsElement) {
-      parent.removeAttribute("data-nb-sidebar-hidden");
-      openGroup(parent);
-    }
-    parent = parent.parentElement;
-  }
-}
-
-function openGroup(group: HTMLElement): void {
-  if (!(group instanceof HTMLDetailsElement) || group.open) return;
-  group.setAttribute("data-nb-opened-by-filter", "");
-  group.open = true;
 }
 
 // ---------------------------------------------------------------------------
@@ -227,33 +128,5 @@ function initPersistence(root: HTMLElement): (() => void) | null {
     cancelAnimationFrame(raf);
   };
 }
-
-// ---------------------------------------------------------------------------
-// Global `/` shortcut — bound once at module load
-// ---------------------------------------------------------------------------
-
-(function bindFilterShortcut() {
-  if (document.documentElement.hasAttribute("data-nb-sidebar-shortcut-bound")) return;
-  document.documentElement.setAttribute("data-nb-sidebar-shortcut-bound", "");
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key !== "/") return;
-    const active = document.activeElement as HTMLElement | null;
-    if (
-      active &&
-      (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)
-    ) {
-      return;
-    }
-    // One tree per page now: the filter input travels with it between the
-    // rail and the drawer, so take the first visible input.
-    const input = Array.from(
-      document.querySelectorAll<HTMLInputElement>("[data-nb-sidebar-filter-input]"),
-    ).find((candidate) => candidate.offsetParent !== null);
-    if (!input) return;
-    e.preventDefault();
-    input.focus();
-  });
-})();
 
 mount("[data-nb-sidebar]", initSidebar);

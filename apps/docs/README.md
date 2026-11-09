@@ -12,9 +12,20 @@ From the repository root:
 pnpm dev:docs   # http://localhost:4321
 ```
 
-The site needs no backend. Search reads an index that only the production
-build writes, so try it with `pnpm --filter @armin/docs build` followed by
-`pnpm --filter @armin/docs preview`.
+The site needs no backend.
+
+## Search
+
+The header search (or `/`, or Ctrl/⌘ K, on any page) searches every page with
+[Pagefind](https://pagefind.app), which indexes the site during the production
+build; there is no separate sidebar filter. Results show the page's sidebar
+group, a highlighted excerpt, and the matching headings; arrow keys and Enter
+open one. Before the reader types, the dialog offers suggested searches, set in
+`src/components/ui/search/SearchDialog.astro`; keep them to topics people look
+up. The ranking option lives in `src/components/ui/search/providers/pagefind.ts`.
+
+The dev server has no index, so try search with
+`pnpm --filter @armin/docs build` followed by `pnpm --filter @armin/docs preview`.
 
 ## Write a page
 

@@ -1,5 +1,8 @@
 import { mergeSearchIndexes } from "@cloudflare/nimbus-docs/client";
 import type { SearchProvider, SearchResult } from "@cloudflare/nimbus-docs/types";
+
+/** A result with the sidebar group its page sits in, such as "Guides". */
+export type SectionedSearchResult = SearchResult & { section?: string };
 import { config, searchIndex } from "virtual:nimbus/config";
 
 interface PagefindSubResult {
@@ -10,7 +13,7 @@ interface PagefindSubResult {
 interface PagefindResultData {
   url: string;
   excerpt?: string;
-  meta?: { title?: string };
+  meta?: { title?: string; section?: string };
   sub_results?: PagefindSubResult[];
 }
 
@@ -24,7 +27,7 @@ interface PagefindFilters {
 
 interface PagefindApi {
   init(): Promise<void>;
-  options(options: { baseUrl?: string }): Promise<void>;
+  options(options: { baseUrl?: string; ranking?: { pageLength?: number } }): Promise<void>;
   mergeIndex(indexPath: string, options?: { baseUrl?: string }): Promise<void>;
   search(query: string, options?: { filters?: PagefindFilters }): Promise<PagefindSearchResponse>;
 }
@@ -64,7 +67,10 @@ export const provider: SearchProvider = {
     // Every index is built from the output root, so result URLs already carry
     // their prefix and need only the base, which Pagefind adds to each one.
     const baseUrl = `${(import.meta.env.BASE_URL ?? "/").replace(/\/+$/, "")}/`;
-    await loaded.options({ baseUrl });
+    // Pagefind favours short pages by default (pageLength 0.75), which lifts
+    // the section overviews, mostly lists of links, above the guide a reader
+    // wants. A lower value ranks by the match itself.
+    await loaded.options({ baseUrl, ranking: { pageLength: 0.2 } });
     await loaded.init();
     // A slice that holds several collections writes one bundle; the other
     // collections' URLs answer 404 and are skipped.
@@ -81,12 +87,16 @@ export const provider: SearchProvider = {
       defaultFilters ? { filters: defaultFilters } : undefined,
     );
     const results = await Promise.all(search.results.slice(0, 10).map((result) => result.data()));
-    return results.map((result): SearchResult => ({
+    return results.map((result): SectionedSearchResult => ({
       title: result.meta?.title ?? "Untitled",
+      section: result.meta?.section,
       url: result.url,
       snippet: result.excerpt,
+      // Pagefind lists the page itself as its first section; skip it, so the
+      // links under a result are only the headings that matched.
       subResults: result.sub_results
         ?.filter((sub): sub is Required<PagefindSubResult> => Boolean(sub.title && sub.url))
+        .filter((sub) => sub.title !== result.meta?.title)
         .map((sub) => ({ title: sub.title, url: sub.url })),
     }));
   },

@@ -769,3 +769,11 @@ body {
 *::after {
   border-radius: 0 !important;
 }
+
+/* Matched words in search results, in the app's selection colours. */
+[data-search-results] mark {
+  background-color: var(--armin-accent-tint);
+  color: var(--armin-accent-deep);
+  font-weight: 500;
+  padding: 0 0.1em;
+}

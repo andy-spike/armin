@@ -1,6 +1,10 @@
 ---
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
+
+// Shown before the reader types: the topics people most often look up. Each
+// one runs as a search, so they stay right as pages move.
+const suggestions = ["Cloze", "Prerequisites", "Import from Anki", "Daily limits", "Equations"];
 ---
 
 <Dialog data-slot="search-dialog" aria-label="Search documentation" data-search-dialog>
@@ -16,7 +20,7 @@ import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
           aria-autocomplete="list"
           aria-controls="search-listbox"
           type="text"
-          placeholder="Search documentation…"
+          placeholder="Search the docs…"
           class="min-w-0 flex-1 border-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
           autocomplete="off"
           spellcheck="false"
@@ -29,9 +33,21 @@ import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
       </div>
 
       <div class="min-h-40 overflow-y-auto p-2">
-        <p data-search-empty role="status" class="py-8 text-center text-sm text-muted-foreground">
-          Type to search…
+        <p data-search-empty role="status" class="pt-6 pb-3 text-center text-sm text-muted-foreground">
+          Search every page of the Armin docs.
         </p>
+        <div data-search-suggestions class="flex flex-wrap justify-center gap-2 px-2 pb-6">
+          <span class="sr-only">Suggested searches:</span>
+          {suggestions.map((term) => (
+            <button
+              type="button"
+              data-search-suggestion
+              class="border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+            >
+              {term}
+            </button>
+          ))}
+        </div>
         <!-- Hidden while it has no options: an empty listbox is invalid. -->
         <div data-search-results role="listbox" id="search-listbox" aria-label="Results" aria-orientation="vertical" hidden></div>
       </div>
@@ -39,8 +55,9 @@ import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
 
     <div class="flex items-center gap-4 px-4 py-2.5 text-xs text-muted-foreground">
       <span>↑↓ navigate</span>
-      <span>↵ select</span>
+      <span>↵ open</span>
       <span>Esc close</span>
+      <span class="ms-auto hidden sm:inline">Press <kbd class="font-mono">/</kbd> on any page to search</span>
     </div>
   </DialogContent>
 </Dialog>

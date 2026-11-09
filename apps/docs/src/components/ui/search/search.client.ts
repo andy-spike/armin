@@ -1,11 +1,13 @@
 import { mount } from "@cloudflare/nimbus-docs/client";
-import type { SearchProvider, SearchResult } from "@cloudflare/nimbus-docs/types";
-import { provider } from "./providers/pagefind";
+import type { SearchProvider } from "@cloudflare/nimbus-docs/types";
+import { provider, type SectionedSearchResult } from "./providers/pagefind";
 
 export interface SearchConfig {
   input: HTMLInputElement;
   resultsContainer: HTMLElement;
   emptyState: HTMLElement;
+  /** Suggested searches, shown while the query is empty. */
+  suggestions?: HTMLElement | null;
   provider: SearchProvider;
   onNavigate?: () => void;
 }
@@ -16,7 +18,14 @@ export interface SearchInstance {
 }
 
 export function initSearch(config: SearchConfig): SearchInstance {
-  const { input, resultsContainer, emptyState, provider, onNavigate } = config;
+  const { input, resultsContainer, emptyState, suggestions, provider, onNavigate } = config;
+
+  /** The resting state: a prompt, with suggested searches under it. */
+  function showIdle(): void {
+    emptyState.style.display = "";
+    emptyState.textContent = "Search every page of the Armin docs.";
+    if (suggestions) suggestions.hidden = false;
+  }
 
   let initialized = false;
   let activeIndex = -1;
@@ -64,12 +73,21 @@ export function initSearch(config: SearchConfig): SearchInstance {
     return link;
   }
 
-  function buildResult(result: SearchResult): HTMLElement {
+  function buildResult(result: SectionedSearchResult): HTMLElement {
     const option = document.createElement("div");
     option.id = `search-result-${resultIdCounter++}`;
     option.setAttribute("role", "option");
     option.className =
       "rounded-lg px-2 py-2 transition-colors cursor-pointer hover:bg-accent focus-within:bg-accent data-[highlighted]:bg-accent";
+
+    // Where the page sits, so "Overview" pages and similar titles stay apart.
+    if (result.section) {
+      const section = document.createElement("p");
+      section.className =
+        "mb-0.5 text-[0.6875rem] font-medium uppercase tracking-wide text-muted-foreground";
+      section.textContent = result.section;
+      option.appendChild(section);
+    }
 
     const link = resultLink(
       result.title,
@@ -129,6 +147,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
 
     emptyState.style.display = "";
     emptyState.textContent = "Searching…";
+    if (suggestions) suggestions.hidden = true;
     clearResults();
 
     if (!(await ensureInitialized()) || signal.aborted) return;
@@ -142,7 +161,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
 
       if (results.length === 0) {
         emptyState.style.display = "";
-        emptyState.textContent = "No results found.";
+        emptyState.textContent = `No results for “${query}”. Try a shorter or different word.`;
         return;
       }
 
@@ -165,8 +184,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
       const query = input.value.trim();
       if (!query) {
         clearResults();
-        emptyState.style.display = "";
-        emptyState.textContent = "Type to search…";
+        showIdle();
         return;
       }
       void runSearch(query);
@@ -193,8 +211,20 @@ export function initSearch(config: SearchConfig): SearchInstance {
     }
   }
 
+  // A suggested search fills the box and runs at once.
+  function handleSuggestion(event: Event): void {
+    const button = (event.target as Element | null)?.closest<HTMLButtonElement>(
+      "[data-search-suggestion]",
+    );
+    if (!button) return;
+    input.value = button.textContent?.trim() ?? "";
+    input.focus();
+    void runSearch(input.value);
+  }
+
   input.addEventListener("input", handleInput);
   input.addEventListener("keydown", handleKeydown);
+  suggestions?.addEventListener("click", handleSuggestion);
 
   return {
     async reset() {
@@ -204,8 +234,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
       input.focus();
       activeIndex = -1;
       clearResults();
-      emptyState.style.display = "";
-      emptyState.textContent = "Type to search…";
+      showIdle();
       await ensureInitialized();
     },
     destroy() {
@@ -213,6 +242,7 @@ export function initSearch(config: SearchConfig): SearchInstance {
       if (debounceTimer) clearTimeout(debounceTimer);
       input.removeEventListener("input", handleInput);
       input.removeEventListener("keydown", handleKeydown);
+      suggestions?.removeEventListener("click", handleSuggestion);
     },
   };
 }
@@ -249,6 +279,30 @@ function bindGlobals() {
     primaryDialog()?.__openSearchDialog?.();
   });
 
+  // Load the index as soon as a reader reaches for the search button, so the
+  // first query answers without waiting for it.
+  const preload = (event: Event) => {
+    if ((event.target as Element | null)?.closest?.("[data-search-trigger]"))
+      void provider.init?.();
+  };
+  document.addEventListener("pointerover", preload);
+  document.addEventListener("focusin", preload);
+
+  // "/" opens search too, as on most docs sites, unless the reader is typing.
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+    const active = document.activeElement as HTMLElement | null;
+    if (
+      active &&
+      (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)
+    )
+      return;
+    const dialog = primaryDialog();
+    if (!dialog || dialog.open) return;
+    event.preventDefault();
+    dialog.__openSearchDialog?.();
+  });
+
   document.addEventListener("keydown", (event) => {
     if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
     const dialog = primaryDialog();
@@ -269,12 +323,14 @@ mount("[data-search-dialog]", (root) => {
   const input = dialog.querySelector<HTMLInputElement>("[data-search-input]");
   const resultsContainer = dialog.querySelector<HTMLElement>("[data-search-results]");
   const emptyState = dialog.querySelector<HTMLElement>("[data-search-empty]");
+  const suggestions = dialog.querySelector<HTMLElement>("[data-search-suggestions]");
   if (!input || !resultsContainer || !emptyState) return () => {};
 
   const search = initSearch({
     input,
     resultsContainer,
     emptyState,
+    suggestions,
     provider,
     onNavigate: () => dialog.close(),
   });
