@@ -11,4 +11,4 @@ The essay is his work and is not covered by this license; read it for the
 full reasoning.
 
 The rest of Armin, including the plugin that bundles this skill, is licensed
-under the MIT.
+under the MIT License.
