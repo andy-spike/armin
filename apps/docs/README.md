@@ -18,11 +18,16 @@ The site needs no backend.
 
 The header search (or `/`, or Ctrl/⌘ K, on any page) searches every page with
 [Pagefind](https://pagefind.app), which indexes the site during the production
-build; there is no separate sidebar filter. Results show the page's sidebar
-group, a highlighted excerpt, and the matching headings; arrow keys and Enter
-open one. Before the reader types, the dialog offers suggested searches, set in
-`src/components/ui/search/SearchDialog.astro`; keep them to topics people look
-up. The ranking option lives in `src/components/ui/search/providers/pagefind.ts`.
+build; there is no separate sidebar filter. The dialog is drawn like the app's
+command palette. Results show the page's sidebar group, a highlighted excerpt,
+and the matching headings as their own rows; the top result is highlighted, so
+Enter opens it, and the arrow keys reach every page and heading (Ctrl/⌘ Enter
+opens a new tab). Reopening on the same page keeps the last search. Before the
+reader types, the dialog lists the pages they recently opened from search (kept
+in this browser's storage only) and suggested searches, set in
+`src/components/ui/search/SearchDialog.astro`; keep those to topics people look
+up. The dialog's markup is in that file and its behaviour in `search.client.ts`;
+the ranking option lives in `src/components/ui/search/providers/pagefind.ts`.
 
 The dev server has no index, so try search with
 `pnpm --filter @armin/docs build` followed by `pnpm --filter @armin/docs preview`.
