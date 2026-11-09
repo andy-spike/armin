@@ -34,3 +34,13 @@ display class overrode `hidden`. It is now wrapped, and the recapture shows only
 **Cancel**.
 
 `pnpm check`, `astro check`, and the production build passed.
+
+## Backdrop fix
+
+The backdrop computed to `oklch(0.99 0.016 none / 0.88)`: mixing the paper
+colour with `transparent` in OKLCH dropped its hue, so it rendered at hue 0 and
+tinted the page pink. It now matches the app's dialog backdrop (`bg-bg/90`),
+mixed in OKLab: `oklab(0.990 -0.001 0.016 / 0.9)` in light mode, a warm paper
+wash ([screenshot](2026-11-09-search-dialog/backdrop-light.png)), and
+`oklab(0.170 0.002 0.000 / 0.9)` in dark mode, a Flexoki black wash
+([screenshot](2026-11-09-search-dialog/backdrop-dark.png)).

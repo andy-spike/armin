@@ -1,7 +1,9 @@
 ---
 /**
  * The docs search, drawn like the app's command palette: a paper panel with a
- * hairline border and the overlay shadow over a paper wash, a tall input, and
+ * hairline border and the overlay shadow over the app's dialog backdrop (paper
+ * at 90%, the app's `bg-bg/90`; mixed in OKLab, since an OKLCH mix with
+ * `transparent` drops the hue and tints the wash pink), a tall input, and
  * one keyboard-navigable list of pages and the headings inside them.
  *
  * Results are built in search.client.ts. Icons it needs are rendered here once
@@ -23,7 +25,7 @@ const kbd =
   data-slot="search-dialog"
   aria-label="Search documentation"
   data-search-dialog
-  class="backdrop:bg-[color-mix(in_oklch,var(--armin-bg)_88%,transparent)]"
+  class="backdrop:bg-[color-mix(in_oklab,var(--armin-bg)_90%,transparent)]"
 >
   {/* Clicks outside the panel reach the <dialog> itself, which closes it. */}
   <div class="pointer-events-none flex h-full items-start justify-center px-3 pt-3 sm:px-4 sm:pt-[12vh]">
