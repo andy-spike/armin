@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { createServer } from "node:net";
 import { networkInterfaces, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
 
@@ -196,6 +196,62 @@ export function mainState() {
   };
 }
 
+// Worktree web origins are named after the current branch, such as
+// `http://concept-card-review.armin.localhost:4110` for `t3/concept-card-review`.
+// T3 renames a worktree's branch after setup, so the launchers refresh it.
+export function hostLabel() {
+  const branch = run("git", ["branch", "--show-current"], { cwd: root, stdio: "pipe" });
+  const name = branch.replace(/^t3\//, "") || basename(root);
+  const slug = (value) => value.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  // A DNS label holds at most 63 characters.
+  return slug(slug(name.toLowerCase()).slice(0, 63)) || "worktree";
+}
+
+function worktreeSiteUrl(webPort) {
+  return `http://${hostLabel()}.armin.localhost:${webPort}`;
+}
+
+// Keeps the saved origin in step with the branch name. Returns the current state.
+export function refreshSiteUrl(state) {
+  if (state.id === "main") return state;
+  const siteUrl = worktreeSiteUrl(state.webPort);
+  if (siteUrl === state.siteUrl) return state;
+  const next = { ...state, siteUrl };
+  saveState(next);
+  const webEnv = join(root, "apps/web/.env.local");
+  if (existsSync(webEnv)) updateEnv(webEnv, { VITE_SITE_URL: siteUrl });
+  console.log(`Web origin follows the branch name: ${state.siteUrl} -> ${siteUrl}`);
+  return next;
+}
+
+// The local backend serves `/version` once it accepts requests. Sets the
+// deployment's SITE_URL (auth callbacks, email links) when the origin changed.
+export async function syncConvexSiteUrl(state) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      if ((await fetch(`http://127.0.0.1:${state.convexPort}/version`)).ok) break;
+    } catch {}
+    if (attempt === 600) throw new Error("The local backend did not start within 5 minutes.");
+    await new Promise((done) => setTimeout(done, 500));
+  }
+  const exec = (args) =>
+    new Promise((resolveExec, rejectExec) =>
+      execFile("pnpm", ["exec", "convex", ...args], { cwd: backend }, (error, stdout) =>
+        error ? rejectExec(new Error(`convex ${args[0]} ${args[1]} failed.`)) : resolveExec(stdout),
+      ),
+    );
+  if ((await exec(["env", "get", "SITE_URL"])).trim() === state.siteUrl) return;
+  await exec(["env", "set", "SITE_URL", state.siteUrl]);
+  console.log(`Set the local deployment's SITE_URL to ${state.siteUrl}`);
+}
+
+// Worktrees take the lowest free slot: web 4100, 4110, 4120, and so on, with
+// Expo, Convex API, and Convex HTTP on the next three ports. Ports stay below
+// 10000, and slots overlapping the main checkout's ports are skipped.
+const SLOT_BASE = 4100;
+const SLOT_STEP = 10;
+const SLOT_COUNT = 590;
+
 export async function allocate() {
   const common = run("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
     cwd: root,
@@ -223,8 +279,13 @@ export async function allocate() {
     for (const path of Object.keys(registry)) if (!existsSync(path)) delete registry[path];
     if (registry[root]?.version === 2) return registry[root];
     const id = createHash("sha256").update(root).digest("hex").slice(0, 10);
-    const taken = new Set(
-      Object.entries(registry)
+    const main = mainState();
+    const taken = new Set([
+      main.webPort,
+      main.mobilePort,
+      main.convexPort,
+      main.convexSitePort,
+      ...Object.entries(registry)
         .filter(([path]) => path !== root)
         .flatMap(([, entry]) => [
           entry.webPort,
@@ -232,11 +293,10 @@ export async function allocate() {
           entry.convexPort,
           entry.convexSitePort,
         ]),
-    );
+    ]);
     // Each checkout gets a block of four: web, Expo, Convex API, Convex HTTP.
-    const start = Number.parseInt(id.slice(0, 6), 16) % 7500;
-    for (let offset = 0; offset < 7500; offset++) {
-      const webPort = 10000 + ((start + offset) % 7500) * 4;
+    for (let slot = 0; slot < SLOT_COUNT; slot++) {
+      const webPort = SLOT_BASE + slot * SLOT_STEP;
       const ports = [webPort, webPort + 1, webPort + 2, webPort + 3];
       if (ports.some((port) => taken.has(port))) continue;
       let free = true;
@@ -250,7 +310,7 @@ export async function allocate() {
         mobilePort: webPort + 1,
         convexPort: webPort + 2,
         convexSitePort: webPort + 3,
-        siteUrl: `http://armin-${id}.localhost:${webPort}`,
+        siteUrl: worktreeSiteUrl(webPort),
       };
       registry[root] = state;
       writeFileSync(registryPath, `${JSON.stringify(registry, null, 2)}\n`);

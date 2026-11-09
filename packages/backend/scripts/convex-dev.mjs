@@ -6,12 +6,14 @@ import {
   convexPortArgs,
   convexTempDir,
   readState,
+  refreshSiteUrl,
+  syncConvexSiteUrl,
 } from "./dev-environment.mjs";
 
 // Runs this checkout's local Convex backend on its allocated ports.
 try {
   assertNode();
-  const state = readState();
+  const state = refreshSiteUrl(readState());
   assertTarget(state);
   const tempDir = convexTempDir();
   const child = spawn(
@@ -22,6 +24,10 @@ try {
       stdio: "inherit",
       env: { ...process.env, TMPDIR: tempDir, CONVEX_TMPDIR: tempDir },
     },
+  );
+  // A worktree's origin follows its branch name, which T3 can change after setup.
+  syncConvexSiteUrl(state).catch((error) =>
+    console.error(`Could not update SITE_URL: ${error.message} Rerun pnpm worktree:setup.`),
   );
   for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => child.kill(signal));
   child.on("exit", (code, signal) => {
