@@ -175,7 +175,7 @@ export function LandingPage() {
             <ArminMark className="size-4.5" />
             <ArminWordmark />
           </span>
-          <span>Open source under the AGPL-3.0 license</span>
+          <span>Open source under the MIT license</span>
           <a
             href={GITHUB_URL}
             className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"

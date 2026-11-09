@@ -2,7 +2,7 @@
   "name": "@armin/mobile",
   "version": "0.0.0",
   "private": true,
-  "license": "AGPL-3.0-only",
+  "license": "MIT",
   "main": "index.ts",
   "scripts": {
     "start": "expo start --go --lan",

@@ -28,7 +28,7 @@ fastest way for it to land.
 
 ## Licensing of contributions
 
-Armin is licensed under the AGPL-3.0-only (see [LICENSE](LICENSE)), and the Armin
+Armin is licensed under the MIT (see [LICENSE](LICENSE)), and the Armin
 name and logo are covered by [TRADEMARKS.md](TRADEMARKS.md). When code pull
 requests open, each contributor will be asked to agree to a contributor license
 agreement first, granting the maintainer the right to relicense their

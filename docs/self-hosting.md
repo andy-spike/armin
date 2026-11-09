@@ -4,7 +4,7 @@
 > **Self-hosting is for individuals running a private instance for their own
 > use.** One instance has one account: yours.
 >
-> Self-hosted Armin is provided as-is under the [AGPL-3.0 license](../LICENSE),
+> Self-hosted Armin is provided as-is under the [MIT license](../LICENSE),
 > **with no warranty and no support guarantee.** You are responsible for your
 > server, its security, its updates, and your backups. Andy Spike operates and
 > takes responsibility only for the hosted service at
