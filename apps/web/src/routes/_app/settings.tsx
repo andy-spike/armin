@@ -538,8 +538,8 @@ function AudioSection() {
 type CardEditorLayout = Settings["cardEditorLayout"];
 
 const CARD_EDITOR_LAYOUT_OPTIONS: { value: CardEditorLayout; label: string }[] = [
-  { value: "fullPage", label: "Full page" },
   { value: "dialog", label: "Dialog" },
+  { value: "fullPage", label: "Full page" },
 ];
 
 /** How the card editor first opens, saved to the account like audio. */
@@ -550,7 +550,7 @@ function CardEditorSection() {
     mutationFn: (cardEditorLayout: CardEditorLayout) => armin.settings.update({ cardEditorLayout }),
     onError: () => toast({ tone: "error", title: "Couldn’t save settings" }),
   });
-  const layout = save.isPending ? save.variables : (query.data?.cardEditorLayout ?? "fullPage");
+  const layout = save.isPending ? save.variables : (query.data?.cardEditorLayout ?? "dialog");
   return (
     <Section title="Card editor" description="How the editor opens when you add or edit a card.">
       <Row

@@ -208,10 +208,10 @@ export function FlashcardFormDialog({
   const [submitting, setSubmitting] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   // Full page: the same form filling the window, for long or image-heavy
-  // cards. Every open starts in the layout chosen in Settings (full page
-  // unless the account picked the dialog); the corner button switches for
+  // cards. Every open starts in the layout chosen in Settings (the dialog
+  // unless the account picked full page); the corner button switches for
   // this open only.
-  const preferredLayout = useQuery(settingsQuery()).data?.cardEditorLayout ?? "fullPage";
+  const preferredLayout = useQuery(settingsQuery()).data?.cardEditorLayout ?? "dialog";
   const [fullPage, setFullPage] = useState(false);
   const [initialSnapshot, setInitialSnapshot] = useState<string | null>(null);
   const keepEditingRef = useRef<HTMLButtonElement>(null);

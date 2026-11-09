@@ -248,7 +248,7 @@ export default defineSchema({
     keybindings: v.union(v.string(), v.null()),
     /** Play a card side's audio when it appears. Absent means on. */
     autoplayAudio: v.optional(v.boolean()),
-    /** How the card editor opens: filling the window or as a dialog. Absent means full page. */
+    /** How the card editor opens: as a dialog or filling the window. Absent means the dialog. */
     cardEditorLayout: v.optional(v.union(v.literal("fullPage"), v.literal("dialog"))),
     updatedAt: v.number(),
   }).index("by_library", ["libraryId"]),

@@ -26,7 +26,7 @@ function publicSettings(row: Omit<Doc<"settings">, "_id" | "_creationTime">) {
     schedulingPreset: row.schedulingPreset,
     keybindings: row.keybindings,
     autoplayAudio: row.autoplayAudio ?? true,
-    cardEditorLayout: row.cardEditorLayout ?? "fullPage",
+    cardEditorLayout: row.cardEditorLayout ?? "dialog",
   };
 }
 

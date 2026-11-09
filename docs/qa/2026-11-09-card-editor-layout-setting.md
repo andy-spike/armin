@@ -17,3 +17,20 @@ viewport), sample account `test@example.com`, which had no saved preference.
 
 Validation: `pnpm check`, `pnpm --filter @armin/web build`,
 `pnpm --filter @armin/mobile check:bundle`.
+
+## Default changed to Dialog
+
+The default changed after this walkthrough: an account with no saved choice
+now gets the dialog, and Settings lists **Dialog** first. Steps 1 and 5 above
+show the earlier full-page default.
+
+6. The test account still had **Full page** saved from step 5. Chose
+   **Dialog** and reloaded: **Dialog** stayed selected
+   ([screenshot](2026-11-09-card-editor-layout-setting/04-settings-dialog-default.png)).
+7. **Add card** opened as the 560 px dialog. The corner **Full page** button
+   expanded it to 1440 px. Closing and opening **Add card** again went back
+   to the 560 px dialog.
+
+This account has a saved value, so this walkthrough didn't exercise the
+fallback for an account with nothing saved. The server and both client
+fallbacks now read `"dialog"`.
