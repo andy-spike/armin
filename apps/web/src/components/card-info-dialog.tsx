@@ -16,7 +16,6 @@ const RATING_LABELS: Record<number, string> = {
   4: "Easy",
 };
 
-/** Relative due time that fits a narrow stat column; the exact time is the tooltip. */
 function formatDue(due: number, now: number) {
   return due <= now ? "Now" : `in ${formatInterval(now, due)}`;
 }
@@ -37,11 +36,6 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   return hint ? <Tooltip content={hint}>{content}</Tooltip> : content;
 }
 
-/**
- * Everything the scheduler knows about one flashcard: each review unit's FSRS
- * state and recall probability, plus its recent review history. Data loads
- * only while the dialog is open, so Browse tiles stay cheap.
- */
 export function CardInfoDialog({
   flashcardId,
   open,
@@ -137,7 +131,6 @@ export function CardInfoDialog({
                       <Stat label="Lapses" value={String(unit.lapses)} hint="Times you forgot it" />
                     </dl>
                   ) : (
-                    // A never-studied unit has no memory model yet.
                     <p className="border-t border-border px-4 py-3 text-muted">
                       Not studied yet. Its schedule starts after the first review.
                     </p>

@@ -6,21 +6,12 @@ import { fail } from "./errors";
 import { MAX_DECKS, MAX_FLASHCARDS_PER_DECK } from "./limits";
 import { isSelfHosted } from "./selfHost";
 
-/*
- * The one place library capacity is measured and checked. Every write that
- * adds decks or flashcards calls `checkCapacity` with what it is about to add.
- * Review units are also enforced as they are written, by
- * `adjustReviewUnitCount`, so a caller that only edits cards needs no check.
- */
-
-/** Review items in a library, using the counter with a one-time fallback for old rows. */
 export async function reviewUnitTotal(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">) {
   const counter = await ctx.db
     .query("libraryCounters")
     .withIndex("by_library", (q) => q.eq("libraryId", libraryId))
     .unique();
   if (counter?.reviewUnits !== undefined) return counter.reviewUnits;
-  // Libraries from before the counter held at most 10,000 units.
   return (
     await ctx.db
       .query("reviewUnits")
@@ -29,11 +20,6 @@ export async function reviewUnitTotal(ctx: Pick<QueryCtx, "db">, libraryId: Id<"
   ).length;
 }
 
-/**
- * Bounded current usage. Flashcards are summed from the per-deck counters, so
- * the read grows with decks rather than cards; a deck without counters yet is
- * counted from its compact summaries.
- */
 export async function libraryUsage(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">) {
   const [decks, counters, reviewUnits] = await Promise.all([
     ctx.db
@@ -61,12 +47,6 @@ export async function libraryUsage(ctx: Pick<QueryCtx, "db">, libraryId: Id<"lib
   return { decks: decks.length, flashcards, reviewUnits };
 }
 
-/**
- * The plan a library is on. A self-hosted instance has no billing, so its
- * owner gets Pro's limits, which are the technical bounds. An operator can
- * grant complimentary Pro without a subscription. A missing library gets the
- * free plan.
- */
 export function libraryPlan(
   library: Pick<Doc<"libraries">, "plan" | "complimentaryPro"> | null,
 ): PlanId {
@@ -74,20 +54,12 @@ export function libraryPlan(
   return library?.plan ?? "free";
 }
 
-/**
- * Whether a library may create, edit, generate for, and review concept cards
- *: Pro only, which includes complimentary Pro and every
- * self-hosted instance (`libraryPlan`). A library that leaves Pro keeps its
- * concept cards untouched; queue selection, cram, rating, and edits skip or
- * refuse them until Pro returns, so nothing needs migrating either way.
- */
 export function conceptCardsAllowed(
   library: Pick<Doc<"libraries">, "plan" | "complimentaryPro"> | null,
 ) {
   return libraryPlan(library) === "pro";
 }
 
-/** Refuse a concept card write for a library without Pro. */
 export function requireConceptCards(
   library: Pick<Doc<"libraries">, "plan" | "complimentaryPro"> | null,
 ) {
@@ -98,13 +70,11 @@ export function requireConceptCards(
     );
 }
 
-/** Who a limit belongs to, for quota messages. */
 export function limitOwnerName(plan: PlanId) {
   if (isSelfHosted()) return "This instance";
   return plan === "pro" ? "The Pro plan" : "The free plan";
 }
 
-/** The plan limits that apply to a library. */
 export async function libraryLimits(ctx: Pick<QueryCtx, "db">, libraryId: Id<"libraries">) {
   const plan = libraryPlan(await ctx.db.get(libraryId));
   return { plan, ...planLimits(plan) };
@@ -120,7 +90,6 @@ function overLimit(plan: PlanId, noun: string, max: number, have: number, adding
   );
 }
 
-/** Reject an addition that would cross the library's plan limits, with the user-facing counts. */
 export async function checkCapacity(
   ctx: Pick<QueryCtx, "db">,
   libraryId: Id<"libraries">,

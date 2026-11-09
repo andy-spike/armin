@@ -14,13 +14,6 @@ import {
 import { queueDescriptors } from "./model/queue";
 import { findRequest, recordRequest } from "./model/study";
 
-/**
- * Cram is practice only. Its queries reuse the review queue's item shape so
- * the existing card renderer works unchanged, and its mutations only append or
- * remove `cramLogs` rows: schedules, versions, locks, prerequisite access, and
- * `reviewLogs` are never touched.
- */
-
 const selectionArgs = {
   deckId: v.string(),
   states: v.array(v.number()),
@@ -37,7 +30,6 @@ type SelectionArgs = {
   includeLocked: boolean;
 };
 
-/** Resolve the deck and library for a cram read; null means "not found". */
 async function cramDeck(ctx: Parameters<typeof readableLibrary>[0], deckIdArg: string) {
   const library = await readableLibrary(ctx);
   if (!library) return null;
@@ -55,7 +47,6 @@ function selectionFrom(args: SelectionArgs, deckId: Id<"decks">): CramSelection 
   };
 }
 
-/** Live count for the cram setup dialog. */
 export const count = query({
   args: selectionArgs,
   handler: async (ctx, args) => {
@@ -71,12 +62,10 @@ export const count = query({
   },
 });
 
-/** The review units matching a cram setup, shuffled by `seed` and limited to `max`. */
 export const queue = query({
   args: {
     ...selectionArgs,
     max: v.optional(v.number()),
-    /** Accepted for clients that still send it; items are always metadata. */
     metadataOnly: v.optional(v.boolean()),
     seed: v.optional(v.number()),
   },
@@ -89,7 +78,6 @@ export const queue = query({
       selectionFrom(args, found.deckId),
       Date.now(),
     );
-    // A seeded generator keeps one session's order stable across reactive re-runs.
     let random = (args.seed ?? 1) | 0;
     const nextRandom = () => {
       random = (Math.imul(random, 1664525) + 1013904223) | 0;
@@ -116,7 +104,6 @@ export type CramRateResult =
     }
   | { status: "stale"; message: string };
 
-/** Record one practice rating. The review unit is not modified. */
 export const rate = mutation({
   args: {
     reviewUnitId: v.id("reviewUnits"),
@@ -157,7 +144,6 @@ export type CramUndoResult =
   | { status: "ok"; reviewUnitId: Id<"reviewUnits">; version: number }
   | { status: "stale"; message: string };
 
-/** Remove one cram rating, restoring nothing else: practice has no schedule to restore. */
 export const undo = mutation({
   args: { cramLogId: v.id("cramLogs"), requestId: v.string() },
   handler: async (ctx, args): Promise<CramUndoResult> => {

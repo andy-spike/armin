@@ -1,11 +1,3 @@
-/**
- * Reads Anki's "Notes in Plain Text" export and simple delimited spreadsheets
- * (`.txt`, `.csv`, `.tsv`) into an {@link AnkiCollection}.
- *
- * Plain-text files carry no notetypes or scheduling, so notetypes are
- * synthesized (Basic family or Cloze) and every card is new.
- */
-
 import type {
   AnkiCard,
   AnkiCollection,
@@ -61,7 +53,6 @@ export function parseAnkiText(text: string, fileName: string): AnkiCollection {
   const separator = directives.separator ?? guessSeparator(body, fileName);
   let table = parseDelimited(body, separator).filter((row) => row.some((cell) => cell.trim()));
 
-  // Without directives, a first row of column titles ("Front,Back") isn't a card.
   if (
     !Object.keys(directives).length &&
     table.length > 1 &&
@@ -111,7 +102,6 @@ export function parseAnkiText(text: string, fileName: string): AnkiCollection {
     const fields = row.flatMap((value, index) => (special.has(index + 1) ? [] : [toHtml(value)]));
     if (fields.every((value) => !value.trim())) continue;
     const notetypeName = cell(row, directives.notetypeColumn) || directives.notetype?.trim() || "";
-    // Rows without a notetype name pick Basic or Cloze from their own content.
     const groupKey =
       notetypeName || (fields.some((value) => CLOZE_PATTERN.test(value)) ? "\0cloze" : "\0basic");
     parsed.push({
@@ -124,7 +114,6 @@ export function parseAnkiText(text: string, fileName: string): AnkiCollection {
   }
   if (parsed.length === 0) throw new AnkiImportError("This text file has no notes to import.");
 
-  // One synthesized notetype per distinct name (or one for the whole file).
   const groups = new Map<string, Parsed[]>();
   for (const note of parsed) {
     const group = groups.get(note.groupKey) ?? [];
@@ -188,8 +177,6 @@ export function parseAnkiText(text: string, fileName: string): AnkiCollection {
   };
 }
 
-// --- Header and delimiter parsing ---
-
 function readDirectives(source: string) {
   const directives: Directives = {};
   const lines = source.split(/\r\n|\n|\r/);
@@ -229,7 +216,6 @@ function readDirectives(source: string) {
         directives.notetype = value;
         break;
       case "columns":
-        // Names are split below once the separator is known.
         directives.columns = [value];
         break;
     }
@@ -261,7 +247,6 @@ function count(text: string, character: string) {
   return text.split(character).length - 1;
 }
 
-/** RFC 4180-style parsing: quoted fields, `""` escapes, embedded newlines. */
 function parseDelimited(text: string, separator: string) {
   const table: string[][] = [];
   let row: string[] = [];
@@ -315,7 +300,6 @@ function fileStem(fileName: string) {
   return stem || "Imported notes";
 }
 
-/** Anki turns plain-text imports into HTML by escaping markup and converting newlines. */
 function plainTextToHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -323,8 +307,6 @@ function plainTextToHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replace(/\r\n|\n|\r/g, "<br>");
 }
-
-// --- Notetype synthesis ---
 
 type StockShape = { stockKind: number; fieldNames: string[]; templates: AnkiTemplate[] };
 
@@ -411,7 +393,6 @@ function synthesizeNotetype(id: string, name: string, notes: { fields: string[] 
   while (fieldNames.length < width) fieldNames.push(`Field ${fieldNames.length + 1}`);
   const fields: AnkiField[] = fieldNames.map((fieldName, ord) => ({ ord, name: fieldName }));
 
-  // Columns beyond the stock shape show on the back so no text is dropped.
   const extras = fieldNames.slice(shape.fieldNames.length).map((extra) => `{{${extra}}}`);
   const templates = shape.templates.map((template) => ({
     ...template,
@@ -428,7 +409,6 @@ function synthesizeNotetype(id: string, name: string, notes: { fields: string[] 
   };
 }
 
-/** Which card ords a note generates, mirroring Anki's rules for the stock kinds. */
 function cardOrds(notetype: AnkiNotetype, fields: string[]) {
   if (notetype.kind === "cloze") {
     const numbers = new Set<number>();

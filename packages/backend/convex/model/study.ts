@@ -29,8 +29,6 @@ import { fail } from "./errors";
 import { MAX_REVIEW_UNITS_PER_FLASHCARD } from "./limits";
 import { libraryLimits, limitOwnerName, reviewUnitTotal } from "./usage";
 
-// --- Settings ---
-
 export function schedulingFrom(row: Doc<"settings">): SchedulingSettings {
   return {
     requestRetention: row.requestRetention,
@@ -47,7 +45,6 @@ export function schedulingFrom(row: Doc<"settings">): SchedulingSettings {
   };
 }
 
-/** Saved account settings, or defaults if the row is missing. */
 export async function getSettingsRow(
   ctx: QueryCtx,
   libraryId: Id<"libraries">,
@@ -59,7 +56,6 @@ export async function getSettingsRow(
   return row ?? defaultSettingsRow(libraryId, 0);
 }
 
-/** A new library's settings: default scheduling and factory keybindings. */
 export function defaultSettingsRow(libraryId: Id<"libraries">, updatedAt: number) {
   return { libraryId, ...defaultSchedulingSettings(), keybindings: null, updatedAt };
 }
@@ -79,7 +75,6 @@ export function overridesFrom(row: Doc<"deckSettings"> | null): DeckSettingsOver
   };
 }
 
-/** Per-request cache of effective settings by deck. */
 export class SettingsCache {
   private global: SchedulingSettings | null = null;
   private byDeck = new Map<string, SchedulingSettings>();
@@ -99,7 +94,6 @@ export class SettingsCache {
     return this.global;
   }
 
-  /** Resolve every deck's settings with one read, for callers that visit many decks. */
   async preloadDecks() {
     const global = await this.globalSettings();
     const rows = await this.ctx.db
@@ -126,14 +120,10 @@ export class SettingsCache {
   }
 }
 
-/** Build a fresh scheduler per call; never share a mutable instance. */
 export function schedulerFor(settings: SchedulingSettings) {
   return createScheduler(settings);
 }
 
-// --- Library revision (export snapshot check) ---
-
-/** The library's revision, which graph and assistant writes compare against. */
 export async function libraryRevision(ctx: QueryCtx, libraryId: Id<"libraries">) {
   const counters = await ctx.db
     .query("libraryCounters")
@@ -158,11 +148,6 @@ export async function bumpRevision(ctx: MutationCtx, libraryId: Id<"libraries">)
   }
 }
 
-/**
- * Apply a change in the library's review-unit count, refusing growth past the
- * beta cap. Call it before inserting or deleting the rows, so libraries
- * created before the counter existed are counted correctly once.
- */
 export async function adjustReviewUnitCount(
   ctx: MutationCtx,
   libraryId: Id<"libraries">,
@@ -194,8 +179,6 @@ export async function adjustReviewUnitCount(
   }
 }
 
-// --- Flashcard content ---
-
 export function parseFlashcard(flashcard: Doc<"flashcards">) {
   return parseStoredContent(flashcard.type, flashcard.content);
 }
@@ -204,12 +187,6 @@ export function displayFor(type: FlashcardType, content: FlashcardContent) {
   return flashcardDisplay(type, content);
 }
 
-/**
- * Bring a flashcard's review units in line with its content: keep units whose
- * subKey survives (preserving FSRS state), insert new ones, delete the rest.
- * Changed display text bumps the unit version so an open review of the old
- * prompt is invalidated rather than silently answered.
- */
 export async function reconcileReviewUnits(
   ctx: MutationCtx,
   flashcard: Doc<"flashcards">,
@@ -243,8 +220,6 @@ export async function reconcileReviewUnits(
   for (const spec of specs) {
     const found = existingBySubKey.get(spec.subKey);
     if (found) {
-      // A concept card's unit shows its assigned variant, which a template
-      // edit leaves in place.
       const display = type === "concept" ? found : spec;
       const changed =
         found.front !== display.front ||
@@ -287,15 +262,11 @@ export async function reconcileReviewUnits(
   }
 }
 
-/** Delete a review unit and its history. */
 export async function deleteReviewUnit(ctx: MutationCtx, id: Id<"reviewUnits">) {
   await ctx.db.delete(id);
   await ctx.scheduler.runAfter(0, internal.deletion.cleanupUnitLogs, { reviewUnitId: id });
 }
 
-// --- Prerequisite lock state ---
-
-/** Preserve access already earned, including currently unlocked pre-policy cards. */
 function hasPrerequisiteAccess(flashcard: Doc<"flashcards">) {
   return (
     flashcard.prerequisiteAccessGranted === true ||
@@ -328,11 +299,6 @@ async function collectTransitiveDependents(
   return [...seen];
 }
 
-/**
- * Access is permanent once granted. Before that milestone, every unit of
- * every non-archived prerequisite must be secured at the dependent deck's
- * floor. A prerequisite with no review units never secures.
- */
 async function computeLocked(
   ctx: QueryCtx,
   flashcard: Doc<"flashcards">,
@@ -358,29 +324,10 @@ async function computeLocked(
   return false;
 }
 
-/**
- * Whether a never-reviewed unit waits on the far-future pending schedule
- * instead of being New: while its card is locked, or, for a concept card,
- * while no variant is assigned for it to show. Pending is the one
- * admission rule queues, Frontier counts, rating, and cram already respect.
- */
 function waitsPending(locked: boolean, unit: Parameters<typeof isAwaitingVariant>[0]) {
   return locked || isAwaitingVariant(unit);
 }
 
-/**
- * The schedule change a never-reviewed unit needs under `waitsPending`: onto
- * the pending date when it must wait, or New when it no longer must. Null
- * when it already has the right one, or once it has been reviewed.
- *
- * A unit that stops waiting is due from its creation, not from that moment.
- * Queries take the client's study clock as `now`, which lags server time
- * until the next refresh, so a unit due at the unlock instant would stay out
- * of an open session's queue until that clock caught up: the session would
- * end on "All caught up" and the card would appear seconds later. Due time
- * doesn't order new units (`frontierKey` does), so the earlier date changes
- * nothing else.
- */
 export function waitingSchedule(unit: Doc<"reviewUnits">, locked: boolean, now: number) {
   if (unit.reps !== 0 || unit.lastReview != null) return null;
   const pending = isPendingSchedule(unit);
@@ -391,12 +338,6 @@ export function waitingSchedule(unit: Doc<"reviewUnits">, locked: boolean, now: 
   return null;
 }
 
-/**
- * Persist lock state for a flashcard and keep its never-reviewed units in the
- * matching schedule (`waitsPending`): units that must wait sit on the pending
- * date, and the rest become New, such as a newly unlocked card or a concept
- * card whose first variant was just assigned.
- */
 async function applyLockState(
   ctx: MutationCtx,
   flashcard: Doc<"flashcards">,
@@ -429,10 +370,6 @@ async function applyLockState(
   }
 }
 
-/**
- * Backfill old cards without reading unbounded review history. Existing
- * access and any surviving review history prove the card was accessible.
- */
 export async function refreshLockState(
   ctx: MutationCtx,
   flashcardIds: Id<"flashcards">[],
@@ -447,7 +384,6 @@ export async function refreshLockState(
   }
 }
 
-/** Recompute the given dependents and everything downstream of them. */
 export async function refreshDependentSubgraph(
   ctx: MutationCtx,
   dependentIds: Id<"flashcards">[],
@@ -458,7 +394,6 @@ export async function refreshDependentSubgraph(
   await refreshLockState(ctx, [...dependentIds, ...downstream], settings, now);
 }
 
-/** A prerequisite's review/archive state changed: refresh everything it gates. */
 export async function refreshAfterPrereqChange(
   ctx: MutationCtx,
   prereqId: Id<"flashcards">,
@@ -469,12 +404,6 @@ export async function refreshAfterPrereqChange(
   await refreshLockState(ctx, downstream, settings, now);
 }
 
-/**
- * Recompute every flashcard with prerequisites in a deck. Loads the deck's
- * cards, units, and edges once and decides locks in memory; deck size bounds
- * (`MAX_FLASHCARDS_PER_DECK`) keep this within one transaction's reads.
- * Prerequisites never cross decks, so a library is refreshed deck by deck.
- */
 export async function refreshAllLocks(
   ctx: MutationCtx,
   scope: { deckId: Id<"decks"> },
@@ -526,7 +455,6 @@ export async function refreshAllLocks(
   }
 }
 
-/** Snapshot of FSRS state for a review log's undo record. */
 export function fsrsSnapshot(unit: FsrsFieldsMs): FsrsFieldsMs {
   return {
     due: unit.due,
@@ -542,14 +470,6 @@ export function fsrsSnapshot(unit: FsrsFieldsMs): FsrsFieldsMs {
   };
 }
 
-// --- Request de-duplication ---
-
-/**
- * The stored outcome of an earlier call with this request ID, so a retry
- * returns it instead of applying twice. A request ID belongs to one operation:
- * reusing it for another `kind` is rejected rather than replaying a result of
- * the wrong shape.
- */
 export async function findRequest(
   ctx: QueryCtx,
   libraryId: Id<"libraries">,
@@ -584,13 +504,6 @@ export async function recordRequest(
   });
 }
 
-// --- Tags ---
-
-/**
- * Tag rows already looked up in this mutation: the stored name, or null when
- * the library has no such tag yet. Batch writers share one so a batch reads
- * each distinct tag once and stays under Convex's per-transaction read limit.
- */
 export type TagCache = Map<string, string | null>;
 
 async function storedTag(
@@ -623,7 +536,6 @@ export async function rememberTags(
   }
 }
 
-/** Use the library's existing casing for tags that already exist. */
 export async function canonicalTags(
   ctx: QueryCtx,
   libraryId: Id<"libraries">,

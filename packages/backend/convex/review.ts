@@ -38,14 +38,6 @@ import {
 
 const GRADES: Grade[] = [Rating.Again, Rating.Hard, Rating.Good, Rating.Easy];
 
-/**
- * Session queue for one deck or the whole library: due reviews (oldest due
- * first) followed by today's shared Frontier. `now` is a client clock tick so
- * the subscription re-evaluates as time passes even without writes. `deckId`
- * is a string so a malformed route id returns "not found" instead of failing
- * Convex argument validation. Items are metadata only; card content comes
- * from `items`. Clients still send `metadataOnly: true`, which is accepted.
- */
 export const queue = query({
   args: { deckId: v.optional(v.string()), now: v.number(), metadataOnly: v.optional(v.boolean()) },
   handler: async (ctx, { deckId: deckIdArg, now }) => {
@@ -69,12 +61,6 @@ export const queue = query({
   },
 });
 
-/**
- * How many review units are due across the library, and when time alone next
- * changes any due count: the next unit falling due, or the next study day
- * (which renews the new-unit allowance). Clients move their clock argument to
- * `refreshAt`, so time-dependent subscriptions re-run only when they must.
- */
 export const status = query({
   args: { now: v.number() },
   handler: async (ctx, { now }) => {
@@ -91,7 +77,6 @@ export const status = query({
   },
 });
 
-/** Earliest future due time among eligible units (for client refresh timers). */
 async function nextDueAfter(
   ctx: Parameters<typeof readableLibrary>[0],
   library: Doc<"libraries">,
@@ -111,7 +96,6 @@ async function nextDueAfter(
           .withIndex("by_library_due", (q) =>
             q.eq("libraryId", library._id).eq("locked", false).eq("archived", false).gt("due", now),
           );
-    // Bounded: past this many skipped rows, the next study day refresh suffices.
     let scanned = 0;
     for await (const unit of rows) {
       if (decks.has(unit.deckId) && !isBuried(unit, now) && !isWithheldConcept(unit, library))
@@ -136,9 +120,7 @@ async function nextDueAfter(
   return earliest;
 }
 
-/** The four possible outcomes for a review unit, without committing. */
 export const preview = query({
-  // Clients still send `now`; previews always use server time.
   args: { reviewUnitId: v.id("reviewUnits"), now: v.number() },
   handler: async (ctx, { reviewUnitId }) => {
     const library = await readableLibrary(ctx);
@@ -165,15 +147,8 @@ function reviewStateName(state: number) {
   return REVIEW_STATE_NAMES[state] ?? "Unknown";
 }
 
-/** Newest reviews shown in the card info sheet; lifetime history is unbounded. */
 const CARD_INFO_HISTORY_LIMIT = 100;
 
-/**
- * Everything behind one flashcard: each review unit's schedule and current
- * recall probability, plus its recent review history from reviewLogs. History
- * is read newest first and capped, because lifetime review history is
- * unbounded. Ownership comes from the session's library.
- */
 export const cardInfo = query({
   args: { flashcardId: v.string() },
   handler: async (ctx, { flashcardId }) => {
@@ -210,7 +185,6 @@ export const cardInfo = query({
     const units = [...unitRows].sort(
       (a, b) => a.createdAt - b.createdAt || a.subKey.localeCompare(b.subKey),
     );
-    // Resolve each unit's scheduler once; units of one flashcard share a deck.
     for (const unit of unitRows) await schedulerForDeck(unit.deckId);
 
     const unitViews = units.map((unit) => ({
@@ -233,10 +207,6 @@ export const cardInfo = query({
       version: unit.version,
     }));
 
-    // The newest review of each unit produced the unit's current schedule; an
-    // older review's result is the `before` snapshot of the next review. This
-    // gives each history row the interval it actually scheduled, including
-    // same-day learning steps.
     const unitById = new Map(unitRows.map((unit) => [unit._id, unit]));
     const newerByUnit = new Map<Id<"reviewUnits">, Doc<"reviewLogs">>();
     const reviews = logs.slice(0, CARD_INFO_HISTORY_LIMIT).map((log) => {
@@ -289,15 +259,6 @@ export type RateResult =
   | { status: "stale"; message: string }
   | { status: "ineligible"; message: string };
 
-/**
- * Rate a review unit. One transaction validates ownership, the version the
- * client displayed, and eligibility (lock, archive, due, shared Frontier);
- * computes FSRS at accepted server time; writes the schedule and history
- * (for a concept card, also marking the shown variant seen, assigning the
- * next, and refilling a pool that runs low); and refreshes every
- * prerequisite consequence. A repeated `requestId` returns the first outcome
- * instead of applying the answer again.
- */
 export const rate = mutation({
   args: {
     reviewUnitId: v.id("reviewUnits"),
@@ -334,8 +295,6 @@ export const rate = mutation({
     );
     const version = unit.version + 1;
     const fields = fsrsFieldsToMs(fromFsrsCard(next));
-    // A concept card's unit moves on to its next variant in the same write,
-    // so the version bump also retires the exercise just answered.
     const concept = await advanceVariant(ctx, unit, now);
     await ctx.db.patch(unit._id, {
       ...fields,
@@ -343,14 +302,10 @@ export const rate = mutation({
       version,
       updatedAt: now,
     });
-    // An accepted review proves this flashcard was accessible, including root
-    // cards. Later prerequisite edits and Undo must not revoke that access.
     const flashcard = await ctx.db.get(unit.flashcardId);
     if (flashcard && !flashcard.prerequisiteAccessGranted) {
       await ctx.db.patch(flashcard._id, { prerequisiteAccessGranted: true });
     }
-    // A concept card low on unseen variants starts one refill job, in this
-    // transaction, unless its pool already has a job (see `refillIfLow`).
     if (flashcard && concept) await refillIfLow(ctx, flashcard, concept.pool, now);
     const reviewLogId = await ctx.db.insert("reviewLogs", {
       libraryId: library._id,
@@ -371,11 +326,6 @@ export const rate = mutation({
       ...(concept?.beforeVariant ? { beforeVariant: concept.beforeVariant } : {}),
       unitVersionAfter: version,
     });
-    // Dependents' locks depend only on whether this flashcard's units are
-    // secured, which is a function of state and stability alone. Prerequisites
-    // share their dependents' deck, so this floor is theirs too. When
-    // the answer leaves the unit on the same side of the floor, no lock can
-    // change, and the usual case skips walking the downstream graph.
     const floor = deckSettings.prereqStabilityFloor;
     if (isPrereqSecured(unit, floor) !== isPrereqSecured(fields, floor)) {
       await refreshAfterPrereqChange(ctx, unit.flashcardId, settings, now);
@@ -398,13 +348,6 @@ export type UndoResult =
   | { status: "ok"; reviewUnitId: Id<"reviewUnits">; version: number }
   | { status: "stale"; message: string };
 
-/**
- * Undo exactly one review: it must still be the unit's latest review, and the
- * unit must still be in the state that review produced. Restores the saved
- * pre-review schedule (and, for a concept card, the variant it showed and
- * that variant's last-shown time), removes the log, and refreshes
- * prerequisite effects.
- */
 export const undo = mutation({
   args: {
     reviewLogId: v.id("reviewLogs"),
@@ -438,7 +381,6 @@ export const undo = mutation({
         message: "This card changed after that review, so it can't be undone.",
       };
     }
-    // A concept card's review also changed which variant shows; put it back.
     const display = log.beforeVariant
       ? await restoreVariant(ctx, unit, log.beforeVariant)
       : undefined;
@@ -457,9 +399,7 @@ export const undo = mutation({
 
 export type BuryUnit = {
   reviewUnitId: Id<"reviewUnits">;
-  /** Version this bury wrote, which Undo must still find unchanged. */
   version: number;
-  /** The unit's buriedUntil before the bury, for an exact Undo. */
   previousBuriedUntil: number | null;
 };
 
@@ -467,18 +407,11 @@ export type BuryResult =
   | {
       status: "ok";
       flashcardId: Id<"flashcards">;
-      /** Start of the next study day, in the library time zone. */
       buriedUntil: number;
       units: BuryUnit[];
     }
   | { status: "stale"; message: string };
 
-/**
- * Hide every review unit of a flashcard until the next study day. Burying is
- * an admission rule only: the unit keeps its schedule and reappears
- * automatically once `buriedUntil` passes. The returned units carry their
- * prior values so the review screen's Undo can restore them exactly.
- */
 export const bury = mutation({
   args: { flashcardId: v.id("flashcards"), requestId: v.string() },
   handler: async (ctx, args): Promise<BuryResult> => {
@@ -496,8 +429,6 @@ export const bury = mutation({
       .collect();
     const changed: BuryUnit[] = [];
     for (const unit of units) {
-      // A unit already buried at least this long is already hidden; leave its
-      // version untouched so an existing Undo still applies.
       if (unit.buriedUntil != null && unit.buriedUntil >= buriedUntil) continue;
       const version = unit.version + 1;
       await ctx.db.patch(unit._id, { buriedUntil, version, updatedAt: now });
@@ -524,11 +455,6 @@ export type UnburyResult =
   | { status: "ok"; flashcardId: Id<"flashcards"> }
   | { status: "stale"; message: string };
 
-/**
- * Reverse one bury for the review screen's Undo: restore each unit's previous
- * `buriedUntil`, but only while every unit still has the version the bury
- * wrote. Any later change makes the undo stale rather than clobbering it.
- */
 export const unbury = mutation({
   args: {
     flashcardId: v.id("flashcards"),
@@ -580,14 +506,9 @@ export const unbury = mutation({
   },
 });
 
-/** Card text is subscribed only for a small look-ahead window. */
 export const items = query({
   args: {
     ids: v.array(v.id("reviewUnits")),
-    /**
-     * Cram's session seed. A concept card then shows a random active variant
-     * rather than its assigned one, and nothing about the pool changes.
-     */
     practiceSeed: v.optional(v.number()),
   },
   returns: v.array(

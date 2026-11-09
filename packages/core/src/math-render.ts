@@ -3,7 +3,6 @@ import "katex/contrib/mhchem";
 
 const cache = new Map<string, { html: string; error: string | null }>();
 
-/** Only KaTeX-generated markup is trusted. Each expression gets fresh macros. */
 export function renderMath(tex: string, display: boolean) {
   const key = `${display ? "display" : "inline"}:${tex}`;
   const cached = cache.get(key);

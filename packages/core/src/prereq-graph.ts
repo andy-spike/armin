@@ -1,8 +1,3 @@
-/*
- * Prerequisite graph rules shared by the web canvas and the backend: every
- * place that adds a link rejects the same self-links and cycles.
- */
-
 export type GraphEdge = {
   prereqId: string;
   dependentId: string;
@@ -23,7 +18,6 @@ export function createGraphCycleIndex(edges: GraphEdge[]): GraphCycleIndex {
   return index;
 }
 
-/** Record an accepted edge so later checks against the same index see it. */
 export function addGraphEdge(index: GraphCycleIndex, edge: GraphEdge) {
   index.edgeKeys.add(graphEdgeKey(edge.prereqId, edge.dependentId));
   const list = index.adjacency.get(edge.prereqId);
@@ -31,7 +25,6 @@ export function addGraphEdge(index: GraphCycleIndex, edge: GraphEdge) {
   else index.adjacency.set(edge.prereqId, [edge.dependentId]);
 }
 
-/** Would adding prereq → dependent introduce a cycle? */
 export function wouldCreateCycleIndexed(
   index: GraphCycleIndex,
   prereqId: string,
@@ -50,11 +43,6 @@ export function wouldCreateCycleIndexed(
   return false;
 }
 
-/**
- * Why the link prereq → dependent can't be added, or null when it can. Every
- * way of linking cards (dragging, the card menu, the keyboard picker) uses
- * this, so they reject the same links with the same explanation.
- */
 export function linkProblem(index: GraphCycleIndex, prereqId: string, dependentId: string) {
   if (prereqId === dependentId) return "A flashcard can’t depend on itself.";
   if (index.edgeKeys.has(graphEdgeKey(prereqId, dependentId))) {

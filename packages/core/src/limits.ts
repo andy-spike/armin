@@ -1,8 +1,3 @@
-/**
- * Content and settings bounds the server enforces. Clients and the Anki
- * converter read the same values so they never prepare what the server rejects.
- */
-
 export const MAX_CONTENT_CHARS = 20_000;
 export const MAX_NAME_CHARS = 120;
 export const MAX_TAGS_PER_FLASHCARD = 20;
@@ -14,5 +9,4 @@ export const RETENTION_MAX = 0.99;
 export const MAX_INTERVAL_MIN = 1;
 export const MAX_INTERVAL_MAX = 36500;
 export const STABILITY_FLOOR_MAX = 365;
-/** New review units and reviews per day share one ceiling. */
 export const PER_DAY_LIMIT_MAX = 1000;

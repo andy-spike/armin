@@ -1,7 +1,5 @@
 import { defineConfig } from "vite-plus";
 
-// Generated code, recorded QA evidence, and vendored skills (hashed in
-// skills-lock.json) are never rewritten or linted.
 const ignored = [
   ".anki-kit-build/**",
   "**/convex/_generated/**",
@@ -22,22 +20,14 @@ export default defineConfig({
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
       "vite-plus/prefer-vite-plus-imports": "error",
-      // Read latest values through refs only outside render, and adjust state
-      // during render instead of from an effect. A justified exception carries
-      // an inline `oxlint-disable-next-line` with its reason.
       "react/refs": "error",
       "react/set-state-in-effect": "error",
-      // Only matters to the React Compiler, which this app doesn't use.
       "react/incompatible-library": "off",
-      // Dialogs focus their first field on purpose.
       "jsx-a11y/no-autofocus": "off",
-      // `role="status"` on a div is as accessible as `<output>`.
       "jsx-a11y/prefer-tag-over-role": "off",
     },
     overrides: [
       {
-        // Mutations come from convex/functions.ts, which keeps the derived
-        // Browse summaries and deck counters in step with every write.
         files: ["packages/backend/convex/**/*.ts"],
         rules: {
           "no-restricted-imports": [

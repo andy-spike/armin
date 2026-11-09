@@ -57,7 +57,6 @@ const card = z
   })
   .strict();
 
-/** Authoritative tool input validation, including the limits Convex validators omit. */
 export const agentToolSchemas = {
   list_decks: z.object({}).strict(),
   read_deck: z
@@ -126,9 +125,6 @@ export const agentToolSchemas = {
 
 export type AgentToolName = keyof typeof agentToolSchemas;
 
-// Convex validators advertised to MCP clients as each tool's input schema. The
-// Zod schemas above still run inside the tool so limits and error messages stay
-// exactly the same.
 const deckId = v.string();
 const cardId = v.string();
 const requestIdArg = v.string();
@@ -230,7 +226,6 @@ export const agentToolArgs = {
   },
 };
 
-/** Human-readable names that assistants show when asking to run a tool. */
 export const agentToolTitles: Record<AgentToolName, string> = {
   list_decks: "List decks",
   read_deck: "Read deck",
@@ -268,7 +263,6 @@ const deckView = v.object({
   version: v.number(),
 });
 
-/** Advertised output schemas; the component checks every result against these. */
 export const agentToolReturns = {
   list_decks: v.object({
     decks: v.array(deckView),

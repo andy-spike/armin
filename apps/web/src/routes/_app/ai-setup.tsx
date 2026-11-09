@@ -26,7 +26,6 @@ function AiSetupPage() {
       <AiSetupGuide
         platform={platform ?? "claude"}
         onPlatformChange={(next) =>
-          // Switching guides is a view change, not a navigation step.
           void navigate({ to: "/ai-setup", search: { platform: next }, replace: true })
         }
       />

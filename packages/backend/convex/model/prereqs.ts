@@ -12,18 +12,6 @@ import { refreshDependentSubgraph, SettingsCache } from "./study";
 
 type Link = { prereqId: Id<"flashcards">; dependentId: Id<"flashcards"> };
 
-/*
- * Prerequisite link writes shared by the graph editor and the assistant tools.
- * The cycle rules come from `@armin/core/prereq-graph`, the same ones the web
- * canvas uses before it sends a link.
- */
-
-/**
- * Add links inside one deck; callers check both cards belong to it. Links
- * already present are skipped. A self-link, a cycle (including one formed by
- * links earlier in the same call), or passing the per-deck cap rejects the
- * whole write. Locks are refreshed downstream of every added link.
- */
 export async function linkPrerequisites(
   ctx: MutationCtx,
   deck: Doc<"decks">,
@@ -65,7 +53,6 @@ export async function linkPrerequisites(
   return added;
 }
 
-/** Remove one link and recompute what it gated. */
 export async function unlinkPrerequisite(ctx: MutationCtx, edge: Doc<"prereqs">, now: number) {
   await ctx.db.delete(edge._id);
   const settings = new SettingsCache(ctx, edge.libraryId);

@@ -2,11 +2,6 @@ import { memo } from "react";
 import { BaseEdge, getBezierPath, useInternalNode, type EdgeProps } from "@xyflow/react";
 import { getEdgeParams } from "@/lib/graph-geometry";
 
-/**
- * Floating edge: endpoints are computed from node geometry rather than a fixed
- * handle, so the curve meets each card's border on whichever side faces the
- * other card and the arrowhead points cleanly into the dependent.
- */
 function FloatingEdgeComponent({
   id,
   source,

@@ -1,4 +1,3 @@
-// Explicit table roles preserve semantics when the mobile layout uses display: block.
 /* oxlint-disable jsx-a11y/no-redundant-roles, jsx-a11y/no-interactive-element-to-noninteractive-role */
 import { Children, cloneElement, createContext, isValidElement, useContext } from "react";
 import { SOURCE_CODE_URL } from "@/lib/source-code";
@@ -46,7 +45,6 @@ const components: Components = {
     <pre className="mt-4 overflow-x-auto bg-surface-sunken p-4 text-sm leading-6">{children}</pre>
   ),
   a: ({ href = "", children }) =>
-    // App routes navigate in place; everything else (mail, the site root) is a plain link.
     href.startsWith("/") && !href.startsWith("//") && href !== "/" ? (
       <Link to={href} className={linkClass}>
         {children}
@@ -118,10 +116,6 @@ const components: Components = {
   ),
 };
 
-/**
- * Public page for a document written in Markdown. The `legal` class
- * lets the document scroll instead of the locked app frame (see `app.css`).
- */
 export function LegalPage({ source }: { source: string }) {
   return (
     <div className="legal notebook-bg flex min-h-dvh flex-col">

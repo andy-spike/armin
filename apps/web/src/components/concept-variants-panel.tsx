@@ -25,14 +25,6 @@ import { conceptPoolQuery } from "@/lib/queries";
 
 type PoolVariant = NonNullable<FunctionReturnType<typeof api.concepts.pool>>["variants"][number];
 
-/**
- * A concept card's variant pool in the card editor: whether generation is
- * running, ready, failed (with Retry), or stopped by the monthly variant
- * allowance (until it has room again), and the generated exercises with their
- * worked solutions. With Pro the learner curates them: edit a variant's
- * exercise or solution, delete one, or unflag one flagged during review.
- * Flagged variants are listed apart, since reviews no longer show them.
- */
 export function ConceptVariantsPanel({ flashcardId }: { flashcardId: string }) {
   const toast = useToast();
   const { data: pool, isPending } = useQuery(conceptPoolQuery(flashcardId));
@@ -60,11 +52,8 @@ export function ConceptVariantsPanel({ flashcardId }: { flashcardId: string }) {
   const count = pool.variants.length;
   const active = pool.variants.filter((variant) => variant.status === "active");
   const flagged = pool.variants.filter((variant) => variant.status === "flagged");
-  // Outside Pro the pool is read-only, like the template.
   const editable = !pool.requiresPro;
-  // Reviews need an active variant, so the last one can't be flagged or deleted.
   const lastActive = active.length === 1;
-  // Numbered by place in the pool, so a variant keeps its number when flagged.
   const number = new Map(pool.variants.map((variant, index) => [variant.id, index + 1]));
   return (
     <section
@@ -141,7 +130,6 @@ export function ConceptVariantsPanel({ flashcardId }: { flashcardId: string }) {
         )}
       </div>
       {count > 0 && (
-        // A pool holds up to 500 variants, so the list scrolls inside its frame.
         <div className="max-h-[28rem] overflow-y-auto border-t border-border">
           {active.length > 0 && (
             <ol aria-label="Active variants" className="divide-y divide-border">
@@ -182,7 +170,6 @@ export function ConceptVariantsPanel({ flashcardId }: { flashcardId: string }) {
   );
 }
 
-/** One variant: its exercise and solution, or its editor, with its actions. */
 function VariantItem({
   variant,
   label,
@@ -192,10 +179,8 @@ function VariantItem({
 }: {
   variant: PoolVariant;
   label: string;
-  /** The card's next review shows this variant. */
   assigned: boolean;
   editable: boolean;
-  /** False for the card's only active variant. */
   canRemove: boolean;
 }) {
   const toast = useToast();
@@ -301,7 +286,6 @@ function VariantItem({
                 canRemove ? "Delete variant" : "Reviews need this card's only active variant"
               }
             >
-              {/* A disabled button gets no pointer events, so the wrapper carries the tooltip. */}
               <span className="inline-flex">
                 <Button
                   type="button"
@@ -358,7 +342,6 @@ function VariantItem({
       ) : (
         <>
           <MarkdownContent content={variant.exercise} className="text-sm text-ink" />
-          {/* Solutions fold away so the list scans by exercise. */}
           <button
             type="button"
             aria-expanded={showSolution}

@@ -1,7 +1,3 @@
-/*
- * Flexoki semantic tokens for Armin.
- * Light/dark mappings follow stephango.com/flexoki base + accent tables.
- */
 :root,
 [data-theme="light"] {
   color-scheme: light;
@@ -17,8 +13,6 @@
   --armin-muted: var(--flexoki-700);
   --armin-faint: var(--flexoki-600);
 
-  /* Cyan 700 keeps paper text on primary actions above AA (6.0:1) while the
-     deeper hover stays visibly darker than the resting accent. */
   --armin-accent: var(--flexoki-cyan-700);
   --armin-accent-deep: color-mix(in srgb, var(--flexoki-cyan-700) 82%, var(--flexoki-black));
   --armin-accent-tint: var(--flexoki-cyan-50);
@@ -33,8 +27,6 @@
   --armin-easy: var(--flexoki-blue-600);
   --armin-easy-deep: var(--flexoki-blue-600);
 
-  /* Rating buttons. Their labels must clear AA; light Good uses a deeper
-     shade than the shared token for that reason. */
   --armin-rate-again: var(--armin-again);
   --armin-rate-again-hover: var(--armin-again-deep);
   --armin-rate-hard: var(--armin-hard);
@@ -46,9 +38,6 @@
 
   --armin-new: var(--flexoki-blue-600);
   --armin-new-bg: var(--flexoki-blue-50);
-  /* The 600 accents are below AA as 12px state-badge text on their 50 tint
-     (learning 3.01, review 3.81, relearning 4.03). These darker shades keep
-     the same hue and clear 4.5:1 on both the tinted badge and paper. */
   --armin-learning: #7d6100;
   --armin-learning-bg: var(--flexoki-yellow-50);
   --armin-review: #4f650a;
@@ -58,8 +47,6 @@
 
   --armin-shadow-overlay: 0 12px 40px -8px rgb(16 15 15 / 0.18);
 
-  /* The page's paper (notebook-bg in app.css): light from above, a faint dot
-     grid, and a fine static grain tinted toward warm ink. */
   --armin-paper-light: rgb(255 255 255 / 0.5);
   --armin-paper-dot: color-mix(in srgb, var(--flexoki-300) 45%, transparent);
   --armin-paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .3 0 0 0 0 .2 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -93,8 +80,6 @@
   --armin-easy: var(--flexoki-blue-400);
   --armin-easy-deep: var(--flexoki-blue-600);
 
-  /* Dark hovers are lighter: a darker hover would drop the black label
-     below AA. Dark Again uses a lighter shade for the same reason. */
   --armin-rate-again: #d35347;
   --armin-rate-again-hover: #e0655a;
   --armin-rate-hard: var(--armin-hard);
@@ -104,7 +89,7 @@
   --armin-rate-easy: var(--armin-easy);
   --armin-rate-easy-hover: #639fd0;
 
-  --armin-new: #4a8ac2; /* blue-400 on blue-950 is 4.46:1; this is 4.77:1. */
+  --armin-new: #4a8ac2;
   --armin-new-bg: var(--flexoki-blue-950);
   --armin-learning: var(--flexoki-yellow-400);
   --armin-learning-bg: var(--flexoki-yellow-950);

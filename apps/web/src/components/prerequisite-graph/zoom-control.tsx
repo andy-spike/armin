@@ -4,12 +4,9 @@ import { Maximize, Minus, Plus, RotateCcw } from "lucide-react";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-// Low enough that Fit view can frame a large deck. The minimap keeps the graph
-// navigable when the fitted cards are too small to read.
 export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 2;
 
-/** Zoom out/in, an editable zoom percentage, reset to 100%, and fit view. */
 export function ZoomControl() {
   const { zoom } = useViewport();
   const { zoomIn, zoomOut, zoomTo, fitView } = useReactFlow();

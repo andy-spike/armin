@@ -2,13 +2,6 @@ import * as React from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/**
- * Empty state that teaches the interface rather than just saying "nothing
- * here." Dashed border keeps it visually distinct from a populated surface.
- *
- * Use `bare` when the empty state already sits inside its own card or window
- * (e.g. the profile picker) so it doesn't render a nested card.
- */
 export function EmptyState({
   icon: Icon,
   title,

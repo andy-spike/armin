@@ -6,11 +6,6 @@ export const convexSiteUrl = (import.meta.env.VITE_CONVEX_SITE_URL ??
 export const { handler, getToken } = convexBetterAuthReactStart({
   convexUrl: (import.meta.env.VITE_CONVEX_URL ?? process.env.VITE_CONVEX_URL) as string,
   convexSiteUrl,
-  // The app's auth check (one per page load) reuses the Convex JWT that
-  // sign-in already stored in the `convex_jwt` cookie instead of asking
-  // Convex to mint one, saving a 150-250ms round trip. Convex still verifies
-  // the token; a negative tolerance treats it as expired a minute early so
-  // the client never starts from a token that is about to be rejected.
   jwtCache: {
     enabled: true,
     expirationToleranceSeconds: -60,
@@ -18,11 +13,6 @@ export const { handler, getToken } = convexBetterAuthReactStart({
   },
 });
 
-/**
- * Forward a GET to an authenticated Convex HTTP route with the caller's
- * session token. Used for private media and export downloads so the browser
- * only ever sees same-origin URLs that require the session cookie.
- */
 export async function proxyAuthenticated(path: string, cacheControl: string) {
   const token = await getToken();
   if (!token) {
@@ -45,7 +35,6 @@ export async function proxyAuthenticated(path: string, cacheControl: string) {
     const value = upstream.headers.get(name);
     if (value) headers.set(name, value);
   }
-  // Per-account bytes: never cacheable by shared caches, whatever upstream says.
   headers.set("cache-control", upstream.ok ? cacheControl : "no-store");
   headers.set("vary", "Cookie");
   return new Response(upstream.body, { status: upstream.status, headers });

@@ -3,7 +3,6 @@ import { components } from "./_generated/api";
 import { internalAction, internalQuery } from "./_generated/server";
 import { createAuth } from "./auth";
 
-/** Whether the instance's owner account exists. Run by selfhost/setup.sh. */
 export const ownerExists = internalQuery({
   args: {},
   returns: v.boolean(),
@@ -11,13 +10,6 @@ export const ownerExists = internalQuery({
     (await ctx.runQuery(components.betterAuth.adapter.findOne, { model: "user" })) !== null,
 });
 
-/**
- * Operator-only creation of a self-hosted instance's one account, run on the
- * server by selfhost/create-owner.sh. Website sign-up stays closed, so nobody
- * who reaches the address can claim the instance first. The account is
- * verified at creation (databaseHooks.user), and the user onCreate trigger
- * refuses a second account in the insert's own transaction.
- */
 export const createOwner = internalAction({
   args: { email: v.string(), name: v.string(), password: v.string() },
   handler: async (ctx, args) => {
@@ -49,11 +41,6 @@ export const createOwner = internalAction({
   },
 });
 
-/**
- * Operator-only password reset for a self-hosted instance, which has no email
- * service. Run on the server through selfhost/reset-password.sh; no client can
- * call it. Signs the account out everywhere, like an emailed reset.
- */
 export const resetPassword = internalAction({
   args: { email: v.string(), password: v.string() },
   handler: async (ctx, { email, password }) => {
@@ -86,12 +73,6 @@ export const resetPassword = internalAction({
   },
 });
 
-/**
- * The Better Auth signing key set, created if absent, for the `JWKS`
- * deployment variable. selfhost/setup.sh stores it so token verification reads
- * the keys from the environment instead of fetching this instance's own public
- * JWKS URL. Contains private keys: setup pipes it straight into `convex env set`.
- */
 export const signingKeys = internalAction({
   args: {},
   handler: async (ctx) => JSON.stringify(await createAuth(ctx).api.getLatestJwks()),

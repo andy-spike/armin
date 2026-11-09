@@ -3,10 +3,6 @@ import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 
 import { cn } from "@/lib/utils";
 
-/**
- * Lightweight hover/focus tooltip built on Base UI. The popup is portaled, so
- * it sits above modal dialogs; `content` may be rich JSX, not just a string.
- */
 export function Tooltip({
   children,
   content,
@@ -23,9 +19,7 @@ export function Tooltip({
   sideOffset?: number;
   delay?: number;
   className?: string;
-  /** Keeps the trigger mounted but never opens the tooltip. */
   disabled?: boolean;
-  /** Follows the pointer along an axis, for long triggers such as an edge. */
   trackCursorAxis?: "x" | "y" | "both";
 }) {
   return (

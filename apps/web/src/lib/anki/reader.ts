@@ -2,26 +2,10 @@ import type { AnkiCollection, ImportOptions, ImportPlan } from "@armin/core/anki
 import { AnkiImportError, MAX_ANKI_FILE_BYTES } from "@armin/core/anki/reader";
 import type { AnkiWorkerRequest, AnkiWorkerResponse } from "./reader-types";
 
-/**
- * Browser-side Anki reader. Opens `.apkg`, `.colpkg`, or Anki plain-text/CSV
- * files in a module Worker and exposes the normalized contents.
- *
- *   const reader = await openAnkiFile(file);   // throws AnkiImportError
- *   reader.collection;                         // AnkiCollection, ready for the converter
- *   await reader.convert({ progress: "keep" }); // ImportPlan, converted off the main thread
- *   await reader.readMedia("cat.png");         // Uint8Array | null, decompressed on demand
- *   reader.close();                            // terminates the worker; always call when done
- *
- * Files over 1 GiB are rejected. Media is decompressed one file at a time, so
- * memory stays proportional to the collection database plus the file in flight.
- */
 export type AnkiReader = {
   collection: AnkiCollection;
-  /** Runs the converter in the worker so large collections never block the page. */
   convert(options: ImportOptions): Promise<ImportPlan>;
-  /** Bytes of one media file named as note HTML references it; null if absent from the package. */
   readMedia(name: string): Promise<Uint8Array | null>;
-  /** Frees the worker and the file handle. Pending reads reject. */
   close(): void;
 };
 
@@ -35,7 +19,6 @@ export async function openAnkiFile(file: File): Promise<AnkiReader> {
   }
 
   const worker = new Worker(new URL("./anki.worker.ts", import.meta.url), { type: "module" });
-  // Media reads and conversions share one request ID space.
   const pending = new Map<number, { resolve(value: never): void; reject(error: Error): void }>();
   let closed = false;
   let nextRequestId = 0;

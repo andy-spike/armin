@@ -1,4 +1,3 @@
-/** Anki import: contract types and the portable converter. */
 export * from "./types";
 export { armDeckName, convertAnkiCollection, uniqueDeckNames } from "./convert";
 export { resolveImportMedia } from "./resolve-media";

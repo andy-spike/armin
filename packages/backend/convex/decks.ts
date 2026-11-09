@@ -11,7 +11,6 @@ import { deleteDeckCascade } from "./model/deletion";
 import { dueCounts, selectSession } from "./model/queue";
 import { bumpRevision, findRequest, recordRequest } from "./model/study";
 
-/** The deck's totals the slow way, for a deck whose counters aren't built yet. */
 async function countFromUnits(ctx: QueryCtx, deck: Doc<"decks">) {
   const units = await ctx.db
     .query("reviewUnits")
@@ -41,11 +40,6 @@ async function deckStats(
   now: number,
   shared?: { counters: Map<string, Doc<"deckCounters">>; due: Record<string, number> },
 ) {
-  // Archived cards stay out of the deck's card and progress totals, but the
-  // header names their count separately so the footer and tile grid agree.
-  // Progress is counted in flashcards: a flashcard is learned only when every
-  // review unit it generates (both directions, every cloze deletion) is in
-  // FSRS Review state, so `learned` never exceeds `total`.
   const counts =
     (shared
       ? shared.counters.get(deck._id)
@@ -86,7 +80,6 @@ export const list = query({
       .withIndex("by_library", (q) => q.eq("libraryId", library._id))
       .collect();
     const now = args.now ?? Date.now();
-    // Counters and due counts for every deck in a fixed number of reads.
     const counters = await ctx.db
       .query("deckCounters")
       .withIndex("by_library", (q) => q.eq("libraryId", library._id))
@@ -103,7 +96,6 @@ export const list = query({
   },
 });
 
-/** Deck names only, for pickers that don't need statistics. */
 export const listNames = query({
   args: {},
   handler: async (ctx) => {
@@ -178,11 +170,6 @@ export const update = mutation({
   },
 });
 
-/**
- * Pins or unpins a deck in the sidebar. A display preference, not an edit: it
- * leaves the deck's version and the library revision alone, so an open rename
- * or graph edit never conflicts with it.
- */
 export const setPinned = mutation({
   args: { deckId: v.id("decks"), pinned: v.boolean() },
   handler: async (ctx, { deckId, pinned }) => {
@@ -194,15 +181,12 @@ export const setPinned = mutation({
   },
 });
 
-/** Removes the deck from active use at once, then cleans its rows in batches. */
 export const remove = mutation({
   args: { deckId: v.id("decks") },
   handler: async (ctx, { deckId }) => {
     const library = await writableLibrary(ctx);
     const deck = await ctx.db.get(deckId);
-    // Deleting something already gone is a no-op, so retries are safe.
     if (!deck || deck.libraryId !== library._id) return { ok: true as const };
-    // Staging decks belong to an import that publishes or cleans them up itself.
     if (deck.staging) fail("CONFLICT", "This import is still finishing. Try again in a moment.");
     await deleteDeckCascade(ctx, deck);
     await bumpRevision(ctx, library._id);
@@ -210,7 +194,6 @@ export const remove = mutation({
   },
 });
 
-/** Navigation reads counters without selecting or hydrating review cards. */
 export const navigation = query({
   args: {},
   returns: v.union(

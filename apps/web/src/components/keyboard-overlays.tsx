@@ -12,11 +12,6 @@ import { KeybindingHint } from "@/components/keybinding-hint";
 import { useKeybindings, useScope } from "@/keybindings/keybindings-provider";
 import { COMMANDS, COMMAND_BY_ID, COMMAND_GROUPS } from "@/lib/keybindings/registry";
 
-/**
- * Mounts the discoverability surfaces and the global Commands that open them:
- * the Ctrl/⌘+K command palette and the `?` keyboard cheatsheet. Both read the
- * effective keymap from the provider. Rendered once from the root layout.
- */
 export function KeyboardOverlays() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
@@ -39,9 +34,6 @@ type PaletteItem = { value: string; label: string };
 function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { keymap, activeScopes, runCommand } = useKeybindings();
 
-  // Palette lists every non-hidden Command; ones whose Scope isn't active right
-  // now are shown but disabled (e.g. "Show answer" while not reviewing). Items
-  // carry `{ value, label }` so Base UI filters on the human label.
   const items = useMemo<PaletteItem[]>(
     () =>
       COMMANDS.filter((c) => !c.hiddenInPalette).map((c) => ({

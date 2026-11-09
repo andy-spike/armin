@@ -5,7 +5,6 @@ import { api } from "@armin/backend/api";
 import { Section } from "@/components/settings-layout";
 import { formatStorage, picturesIn } from "@/lib/storage-size";
 
-/** The library's shared image and audio storage, split by kind. */
 export function StorageUsage() {
   const usage = useQuery(convexQuery(api.media.usage, {})).data;
   const used = usage ? usage.imageBytes + usage.audioBytes : 0;

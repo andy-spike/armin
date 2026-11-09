@@ -1,7 +1,3 @@
-/**
- * Graph performance marks, recorded in development and E2E runs only. They
- * show up in the browser's Performance panel as `armin:graph:*`.
- */
 export function markGraphPerf(name: string) {
   if (!import.meta.env.DEV && !window.__ARMIN_E2E__) return;
   performance.mark(`armin:graph:${name}`);
@@ -11,12 +7,9 @@ export function measureGraphPerf(name: string, start: string, end: string) {
   if (!import.meta.env.DEV && !window.__ARMIN_E2E__) return;
   try {
     performance.measure(`armin:graph:${name}`, `armin:graph:${start}`, `armin:graph:${end}`);
-  } catch {
-    // Marks are best-effort in development.
-  }
+  } catch {}
 }
 
-/** Run work when the browser is idle (or soon, where idle callbacks are missing). */
 export function scheduleGraphWork(work: () => void) {
   if ("requestIdleCallback" in window) {
     const id = window.requestIdleCallback(work, { timeout: 500 });
@@ -26,7 +19,6 @@ export function scheduleGraphWork(work: () => void) {
   return () => globalThis.clearTimeout(id);
 }
 
-/** Run work after the canvas has painted, or after `fallbackMs` if it never does. */
 export function afterCanvasPaint(work: () => void, fallbackMs = 250) {
   let done = false;
   let inner = 0;

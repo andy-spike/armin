@@ -7,40 +7,18 @@ import { BROWSE_PAGE_SIZE } from "@armin/core/study";
 import type { BrowseQueryFilters } from "@/lib/armin-query";
 import { studyClockNow } from "@/lib/study-clock";
 
-/*
- * Query definitions shared by the pages and their route loaders. Each is a
- * live Convex subscription: the server pushes a new result whenever data it
- * read changes, so writes need no cache invalidation. A loader prefetches the
- * exact key its page reads, so data that starts loading on hover is the data
- * the page renders on click.
- *
- * Time-dependent queries take the study clock (`now`), which advances only
- * when something falls due (lib/study-clock.ts).
- */
-
-/**
- * How long an unused subscription stays open after its last reader unmounts,
- * so going back to a page is instant without keeping every page live.
- */
 const LIVE_GC_MS = 5 * 60_000;
 
 function live<Query extends FunctionReference<"query">>(query: Query, args: FunctionArgs<Query>) {
   return { ...convexQuery(query, args), gcTime: LIVE_GC_MS };
 }
 
-/**
- * For queries that scan the library's review units or history. Any study or
- * deck change reruns every open subscription that read them, and the client
- * sees the change only once all of them have caught up, so unused ones close
- * after a short grace period instead of five minutes.
- */
 const HEAVY_GC_MS = 30_000;
 
 function heavy<Query extends FunctionReference<"query">>(query: Query, args: FunctionArgs<Query>) {
   return { ...convexQuery(query, args), gcTime: HEAVY_GC_MS };
 }
 
-/** Drop unset filters: Convex arguments can't carry `undefined`. */
 function defined<T extends object>(value: T) {
   return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T;
 }
@@ -63,7 +41,6 @@ export const deckTagsQuery = (deckId: string) =>
     select: (tags) => tags ?? [],
   });
 
-/** One Browse page: the first (`cursor: null`), or the one after a cursor. */
 export type BrowsePageSpec = { cursor: string | null; endCursor?: string };
 
 export const browsePageQuery = (filters: BrowseQueryFilters, page: BrowsePageSpec) =>
@@ -81,23 +58,18 @@ export const browsePageQuery = (filters: BrowseQueryFilters, page: BrowsePageSpe
 export const browseCountsQuery = ({ sort: _sort, ...filters }: BrowseQueryFilters) =>
   queryOptions(heavy(api.flashcards.browseCounts, defined(filters)));
 
-/** Library due count and the moment time next changes it; drives the study clock. */
 export const reviewStatusQuery = (now = studyClockNow()) =>
   queryOptions(live(api.review.status, { now }));
 
-/** All Stats page sections for the library or one deck. */
 export const statsOverviewQuery = (deckId?: string, now = studyClockNow()) =>
   queryOptions({ ...heavy(api.stats.overview, defined({ deckId, now })) });
 
-/** Compact heatmap and streak for the Decks page. */
 export const statsHeatmapQuery = (weeks = STATS_COMPACT_HEATMAP_WEEKS, now = studyClockNow()) =>
   queryOptions({ ...heavy(api.stats.heatmap, { weeks, now }) });
 
-/** The review queue for one deck, or for every deck. */
 export const reviewQueueQuery = (deckId?: string, now = studyClockNow()) =>
   queryOptions(heavy(api.review.queue, defined({ deckId, now, metadataOnly: true })));
 
-/** The filters a cram setup sends to the count and queue queries. */
 export type CramFilters = {
   states: number[];
   tag?: string;
@@ -114,20 +86,17 @@ const cramArgs = (deckId: string, filters: CramFilters) =>
     includeLocked: filters.includeLocked,
   });
 
-/** Live match count for the cram setup dialog. */
 export const cramCountQuery = (deckId: string, filters: CramFilters) =>
   queryOptions({
     ...heavy(api.cram.count, cramArgs(deckId, filters)),
     select: (result) => result?.count ?? 0,
   });
 
-/** Every unit matching a cram setup; the session shuffles and limits locally. */
 export const cramQueueQuery = (deckId: string, filters: CramFilters, max?: number, seed = 1) =>
   queryOptions(
     heavy(api.cram.queue, defined({ ...cramArgs(deckId, filters), max, seed, metadataOnly: true })),
   );
 
-/** A flashcard's schedule and review history, for the card info dialog. `null` skips. */
 export const cardInfoQuery = (flashcardId: string | null) =>
   queryOptions({
     ...(flashcardId
@@ -136,7 +105,6 @@ export const cardInfoQuery = (flashcardId: string | null) =>
     select: (info) => info ?? null,
   });
 
-/** A concept card's variant pool and generation state, for the card editor. `null` skips. */
 export const conceptPoolQuery = (flashcardId: string | null) =>
   queryOptions({
     ...(flashcardId
@@ -145,13 +113,8 @@ export const conceptPoolQuery = (flashcardId: string | null) =>
     select: (pool) => pool ?? null,
   });
 
-/**
- * Whether this deployment generates concept card variants, and why not. A
- * deployment setting, so the subscription stays open like other live reads.
- */
 export const conceptAvailabilityQuery = () => queryOptions(live(api.concepts.availability, {}));
 
-/** How many links a move would remove, for the move dialog. `null` skips. */
 export const moveConsequencesQuery = (flashcardId: string | null) =>
   queryOptions({
     ...(flashcardId
@@ -182,18 +145,8 @@ export const settingsQuery = () =>
     },
   });
 
-/** The default sort each page opens with; prefetching any other sort would miss. */
 export const DECK_PAGE_SORT = "due-soon";
 export const BROWSE_PAGE_SORT = "created-new";
-
-/*
- * Page prefetchers. Route loaders call these when the router preloads on
- * intent (hover or focus of a link) and again on navigation, without waiting,
- * so the click usually finds the data already cached. A prefetched query
- * stays subscribed, so it is still current when the page opens. They only run
- * in the browser: these reads go over the signed-in Convex socket, which
- * server renders don't open.
- */
 
 const inBrowser = () => typeof window !== "undefined";
 
@@ -241,7 +194,6 @@ export function prefetchReviewPage(queryClient: QueryClient, deckId?: string) {
   void queryClient.prefetchQuery(reviewQueueQuery(deckId));
 }
 
-/** Cram's queue depends on the setup search, so only the deck is prefetched. */
 export function prefetchCramPage(queryClient: QueryClient, deckId: string) {
   if (!inBrowser()) return;
   void queryClient.prefetchQuery(deckQuery(deckId));

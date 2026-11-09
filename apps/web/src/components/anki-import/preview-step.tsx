@@ -9,7 +9,6 @@ import { TruncatedLabel } from "@/components/ui/truncated-label";
 import { type OpenedAnkiFile } from "@/lib/anki/opened-file";
 import { n, plural, formatBytes, type ProgressMode } from "./format";
 
-/** The parent path every deck name shares, such as "French › ", so rows show only what differs. */
 function sharedDeckPrefix(names: string[]) {
   if (names.length < 2) return "";
   const paths = names.map((name) => name.split(" › "));
@@ -262,7 +261,6 @@ export function PreviewStep({
   );
 }
 
-/** Short labels read after the count of notes; other codes keep the converter's sentence. */
 const CHANGE_LABELS: Partial<Record<ImportWarningCode, string>> = {
   custom_notetype_rendered: "became basic cards from custom note types",
   scripts_removed: "had scripts and styles removed",

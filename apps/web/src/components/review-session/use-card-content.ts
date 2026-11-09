@@ -6,15 +6,8 @@ import type { Id } from "@armin/backend/types";
 import type { SessionCard } from "@armin/core/review-session";
 import { toUiReviewUnit, type UiReviewUnit } from "@/types/view-models";
 
-/** How many cards ahead of the current one load their content. */
 const CONTENT_WINDOW = 8;
 
-/**
- * The queue carries metadata only; this loads the text of the card on screen
- * and the next few through one live `review.items` subscription. A card's
- * content stays as first shown while reactive updates for it arrive, so an
- * edit elsewhere never rewrites the card mid-answer.
- */
 export function useCardContent({
   cards,
   index,
@@ -24,7 +17,6 @@ export function useCardContent({
   cards: SessionCard<UiReviewUnit>[];
   index: number;
   resetKey?: string;
-  /** Cram's session seed: concept cards show a random exercise, not the assigned one. */
   practiceSeed?: number;
 }) {
   const descriptor = cards[index];

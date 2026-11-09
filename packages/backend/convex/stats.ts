@@ -22,7 +22,6 @@ import { sumSizes } from "./model/deckSizes";
 import { State } from "@armin/core/scheduler";
 import { startOfNextStudyDayMs } from "@armin/core/study";
 
-/** All decks (`null`) or the requested deck, if it belongs to the library. */
 async function resolveDeckScope(
   ctx: QueryCtx,
   library: Doc<"libraries">,
@@ -62,21 +61,12 @@ function clampHeatmapWeeks(weeks: number | undefined) {
   return Math.min(STATS_HEATMAP_WEEKS, Math.max(1, Math.floor(weeks)));
 }
 
-/**
- * Days to request so the Sunday-aligned heatmap has exactly `weeks` columns:
- * the range plus whatever leading days fill the current partial week.
- */
 function heatmapDayCount(weeks: number) {
   return (weeks - 1) * 7 + 1;
 }
 
-/** Units read per review state for the forecast; past this the forecast is truncated. */
 const FORECAST_ROWS_PER_STATE = 8000;
 
-/**
- * Due times of studyable reviews through the end of the forecast window,
- * from the review-state indexes, so new units never count toward the read.
- */
 async function forecastDues(
   ctx: QueryCtx,
   library: Doc<"libraries">,
@@ -116,7 +106,6 @@ async function forecastDues(
   return { dues, truncated };
 }
 
-/** Unit-state totals from the deck counters; decks without counters yet are read. */
 async function stateTotals(ctx: QueryCtx, library: Doc<"libraries">, decks: Set<Id<"decks">>) {
   const rows = await ctx.db
     .query("deckUnitCounts")
@@ -136,7 +125,6 @@ async function stateTotals(ctx: QueryCtx, library: Doc<"libraries">, decks: Set<
   const have = new Set(counted.map((row) => row.deckId));
   for (const deckId of decks) {
     if (have.has(deckId)) continue;
-    // Decks from before the counters were small; their counters appear on the next write.
     const units = await ctx.db
       .query("unitSummaries")
       .withIndex("by_deck", (q) => q.eq("deckId", deckId))
@@ -148,11 +136,6 @@ async function stateTotals(ctx: QueryCtx, library: Doc<"libraries">, decks: Set<
   return totals;
 }
 
-/**
- * Everything the Stats page shows, in one bounded read per data source. `now`
- * is the client study clock: it makes the subscription re-run when the study
- * day rolls over, while the server still buckets against its own current time.
- */
 export const overview = query({
   args: { deckId: v.optional(v.string()), now: v.number() },
   handler: async (ctx, { deckId: deckIdArg, now }) => {
@@ -193,10 +176,6 @@ export const overview = query({
   },
 });
 
-/**
- * Just the heatmap and streak, for the compact panel on the Decks page. `weeks`
- * is clamped so a client cannot ask for an unbounded history read.
- */
 export const heatmap = query({
   args: { deckId: v.optional(v.string()), weeks: v.optional(v.number()), now: v.number() },
   handler: async (ctx, { deckId: deckIdArg, weeks, now }) => {

@@ -5,6 +5,7 @@ Armin is a spaced-repetition flashcard app. It's a pnpm monorepo with `apps/web`
 - Use pnpm. Run the app with `pnpm dev` and sign in as `test@example.com` / `armin1234`.
 - Run `pnpm check` before finishing. Don't add test suites.
 - Work on the branch you were given. Never push to `master`, and open a PR only when asked.
-- UI: use the shadcn Base UI primitives in `apps/web/src/components/ui/` (no Radix), and use `Tooltip` instead of `title`. Don't write return types.
+- Don't write code comments unless the user explicitly asks for one. Lint and type directives such as `oxlint-disable` and `@ts-expect-error` are allowed.
+- UI: use the shadcn Base UI primitives in `apps/web/src/components/ui/` (no Radix), and use `Tooltip` instead of `title`. Dialog action labels stay static; show progress with `Button`'s `busy` prop. Don't write return types.
 - Backend: ownership comes from the session's library. Clients import only `@armin/backend/api` and `@armin/backend/types`.
 - If your change makes a doc wrong, fix the doc in the same change.

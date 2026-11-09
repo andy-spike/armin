@@ -8,7 +8,6 @@ function escapeHtml(text: string) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/** Render KaTeX as native browser MathML, keeping all other card text inert. */
 export function MathText({ text }: { text: string }) {
   const [height, setHeight] = useState(80);
   const html = useMemo(() => {

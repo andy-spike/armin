@@ -1,4 +1,3 @@
-/** Source-only math parsing shared by import, editors, and both clients. */
 export type MathPart =
   | { kind: "text"; raw: string }
   | { kind: "math"; raw: string; tex: string; display: boolean };
@@ -18,7 +17,6 @@ function escaped(source: string, index: number) {
   return slashes % 2 === 1;
 }
 
-/** Read one delimited expression without consuming ordinary currency. */
 export function mathAt(source: string, index: number) {
   if (escaped(source, index)) return null;
   for (const [open, close, display] of DELIMITERS) {
@@ -37,7 +35,6 @@ export function mathAt(source: string, index: number) {
   return null;
 }
 
-/** Keep fenced/inline code literal. Unclosed math also stays literal. */
 export function splitMath(source: string): MathPart[] {
   const parts: MathPart[] = [];
   let start = 0;

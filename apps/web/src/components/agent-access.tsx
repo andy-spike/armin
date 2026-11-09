@@ -1,10 +1,6 @@
 import { Library, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/**
- * The one access level every approved connection receives. There are no
- * per-deck, read-only, or edit/create choices to present.
- */
 export function AgentAccess({ className }: { className?: string }) {
   return (
     <section
@@ -29,7 +25,6 @@ export function AgentAccess({ className }: { className?: string }) {
   );
 }
 
-/** Limits no connection setting can lift, shown beside consent and connections. */
 export function AgentLimits({ className }: { className?: string }) {
   return (
     <p className={cn("flex items-start gap-2 text-[0.8125rem] leading-snug text-muted", className)}>

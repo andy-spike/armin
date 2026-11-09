@@ -1,9 +1,3 @@
-/**
- * Portable Flashcard media rules: supported image and audio kinds, magic-byte sniffing,
- * and extracting the `armin-media:` references a flashcard's content uses.
- * Free of Node `Buffer` so it runs in Convex and React Native.
- */
-
 import type {
   ConceptContent,
   FlashcardContent,
@@ -40,7 +34,6 @@ export const MIME_BY_EXT: Record<MediaExt, string> = { ...IMAGE_MIME_BY_EXT, ...
 
 const AUDIO_EXTS = new Set<string>(Object.keys(AUDIO_MIME_BY_EXT));
 
-/** Whether a stored media file name (`<sha>.<ext>`) or extension is audio. */
 export function isAudioFile(fileNameOrExt: string) {
   return AUDIO_EXTS.has(fileNameOrExt.slice(fileNameOrExt.lastIndexOf(".") + 1).toLowerCase());
 }
@@ -48,7 +41,6 @@ export function isAudioFile(fileNameOrExt: string) {
 export const UNSUPPORTED_MEDIA_MESSAGE =
   "Use a PNG, JPG, GIF, WebP, BMP, or AVIF image, or an MP3, OGG, M4A, WAV, FLAC, or AAC audio file.";
 
-/** Beta media limits. Adjust together with the backend quota copy. */
 export const MAX_MEDIA_FILE_BYTES = 10 * 1024 * 1024;
 
 function ascii(bytes: Uint8Array, start: number, length: number) {
@@ -63,7 +55,6 @@ function startsWith(bytes: Uint8Array, prefix: number[]) {
   return prefix.every((byte, index) => bytes[index] === byte);
 }
 
-/** Detect the actual image type from file bytes; null when unsupported. */
 export function sniffImageExt(bytes: Uint8Array): ImageExt | null {
   if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47])) return "png";
   if (startsWith(bytes, [0xff, 0xd8, 0xff])) return "jpg";
@@ -76,12 +67,9 @@ export function sniffImageExt(bytes: Uint8Array): ImageExt | null {
   if (ascii(bytes, 4, 4) === "ftyp" && ascii(bytes, 8, 4).startsWith("avif")) {
     return "avif";
   }
-  // SVG is not accepted for uploads: it can carry script and is served from
-  // an authenticated route. Existing desktop exports may still contain it.
   return null;
 }
 
-/** Detect the actual audio type from file bytes; null when unsupported. */
 export function sniffAudioExt(bytes: Uint8Array): AudioExt | null {
   if (ascii(bytes, 0, 3) === "ID3") return "mp3";
   if (ascii(bytes, 0, 4) === "OggS") return "ogg";
@@ -92,14 +80,12 @@ export function sniffAudioExt(bytes: Uint8Array): AudioExt | null {
     if (/^(?:M4A |M4B |mp4\d|isom|iso\d|dash|MSNV)$/.test(brand)) return "m4a";
     return null;
   }
-  // MPEG audio frame sync: 11 set bits. Layer bits 00 mean an ADTS AAC stream.
   if (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) {
     return (bytes[1] & 0x06) === 0 ? "aac" : "mp3";
   }
   return null;
 }
 
-/** An uploadable image or audio type; null when neither. */
 export function sniffMediaExt(bytes: Uint8Array): MediaExt | null {
   return sniffImageExt(bytes) ?? sniffAudioExt(bytes);
 }
@@ -107,7 +93,6 @@ export function sniffMediaExt(bytes: Uint8Array): MediaExt | null {
 const MARKDOWN_IMAGE_RE = /!\[[^\]]*\]\(([^)\s]+)(?:\s+["'][^)]*["'])?\)/g;
 const HTML_IMAGE_SRC_RE = /<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
 
-/** The Markdown-bearing fields of a flashcard's content. */
 export function markdownFieldsFor(type: FlashcardType, content: FlashcardContent): string[] {
   switch (type) {
     case "basic":
@@ -132,10 +117,6 @@ export function markdownFieldsFor(type: FlashcardType, content: FlashcardContent
   }
 }
 
-/**
- * Every media file name referenced by the content. Throws when an image
- * source is not an `armin-media:` reference (inline data or remote URLs).
- */
 export function contentMediaFileNames(type: FlashcardType, content: FlashcardContent): string[] {
   const names = new Set<string>();
   const accept = (value: string, label: string) => {

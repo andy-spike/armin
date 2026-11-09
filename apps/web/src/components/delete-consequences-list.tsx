@@ -14,13 +14,11 @@ function reviewHistoryLine(consequences: FlashcardDeleteConsequences) {
   return `${plural(consequences.reviewLogCount, "review log")} across ${units} will be destroyed${span}.`;
 }
 
-/** What deleting a flashcard destroys, shown in every delete confirmation. */
 export function DeleteConsequencesList({
   consequences,
   unavailable,
 }: {
   consequences: FlashcardDeleteConsequences | null;
-  /** The counts failed to load, or this screen can't load them. */
   unavailable: boolean;
 }) {
   return (
@@ -43,10 +41,6 @@ export function DeleteConsequencesList({
   );
 }
 
-/**
- * The confirmation every surface shows before hard-deleting a flashcard.
- * `waitForConsequences` keeps Delete disabled until the counts arrive.
- */
 export function DeleteFlashcardDialog({
   open,
   preview = "",
@@ -66,7 +60,6 @@ export function DeleteFlashcardDialog({
   pending?: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  /** Offers "Archive instead"; omit where archiving isn't available. */
   onArchiveInstead?: () => void;
 }) {
   return (
@@ -90,7 +83,6 @@ export function DeleteFlashcardDialog({
         <DeleteConsequencesList consequences={consequences} unavailable={consequencesUnavailable} />
       </div>
       <div className="mt-5 flex flex-wrap justify-end gap-2 pt-1">
-        {/* Focus the safe action when the dialog opens from a key press. */}
         <Button variant="ghost" autoFocus onClick={onClose}>
           Cancel
         </Button>

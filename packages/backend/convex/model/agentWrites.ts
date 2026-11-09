@@ -5,15 +5,8 @@ import { fail } from "./errors";
 import { libraryLimits, limitOwnerName } from "./usage";
 
 const HOUR_MS = 3_600_000;
-/** Monthly meters are kept a little past their month, then pruned with other buckets. */
 const MONTH_RETENTION_MS = 40 * 24 * HOUR_MS;
 
-/**
- * Run one assistant write at most once per request ID. A retry with the same
- * input returns the first result (through `replay`, when the caller must
- * recheck or redact it); a reused ID with different input is rejected. Every
- * new write counts toward the connection's hourly limit.
- */
 export async function runAgentWrite<Result>(
   ctx: MutationCtx,
   connection: Doc<"agentConnections">,
@@ -53,7 +46,6 @@ export async function runAgentWrite<Result>(
   return result;
 }
 
-/** Bound write volume per connection, even when a client repeatedly edits one card. */
 async function countWrite(ctx: MutationCtx, connection: Doc<"agentConnections">) {
   const key = `write:${connection._id}`;
   const now = Date.now();
@@ -81,10 +73,6 @@ async function countWrite(ctx: MutationCtx, connection: Doc<"agentConnections">)
   }
 }
 
-/**
- * Count cards an assistant creates against the library's monthly allowance,
- * shared by every connection. Call it before writing the cards.
- */
 export async function countAgentCards(
   ctx: MutationCtx,
   libraryId: Doc<"libraries">["_id"],

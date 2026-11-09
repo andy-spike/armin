@@ -2,15 +2,7 @@ import { ANKI_MEDIA_PREFIX, type ImportWarningCode } from "./types";
 import { splitMath } from "../math";
 import { renderMath } from "../math-render";
 
-/**
- * Anki field HTML → Markdown. Armin renders Markdown (react-markdown + GFM)
- * without raw HTML, so every supported tag maps to Markdown and the rest keeps
- * only its text. A small tolerant tokenizer stands in for a DOM so the code runs
- * in browsers, React Native, and Convex alike.
- */
-
 const SUPPORTED_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"]);
-/** Audio Armin plays; the bytes are sniffed again on upload (`sniffAudioExt`). */
 const SUPPORTED_AUDIO_EXTENSIONS = new Set([
   "mp3",
   "ogg",
@@ -117,8 +109,6 @@ export function decodeEntities(text: string) {
   });
 }
 
-// --- Tokenizer and tree ---
-
 type HtmlNode = HtmlElement | { text: string };
 type HtmlElement = {
   tag: string;
@@ -138,7 +128,6 @@ function parseAttrs(source: string) {
   return attrs;
 }
 
-/** Tags that implicitly close an open sibling of the same family. */
 const IMPLICIT_CLOSE: Record<string, string[]> = {
   li: ["li"],
   p: ["p"],
@@ -191,7 +180,6 @@ function parseHtml(html: string) {
     top().children.push(element);
     if (VOID_TAGS.has(tag) || /\/\s*$/.test(rawAttrs ?? "")) continue;
     if (tag === "script" || tag === "style") {
-      // Raw-text elements: swallow everything up to the closing tag.
       const end = html.slice(TOKEN_RE.lastIndex).search(new RegExp(`</${tag}\\s*>`, "i"));
       if (end === -1) {
         TOKEN_RE.lastIndex = html.length;
@@ -206,11 +194,8 @@ function parseHtml(html: string) {
   return root;
 }
 
-// --- Markdown rendering ---
-
 export type HtmlConversion = {
   markdown: string;
-  /** Anki media file names referenced by the kept images. */
   media: string[];
 };
 
@@ -219,36 +204,26 @@ export type HtmlWarningSink = (code: ImportWarningCode) => void;
 export type HtmlOptions = {
   mediaNames: ReadonlySet<string>;
   warn: HtmlWarningSink;
-  /** Plain text for fields Armin shows without Markdown (occlusion header/extra). */
   plain?: boolean;
-  /** Keep SVG images; the caller converts them to PNG before upload. */
   svg?: boolean;
 };
 
 const SOUND_RE = /\[sound:([^\]]*)\]/g;
-/** Stands in for `[sound:…]` while the HTML is parsed; the name is percent-encoded. */
 const AUDIO_TAG = "armin-audio";
 
-/** Escape characters that would start Markdown syntax when they appear in plain text. */
 function escapeMarkdown(text: string) {
-  return (
-    text
-      .replace(/[\\`*[\]<]/g, "\\$&")
-      .replace(/_/g, (ch, offset: number) => {
-        const word = (c: string | undefined) => c !== undefined && /[A-Za-z0-9]/.test(c);
-        return word(text[offset - 1]) && word(text[offset + 1]) ? ch : "\\_";
-      })
-      // `~sub~`, `^sup^`, and `==highlight==` are Armin formatting too.
-      .replace(/[~^]/g, "\\$&")
-      .replace(/==/g, "\\=\\=")
-      .replace(/^(\s*)([#>+-])(?=\s|$|>)/gm, "$1\\$2")
-      .replace(/^(\s*\d+)([.)])(?=\s)/gm, "$1\\$2")
-      .replace(
-        /^(\s*)([-=*_]{3,})\s*$/gm,
-        (_, indent: string, rule: string) => `${indent}\\${rule}`,
-      )
-      .replace(/&(?=#?\w+;)/g, "\\&")
-  );
+  return text
+    .replace(/[\\`*[\]<]/g, "\\$&")
+    .replace(/_/g, (ch, offset: number) => {
+      const word = (c: string | undefined) => c !== undefined && /[A-Za-z0-9]/.test(c);
+      return word(text[offset - 1]) && word(text[offset + 1]) ? ch : "\\_";
+    })
+    .replace(/[~^]/g, "\\$&")
+    .replace(/==/g, "\\=\\=")
+    .replace(/^(\s*)([#>+-])(?=\s|$|>)/gm, "$1\\$2")
+    .replace(/^(\s*\d+)([.)])(?=\s)/gm, "$1\\$2")
+    .replace(/^(\s*)([-=*_]{3,})\s*$/gm, (_, indent: string, rule: string) => `${indent}\\${rule}`)
+    .replace(/&(?=#?\w+;)/g, "\\&");
 }
 
 function escapeText(text: string, plain: boolean) {
@@ -258,7 +233,6 @@ function escapeText(text: string, plain: boolean) {
 type RenderState = {
   options: HtmlOptions;
   media: Set<string>;
-  /** Open emphasis wrappers, so nested duplicates don't produce `****`. */
   open: { bold: number; italic: number; strike: number; sup: number; sub: number; mark: number };
 };
 
@@ -281,7 +255,6 @@ export type ImageCheck =
   | { ok: true; name: string; placeholder: string }
   | { ok: false; reason: "missing_media" | "unsupported_image_removed" };
 
-/** A percent-encoded media name, or the raw name when it isn't valid percent-encoding. */
 export function decodeMediaName(encoded: string) {
   try {
     return decodeURIComponent(encoded);
@@ -290,23 +263,16 @@ export function decodeMediaName(encoded: string) {
   }
 }
 
-/**
- * The package file a media reference names, with its lowercase extension.
- * Remote and inline sources aren't part of the package, so they give null and
- * count as missing.
- */
 function packageFile(rawSrc: string) {
   if (/^(?:https?:|data:|\/\/)/i.test(rawSrc.trim())) return null;
   const name = decodeMediaName(rawSrc.trim());
   return { name, ext: fileExtension(name) };
 }
 
-/** Whether a package file name has an audio extension Armin plays. */
 export function isSupportedAudioName(name: string) {
   return SUPPORTED_AUDIO_EXTENSIONS.has(fileExtension(name));
 }
 
-/** Check an `<img src>` against the package media and Armin's supported formats. */
 export function inspectImage(
   rawSrc: string,
   mediaNames: ReadonlySet<string>,
@@ -326,7 +292,6 @@ export type AudioCheck =
   | { ok: true; name: string; placeholder: string }
   | { ok: false; reason: "missing_media" | "audio_removed" | "video_removed" };
 
-/** Check a `[sound:…]` or `<audio src>` file against the package media and Armin's formats. */
 export function inspectAudio(rawSrc: string, mediaNames: ReadonlySet<string>): AudioCheck {
   const file = packageFile(rawSrc);
   if (!file) return { ok: false, reason: "missing_media" };
@@ -337,7 +302,6 @@ export function inspectAudio(rawSrc: string, mediaNames: ReadonlySet<string>): A
   return { ok: true, name, placeholder: `${ANKI_MEDIA_PREFIX}${encodeMediaName(name)}` };
 }
 
-/** Markdown for an audio file, or "" when it can't be kept. Plain fields can't play audio. */
 function audioMarkdown(rawSrc: string, state: RenderState) {
   if (state.options.plain) {
     state.options.warn("audio_removed");
@@ -352,10 +316,6 @@ function audioMarkdown(rawSrc: string, state: RenderState) {
   return `![audio](${audio.placeholder})`;
 }
 
-/**
- * Whether an inline `color` or `background-color` is a deliberate highlight.
- * Text pasted into Anki often carries black, white, or gray, which isn't.
- */
 function isAccentColor(value: string) {
   const color = value.trim().toLowerCase();
   if (!color || /^(?:inherit|initial|unset|transparent|currentcolor|none|var\()/.test(color))
@@ -393,7 +353,6 @@ function isAccentColor(value: string) {
       rgb = [fn[1], fn[2], fn[3]].map(Number);
     }
   }
-  // Any other named color (red, blue, …) or format (hsl) is a choice.
   if (!rgb) return /^[a-z]+$|^hsla?\(/.test(color);
   const max = Math.max(...rgb) / 255;
   const min = Math.min(...rgb) / 255;
@@ -411,7 +370,6 @@ function highlighted(el: HtmlElement) {
   return false;
 }
 
-/** Resolve an `<img src>` to a placeholder reference, or null when it can't be kept. */
 function imagePlaceholder(rawSrc: string, state: RenderState) {
   const image = inspectImage(rawSrc, state.options.mediaNames, state.options.svg);
   if (!image.ok) {
@@ -422,10 +380,6 @@ function imagePlaceholder(rawSrc: string, state: RenderState) {
   return image.placeholder;
 }
 
-/**
- * Render children as a sequence of blocks. Consecutive inline content forms one
- * paragraph; block elements each become their own block.
- */
 function renderBlocks(nodes: HtmlNode[], state: RenderState): string[] {
   const blocks: string[] = [];
   let inline = "";
@@ -450,7 +404,6 @@ function renderBlocks(nodes: HtmlNode[], state: RenderState): string[] {
 }
 
 function trimInline(text: string) {
-  // Keep intentional hard breaks inside, strip them at the edges.
   return text.replace(/^(?:[ \t]*\n)+|(?:[ \t]*\n)+[ \t]*$/g, "").replace(/^[ \t]+|[ \t]+$/g, "");
 }
 
@@ -564,7 +517,6 @@ function renderTable(table: HtmlElement, state: RenderState): string[] {
       .replace(/\s*\n\s*/g, " ")
       .replace(/\|/g, "\\|");
   if (!simple) {
-    // Irregular tables degrade to one line per row.
     return cells
       .map((row) =>
         row
@@ -589,7 +541,6 @@ function renderInlineChildren(el: HtmlElement, state: RenderState) {
   return result;
 }
 
-/** Join adjacent bold elements at their boundaries, without touching code text. */
 function appendInline(
   result: string,
   next: string,
@@ -615,14 +566,6 @@ function appendInline(
 const LEADING_PUNCTUATION_RE = /^[\p{P}\p{S}]/u;
 const TRAILING_PUNCTUATION_RE = /[\p{P}\p{S}]$/u;
 
-/**
- * Wrap inline content in a Markdown delimiter, keeping edge whitespace outside it.
- *
- * CommonMark won't open `**` before punctuation, or close it after punctuation,
- * unless whitespace or punctuation sits on the far side, so `**状(じょう)**では`
- * shows its asterisks. A zero-width space between the delimiter and the
- * punctuation lets it open and close wherever it lands.
- */
 function wrap(content: string, open: string, close = open) {
   const match = /^(\s*)([\s\S]*?)(\s*)$/.exec(content)!;
   const inner = match[2];
@@ -712,7 +655,6 @@ function renderInline(node: HtmlNode, state: RenderState): string {
       const inner = trimInline(children());
       state.open[kind]--;
       if (!inner) return "";
-      // `^x^` and `~x~` can't hold a bare space or line break, so escape the spaces.
       const mark = kind === "sup" ? "^" : "~";
       return `${mark}${inner.replace(/\s*\n\s*/g, " ").replace(/ /g, "\\ ")}${mark}`;
     }
@@ -734,14 +676,12 @@ function renderInline(node: HtmlNode, state: RenderState): string {
       return children();
     case "rt":
     case "rp":
-      // Ruby annotations: keep the reading in brackets so it isn't glued to the base text.
       return node.tag === "rt" && textOf(node.children).trim()
         ? `(${textOf(node.children).trim()})`
         : "";
     default:
       if (SKIPPED_TAGS.has(node.tag)) return "";
       if (BLOCK_TAGS.has(node.tag)) {
-        // A block nested inside inline content: set it off with a line break.
         const blocks = renderBlockElement(node, state);
         return blocks.length ? `  \n${blocks.join("\n\n")}  \n` : "";
       }
@@ -749,7 +689,6 @@ function renderInline(node: HtmlNode, state: RenderState): string {
   }
 }
 
-/** Collapse whitespace artifacts without disturbing code fences. */
 function tidy(markdown: string) {
   return markdown
     .split(/(```+[\s\S]*?```+)/)
@@ -757,12 +696,10 @@ function tidy(markdown: string) {
       index % 2 === 1
         ? part
         : part
-            // Two trailing spaces are a hard break; anything else is stray.
             .replace(/([ \t]*)\n/g, (_, spaces: string) => (spaces.length >= 2 ? "  \n" : "\n"))
             .replace(/(?: {2}\n){2,}/g, "\n\n")
             .replace(/ {2}\n(?=\n)/g, "\n")
             .replace(/\n{3,}/g, "\n\n")
-            // Runs of spaces left where something was removed.
             .replace(/(\S) {2,}(?=\S)/g, "$1 "),
     )
     .join("")
@@ -783,8 +720,6 @@ export function htmlToMarkdown(html: string, options: HtmlOptions): HtmlConversi
     (_, name: string) =>
       `<${AUDIO_TAG} data-src="${encodeURIComponent(decodeEntities(name))}"></${AUDIO_TAG}>`,
   );
-  // Protect TeX before HTML parsing and Markdown escaping: comparisons can
-  // contain '<', arrays use '&', and backslashes must survive unchanged.
   if (/\[latex\]/i.test(source)) options.warn("math_as_text");
   const math: string[] = [];
   let marker = "\uE000math";

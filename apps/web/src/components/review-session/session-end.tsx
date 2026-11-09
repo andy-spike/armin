@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ReviewStatePanel, UndoButton } from "./parts";
 
-/** The queue couldn't be built. */
 export function SessionErrorPanel({ onRetry }: { onRetry?: () => void }) {
   return (
     <ReviewStatePanel>
@@ -22,10 +21,6 @@ export function SessionErrorPanel({ onRetry }: { onRetry?: () => void }) {
   );
 }
 
-/**
- * "All caught up": after the last card (`done`), or when nothing was due.
- * Undo stays available, so the last answer can still be taken back.
- */
 export function SessionEndPanel({
   done,
   title,
@@ -43,8 +38,6 @@ export function SessionEndPanel({
 }) {
   return (
     <ReviewStatePanel>
-      {/* Finishing a session is the day's one completion moment, so it
-          settles in; opening onto an empty queue does not. */}
       <div
         className={cn(
           "mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-review-bg text-good",

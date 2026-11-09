@@ -14,8 +14,6 @@ import { convexClient, errorMessage } from "@/lib/armin-client";
 import { useConnection } from "@/lib/session";
 import { cn, formatTimestamp } from "@/lib/utils";
 
-/* ------------------------------------------------------------- helpers */
-
 function formatWhen(timestamp: number) {
   const diff = Date.now() - timestamp;
   const minutes = Math.floor(diff / 60_000);
@@ -41,9 +39,6 @@ function When({ timestamp }: { timestamp: number }) {
   );
 }
 
-/* ------------------------------------------------------- connect guide */
-
-/** Setup steps live on the AI setup page; Settings only points there. */
 function ConnectSection({ another }: { another: boolean }) {
   return (
     <Section
@@ -63,8 +58,6 @@ function ConnectSection({ another }: { another: boolean }) {
   );
 }
 
-/* ------------------------------------------------------- connections */
-
 type Connection = NonNullable<
   ReturnType<typeof useConnectionsQuery>["data"]
 >["connections"][number];
@@ -73,7 +66,6 @@ function useConnectionsQuery() {
   return useQuery(convexQuery(api.agents.connections, {}));
 }
 
-/** Deck names for activity links. Access itself covers the whole library. */
 function useDeckNames() {
   const decks = useQuery(convexQuery(api.decks.listNames, {}));
   return useMemo(
@@ -273,8 +265,6 @@ function DisconnectDialog({
   );
 }
 
-/* ------------------------------------------------------------ activity */
-
 const ACTIVITY_PAGE = 8;
 
 function ActivitySection() {
@@ -343,12 +333,8 @@ function ActivitySection() {
   );
 }
 
-/* --------------------------------------------------------------- panel */
-
-/** The Settings > AI assistants tab: connections, activity, and a link to AI setup. */
 export function AgentSettings() {
   const connections = useConnectionsQuery();
-  // Once something is connected, seeing and disconnecting it matters more than setting up another.
   const hasActive = (connections.data?.connections ?? []).some(
     (connection) => connection.revokedAt === undefined,
   );

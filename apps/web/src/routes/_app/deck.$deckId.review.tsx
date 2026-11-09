@@ -15,8 +15,6 @@ function ReviewPage() {
   const actions = useReviewActions();
 
   const deckQuery = useQuery(deckQueryOptions(deckId, now));
-  // Live so newly unlocked or newly due units appear without a reload, and
-  // the study clock advances so units become due without any data write.
   const queueQuery = useQuery(reviewQueueQuery(deckId, now));
 
   const queue = useMemo(

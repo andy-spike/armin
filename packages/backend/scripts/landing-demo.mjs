@@ -3,12 +3,6 @@ import { anyApi as api } from "convex/server";
 import { ensureDemoAccount, signInDemoAccount } from "./demo-account.mjs";
 import { assertTarget, readState } from "./dev-environment.mjs";
 
-/**
- * The example library the landing page's clips are recorded from: one deck,
- * "Fundamentals of LLMs", in its own account on this checkout's local
- * deployment. Every run starts the deck over, so the clips always begin from
- * the same state. See apps/web/scripts/record-landing-clips.mjs.
- */
 export const LANDING_ACCOUNT = {
   email: "armin.arlert@example.com",
   password: "armin-landing-1234",
@@ -17,7 +11,6 @@ export const LANDING_ACCOUNT = {
 
 export const LANDING_DECK = "Fundamentals of LLMs";
 
-/** Cards the deck starts with. Self-attention is written on camera instead. */
 const CARDS = [
   {
     key: "tokens",
@@ -61,14 +54,12 @@ const CARDS = [
   },
 ];
 
-/** The card the first clip writes, and the links the second clip drags. */
 export const WRITTEN_CARD = {
   key: "attention",
   front: "What does self-attention let each token do?",
   back: "Weigh every other token in the context when building its own representation.",
 };
 
-/** Links that exist before recording, as [prerequisite, dependent]. */
 const LINKS = [
   ["tokens", "context"],
   ["next", "pretraining"],
@@ -77,13 +68,8 @@ const LINKS = [
   ["transformer", "incontext"],
 ];
 
-/** Links added once the written card exists, before the linking clip. */
 const WRITTEN_LINKS = [["attention", "transformer"]];
 
-/**
- * Graph positions on a grid, foundations at the top: columns 300 px apart and
- * rows 220 px, matching the graph view's card size.
- */
 const LAYOUT = {
   tokens: [0, 0],
   embeddings: [300, 0],
@@ -96,10 +82,6 @@ const LAYOUT = {
   incontext: [150, 660],
 };
 
-/**
- * Resets the landing deck and returns a client signed in as its account,
- * plus helpers the recorder uses between clips.
- */
 export async function prepareLandingDemo() {
   const state = readState();
   const values = assertTarget(state);
@@ -108,8 +90,6 @@ export async function prepareLandingDemo() {
   const request = (label) => `landing:${label}:${randomUUID()}`;
 
   await client.mutation(api.account.ensureLibrary, { timeZone: "UTC" });
-  // Plenty of new cards per day, so repeated runs on one day still have the
-  // foundations to review.
   await client.mutation(api.settings.update, { newReviewUnitsPerDay: 1000 });
   for (const deck of (await client.query(api.decks.list, {})) ?? []) {
     await client.mutation(api.decks.remove, { deckId: deck.id });
@@ -162,7 +142,6 @@ export async function prepareLandingDemo() {
     siteUrl: state.siteUrl,
     deckPath: `/deck/${deck.slug}`,
     signOut,
-    /** Finds the card written on camera, links its dependent, and places it. */
     async afterWrittenCard() {
       const graph = await client.query(api.graph.getDeck, { deckId });
       const written = graph?.nodes.find((card) => card.front.trim() === WRITTEN_CARD.front);
@@ -171,11 +150,6 @@ export async function prepareLandingDemo() {
       await link(WRITTEN_LINKS);
       await place();
     },
-    /**
-     * Buries "What does a language model predict" until tomorrow, so the review
-     * clip's queue holds only Tokens and Embeddings, whatever their order. The
-     * graph does not show burying, so the card still reads as New there.
-     */
     async beforeReview() {
       const result = await client.mutation(api.review.bury, {
         flashcardId: ids.get("next"),

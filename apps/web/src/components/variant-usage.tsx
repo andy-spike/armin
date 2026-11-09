@@ -6,7 +6,6 @@ import { Section } from "@/components/settings-layout";
 
 const number = new Intl.NumberFormat("en-US");
 
-/** The day a monthly allowance resets. Allowances follow the UTC month, so this is shown in UTC. */
 export function formatAllowanceReset(resetsAt: number) {
   return new Date(resetsAt).toLocaleDateString(undefined, {
     month: "long",
@@ -15,10 +14,6 @@ export function formatAllowanceReset(resetsAt: number) {
   });
 }
 
-/**
- * This month's generated concept card variants against the plan's monthly
- * allowance. Hidden where no allowance applies (a self-hosted instance).
- */
 export function VariantUsage() {
   const allowance = useQuery(convexQuery(api.concepts.allowance, {})).data;
   if (allowance === null) return null;

@@ -109,7 +109,6 @@ function SelectLabel({ className, ...props }: SelectPrimitive.GroupLabel.Props) 
 function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Props) {
   const { ref, truncated } = useIsTruncated<HTMLSpanElement>();
 
-  // Only string labels can be surfaced verbatim in a tooltip when clipped.
   const tooltipText = typeof children === "string" ? children : undefined;
 
   const text = (

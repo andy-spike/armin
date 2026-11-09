@@ -3,13 +3,6 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/**
- * Command-palette primitives in the shadcn "base" shape, built on Base UI's
- * Autocomplete (the filtering + keyboard-highlight primitive shadcn's base
- * Command wraps). The list is rendered inline (always open) for a palette,
- * rather than in a floating popup.
- */
-
 function Command<ItemValue>({
   className,
   children,

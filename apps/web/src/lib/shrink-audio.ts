@@ -1,23 +1,10 @@
 import { oggOpus, preSkipFrom } from "./ogg-opus";
 
-/**
- * Audio is shrunk in the browser before upload: mono Opus at 32 kbps in an Ogg
- * file, with silence trimmed from the start and end. Flashcard audio is mostly
- * short speech, where this sounds the same as the original.
- *
- * The original is kept when the browser can't decode or encode it (WebCodecs
- * `AudioEncoder` needs Chrome 94, Firefox 130, or Safari 26), when it is
- * already at or below the target quality, or when re-encoding saves less than
- * 10%.
- */
 const SAMPLE_RATE = 48_000;
 const BITRATE = 32_000;
-/** Files already near the target bitrate are left alone, so quality never drops twice. */
 const SKIP_BELOW_BITRATE = BITRATE * 1.25;
 const MIN_SAVING = 0.1;
-/** About -50 dBFS: quieter samples at either end count as silence. */
 const SILENCE = 0.003;
-/** Keep a little air around trimmed audio so words aren't clipped. */
 const PAD_SECONDS = 0.1;
 const CHUNK_FRAMES = SAMPLE_RATE;
 
@@ -42,7 +29,6 @@ function encoderSupported() {
   return supported;
 }
 
-/** Decode, mix to mono, and resample to 48 kHz. */
 async function decodeMono(file: Blob) {
   const encoded = await file.arrayBuffer();
   const probe = new OfflineAudioContext(1, 1, SAMPLE_RATE);
@@ -102,14 +88,9 @@ async function encodeOpus(samples: Float32Array) {
   encoder.close();
   if (failure) throw failure;
   if (packets.length === 0) return null;
-  // libopus' standard look-ahead at 48 kHz when the browser doesn't report one.
   return oggOpus(packets, preSkip ?? 312, samples.length);
 }
 
-/**
- * Return a smaller version of an audio file for upload, or the original when
- * it can't or shouldn't be re-encoded (the server still validates every upload).
- */
 export async function shrinkAudio(file: Blob): Promise<Blob> {
   if (!(await encoderSupported())) return file;
   try {

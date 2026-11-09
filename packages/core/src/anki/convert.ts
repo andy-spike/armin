@@ -41,19 +41,15 @@ import type {
   ImportWarningCode,
 } from "./types";
 
-/** Length an `armin-media:` reference will have once a placeholder is swapped for it. */
 const MEDIA_REF_LENGTH = "armin-media:".length + 64 + ".webp".length;
 
 const PLACEHOLDER_RE = /anki-media:([^)\s"\\]+)/g;
 
-/** Cut text to a length without splitting a surrogate pair. */
 function cut(text: string, length: number) {
   const end = length > 0 && /[\ud800-\udbff]/.test(text[length - 1] ?? "") ? length - 1 : length;
   return text.slice(0, Math.max(0, end));
 }
 
-/** The Armin deck name for an Anki deck path. */
-/** Deck names must be unique within one import: "Spanish", "Spanish (2)". */
 export function uniqueDeckNames(decks: readonly { name: string }[]) {
   const used = new Set<string>();
   return decks.map((deck) => {
@@ -76,8 +72,6 @@ export function armDeckName(ankiPath: string) {
     .filter(Boolean);
   return cut(parts.join(" › ") || "Untitled", MAX_NAME_CHARS).trim() || "Untitled";
 }
-
-// --- Warnings ---
 
 const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
 
@@ -120,11 +114,8 @@ const WARNING_MESSAGES: Record<ImportWarningCode, (count: number) => string> = {
     `Flags on ${plural(n, "note")} became tags such as flag::red, so you can still filter by them.`,
 };
 
-// --- Flags ---
-
 const FLAG_NAMES = ["", "red", "orange", "green", "blue", "pink", "turquoise", "purple"];
 
-/** Anki flags are per card; a note gets one `flag::<color>` tag per color its cards carry. */
 function flagTags(cards: AnkiCard[]) {
   const names = new Set<string>();
   for (const card of cards) {
@@ -134,13 +125,6 @@ function flagTags(cards: AnkiCard[]) {
   return [...names];
 }
 
-// --- Deck options ---
-
-/**
- * Anki steps are minutes; Armin writes them as `10m`, `1h`, `1d`. An explicit
- * empty list stays empty (`""`, no steps); unknown or unusable steps return
- * null, which keeps the library default.
- */
 function formatSteps(minutes: number[] | null) {
   if (minutes === null) return null;
   if (minutes.length === 0) return "";
@@ -158,14 +142,7 @@ function formatSteps(minutes: number[] | null) {
     .join(", ");
 }
 
-/**
- * The parts of an Anki options preset that have an Armin deck setting. Daily
- * limits stay out: Armin has one library-wide limit, which the preview names.
- * Values outside Armin's accepted ranges are left to the library default.
- */
 export function deckSettingsFromConfig(config: AnkiDeckConfig): ImportDeckSettings | undefined {
-  // Modern presets store retention as float32 (70% reads as 0.699999988), so
-  // round before checking Armin's accepted range.
   const retention =
     config.desiredRetention === null ? null : Math.round(config.desiredRetention * 100) / 100;
   const params = config.fsrsParams.map((value) => Math.round(value * 10_000) / 10_000);
@@ -188,8 +165,6 @@ export function deckSettingsFromConfig(config: AnkiDeckConfig): ImportDeckSettin
   return Object.values(settings).some((value) => value !== null) ? settings : undefined;
 }
 
-// --- Content ---
-
 type Content = { type: FlashcardType; content: FlashcardContent };
 
 function mediaIn(content: FlashcardContent) {
@@ -209,11 +184,9 @@ const SHRINKABLE: Record<FlashcardType, string[]> = {
   cloze: ["extra", "text"],
   type_answer: ["prompt"],
   image_occlusion: ["extra", "header"],
-  // Never produced by the converter.
   concept: [],
 };
 
-/** Remove a dangling cloze or image marker left at the end of cut text. */
 function closeCut(text: string) {
   let out = text;
   const brace = out.lastIndexOf("{{");
@@ -223,14 +196,12 @@ function closeCut(text: string) {
   return `${out.replace(/[\\\s]+$/, "")}…`;
 }
 
-/** Shorten text fields until the serialized content fits the backend limit. */
 function fitContent(type: FlashcardType, content: FlashcardContent) {
   let current = { ...content } as Record<string, unknown>;
   let truncated = false;
   for (let attempt = 0; attempt < 20; attempt++) {
     const excess = contentSize(current as FlashcardContent) - MAX_CONTENT_CHARS;
     if (excess <= 0) return { content: current as FlashcardContent, truncated };
-    // Shorten the extra/secondary field first; otherwise the longest one.
     const fields = SHRINKABLE[type].filter(
       (key) => typeof current[key] === "string" && (current[key] as string).length > 1,
     );
@@ -252,9 +223,7 @@ type NoteContext = {
   fieldNames: string[];
   mediaNames: ReadonlySet<string>;
   warnings: Set<ImportWarningCode>;
-  /** Markdown for a field; `plain` for fields Armin shows without Markdown. */
   md: (html: string, plain?: boolean) => string;
-  /** SVG images are kept for the client to convert. */
   svg: boolean;
 };
 
@@ -264,7 +233,6 @@ type Prepared =
 
 const EMPTY: Prepared = { ok: false };
 
-/** Build the Armin content for a note whose notetype maps to a fixed type. */
 function prepareStandard(note: AnkiNote, kind: NotetypeKind, ctx: NoteContext): Prepared {
   const field = (index: number | null) => (index === null ? "" : (note.fields[index] ?? ""));
   switch (kind.kind) {
@@ -406,8 +374,6 @@ function prepareOcclusion(
   };
 }
 
-// --- Tags ---
-
 function convertTags(tags: string[]) {
   let trimmed = false;
   const shortened = normalizeTags(tags).map((tag) => {
@@ -420,8 +386,6 @@ function convertTags(tags: string[]) {
   return { tags: unique.slice(0, MAX_TAGS_PER_FLASHCARD), trimmed };
 }
 
-// --- Card ↔ review unit mapping ---
-
 function ordForSubKey(type: FlashcardType, subKey: string, templateOrd: number | null) {
   if (type === "cloze" || type === "image_occlusion") {
     const number = Number(subKey.slice(1));
@@ -430,8 +394,6 @@ function ordForSubKey(type: FlashcardType, subKey: string, templateOrd: number |
   if (type === "basic_reversed" && subKey === "rev") return 1;
   return templateOrd ?? 0;
 }
-
-// --- Conversion ---
 
 type Draft = ImportFlashcard;
 
@@ -550,7 +512,6 @@ export function convertAnkiCollection(
       produced++;
     }
     if (produced === 0) {
-      // Only the image problems explain why the note was skipped.
       const reasons = (["missing_media", "unsupported_image_removed"] as const).filter((code) =>
         warnings.has(code),
       );
@@ -577,10 +538,8 @@ function groupBy<Item>(items: readonly Item[], keyOf: (item: Item) => string) {
   return groups;
 }
 
-/** One Armin flashcard a note will become, with the Anki cards it replaces. */
 type Candidate = { content: Content; cards: AnkiCard[]; key: string; templateOrd: number | null };
 
-/** A custom note type the user mapped onto an Armin type in the preview. */
 function mappedContent(
   note: AnkiNote,
   mapping: Exclude<NotetypeMapping, { kind: "template" }>,
@@ -603,7 +562,6 @@ function mappedContent(
   return back ? { type: mapping.kind, content: { front, back } } : null;
 }
 
-/** A note type Armin doesn't recognize: render each card's template into a Basic card. */
 function renderCustomNotetypeCards(
   note: AnkiNote,
   notetype: AnkiNotetype,
@@ -645,7 +603,6 @@ function renderCustomNotetypeCards(
   return candidates;
 }
 
-/** Why a note produced no flashcard, from the most specific warning it raised. */
 function omissionReason(warnings: Set<ImportWarningCode>, isCustom: boolean): ImportOmittedReason {
   if (warnings.has("missing_media")) return "missing_image";
   if (warnings.has("unsupported_image_removed")) return "unsupported_image";
@@ -692,7 +649,6 @@ function finishFlashcard(
     const buried = card.queue === -2 || card.queue === -3;
     return { subKey: spec.subKey, schedule, logs, ...(buried ? { buried } : {}) };
   });
-  // New Anki cards carry their queue position in `due`.
   const positions = candidate.cards.filter((card) => card.type === 0).map((card) => card.due);
 
   return {
@@ -746,7 +702,6 @@ function buildPlan(
     });
   };
   for (const deck of collection.decks) add(deck.id, deck.name);
-  // Cards can point at a deck the package doesn't list; file them under "Default".
   for (const id of counts.keys()) add(id, decks.get(id)?.name ?? "Default");
 
   const warnings: ImportWarning[] = [...warningCounts]

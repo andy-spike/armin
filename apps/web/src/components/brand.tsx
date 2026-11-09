@@ -1,10 +1,6 @@
 import { cn } from "@/lib/utils";
 import { markEdges, markNodes, markStroke, wordmarkPath, wordmarkViewBox } from "./brand-paths";
 
-/**
- * The Armin tree: cards as nodes, prerequisites as edges, learned tips in the accent.
- * Uses the logo's drawing tuned for 16-24 px; the branches follow the text colour.
- */
 export function ArminMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 100 100" className={cn("shrink-0", className)} aria-hidden>
@@ -28,10 +24,6 @@ export function ArminMark({ className }: { className?: string }) {
   );
 }
 
-/**
- * "armin" outlined from Source Serif 4 Semibold, so it looks the same everywhere.
- * Sized by font size: it stands as tall as the surrounding text.
- */
 export function ArminWordmark({ className }: { className?: string }) {
   return (
     <svg

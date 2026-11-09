@@ -34,59 +34,23 @@ import { DeckLink, ReviewStatePanel, UndoButton } from "./parts";
 import { SessionEndPanel, SessionErrorPanel } from "./session-end";
 import { useCardContent } from "./use-card-content";
 
-/** A unit's rating intervals change only when its schedule (version) does. */
 const previewKey = (reviewUnitId: string, version: number) =>
   ["review-preview", reviewUnitId, version] as const;
 
-/**
- * The part of a rating outcome a session needs. Normal review and cram return
- * different log tables, so the session only names the log id and new version.
- */
 type ReviewSessionProps = {
-  /** Cards due for this session. Tag cards with `deck` to show the source. */
   queue: UiReviewUnit[];
-  /** Top-of-page content — a back link or a page title. */
   header: ReactNode;
-  /**
-   * Secondary line under the header (e.g. due count). Pass a function to base
-   * the copy on the session's remaining cards, which can briefly differ from
-   * the queue when a newly unlocked card is still on screen. Session progress
-   * aligns right.
-   */
   subtitle?: ReactNode | ((remaining: number) => ReactNode);
-  /** Deck selector rendered in the header row (top right). */
   deckSelector?: ReactNode;
-  /** Action shown in the empty/done panel (typically a back button). */
   doneAction: ReactNode;
-  /** Copy for the "all caught up" panel after clearing the queue. */
   doneDescription: string;
-  /** Copy for the "all caught up" panel when nothing was due. */
   emptyDescription: string;
-  /** Heading for the finished-session panel. */
   doneTitle?: string;
-  /** Heading for the panel shown when the session starts empty. */
   emptyTitle?: string;
-  /**
-   * Practice sessions hide the FSRS interval line under each rating, since
-   * their ratings never schedule anything.
-   */
   showIntervals?: boolean;
-  /**
-   * Practice sessions repeat an Again card this many positions later in the
-   * same session. Unset keeps normal review behavior (Again removes the card).
-   */
   repeatAgainOffset?: number;
-  /**
-   * Practice sessions start from a fixed set of matches, so a refreshed queue
-   * must not add cards mid-session. Defaults to true for normal review.
-   */
   allowNewCards?: boolean;
-  /** Changing this resets the session to the first card. */
   resetKey?: string;
-  /**
-   * Set for practice (cram): each concept card shows a random active exercise
-   * picked from this seed, leaving the one assigned for review untouched.
-   */
   practiceSeed?: number;
   isLoading?: boolean;
   isError?: boolean;
@@ -97,16 +61,11 @@ type ReviewSessionProps = {
   onRate: (card: UiReviewUnit, rating: Grade, requestId: string) => Promise<SessionRateResult>;
   onBury?: (flashcardId: string, requestId: string) => Promise<BuryResult>;
   onUndo?: (entry: HistoryEntry, requestId: string) => Promise<SessionUndoResult>;
-  /** False while disconnected: no new answers are submitted. */
   online?: boolean;
   loadCard?: (flashcardId: string) => Promise<UiFlashcard | undefined>;
   onEditFlashcard?: (flashcard: UiFlashcard, values: CardFormValues) => Promise<void>;
   onArchiveFlashcard?: (flashcardId: string) => Promise<void>;
   onDeleteFlashcard?: (flashcardId: string) => Promise<void>;
-  /**
-   * Flag the concept card exercise on screen. The card stays on screen and
-   * shows its next exercise; the concept is not rated.
-   */
   onFlagVariant?: (card: UiReviewUnit) => Promise<FlagShownResult>;
   loadDeleteConsequences?: (flashcardId: string) => Promise<FlashcardDeleteConsequences>;
 };
@@ -218,8 +177,6 @@ export function ReviewSession({
 
   const buryCard = () => session.bury();
 
-  // Edit opens from the actions menu, so the menu opening starts loading the
-  // flashcard and the click usually finds it ready.
   const flashcardQuery = (flashcardId: string) => ({
     queryKey: ["review", "flashcard", flashcardId],
     queryFn: () => loadCard!(flashcardId),
@@ -246,8 +203,6 @@ export function ReviewSession({
   };
 
   const handleArchive = async () => {
-    // While the delete dialog is open it owns the target, which may no longer be
-    // the card on screen; from the actions menu, archive the current card.
     const flashcardId = deleteConfirm.targetId ?? card?.flashcardId;
     if (!flashcardId || !onArchiveFlashcard || flashcardActionPending) return;
     setCardActionPending(true);
@@ -307,9 +262,6 @@ export function ReviewSession({
     }
   };
 
-  // Load the next cards' rating intervals ahead, so the buttons show them as
-  // soon as a card appears.
-  // Read through a ref so this runs when the turn changes, not on every render.
   const upcomingRef = useRef({ cards, loadPreview });
   useLayoutEffect(() => {
     upcomingRef.current = { cards, loadPreview };
@@ -326,7 +278,6 @@ export function ReviewSession({
     }
   }, [card, index, queryClient, showIntervals]);
 
-  // Each new turn starts face-down with an empty answer.
   const [shownTurnId, setShownTurnId] = useState(card?.turnId);
   if (card?.turnId !== shownTurnId) {
     setShownTurnId(card?.turnId);
@@ -335,9 +286,6 @@ export function ReviewSession({
 
   const reviewActive = !isLoading && !isError && Boolean(card);
 
-  // Reveal (Space), rate (1–4), and step (←/→) are app-level Commands routed
-  // through the keybinding dispatcher; the bare-key-in-input suppression and
-  // modal isolation are handled centrally, so these only carry domain guards.
   useScope(
     "review",
     {
@@ -378,9 +326,6 @@ export function ReviewSession({
     { enabled: reviewActive || done },
   );
 
-  // Enter-to-reveal stays an intrinsic convention (it also works while the
-  // type-answer field is focused, where the input submits on Enter). The page
-  // itself never scrolls, so the up and down arrows scroll a long card.
   useEffect(() => {
     if (!reviewActive) return;
     const onKey = (e: KeyboardEvent) => {
@@ -404,10 +349,6 @@ export function ReviewSession({
   const reviewedCount = cards.filter((c) => c.reviewed).length;
 
   return (
-    // The review frame never scrolls. The header sits on top, the card fills
-    // and centers in the space between, and the answer controls stay pinned to
-    // the bottom edge, so every action keeps its place from card to card. Only
-    // a card too long for the space scrolls, inside itself.
     <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-4 pt-3 sm:px-6 sm:pt-5">
       <div className="flex shrink-0 items-start justify-between gap-4">
         <div className="min-w-0 flex-1 [&_h1]:m-0">
@@ -548,15 +489,11 @@ export function ReviewSession({
                 />
               </div>
 
-              {/* Remounted per card, so a long card never opens scrolled. */}
               <div
                 key={card.turnId}
                 ref={cardBodyRef}
                 className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-b-xl [mask-image:linear-gradient(to_bottom,transparent,black_1rem,black_calc(100%-2.5rem),transparent)]"
               >
-                {/* The edges fade so a long card reads as scrollable. Bottom padding
-                    mirrors the action strip, so short content sits at the card's
-                    optical center and the last line clears the fade. */}
                 <div className="flex min-h-full flex-col items-center justify-center px-5 pt-4 pb-12 text-center sm:px-12">
                   <ReviewCardPrompt
                     card={card}
