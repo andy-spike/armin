@@ -8,7 +8,9 @@ port, Expo port, two Convex ports (API and HTTP actions), and a sample library.
 
 The main checkout uses web port 3000, Expo port 8081, and Convex ports 3210/3211
 with origin `http://localhost:3000`. Worktrees get a reserved block of four ports
-and an `armin-<id>.localhost` origin.
+starting at 4100, 4110, 4120, and so on, and an origin named after the branch,
+such as `http://concept-card-review.armin.localhost:4110` for
+`t3/concept-card-review`.
 
 ## Requirements
 
@@ -134,14 +136,27 @@ selection is its own local deployment on its own port before starting services.
 Shell-level Convex selection variables must be unset. This prevents accidental
 cross-deployment pushes; it is not an OS sandbox.
 
-Port blocks are reserved under Git's common directory with a setup lock. Separate
-worktrees reserve different blocks, and allocation also checks for listeners. A
+Port blocks are reserved under Git's common directory with a setup lock. Setup
+takes the lowest free block (web port 4100, 4110, 4120, …; Expo, Convex API, and
+Convex HTTP use the next three ports) and the checkout keeps it until the
+worktree is removed. Worktrees set up before this scheme keep their earlier
+ports. Separate worktrees reserve different blocks, and allocation also checks
+for listeners. A
 later unrelated process can still take a reserved port; Vite's strict-port check
 then fails visibly instead of silently moving the app. Stop that process and
 retry. If setup was killed while holding `armin-environments.lock`, verify that no
 setup is running before removing that directory from Git's common directory.
 
-Web origins use `armin-<id>.localhost:<port>`. Distinct hostnames isolate browser
+Web origins use `<branch>.armin.localhost:<port>`: the current branch without its
+`t3/` prefix, lowercased, with other characters turned into hyphens and cut to
+63 characters (a detached checkout uses its directory name). If another
+worktree's branch maps to the same name (`foo_bar` and `foo-bar`), both get a
+short checkout ID appended, since cookies ignore ports. T3 renames a branch
+after setup, so `pnpm dev`, `pnpm dev:web`, and `pnpm dev:backend` recompute
+the origin at every start; when it changed, they print the old and new origin
+and the backend launcher updates the local deployment's `SITE_URL` once the
+backend is up. Restart `pnpm dev` after renaming a branch and sign in again on
+the new hostname. Distinct hostnames isolate browser
 cookies and local storage; different ports alone would share auth cookies. Open
 the printed hostname, rather than substituting `localhost`. Chromium resolves
 `.localhost` to loopback without a hosts-file entry. If another browser or resolver
