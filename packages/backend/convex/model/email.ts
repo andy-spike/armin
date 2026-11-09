@@ -6,7 +6,6 @@ function escapeHtml(value: string) {
     .replace(/"/g, "&quot;");
 }
 
-/** Minimal transactional email body with one call-to-action link. */
 export function emailLayout(input: {
   heading: string;
   body: string;

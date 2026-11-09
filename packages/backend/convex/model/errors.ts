@@ -10,7 +10,6 @@ export type ArminErrorCode =
   | "INVALID"
   | "QUOTA";
 
-/** A user-facing error with a stable code clients can branch on. */
 export function fail(code: ArminErrorCode, message: string): never {
   throw new ConvexError({ code, message });
 }

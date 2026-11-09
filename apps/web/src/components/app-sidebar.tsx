@@ -76,32 +76,17 @@ import { cn, plural } from "@/lib/utils";
 import { useTheme } from "@/theme/theme-provider";
 import type { ThemeMode } from "@armin/core/themes";
 
-/**
- * Rows sit muted on the sunken panel; the current page is a paper slip with an
- * accent icon. While collapsing, labels clip instead of growing ellipses.
- */
 const navButton =
   "text-muted hover:text-ink data-active:bg-bg data-active:text-ink data-active:hover:bg-bg data-active:[&>svg]:text-accent group-data-[collapsible=icon]:[&>span:last-child]:text-clip";
 
-/**
- * Labels and counts fade with the panel instead of popping out. Fading in waits
- * a beat so text doesn't appear before the panel has room for it.
- */
 const fade =
   "transition-opacity duration-150 ease-(--ease-out-quart) delay-75 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0";
 
-/** One count style for every row: quiet tabular figures, ink when hovered or current. */
 const countBadge = cn(
   fade,
   "min-w-5 px-1 text-xs text-muted group-data-[collapsible=icon]:flex peer-hover/menu-button:text-ink peer-data-active/menu-button:text-ink",
 );
 
-/**
- * The signed-in app's navigation. `ready` is false while the library is still
- * loading or being provisioned, so live counts and the deck list wait for it.
- * `isActive` and `onNavigate` come from the Shell, which marks the target row
- * active as soon as the pointer goes down instead of after the route loads.
- */
 export function AppSidebar({
   ready,
   isActive,
@@ -113,8 +98,6 @@ export function AppSidebar({
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
 
-  // Pointer-down marks the row active immediately; the mobile sheet closes on
-  // click so it stays open long enough to show the press.
   const linkProps = (path: string): LinkProps => ({
     onPointerDown: (event) => {
       if (event.button === 0) onNavigate(path);
@@ -131,7 +114,6 @@ export function AppSidebar({
     <Sidebar collapsible="icon">
       <BrandHeader linkProps={linkProps("/")} />
 
-      {/* Review and the main pages stay put; only the deck list scrolls. */}
       <SidebarContent className="overflow-hidden">
         <SidebarGroup className="shrink-0 pt-3">
           <SidebarGroupContent>
@@ -176,8 +158,6 @@ export function AppSidebar({
         <DeckList ready={ready} isActive={isActive} linkProps={linkProps} />
       </SidebarContent>
 
-      {/* Tools and the theme switch sit above a ruled-off account row, so the
-          footer reads as two clear layers: things to use, then who you are. */}
       <SidebarFooter className="gap-0 border-t border-sidebar-border p-0">
         <SidebarMenu className="gap-0.5 p-2">
           <NavItem
@@ -203,11 +183,6 @@ export function AppSidebar({
   );
 }
 
-/**
- * Wordmark and collapse control. The brain mark stays in the icon column in
- * both states, so collapsing never moves it; on the collapsed rail, hovering it
- * reveals the expand control in the same spot.
- */
 function BrandHeader({ linkProps }: { linkProps: LinkProps }) {
   const { state, isMobile, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed" && !isMobile;
@@ -246,9 +221,6 @@ function BrandHeader({ linkProps }: { linkProps: LinkProps }) {
             </span>
           }
         >
-          {/* Stays mounted and pinned to the expanded panel's right edge, so it
-              fades with the labels instead of popping out or sliding across
-              the logo while the panel animates. */}
           <button
             type="button"
             aria-label="Collapse sidebar"
@@ -302,7 +274,6 @@ function NavItem({
   );
 }
 
-/** AI setup, with a green dot and count while any assistant is connected. */
 function AiSetupItem({
   ready,
   active,
@@ -336,7 +307,6 @@ function AiSetupItem({
         <span className={fade}>AI setup</span>
         {connected > 0 && (
           <>
-            {/* The count hides with the labels; the rail keeps the dot. */}
             <span
               aria-hidden
               className={cn(
@@ -358,7 +328,6 @@ function AiSetupItem({
   );
 }
 
-/** Review, with the live due count that used to sit on the header button. */
 function ReviewItem({
   ready,
   active,
@@ -377,17 +346,11 @@ function ReviewItem({
       : `${plural(dueCount, "review unit")} due`;
 
   return (
-    // A fixed-height slot: the rail shrinks the button to 32px, and centring
-    // it here keeps the rows below from jumping 4px on every toggle.
     <SidebarMenuItem className="flex h-9 items-center">
       <SidebarMenuButton
         isActive={active}
         tooltip={statusLabel ? `Review · ${statusLabel}` : "Review"}
         className={cn(
-          // Review is the sidebar's main action, so it's drawn as a button
-          // rather than a nav row: taller, raised, with its own fill (reviews
-          // due) or outline (caught up). The padding allows for the border so
-          // the icon and label line up with the rows below.
           "relative h-9 shrink-0 border px-[7px] font-medium shadow-[0_1px_2px_rgb(0_0_0/0.2)] group-data-[collapsible=icon]:p-[7px]!",
           dueCount > 0
             ? "border-transparent bg-accent text-on-accent hover:bg-accent-deep hover:text-on-accent active:bg-accent-deep active:text-on-accent data-active:bg-accent-deep data-active:text-on-accent data-active:hover:bg-accent-deep"
@@ -404,7 +367,6 @@ function ReviewItem({
         <GraduationCap strokeWidth={1.5} />
         <span className={fade}>Review</span>
         {statusQuery.isSuccess && (
-          // The count hides with the labels; the rail keeps a due dot instead.
           <span
             aria-hidden
             className={cn(
@@ -427,7 +389,6 @@ function ReviewItem({
   );
 }
 
-/** Every deck, one click away, with its due count. Hidden when collapsed. */
 function DeckList({
   ready,
   isActive,
@@ -437,7 +398,6 @@ function DeckList({
   isActive: (path: string, exact?: boolean) => boolean;
   linkProps: (path: string) => LinkProps;
 }) {
-  // Same cache entry as the Decks page, so both stay in step.
   const decksQuery = useQuery({ ...convexQuery(api.decks.navigation, {}), enabled: ready });
   const due = useQuery({ ...reviewStatusQuery(useStudyClock()), enabled: ready });
   const [sort, setSort] = useDeckListSort();
@@ -447,7 +407,6 @@ function DeckList({
   }));
   const decks = sortDecks(shownDecks, sort);
   const navigate = useNavigate();
-  // Deleting the open deck leaves its page behind, so return to Decks.
   const deckActions = useDeckActions({
     onDeleted: (deck) => {
       if (isActive(`/deck/${deck.slug}`)) void navigate({ to: "/" });
@@ -465,10 +424,6 @@ function DeckList({
     return (
       <ContextMenu key={deck.id}>
         <ContextMenuTrigger
-          // Off-screen rows skip layout and paint but stay in the
-          // DOM for find-in-page, focus, and screen readers. The
-          // clip margin keeps the focus ring visible. A deck still being
-          // created can't be opened or edited yet.
           render={
             <SidebarMenuItem
               inert={isPendingDeck(deck)}
@@ -481,8 +436,6 @@ function DeckList({
         >
           <SidebarMenuButton
             isActive={isActive(path)}
-            // The due badge floats over the row's right edge, so long
-            // names truncate before reaching it.
             className={cn(navButton, deck.due > 0 && "pr-8")}
             render={<Link to="/deck/$deckId" params={{ deckId: deck.slug }} {...linkProps(path)} />}
           >
@@ -512,11 +465,7 @@ function DeckList({
   return (
     <>
       {pinned.length > 0 && (
-        <SidebarGroup
-          // Pinned decks stay in Your decks too; this is a shortcut list, in
-          // the order they were pinned.
-          className="shrink-0 transition-[opacity,visibility] duration-150 ease-(--ease-out-quart) delay-75 group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0"
-        >
+        <SidebarGroup className="shrink-0 transition-[opacity,visibility] duration-150 ease-(--ease-out-quart) delay-75 group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0">
           <SidebarGroupLabel className="text-muted group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:opacity-100">
             Pinned
           </SidebarGroupLabel>
@@ -525,11 +474,7 @@ function DeckList({
           </SidebarGroupContent>
         </SidebarGroup>
       )}
-      <SidebarGroup
-        // Fades as one block; visibility drops once the fade ends so the hidden
-        // rows leave the tab order.
-        className="min-h-0 flex-1 transition-[opacity,visibility] duration-150 ease-(--ease-out-quart) delay-75 group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0"
-      >
+      <SidebarGroup className="min-h-0 flex-1 transition-[opacity,visibility] duration-150 ease-(--ease-out-quart) delay-75 group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0">
         <SidebarGroupLabel className="text-muted group-data-[collapsible=icon]:mt-0 group-data-[collapsible=icon]:opacity-100">
           Your decks
         </SidebarGroupLabel>
@@ -572,7 +517,6 @@ function DeckList({
 
 const DECK_LIST_SORT_KEY = "armin.sidebar.deckSort";
 
-/** The sidebar's deck order, remembered on this device. */
 function useDeckListSort() {
   const [sort, setSort] = useState<DeckSortKey>(() => {
     if (typeof window === "undefined") return "name-asc";
@@ -591,10 +535,6 @@ function useDeckListSort() {
 const showInLight = "[[data-theme=dark]_&]:hidden";
 const showInDark = "hidden [[data-theme=dark]_&]:inline";
 
-/**
- * Click flips between the light and dark theme slots; right-click picks Light,
- * Dark, or System, or opens the theme settings that choose each slot's theme.
- */
 function ThemeItem({ onThemeSettings: beforeNavigate }: { onThemeSettings: () => void }) {
   const { appearance, resolved, setAppearance } = useTheme();
   const navigate = useNavigate();
@@ -624,12 +564,9 @@ function ThemeItem({ onThemeSettings: beforeNavigate }: { onThemeSettings: () =>
             event.preventDefault();
             setMenuOpen(true);
           }}
-          // The label is the children below; the rule only sees this element.
           // oxlint-disable-next-line jsx-a11y/control-has-associated-label
           render={<button ref={buttonRef} type="button" />}
         >
-          {/* The row is server-rendered, where the saved theme is unknown, so
-              it follows the theme already applied to <html> instead of state. */}
           <Moon strokeWidth={1.5} className={showInLight} />
           <Sun strokeWidth={1.5} className={showInDark} />
           <span className={fade}>
@@ -665,13 +602,10 @@ function ThemeItem({ onThemeSettings: beforeNavigate }: { onThemeSettings: () =>
   );
 }
 
-/** The signed-in account: settings and sign-out. */
 function AccountItem({ onSettings }: { onSettings: () => void }) {
   const viewer = useViewer();
   const navigate = useNavigate();
   const { isMobile, state, setOpenMobile } = useSidebar();
-  // Above the row, at its width; the collapsed rail is too narrow for that, so
-  // there it opens beside the avatar instead.
   const beside = state === "collapsed" && !isMobile;
   const email = viewer.data?.email ?? "";
   const name = viewer.data?.name || email;
@@ -685,9 +619,6 @@ function AccountItem({ onSettings }: { onSettings: () => void }) {
             <SidebarMenuButton
               size="lg"
               tooltip={email || "Account"}
-              // pl-1 centers the 24px avatar on the icon column in both states,
-              // and the row keeps its 48px height when collapsed so the footer
-              // above it doesn't shift.
               className="gap-2.5 pl-1 group-data-[collapsible=icon]:h-12! group-data-[collapsible=icon]:w-8! group-data-[collapsible=icon]:p-1! data-popup-open:bg-sidebar-accent"
             />
           }
@@ -725,7 +656,6 @@ function AccountItem({ onSettings }: { onSettings: () => void }) {
             Settings
           </DropdownMenuItem>
           <DropdownMenuItem
-            // AGPL §13: users of the service can get its source.
             onClick={() => window.open(SOURCE_CODE_URL, "_blank", "noopener,noreferrer")}
           >
             <Code strokeWidth={1.5} />

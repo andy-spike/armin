@@ -5,10 +5,8 @@ import { State } from "@armin/core/scheduler";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 
-/** Every FSRS state a cram setup can include. */
 const CRAM_STATES = new Set<number>([State.New, State.Learning, State.Relearning, State.Review]);
 
-/** Keep the forgotten window a recent-history filter, not a whole-library scan. */
 const MAX_FORGOTTEN_DAYS = 365;
 const DAY_MS = 86_400_000;
 
@@ -20,12 +18,10 @@ export type CramSelection = {
   includeLocked: boolean;
 };
 
-/** Drop unknown or repeated states; an empty result matches nothing. */
 export function cleanCramStates(states: number[]) {
   return [...new Set(states.filter((state) => CRAM_STATES.has(state)))];
 }
 
-/** Fold non-finite or out-of-range day counts into a recent, bounded window. */
 export function cleanForgottenDays(days: number | undefined) {
   if (days === undefined || !Number.isFinite(days)) return undefined;
   return Math.min(MAX_FORGOTTEN_DAYS, Math.max(1, Math.floor(days)));
@@ -36,12 +32,6 @@ export function cleanCramTag(tag: string | undefined) {
   return trimmed ? trimmed : undefined;
 }
 
-/**
- * Review units matching a cram setup: the deck's unarchived units in the
- * chosen states, optionally on one tag, optionally only units rated Again
- * within the recent window. Archived cards are always excluded. Locked units
- * are excluded unless the setup includes them; cram never changes the schedule.
- */
 export async function selectCramUnits(
   ctx: QueryCtx,
   library: Doc<"libraries">,
@@ -70,12 +60,9 @@ export async function selectCramUnits(
       !unit.archived &&
       (args.includeLocked || !unit.locked) &&
       states.has(unit.state) &&
-      // Outside Pro, concept cards stay out of cram too (ADR 0023).
       !isWithheldConcept(unit, library),
   );
   if (units.length === 0) return [];
-  // A concept card's unit has nothing to show until a variant is assigned.
-  // Only its fixed subKey needs the unit row to tell.
   const awaiting = new Set<Id<"reviewUnits">>();
   for (const unit of units) {
     if (unit.subKey !== CONCEPT_SUBKEY) continue;

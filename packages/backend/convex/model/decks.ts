@@ -3,12 +3,6 @@ import type { MutationCtx } from "../_generated/server";
 import { fail } from "./errors";
 import { MAX_DESCRIPTION_CHARS, MAX_NAME_CHARS } from "./limits";
 
-/*
- * Deck writes shared by the app's mutations, the assistant tools, and imports.
- * Callers check ownership, versions, and capacity (`checkCapacity`) first,
- * and bump the library revision once per mutation.
- */
-
 export function cleanDeckName(name: string) {
   const trimmed = name.trim();
   if (!trimmed) fail("INVALID", "Deck name is required.");
@@ -26,7 +20,6 @@ export function cleanDeckDescription(description: string | null | undefined) {
   return trimmed || null;
 }
 
-/** Allocate readable URLs within a library, including hidden import decks. */
 export async function allocateDeckSlug(ctx: MutationCtx, libraryId: Id<"libraries">, name: string) {
   const base =
     name
@@ -51,7 +44,6 @@ export async function allocateDeckSlug(ctx: MutationCtx, libraryId: Id<"librarie
   return slug;
 }
 
-/** The one place a deck is created. A staging deck stays hidden until its import publishes it. */
 export async function insertDeck(
   ctx: MutationCtx,
   args: {
@@ -74,7 +66,6 @@ export async function insertDeck(
   });
 }
 
-/** Rename a deck or change its description. */
 export async function updateDeckDetails(
   ctx: MutationCtx,
   deck: Doc<"decks">,

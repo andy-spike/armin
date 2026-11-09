@@ -26,7 +26,6 @@ const appearanceFields = {
   ),
 };
 
-/** The account's theme choice, or null before one is saved (the default). */
 export const get = query({
   args: {},
   handler: async (ctx) => {
@@ -46,7 +45,6 @@ export const get = query({
   },
 });
 
-/** Replace the account's theme choice and custom themes. */
 export const set = mutation({
   args: appearanceFields,
   handler: async (ctx, appearance) => {

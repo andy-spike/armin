@@ -8,13 +8,7 @@ import {
   type ThemeScheme,
 } from "@armin/core/themes";
 
-/**
- * The device's copy of the account's theme. `public/theme-init.js` reads it
- * before first paint, so the resolved token sets for both slots are stored
- * alongside the choice itself. Keep the shape in sync with that script.
- */
 export const APPEARANCE_STORAGE_KEY = "armin-appearance";
-/** The pre-sync setting: "flexoki-light", "flexoki-dark", or "system". */
 const LEGACY_STORAGE_KEY = "armin-theme-preference";
 
 type CachedAppearance = { appearance: Appearance; light: ResolvedTheme; dark: ResolvedTheme };
@@ -58,9 +52,7 @@ export function cacheAppearance(appearance: Appearance) {
   try {
     localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(cached));
     localStorage.removeItem(LEGACY_STORAGE_KEY);
-  } catch {
-    /* ignore quota / privacy mode */
-  }
+  } catch {}
 }
 
 export function sameAppearance(a: Appearance, b: Appearance) {
@@ -78,11 +70,6 @@ export function subscribeSystemScheme(onChange: () => void) {
   return () => media.removeEventListener("change", onChange);
 }
 
-/**
- * Show a theme: `data-theme` carries its light/dark scheme (which CSS and
- * Flexoki's tokens key on), and any derived tokens are set inline on <html>,
- * overriding Flexoki's.
- */
 export function applyTheme(theme: ResolvedTheme) {
   const root = document.documentElement;
   root.dataset.theme = theme.scheme;

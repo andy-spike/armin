@@ -15,11 +15,6 @@ function GitHubMark({ className }: { className?: string }) {
 const NAV_LINK =
   "inline-flex h-8 items-center gap-1.5 px-2.5 text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent aria-[current=page]:text-ink";
 
-/**
- * The header of every public page: the landing page, pricing, the MCP
- * documentation, and the policies. It is translucent over the page's paper,
- * so the texture carries through as the page scrolls under it.
- */
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-bg/60 backdrop-blur-lg backdrop-saturate-150">

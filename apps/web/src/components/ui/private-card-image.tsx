@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@armin/backend/api";
 
-/** An authenticated card image that reserves its layout space from stored dimensions. */
 export function PrivateCardImage({
   src,
   alt,

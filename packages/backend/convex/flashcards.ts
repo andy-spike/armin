@@ -49,11 +49,6 @@ type SummaryOrder = {
   order: "asc" | "desc";
 };
 
-/**
- * Each Browse sort as an index walk. A descending sort reverses the whole
- * order, so ties within a group run Z to A; "due soon" orders scheduled cards
- * by due time, then new cards by creation, then locked cards.
- */
 const BROWSE_ORDER: Record<BrowseSortKey, SummaryOrder> = {
   "due-soon": { field: "due", order: "asc" },
   "due-later": { field: "due", order: "desc" },
@@ -107,8 +102,6 @@ function sortedSummaries(
     deck: ["deckKey", "frontKey"],
     created: ["createdAt"],
   };
-  // Walk only existing decks. Deleted-deck summaries may remain until bounded
-  // cleanup finishes and must not consume Browse's read budget or appear in it.
   return mergedStream(perDeck, fields[field]);
 }
 
@@ -117,14 +110,11 @@ const browseFilters = {
   deckId: v.optional(v.string()),
   tags: v.optional(v.array(v.string())),
   search: v.optional(v.string()),
-  // Only concept cards for now: summaries written before `type` was kept
-  // lack it, and none of those is a concept card.
   type: v.optional(v.literal("concept")),
 };
 
 type BrowseFilters = { state?: number; tags?: string[]; search?: string; type?: "concept" };
 
-/** The filter as a summary test, or null when nothing is filtered. */
 function summaryMatcher({ state, tags, search, type }: BrowseFilters) {
   const tagKeys = new Set((tags ?? []).map((tag) => tag.toLocaleLowerCase()));
   const needle = search?.toLocaleLowerCase() ?? "";
@@ -136,7 +126,6 @@ function summaryMatcher({ state, tags, search, type }: BrowseFilters) {
     (!needle || summary.searchText.includes(needle));
 }
 
-/** The deck a Browse view is limited to: null for the library, false if not found. */
 async function browseScope(ctx: QueryCtx, library: Doc<"libraries">, deckId?: string) {
   if (deckId === undefined) return null;
   return (await readableDeck(ctx, library, deckId))?._id ?? false;
@@ -148,7 +137,6 @@ type BrowsePageArgs = BrowseFilters & {
   paginationOpts: PaginationOptions & { endCursor?: string | null };
 };
 
-/** One page of a library's Browse view, walked through the summary index for the sort. */
 export async function loadBrowsePage(
   ctx: QueryCtx,
   library: Doc<"libraries">,
@@ -160,8 +148,6 @@ export async function loadBrowsePage(
   if (!deckIds.length) return { page: [] as HydratedFlashcard[], isDone: true, continueCursor: "" };
   const match = summaryMatcher(args);
   if (args.search?.trim()) {
-    // Text search uses the search index, in relevance order, so it stays fast
-    // at any library size. Pages can come back short after the other filters.
     const result = await searchSummaries(ctx, library._id, scope, args.search).paginate({
       ...args.paginationOpts,
       numItems: Math.min(Math.max(args.paginationOpts.numItems, 1), 100),
@@ -180,7 +166,6 @@ export async function loadBrowsePage(
   const result = await rows.paginate({
     ...args.paginationOpts,
     numItems: Math.min(Math.max(args.paginationOpts.numItems, 1), 100),
-    // A rare filter match in a large library returns a short page and a cursor.
     maximumRowsRead: 4000,
   });
   return { ...result, page: await hydrateSummaries(ctx, result.page) };
@@ -212,10 +197,6 @@ async function hydrateSummaries(ctx: QueryCtx, summaries: Summary[]) {
   return page;
 }
 
-/**
- * One page of Browse. Clients subscribe page by page with Convex cursors; a
- * filter skips non-matching rows without reading review units.
- */
 export const browsePage = query({
   args: { paginationOpts: paginationOptsValidator, sort: v.string(), ...browseFilters },
   handler: async (ctx, args) => {
@@ -226,10 +207,8 @@ export const browsePage = query({
 });
 
 const MAX_COUNTED_SUMMARIES = 5000;
-/** Search results counted; Convex search returns at most 1,024 per query. */
 const MAX_SEARCH_COUNT = 1000;
 
-/** Totals for Browse's "N of M cards": counters, or a summary scan when filtered. */
 export const browseCounts = query({
   args: browseFilters,
   handler: async (ctx, args) => {
@@ -247,7 +226,6 @@ export const browseCounts = query({
     const libraryCounts = sum(counters);
     const match = summaryMatcher(args);
     let filtered = scope ? sum(counters.filter((row) => row.deckId === scope)) : libraryCounts;
-    // A filtered count scans summaries; past this many it reports a lower bound.
     let capped = false;
     if (match && args.search?.trim()) {
       const active = await activeDeckIds(ctx, library._id);
@@ -297,8 +275,6 @@ export const listTags = query({
   handler: async (ctx) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    // The library's remembered tag names: one row per tag, so the read does not
-    // grow with the card count. A tag no card carries any more can remain.
     const tags = await ctx.db
       .query("tags")
       .withIndex("by_library_key", (q) => q.eq("libraryId", library._id))
@@ -328,7 +304,6 @@ export const listDeckTags = query({
 
 const contentArgs = {
   type: v.string(),
-  // Validated by the shared core schema for the flashcard type.
   content: v.any(),
 };
 
@@ -346,8 +321,6 @@ export const create = mutation({
     const deck = await ownedOrFail(ctx, library, args.deckId, "Deck");
     await checkCapacity(ctx, library._id, { flashcards: 1 });
     const input = validateFlashcardInput(args.type, args.content, { concept: true });
-    // A concept card is only useful with generated exercises, so it can't be
-    // created while this deployment has no generator.
     if (input.type === "concept") {
       requireConceptCards(library);
       const { unavailable } = selectProvider();
@@ -372,11 +345,6 @@ export type UpdateResult =
   | { status: "ok"; version: number }
   | { status: "conflict"; version: number; message: string };
 
-/**
- * Save an edit made against `expectedVersion`. The first accepted edit wins:
- * a later save from an older version returns a conflict and changes nothing,
- * so the client can keep the user's draft and let them decide.
- */
 export const update = mutation({
   args: {
     flashcardId: v.id("flashcards"),
@@ -395,15 +363,11 @@ export const update = mutation({
         message: "This flashcard was changed elsewhere after you opened it.",
       };
     }
-    // A concept card outside Pro keeps its data but can't be edited until Pro
-    // returns (ADR 0023).
     if (flashcard.type === "concept") requireConceptCards(library);
     let input: ValidatedFlashcard | undefined;
     if (args.content !== undefined || args.type !== undefined) {
       const current = parseFlashcard(flashcard);
       const type = args.type ?? current.type;
-      // A concept card's review unit and variant pool have no counterpart in
-      // other types, so neither side of that change is allowed.
       if (type !== current.type && (type === "concept" || current.type === "concept"))
         fail("INVALID", "A card can't be changed to or from a concept card.");
       input = validateFlashcardInput(type, args.content ?? current.content, { concept: true });
@@ -419,7 +383,6 @@ export const remove = mutation({
   handler: async (ctx, { flashcardId }) => {
     const library = await writableLibrary(ctx);
     const flashcard = await owned(ctx, library, flashcardId);
-    // Deleting something already gone is a no-op, so retries are safe.
     if (!flashcard) return { ok: true as const };
     await deleteFlashcardCascade(ctx, flashcard, { refreshDependents: true });
     await bumpRevision(ctx, library._id);
@@ -427,7 +390,6 @@ export const remove = mutation({
   },
 });
 
-/** Archived flashcards leave queues and stop gating dependents. */
 export const setArchived = mutation({
   args: { flashcardId: v.id("flashcards"), archived: v.boolean() },
   handler: async (ctx, { flashcardId, archived }) => {
@@ -455,8 +417,6 @@ export const deleteConsequences = query({
       .query("reviewUnits")
       .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcard._id))
       .collect();
-    // FSRS reps counts accepted reviews, and undo restores the previous reps.
-    // Read only the two boundary logs per unit, never its lifetime history.
     const boundaries = await Promise.all(
       units.map(async (unit) => {
         const history = () =>
@@ -496,7 +456,6 @@ export const moveConsequences = query({
   },
 });
 
-/** Move a flashcard to another deck, removing its prerequisite links (see `moveFlashcard`). */
 export const move = mutation({
   args: { flashcardId: v.id("flashcards"), targetDeckId: v.id("decks") },
   handler: async (ctx, { flashcardId, targetDeckId }) => {

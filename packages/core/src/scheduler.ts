@@ -7,14 +7,8 @@ import {
   type Steps,
 } from "ts-fsrs";
 
-/** Review units awaiting prerequisite unlock use a far-future due date. */
 export const PENDING_DUE = new Date("2099-01-01T00:00:00.000Z");
 
-/**
- * The FSRS scheduling state a review unit holds. This mirrors the persisted
- * review-unit columns structurally without depending on any database schema,
- * so every persistence layer (SQLite, Convex) can map to it.
- */
 export type FsrsFields = {
   due: Date;
   stability: number;
@@ -28,11 +22,6 @@ export type FsrsFields = {
   lastReview: Date | null;
 };
 
-/**
- * Transport-safe FSRS state: identical to {@link FsrsFields} with timestamps as
- * epoch milliseconds. Convex documents and API values use this shape; `Date`
- * objects only exist inside the scheduling algorithm boundary.
- */
 export type FsrsFieldsMs = Omit<FsrsFields, "due" | "lastReview"> & {
   due: number;
   lastReview: number | null;
@@ -45,7 +34,6 @@ function parseSteps(csv: string): Steps {
     .filter(Boolean) as Steps;
 }
 
-/** The settings an FSRS scheduler is built from. */
 export type SchedulerParams = {
   requestRetention: number;
   maximumInterval: number;
@@ -53,11 +41,9 @@ export type SchedulerParams = {
   enableShortTerm: boolean;
   learningSteps: string;
   relearningSteps: string;
-  /** JSON array of FSRS weights; null = library defaults. */
   weights: string | null;
 };
 
-/** Build an FSRS scheduler from the user's saved parameters. */
 export function createScheduler(params: SchedulerParams): FSRS {
   return fsrs({
     request_retention: params.requestRetention,
@@ -70,7 +56,6 @@ export function createScheduler(params: SchedulerParams): FSRS {
   });
 }
 
-/** DB row → ts-fsrs `Card`. */
 export function toFsrsCard(row: FsrsFields): FsrsCard {
   return {
     due: row.due,
@@ -86,7 +71,6 @@ export function toFsrsCard(row: FsrsFields): FsrsCard {
   };
 }
 
-/** ts-fsrs `Card` → DB columns. */
 export function fromFsrsCard(card: FsrsCard): FsrsFields {
   return {
     due: card.due,
@@ -102,12 +86,10 @@ export function fromFsrsCard(card: FsrsCard): FsrsFields {
   };
 }
 
-/** Fresh FSRS state for a brand-new review unit ready to study. */
 export function newReviewUnitFields(now: Date = new Date()): FsrsFields {
   return fromFsrsCard(createEmptyCard(now));
 }
 
-/** FSRS placeholder for review units blocked by unmet prerequisites. */
 export function pendingReviewUnitFields(): FsrsFields {
   return {
     due: PENDING_DUE,
@@ -132,7 +114,6 @@ export function isPendingSchedule(reviewUnit: {
   return reviewUnit.reps === 0 && reviewUnit.lastReview == null && due >= PENDING_DUE.getTime();
 }
 
-/** Epoch-millisecond FSRS state → `Date`-based fields. */
 export function fsrsFieldsFromMs(row: FsrsFieldsMs): FsrsFields {
   return {
     ...row,
@@ -141,7 +122,6 @@ export function fsrsFieldsFromMs(row: FsrsFieldsMs): FsrsFields {
   };
 }
 
-/** `Date`-based FSRS fields → epoch-millisecond state. */
 export function fsrsFieldsToMs(row: FsrsFields): FsrsFieldsMs {
   return {
     due: row.due.getTime(),
@@ -157,7 +137,6 @@ export function fsrsFieldsToMs(row: FsrsFields): FsrsFieldsMs {
   };
 }
 
-/** Pick only the FSRS columns from a wider record. */
 export function pickFsrsFieldsMs(row: FsrsFieldsMs): FsrsFieldsMs {
   return {
     due: row.due,
@@ -173,17 +152,11 @@ export function pickFsrsFieldsMs(row: FsrsFieldsMs): FsrsFieldsMs {
   };
 }
 
-/**
- * Current recall probability (0–1) for a review unit, using the same FSRS
- * forgetting curve that schedules it. `null` before the first review, where
- * retrievability has no meaning.
- */
 export function retrievabilityAt(row: FsrsFieldsMs, now: number, scheduler: FSRS): number | null {
   if (row.state === State.New || row.lastReview == null) return null;
   return scheduler.get_retrievability(toFsrsCard(fsrsFieldsFromMs(row)), new Date(now), false);
 }
 
-/** A prerequisite is secured enough to unlock dependents. */
 export function isPrereqSecured(
   reviewUnit: { state: number; stability: number },
   stabilityFloor: number,

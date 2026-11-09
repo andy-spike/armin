@@ -4,21 +4,11 @@ import { useBillingStatus } from "@/components/billing-settings";
 import { useViewer } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-/**
- * Whether the signed-in library may use concept cards (ADR 0023): Pro only,
- * which the backend already resolves for complimentary Pro and self-hosted
- * instances. Undefined while the viewer loads, so callers neither upsell nor
- * unlock before they know.
- */
 export function useConceptCardsAllowed() {
   const plan = useViewer().data?.library?.plan;
   return plan === undefined ? undefined : plan === "pro";
 }
 
-/**
- * Where a learner gets Pro: Billing settings where this deployment sells it,
- * otherwise the plans page (for example the shared reviewer account).
- */
 export function ProUpgradeLink({ className }: { className?: string }) {
   const billing = useBillingStatus().data;
   const linkClass = cn("font-medium text-accent hover:text-accent-deep", className);
@@ -33,7 +23,6 @@ export function ProUpgradeLink({ className }: { className?: string }) {
   );
 }
 
-/** The small "Pro" marker on a feature a free library can't use. */
 export function ProMarker({ className }: { className?: string }) {
   return (
     <span
@@ -48,11 +37,6 @@ export function ProMarker({ className }: { className?: string }) {
   );
 }
 
-/**
- * Explains that concept cards need Pro: in the card editor when a free
- * learner picks the Concept type (`create`), or opens a concept card kept
- * from a lapsed Pro plan (`lapsed`).
- */
 export function ConceptProNotice({ variant }: { variant: "create" | "lapsed" }) {
   return (
     <div

@@ -1,13 +1,3 @@
-/**
- * The keybinding runtime. One per-window `keydown` listener owns the chord
- * buffer and routes keys to Commands over a scope stack, applying precedence,
- * modal isolation, and typing suppression. Components activate their Scope and
- * register handlers via {@link useScope}; the palette, cheatsheet, and settings
- * read the effective keymap from {@link useKeybindings}.
- *
- * See docs/adr/0018 (dispatch) and docs/adr/0019 (per-profile override storage).
- */
-
 import { armin } from "@/lib/armin-client";
 import { useLibraryReady } from "@/lib/session";
 import {
@@ -60,11 +50,8 @@ type KeybindingsContextValue = {
   setBinding: (commandId: CommandId, binding: string) => void;
   resetCommand: (commandId: CommandId) => void;
   resetAll: () => void;
-  /** Invoke a Command's handler directly (e.g. from the command palette), bypassing key matching and modal isolation. */
   runCommand: (commandId: CommandId) => boolean;
-  /** @internal — used by {@link useScope}. */
   _register: (scope: CommandScope, modal: boolean, getHandlers: () => CommandHandlers) => number;
-  /** @internal — used by {@link useScope}. */
   _unregister: (id: number) => void;
 };
 
@@ -75,9 +62,7 @@ function parseOverrides(raw: string | null | undefined): KeybindingOverrides {
   try {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object") return parsed as KeybindingOverrides;
-  } catch {
-    // Corrupt overrides fall back to factory defaults rather than breaking keys.
-  }
+  } catch {}
   return {};
 }
 
@@ -92,7 +77,6 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
   );
   const keymap = useMemo(() => resolveKeymap(overrides), [overrides]);
 
-  // Keep a live mirror for the keydown closure, which is attached once.
   const keymapRef = useRef(keymap);
   useLayoutEffect(() => {
     keymapRef.current = keymap;
@@ -146,8 +130,6 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
     }, CHORD_TIMEOUT_MS);
   }, []);
 
-  // Build the set of Commands eligible to fire right now: from the topmost modal
-  // (or the stack bottom) up, with a live handler and a binding. Deeper wins.
   const computeFireable = useCallback((): {
     fireable: FireableCommand[];
     instances: { instance: ScopeInstance; depth: number }[];
@@ -176,7 +158,6 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
 
   const fire = useCallback(
     (commandId: CommandId, instances: { instance: ScopeInstance; depth: number }[]) => {
-      // Call the deepest instance that owns a handler for this Command.
       for (let i = instances.length - 1; i >= 0; i--) {
         const handler = instances[i].instance.getHandlers()[commandId];
         if (handler) {
@@ -193,8 +174,6 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
       const step = stepFromEvent(event);
       if (!step) return;
 
-      // A bare Escape always cancels a pending chord, but never preventDefault —
-      // intrinsic dialog/inline-edit Escape handlers must still run.
       if (step.key === "Escape" && !step.mod && !step.alt) {
         if (bufferRef.current.length > 0) clearBuffer();
         return;
@@ -206,7 +185,6 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
       const { fireable: allFireable, instances } = computeFireable();
       let fireable = allFireable;
       if (editable && !strong) {
-        // Bare keys are suppressed while typing unless the Command opts in.
         fireable = fireable.filter((c) => COMMAND_BY_ID.get(c.commandId)?.allowInInput);
       }
 
@@ -230,7 +208,6 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
 
       const extended = [...bufferRef.current, step];
       if (tryBuffer(extended)) return;
-      // The extended buffer led nowhere; let this key start a fresh sequence.
       if (bufferRef.current.length > 0 && tryBuffer([step])) return;
       clearBuffer();
     };
@@ -248,8 +225,6 @@ export function KeybindingsProvider({ children }: { children: ReactNode }) {
 
   const commitKeymap = useCallback(
     (next: Keymap) => {
-      // The settings save carries a Convex optimistic update, so keys respond
-      // before the round-trip settles.
       if (hasBackend) persistOverrides.mutate(diffFromFactory(next));
     },
     [hasBackend, persistOverrides],
@@ -329,12 +304,6 @@ export function useKeybindings() {
   return ctx;
 }
 
-/**
- * Activate a Scope and register its Command handlers while mounted. Handlers are
- * read live on each keypress, so closures always see fresh state without
- * re-registering. Pass `{ modal: true }` to isolate Commands beneath this one
- * (used by dialogs and overlays).
- */
 export function useScope(
   scope: CommandScope,
   handlers: CommandHandlers,
@@ -348,10 +317,6 @@ export function useScope(
   const modal = options?.modal ?? false;
   const enabled = options?.enabled ?? true;
 
-  // Depend only on the stable register/unregister callbacks, never the whole
-  // context value. Registering updates `activeScopes`, which produces a new
-  // context object; depending on that object would re-run this effect, register
-  // again, and loop until React bails out with a max-update-depth error.
   const register = ctx?._register;
   const unregister = ctx?._unregister;
 
@@ -362,7 +327,6 @@ export function useScope(
   }, [register, unregister, scope, modal, enabled]);
 }
 
-/** Push an empty modal Scope so app-level Commands beneath it are suppressed. */
 export function useModalIsolation(active: boolean) {
   useScope("global", {}, { modal: true, enabled: active });
 }

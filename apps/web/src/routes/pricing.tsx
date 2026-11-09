@@ -4,9 +4,7 @@ import { selfHosted } from "@/lib/self-host";
 
 export const Route = createFileRoute("/pricing")({
   staticData: { documentScroll: true },
-  // Public and crawlable, like the policy pages.
   ssr: true,
-  // A self-hosted instance has no plans to sell.
   beforeLoad: () => {
     if (selfHosted) throw redirect({ to: "/" });
   },

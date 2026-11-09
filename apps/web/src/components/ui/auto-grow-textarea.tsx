@@ -3,16 +3,10 @@ import { useLayoutEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-/**
- * Textarea that grows with its content instead of being manually resizable.
- * Starts at `minHeight`, expands as text is added, and only shows a scrollbar
- * once it reaches `maxHeight` (when set).
- */
 export const AutoGrowTextarea = React.forwardRef<
   HTMLTextAreaElement,
   React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
     minHeight: number;
-    /** Omit to keep growing with the content and never scroll. */
     maxHeight?: number;
   }
 >(({ value, minHeight, maxHeight = Infinity, className, style, ...props }, forwardedRef) => {

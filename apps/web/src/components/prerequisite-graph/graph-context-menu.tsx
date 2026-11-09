@@ -22,8 +22,6 @@ export function GraphContextMenu({ open, x, y, items, onClose }: GraphContextMen
   useEffect(() => {
     if (!open) return;
 
-    // Move focus into the menu when it opens (mouse and keyboard alike), let
-    // the arrow keys move between items, and give focus back on close.
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const focusFrame = requestAnimationFrame(() => {
       ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();

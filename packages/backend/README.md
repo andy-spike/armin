@@ -174,7 +174,7 @@ Rules:
 
 ## Concept cards
 
-A concept card (`type: "concept"`, ADR 0023) holds a **template**: a brief and
+A concept card (`type: "concept"`) holds a **template**: a brief and
 one worked example, text and KaTeX only (`@armin/core/flashcard-types` rejects
 image and audio references). It is created through `insertFlashcard` like every
 card, so plan and deck capacity apply, and it generates one review unit with

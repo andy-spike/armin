@@ -8,11 +8,6 @@ import { armin } from "@/lib/armin-client";
 import { useDeleteConsequences } from "@/lib/use-delete-consequences";
 import type { UiFlashcard } from "@/types/view-models";
 
-/**
- * The per-card actions every flashcard grid offers: move, card info, archive,
- * and delete with a confirmation that lists what will be lost. Spread
- * `tileProps(card)` onto each `FlashcardTile` and render `dialogs` once.
- */
 export function useFlashcardTileActions() {
   const toast = useToast();
   const [moveTarget, setMoveTarget] = useState<UiFlashcard | null>(null);

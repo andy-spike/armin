@@ -1,24 +1,9 @@
 import { sniffImageExt } from "@armin/core/media";
 
-/**
- * Images are shrunk in the browser before upload, so the library stores one
- * compact copy and quotas count only that copy.
- *
- * - The longest side is at most 1600 px (sharper than any card, zoom included).
- * - Photos become WebP at quality 80; screenshots and diagrams (few colours)
- *   become lossless WebP so text stays crisp. Browsers that can't make WebP
- *   (some Safari versions) get JPEG 82 for photos and PNG for graphics.
- * - Re-encoding turns photos upright and drops EXIF (camera, GPS) data.
- * - Animated images (GIF, animated WebP, APNG, AVIF sequences) and SVG are
- *   left untouched: a canvas would keep only their first frame.
- * - A small file keeps its original bytes unless the new one is at least 10%
- *   smaller, except a JPEG carrying EXIF, which is replaced whenever it shrinks.
- */
 const MAX_SIDE = 1600;
 const PHOTO_WEBP_QUALITY = 0.8;
 const PHOTO_JPEG_QUALITY = 0.82;
 const MIN_SAVING = 0.1;
-/** More distinct colours than this in the sample means a photo, not a graphic. */
 const GRAPHIC_MAX_COLORS = 4096;
 const SAMPLE_PIXELS = 250_000;
 const SHRINKABLE = new Set(["jpg", "png", "webp", "bmp", "avif"]);
@@ -40,11 +25,6 @@ function context(canvas: Canvas) {
   return ctx;
 }
 
-/**
- * Draw the bitmap at most MAX_SIDE on its longest side. Large downscales halve
- * step by step, which keeps detail and never allocates a full-size canvas for
- * camera photos (iOS caps canvas area).
- */
 function drawScaled(bitmap: ImageBitmap) {
   const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
   const targetWidth = Math.max(1, Math.round(bitmap.width * scale));
@@ -66,7 +46,6 @@ function drawScaled(bitmap: ImageBitmap) {
   return canvas;
 }
 
-/** Few distinct colours (screenshots, diagrams, slides) compress best losslessly. */
 function inspectPixels(canvas: Canvas) {
   const { data } = context(canvas).getImageData(0, 0, canvas.width, canvas.height);
   const pixels = canvas.width * canvas.height;
@@ -86,15 +65,12 @@ function encode(canvas: Canvas, type: string, quality?: number) {
   return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
 }
 
-/** Candidate encodings, smallest first; a browser that can't make a type returns PNG. */
 async function encodings(canvas: Canvas, graphic: boolean, alpha: boolean) {
   const out: Blob[] = [];
   const add = (blob: Blob | null, type: string) => {
     if (blob && blob.type === type) out.push(blob);
   };
   if (graphic) {
-    // Chromium writes lossless WebP at quality 1; other browsers write
-    // near-lossless lossy WebP, and the PNG candidate covers that case.
     add(await encode(canvas, "image/webp", 1), "image/webp");
     add(await encode(canvas, "image/png"), "image/png");
   } else {
@@ -110,12 +86,11 @@ async function encodings(canvas: Canvas, graphic: boolean, alpha: boolean) {
   return out.sort((a, b) => a.size - b.size);
 }
 
-/** A JPEG with an APP1 Exif segment carries camera and often location data. */
 function jpegHasExif(bytes: Uint8Array) {
   let offset = 2;
   while (offset + 4 < bytes.length && bytes[offset] === 0xff) {
     const marker = bytes[offset + 1];
-    if (marker === 0xda) return false; // start of scan: no more metadata
+    if (marker === 0xda) return false;
     const length = (bytes[offset + 2] << 8) | bytes[offset + 3];
     if (
       marker === 0xe1 &&
@@ -130,21 +105,17 @@ function jpegHasExif(bytes: Uint8Array) {
 const ascii = (bytes: Uint8Array, start: number, length: number) =>
   String.fromCharCode(...bytes.subarray(start, start + length));
 
-/** Whether a WebP, PNG, or AVIF holds more than one frame. */
 async function isAnimated(file: Blob, ext: string, head: Uint8Array) {
   if (ext === "webp") {
-    // Extended format header with the animation flag.
     return ascii(head, 12, 4) === "VP8X" && (head[20] & 0x02) !== 0;
   }
   if (ext === "avif") {
-    // Image sequences declare the "avis" brand in the leading ftyp box.
     const size = new DataView(head.buffer, head.byteOffset).getUint32(0);
     for (let offset = 8; offset + 4 <= Math.min(size, head.length); offset += 4)
       if (ascii(head, offset, 4) === "avis") return true;
     return false;
   }
   if (ext === "png") {
-    // APNG puts an acTL chunk before the first image data chunk.
     const bytes = new Uint8Array(await file.arrayBuffer());
     const view = new DataView(bytes.buffer);
     for (let offset = 8; offset + 8 <= bytes.length;) {
@@ -157,11 +128,6 @@ async function isAnimated(file: Blob, ext: string, head: Uint8Array) {
   return false;
 }
 
-/**
- * Return a smaller version of an image for upload, or the original when it is
- * already as small as it should be or the browser can't decode it (the server
- * still validates every upload).
- */
 export async function shrinkImage(file: Blob): Promise<Blob> {
   if (typeof document === "undefined" || typeof createImageBitmap === "undefined") return file;
   const bytes = new Uint8Array(await file.slice(0, 64 * 1024).arrayBuffer());

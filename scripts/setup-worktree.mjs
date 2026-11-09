@@ -1,6 +1,5 @@
 import { spawnSync } from "node:child_process";
 
-// Keep provisioning in the backend workspace; install first on fresh T3 checkouts.
 for (const args of [
   ["install", "--frozen-lockfile"],
   ["--filter", "@armin/backend", "worktree:setup"],

@@ -1,13 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-/**
- * Study data belongs to a library derived from the first-party session or a
- * component-verified assistant grant, never a caller-supplied account ID.
- * Retired OAuth tables are kept until their bounded cleanup drains them.
- * Timestamps are epoch milliseconds.
- */
-
 export const fsrsFields = {
   due: v.number(),
   stability: v.number(),
@@ -17,7 +10,6 @@ export const fsrsFields = {
   learningSteps: v.number(),
   reps: v.number(),
   lapses: v.number(),
-  // 0=New, 1=Learning, 2=Review, 3=Relearning
   state: v.number(),
   lastReview: v.union(v.number(), v.null()),
 };
@@ -34,7 +26,6 @@ export const schedulingFields = {
   weights: v.union(v.string(), v.null()),
   prereqStabilityFloor: v.number(),
   newReviewUnitsPerDay: v.number(),
-  /** Maximum reviews per study day; null = unlimited. Optional on older rows. */
   reviewsPerDay: v.optional(v.union(v.number(), v.null())),
   keepSiblingReviewUnitsTogether: v.boolean(),
 };
@@ -64,11 +55,6 @@ const agentImportDeck = v.object({
   cardCount: v.number(),
 });
 
-/**
- * A concept card's variant pool (ADR 0023): where its latest generation job
- * stands. Jobs are numbered so a superseded job's result is discarded.
- */
-/** The variant allowance a running generation job holds: a count in one library's month. */
 export const variantReservation = v.object({
   libraryId: v.id("libraries"),
   month: v.string(),
@@ -80,42 +66,23 @@ const conceptPool = v.object({
     v.literal("generating"),
     v.literal("ready"),
     v.literal("failed"),
-    /** No job started: the library's monthly variant allowance was used up. */
     v.literal("allowanceUsed"),
   ),
-  /** Why the latest job failed, shown with Retry. Set only with `failed`. */
   reason: v.optional(v.string()),
-  /** The latest job's number; only that job may store variants or fail the pool. */
   job: v.number(),
-  /** When the latest job was scheduled. */
   requestedAt: v.number(),
-  /**
-   * The variant allowance a `generating` job holds, released when the job
-   * stores, fails, or is superseded. Absent where no allowance applies.
-   */
   reserved: v.optional(variantReservation),
 });
 
 export default defineSchema({
-  /**
-   * One app-side record per approved assistant connection. The `@convex-dev/mcp`
-   * component owns the credential; `componentConnectionId` links this row to its
-   * grant. Rows are kept after revocation for provenance, activity, and retries.
-   */
   agentConnections: defineTable({
     libraryId: v.id("libraries"),
-    /** Component grant id. Absent on connections from the retired OAuth server. */
     componentConnectionId: v.optional(v.string()),
     name: v.string(),
-    /** OAuth resource audience; the component also binds tokens to it. */
     resource: v.string(),
     createdAt: v.number(),
     lastUsedAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
-    /**
-     * Unused. Rows from the retired OAuth server may still hold these values,
-     * and Convex rejects a schema that omits a field existing rows carry.
-     */
     clientId: v.optional(v.string()),
     scope: v.optional(v.string()),
     deckIds: v.optional(v.array(v.id("decks"))),
@@ -166,37 +133,19 @@ export default defineSchema({
     .index("by_library", ["libraryId"])
     .index("by_created", ["createdAt"]),
 
-  /** One library per Better Auth user. */
   libraries: defineTable({
     ownerId: v.string(),
     status: v.union(v.literal("active"), v.literal("deleting"), v.literal("resetting")),
     timeZone: v.string(),
-    /** Billing plan; absent means free. */
     plan: v.optional(v.union(v.literal("free"), v.literal("pro"))),
-    /**
-     * Pro granted by an operator without a subscription (`billing.setComplimentaryPro`).
-     * Overrides `plan`; the Polar sync never changes it.
-     */
     complimentaryPro: v.optional(v.boolean()),
     statsEpoch: v.optional(v.number()),
     statsReady: v.optional(v.boolean()),
     createdAt: v.number(),
-    /** Unused; only libraries already being deleted may still carry it. */
     deletionRequestedAt: v.optional(v.number()),
     reviewerResetAt: v.optional(v.number()),
   }).index("by_owner", ["ownerId"]),
 
-  /**
-   * A user's Pro subscription as last read from Polar, the merchant of record
-   * and source of truth, plus the state of the per-user sync job
-   * (`model/billing.ts`). Webhooks raise `requested`; one runner at a time
-   * reads Polar and records the request it read for in `applied`, so the
-   * stored state always comes from a read that began after the latest
-   * request. `deleted` is a permanent tombstone for a deleted account: the
-   * runner revokes any subscription it finds, including one paid for in a
-   * checkout left open across the deletion. Keyed by the Better Auth user ID,
-   * so it outlives the library.
-   */
   billing: defineTable({
     ownerId: v.string(),
     subscription: v.union(
@@ -214,29 +163,18 @@ export default defineSchema({
     ),
     requested: v.number(),
     applied: v.number(),
-    /** A runner holds the job until this time; it renews the lease each pass. */
     leaseUntil: v.optional(v.number()),
-    /** Identifies the runner holding the lease; a superseded runner stops. */
     leaseId: v.optional(v.string()),
-    /** Consecutive failed passes, for retry backoff. */
     failures: v.optional(v.number()),
     lastError: v.optional(v.string()),
     deleted: v.optional(v.boolean()),
   }).index("by_owner", ["ownerId"]),
 
-  /**
-   * Write-side counters for a library. Kept apart from `libraries` so that
-   * reactive reads of the library row are not invalidated by every write.
-   */
   libraryCounters: defineTable({
     libraryId: v.id("libraries"),
-    /** Bumped by every study-data write; export uses it as a snapshot check. */
     revision: v.number(),
-    /** Image bytes, counted against the plan's image quota. */
     mediaBytes: v.number(),
-    /** Audio bytes, counted against the plan's separate audio quota. */
     audioBytes: v.optional(v.number()),
-    /** Review units in the library; bounds every per-library read. */
     reviewUnits: v.optional(v.number()),
   }).index("by_library", ["libraryId"]),
 
@@ -244,20 +182,12 @@ export default defineSchema({
     libraryId: v.id("libraries"),
     ...schedulingFields,
     schedulingPreset: v.string(),
-    /** JSON object of keybinding overrides; null = defaults. */
     keybindings: v.union(v.string(), v.null()),
-    /** Play a card side's audio when it appears. Absent means on. */
     autoplayAudio: v.optional(v.boolean()),
-    /** How the card editor opens: as a dialog or filling the window. Absent means the dialog. */
     cardEditorLayout: v.optional(v.union(v.literal("fullPage"), v.literal("dialog"))),
     updatedAt: v.number(),
   }).index("by_library", ["libraryId"]),
 
-  /**
-   * The account's color theme choice and custom themes. Kept apart from
-   * `settings` so a theme change doesn't re-run queries that read scheduling
-   * settings. Absent means the default (Flexoki, following the system).
-   */
   appearance: defineTable({
     libraryId: v.id("libraries"),
     mode: v.union(v.literal("light"), v.literal("dark"), v.literal("system")),
@@ -304,9 +234,7 @@ export default defineSchema({
     name: v.string(),
     description: v.union(v.string(), v.null()),
     version: v.number(),
-    /** True while an MCP import is materializing cards; excluded from every normal read. */
     staging: v.optional(v.boolean()),
-    /** When the owner pinned the deck to the sidebar; absent when unpinned. */
     pinnedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -314,7 +242,6 @@ export default defineSchema({
     .index("by_library", ["libraryId"])
     .index("by_library_slug", ["libraryId", "slug"]),
 
-  /** The authored unit. Content is type-specific JSON validated by core. */
   flashcards: defineTable({
     libraryId: v.id("libraries"),
     deckId: v.id("decks"),
@@ -325,19 +252,9 @@ export default defineSchema({
     posX: v.union(v.number(), v.null()),
     posY: v.union(v.number(), v.null()),
     locked: v.boolean(),
-    /**
-     * Permanent access milestone: once a card unlocks, it stays accessible.
-     * Absent only on pre-policy cards (older self-hosted data or backups);
-     * `hasPrerequisiteAccess` treats those as accessible while unlocked.
-     */
     prerequisiteAccessGranted: v.optional(v.boolean()),
     archived: v.boolean(),
-    /**
-     * Concept cards only: the variant pool's generation state. Not authored
-     * content, so changing it leaves `version` alone.
-     */
     conceptPool: v.optional(conceptPool),
-    /** Incremented on every authored change; edits must name the version they started from. */
     version: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -345,18 +262,6 @@ export default defineSchema({
     .index("by_library", ["libraryId"])
     .index("by_deck", ["deckId"]),
 
-  /**
-   * A concept card's variants: generated exercises with worked solutions
-   * (ADR 0023). Each belongs to one library and one concept card; the card's
-   * single review unit shows whichever variant is assigned to it.
-   */
-  /**
-   * A library's concept card variant allowance for one UTC month (ADR 0023,
-   * `usageMonth`): variants stored, and variants held by running jobs. A job
-   * reserves its batch before calling the model and, when it ends, charges
-   * what it stored and releases the reservation. Self-hosted instances keep
-   * no rows.
-   */
   conceptVariantUsage: defineTable({
     libraryId: v.id("libraries"),
     month: v.string(),
@@ -369,12 +274,9 @@ export default defineSchema({
     flashcardId: v.id("flashcards"),
     exercise: v.string(),
     solution: v.string(),
-    /** Active variants can be shown in review; flagged ones are set aside. */
     status: v.union(v.literal("active"), v.literal("flagged")),
-    /** When a review last showed it; absent means unseen. */
     lastShownAt: v.optional(v.number()),
     origin: v.union(v.literal("generated"), v.literal("edited")),
-    /** Incremented on every change; edits must name the version they started from. */
     version: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -382,7 +284,6 @@ export default defineSchema({
     .index("by_flashcard", ["flashcardId"])
     .index("by_library", ["libraryId"]),
 
-  /** Generated review items; FSRS state inline. */
   reviewUnits: defineTable({
     libraryId: v.id("libraries"),
     deckId: v.id("decks"),
@@ -393,24 +294,9 @@ export default defineSchema({
     ...fsrsFields,
     locked: v.boolean(),
     archived: v.boolean(),
-    /**
-     * Hidden until this epoch-ms instant (the start of the next study day in
-     * the library time zone). Optional so rows written before bury existed
-     * stay valid, and absent means never buried.
-     */
     buriedUntil: v.optional(v.number()),
-    /**
-     * Fixed place in the new-card order when it was chosen, such as an Anki
-     * deck's own order on import. Absent means the hash of the flashcard id.
-     */
     frontierKey: v.optional(v.number()),
-    /**
-     * Concept cards only: the variant this unit shows as its front and back.
-     * Absent until the first variant exists; the unit waits on the pending
-     * schedule until then (ADR 0023).
-     */
     variantId: v.optional(v.id("conceptVariants")),
-    /** Incremented on every schedule or display change; reviews name the version shown. */
     version: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -420,7 +306,6 @@ export default defineSchema({
     .index("by_library", ["libraryId"])
     .index("by_deck_eligible_due", ["deckId", "locked", "archived", "due"]),
 
-  /** Append-only review history with the pre-review state for exact undo. */
   reviewLogs: defineTable({
     libraryId: v.id("libraries"),
     deckId: v.id("decks"),
@@ -437,17 +322,12 @@ export default defineSchema({
     learningSteps: v.number(),
     review: v.number(),
     before: fsrsSnapshot,
-    /**
-     * Concept cards only: the variant this review showed and its last-shown
-     * time before the review, so Undo can reassign it and restore that time.
-     */
     beforeVariant: v.optional(
       v.object({
         variantId: v.id("conceptVariants"),
         lastShownAt: v.optional(v.number()),
       }),
     ),
-    /** Review-unit version written by this review; undo requires it unchanged. */
     unitVersionAfter: v.number(),
     statsGeneration: v.optional(v.string()),
   })
@@ -460,10 +340,6 @@ export default defineSchema({
     .index("by_flashcard_review", ["flashcardId", "review"])
     .index("by_deck", ["deckId"]),
 
-  /**
-   * Practice-only cram ratings. They never feed the FSRS schedule, locks, or
-   * `reviewLogs`; deleting a card, deck, or library clears them with history.
-   */
   cramLogs: defineTable({
     statsGeneration: v.optional(v.string()),
     libraryId: v.id("libraries"),
@@ -476,7 +352,6 @@ export default defineSchema({
     .index("by_library_review", ["libraryId", "review"])
     .index("by_unit_review", ["reviewUnitId", "review"]),
 
-  /** Text-free scheduling projection; maintained atomically with each unit. */
   unitSummaries: defineTable({
     libraryId: v.id("libraries"),
     deckId: v.id("decks"),
@@ -494,12 +369,7 @@ export default defineSchema({
     createdAt: v.number(),
     latestAgain: v.optional(v.number()),
     introducedAt: v.optional(v.number()),
-    /** Fixed new-card order (`frontierKey` in model/performance.ts). */
     frontierKey: v.optional(v.number()),
-    /**
-     * Set on a concept card's unit only, so a library without Pro can select
-     * from its other units by index (ADR 0023). Absent on every other unit.
-     */
     concept: v.optional(v.literal(true)),
   })
     .index("by_unit", ["reviewUnitId"])
@@ -512,7 +382,6 @@ export default defineSchema({
     .index("by_deck_state_due", ["deckId", "locked", "archived", "state", "due"])
     .index("by_library_frontier", ["libraryId", "locked", "archived", "state", "frontierKey"])
     .index("by_deck_frontier", ["deckId", "locked", "archived", "state", "frontierKey"])
-    // The same selections without withheld concept units, for libraries without Pro.
     .index("by_library_kind_state_due", [
       "libraryId",
       "locked",
@@ -541,7 +410,6 @@ export default defineSchema({
     .index("by_library_buried", ["libraryId", "buriedUntil"])
     .index("by_library_introduced", ["libraryId", "introducedAt"]),
 
-  /** Rolling activity per card, used to transfer/subtract history on move/delete. */
   cardActivity: defineTable({
     libraryId: v.id("libraries"),
     flashcardId: v.id("flashcards"),
@@ -556,7 +424,6 @@ export default defineSchema({
     .index("by_library", ["libraryId"])
     .index("by_day", ["day"]),
 
-  /** One tiny row per study day, both library-wide and per deck. */
   dailyActivity: defineTable({
     libraryId: v.id("libraries"),
     scope: v.string(),
@@ -570,12 +437,6 @@ export default defineSchema({
     .index("by_library", ["libraryId"])
     .index("by_day", ["day"]),
 
-  /**
-   * Derived Browse row for each flashcard: its sort keys, search text, and the
-   * aggregate of its review units. Rebuilt in the same mutation as any write
-   * to the flashcard or its units (model/summaries.ts), so Browse pages through
-   * these indexes without reading review units.
-   */
   flashcardSummaries: defineTable({
     libraryId: v.id("libraries"),
     deckId: v.id("decks"),
@@ -588,22 +449,14 @@ export default defineSchema({
     backKey: v.string(),
     deckKey: v.string(),
     searchText: v.string(),
-    /** Least-learned unit state and soonest unit due, as the tile shows them. */
     state: v.number(),
     due: v.number(),
-    /** 0 scheduled, 1 new, 2 locked: the "due soon" order before `due`. */
     dueGroup: v.number(),
-    /** Bit per unit state present, for the state filter. */
     stateMask: v.number(),
     units: v.number(),
     newUnits: v.number(),
     learningUnits: v.number(),
-    /**
-     * The flashcard's type, for Browse's type filter. Absent on summaries not
-     * rebuilt since it was added, none of them a concept card's.
-     */
     type: v.optional(v.string()),
-    /** Set on concept cards only: true when active variants remain but every one has been shown. */
     lowOnVariants: v.optional(v.boolean()),
   })
     .index("by_flashcard", ["flashcardId"])
@@ -620,15 +473,12 @@ export default defineSchema({
       filterFields: ["libraryId", "deckId"],
     }),
 
-  /** Per-deck totals, the sum of the deck's flashcard summaries. */
   deckCounters: defineTable({
     libraryId: v.id("libraries"),
     deckId: v.id("decks"),
     flashcards: v.number(),
     archivedFlashcards: v.number(),
-    /** Unarchived flashcards with review units: the deck's card total. */
     active: v.number(),
-    /** Archived flashcards with review units. */
     archived: v.number(),
     learned: v.number(),
     newUnits: v.number(),
@@ -637,15 +487,10 @@ export default defineSchema({
     .index("by_deck", ["deckId"])
     .index("by_library", ["libraryId"]),
 
-  /**
-   * Deck sizes (`model/deckSizes.ts`), kept by triggers. They bound deck size
-   * and give Frontier counts without reading every unit.
-   */
   deckUnitCounts: defineTable({
     libraryId: v.id("libraries"),
     deckId: v.id("decks"),
     flashcards: v.number(),
-    /** Review units, and their states as `summarizeReviewUnitStates` counts them. */
     total: v.number(),
     newCount: v.number(),
     learningCount: v.number(),
@@ -653,13 +498,7 @@ export default defineSchema({
     relearningCount: v.number(),
     lockedCount: v.number(),
     archivedCount: v.number(),
-    /** New, unlocked, unarchived, never-reviewed units. */
     frontierCandidates: v.number(),
-    /**
-     * The concept card units among `frontierCandidates`, which a library
-     * without Pro withholds (ADR 0023). Absent on rows from before it was
-     * counted, which hold none.
-     */
     conceptFrontierCandidates: v.optional(v.number()),
   })
     .index("by_deck", ["deckId"])
@@ -683,7 +522,6 @@ export default defineSchema({
     key: v.string(),
   }).index("by_library_key", ["libraryId", "key"]),
 
-  /** Private library images. Served only through authenticated routes. */
   media: defineTable({
     libraryId: v.id("libraries"),
     fileName: v.string(),
@@ -709,7 +547,6 @@ export default defineSchema({
     .index("by_flashcard", ["flashcardId"])
     .index("by_library_file", ["libraryId", "fileName"]),
 
-  /** Application-level request ids so repeated submissions apply once. */
   requests: defineTable({
     libraryId: v.id("libraries"),
     requestId: v.string(),
@@ -720,11 +557,6 @@ export default defineSchema({
     .index("by_library_request", ["libraryId", "requestId"])
     .index("by_created", ["createdAt"]),
 
-  /**
-   * One Anki import: the decks it created and how much of the declared plan has
-   * arrived. A "running" import that stops making progress is cancelled by a
-   * cron job, which removes its decks.
-   */
   imports: defineTable({
     libraryId: v.id("libraries"),
     status: v.union(
@@ -734,9 +566,7 @@ export default defineSchema({
       v.literal("failed"),
     ),
     fileName: v.string(),
-    /** Armin decks created for the plan's deck keys. */
     decks: v.array(v.object({ key: v.string(), deckId: v.id("decks") })),
-    /** Declared up front; quotas are checked against it and `counts` may not exceed it. */
     totals: importCounts,
     counts: importCounts,
     error: v.optional(v.string()),
@@ -746,11 +576,6 @@ export default defineSchema({
     .index("by_library_status", ["libraryId", "status"])
     .index("by_status_updated", ["status", "updatedAt"]),
 
-  /**
-   * An MCP Anki import. Cards stay in `agentImportCards` while staging; only
-   * finalization creates hidden decks, and those decks become visible together
-   * after every card is written. An abandoned session expires.
-   */
   agentImports: defineTable({
     libraryId: v.id("libraries"),
     connectionId: v.id("agentConnections"),
@@ -766,18 +591,14 @@ export default defineSchema({
     sourceSha256: v.string(),
     kitVersion: v.string(),
     decks: v.array(agentImportDeck),
-    /** Kit totals, kept for the preview and manifest. */
     totals: agentImportTotals,
     counts: agentImportCounts,
     polished: v.number(),
     repaired: v.number(),
     materialized: v.number(),
     warnings: v.array(v.object({ code: v.string(), count: v.number(), message: v.string() })),
-    /** Converter plan keys that must each be imported or explicitly skipped. */
     planKeys: v.array(v.string()),
-    /** Keys already staged. Kept on the row so preview and finalize read no card bodies. */
     stagedKeys: v.array(v.string()),
-    /** Deck keys that actually received a card; empty declarations are not materialized. */
     usedDeckKeys: v.array(v.string()),
     unresolved: v.array(v.object({ key: v.string(), deckKey: v.string(), reason: v.string() })),
     skipped: v.array(v.object({ key: v.string(), reason: v.string() })),
@@ -814,7 +635,6 @@ export default defineSchema({
     .index("by_status_updated", ["status", "updatedAt"])
     .index("by_connection_updated", ["connectionId", "updatedAt"]),
 
-  /** Normalized cards waiting for finalization. Never visible in the library. */
   agentImportCards: defineTable({
     libraryId: v.id("libraries"),
     connectionId: v.id("agentConnections"),
@@ -831,7 +651,6 @@ export default defineSchema({
     .index("by_import_seq", ["importId", "seq"])
     .index("by_library", ["libraryId"]),
 
-  /** Media uploaded for one staging import; cleanup preserves shared images. */
   agentImportMedia: defineTable({
     libraryId: v.id("libraries"),
     connectionId: v.id("agentConnections"),
@@ -852,7 +671,6 @@ export default defineSchema({
     fileName: v.string(),
     size: v.optional(v.number()),
     error: v.optional(v.string()),
-    /** False leaves audio files out, so a library with a lot of audio still fits one ZIP. */
     includeAudio: v.optional(v.boolean()),
     createdAt: v.number(),
     expiresAt: v.number(),

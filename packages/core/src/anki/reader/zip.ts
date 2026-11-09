@@ -1,15 +1,8 @@
-/**
- * Lazy ZIP reading. Anki packages can hold gigabytes of media, so the reader
- * parses only the central directory up front and fetches, then inflates, one
- * member at a time from a {@link ByteSource} (a `Blob` in the browser).
- */
-
 import { inflateSync } from "fflate";
 import { AnkiImportError } from "./errors";
 
 export type ByteSource = {
   size: number;
-  /** Bytes in `[start, end)`. */
   read(start: number, end: number): Promise<Uint8Array>;
 };
 
@@ -22,7 +15,6 @@ export function blobSource(blob: Blob): ByteSource {
 
 export type ZipEntry = {
   name: string;
-  /** 0 stored, 8 deflate. */
   method: number;
   compressedSize: number;
   size: number;
@@ -42,7 +34,6 @@ const damaged = () =>
     "This file is damaged or incomplete, so it can't be read. Export the deck from Anki again and retry.",
   );
 
-/** Reads every member's name and location, without touching member data. */
 export async function readZipDirectory(source: ByteSource) {
   if (source.size < EOCD_BYTES) throw damaged();
   const tailStart = Math.max(0, source.size - EOCD_BYTES - MAX_COMMENT_BYTES);
@@ -96,7 +87,6 @@ export async function readZipDirectory(source: ByteSource) {
   return entries;
 }
 
-/** Fetches and inflates one member. */
 export async function readZipEntry(source: ByteSource, entry: ZipEntry) {
   if (entry.encrypted) {
     throw new AnkiImportError(

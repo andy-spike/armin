@@ -22,7 +22,6 @@ function scan(root: ParentNode) {
   root.querySelectorAll(NO_SPELLCHECK_SELECTOR).forEach(applyNoSpellcheck);
 }
 
-/** Disable spellcheck on all current and future text fields in the renderer. */
 export function installNoSpellcheck() {
   const root = document.documentElement;
   root.setAttribute("spellcheck", "false");

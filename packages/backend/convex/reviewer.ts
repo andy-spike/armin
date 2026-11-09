@@ -7,7 +7,6 @@ import { insertDeck } from "./model/decks";
 import { reviewerResetHours } from "./model/reviewer";
 import { bumpRevision, defaultSettingsRow, reconcileReviewUnits } from "./model/study";
 
-/** Operator/cron only. No client can select an account to erase. */
 export const reset = internalMutation({
   args: { force: v.optional(v.boolean()) },
   handler: async (ctx, { force }) => {
@@ -27,7 +26,6 @@ export const reset = internalMutation({
     if (!library) throw new Error("Provision the reviewer library before enabling resets.");
     if (library.status === "deleting") return { status: "deleting" };
     if (library.status === "resetting") {
-      // Also recovers a cleanup whose scheduled run failed.
       await ctx.scheduler.runAfter(0, internal.reviewer.finishReset, { libraryId: library._id });
       return { status: "resetting" };
     }
@@ -35,7 +33,6 @@ export const reset = internalMutation({
     if (!force && library.reviewerResetAt && Date.now() < library.reviewerResetAt + interval) {
       return { status: "not_due", nextResetAt: library.reviewerResetAt + interval };
     }
-    // Freeze all study and MCP writes before the first cleanup batch.
     await ctx.db.patch(library._id, { status: "resetting" });
     await ctx.scheduler.runAfter(0, internal.reviewer.finishReset, { libraryId: library._id });
     return { status: "resetting" };
@@ -115,8 +112,6 @@ export const finishReset = internalMutation({
     }
     await ctx.db.insert("prereqs", { libraryId, deckId, prereqId: ids[0]!, dependentId: ids[1]! });
     await ctx.db.insert("tags", { libraryId, name: "demo", key: "demo" });
-    // Selected grants still contain only removed deck IDs. Do not expand them
-    // to the new sample deck or otherwise broaden an existing consent.
     await ctx.db.patch(libraryId, {
       status: "active",
       timeZone: DEFAULT_TIME_ZONE,

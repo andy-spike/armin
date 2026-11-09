@@ -13,13 +13,6 @@ import { FlashcardTypeBadge } from "@/components/flashcard-type-badge";
 import type { FlashcardType } from "@armin/core/flashcard-types";
 import { cn } from "@/lib/utils";
 
-/**
- * How a node is emphasized relative to the current selection:
- * - `active`: the selected card
- * - `connected`: a direct prerequisite/dependent of the selected card
- * - `dimmed`: pushed back (not selected/connected, or filtered out)
- * - `null`: neutral (nothing selected and not filtered)
- */
 export type NodeEmphasis = "active" | "connected" | "dimmed" | null;
 
 type CardNodeData = {
@@ -35,12 +28,6 @@ type CardNodeData = {
 
 export type CardFlowNode = Node<CardNodeData, "card">;
 
-/**
- * Four connect points, one per side. With `ConnectionMode.Loose` each acts as
- * both source and target, so a link can be drawn from/to any border. Visuals
- * are handled by floating edges, so handle position only affects where the
- * drag begins.
- */
 const SIDES: { id: string; position: Position }[] = [
   { id: "top", position: Position.Top },
   { id: "right", position: Position.Right },
@@ -52,10 +39,6 @@ function CardNodeComponent({ data, selected }: NodeProps<CardFlowNode>) {
   const nodeId = useNodeId();
   const updateNodeInternals = useUpdateNodeInternals();
 
-  // Re-measure handle bounds when text (and therefore height) changes — but skip
-  // the initial mount: ReactFlow already measures nodes on mount, and forcing a
-  // re-measure for every node at once turns a large graph's first paint into a
-  // layout-thrash storm.
   const measuredOnce = useRef(false);
   useEffect(() => {
     if (!measuredOnce.current) {

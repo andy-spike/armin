@@ -239,10 +239,8 @@ this machine's local backend. The plugin always points at production.
 The pre-migration local OAuth/MCP flow was verified with the SDK client and
 actual Claude Code and Codex CLI sessions, including model-driven creation,
 readback, and revocation. Actual ChatGPT and Claude chat sessions also passed
-production HTTPS OAuth, creation, and readback; see [the client
-walkthrough](qa/2026-10-25-agent-clients.md) and [the hosted-client
-walkthrough](qa/2026-10-25-hosted-agent-clients.md). Those walkthroughs predate
+production HTTPS OAuth, creation, and readback. Those checks predate
 the MCP component migration and do not verify it. Natural token expiry and
-refresh in the actual clients also remain untested. These bounded walkthroughs
+refresh in the actual clients also remain untested. These bounded checks
 do not guarantee compatibility with every provider plan, workspace policy, or
 future client version.

@@ -10,15 +10,9 @@ import {
   useAudioGroup,
 } from "@/lib/card-audio";
 
-/**
- * An audio clip in card content (`![audio](armin-media:<sha>.mp3)`): a play
- * button that stops again while playing. Inside a card side that plays audio,
- * the clip joins that side's autoplay and replay group.
- */
 export function CardAudio({ src }: { src: string }) {
   const group = useAudioGroup();
   useEffect(() => group?.register(src), [group, src]);
-  // Outside a card side, the button owns its playback and stops it on unmount.
   const button = useRef({});
   useEffect(() => {
     const owner = button.current;
@@ -33,7 +27,6 @@ export function CardAudio({ src }: { src: string }) {
         aria-label={label}
         aria-pressed={playing}
         onClick={(event) => {
-          // Cards and tiles can be clickable; playing audio shouldn't also open or flip them.
           event.stopPropagation();
           if (playing) stopAudio();
           else void playClips([src], group ?? button.current);
@@ -51,7 +44,6 @@ export function CardAudio({ src }: { src: string }) {
   );
 }
 
-/** Compact previews show that a card has audio without playing it. */
 export function CardAudioPlaceholder() {
   return (
     <span className="md-audio-placeholder" role="img" aria-label="Audio">

@@ -1,7 +1,6 @@
 import { internalMutation } from "./functions";
 import { REQUEST_RETENTION_MS } from "./model/limits";
 
-/** Drop request-id records older than the retry window. Bounded per run. */
 export const pruneRequests = internalMutation({
   args: {},
   handler: async (ctx) => {

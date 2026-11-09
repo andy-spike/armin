@@ -15,7 +15,6 @@ export type StepDuration = {
 const STEP_TOKEN = /^(\d+)([mhd])$/i;
 
 export { MAX_INTERVAL_MAX, MAX_INTERVAL_MIN, RETENTION_MAX, RETENTION_MIN, STABILITY_FLOOR_MAX };
-/** The UI asks for a usable floor; the server also accepts 0. */
 export const STABILITY_FLOOR_MIN = 0.1;
 export const NEW_CARDS_PER_DAY_MIN = 0;
 export const NEW_CARDS_PER_DAY_MAX = PER_DAY_LIMIT_MAX;

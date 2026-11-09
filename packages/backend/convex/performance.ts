@@ -63,7 +63,6 @@ export const rebuild = internalMutation({
   },
 });
 
-/** Old generations and expired daily rows have no effect on current reads. */
 export const prune = internalMutation({
   args: {},
   returns: v.null(),
@@ -80,7 +79,6 @@ export const prune = internalMutation({
   },
 });
 
-/** Retire superseded timezone generations without growing retained storage. */
 export const pruneGenerations = internalMutation({
   args: {
     libraryId: v.id("libraries"),

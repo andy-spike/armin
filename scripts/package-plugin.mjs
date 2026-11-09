@@ -2,9 +2,6 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { join, relative } from "node:path";
 
-// Checks that the Claude and OpenAI manifests in plugins/armin agree, then
-// builds the ZIP that OpenAI's plugin portal uploads. Anthropic's directory
-// reads the plugin folder straight from GitHub, so it needs no archive.
 const root = join(import.meta.dirname, "..");
 const plugin = join(root, "plugins/armin");
 const readJson = (path) => JSON.parse(readFileSync(join(plugin, path), "utf8"));
@@ -21,7 +18,6 @@ const claudeUrl = readJson(".mcp.json").mcpServers.armin?.url;
 if (!openaiUrl || openaiUrl !== claudeUrl)
   problems.push("mcp.json and .mcp.json must point the armin server at the same URL.");
 
-// The repository also publishes each skill for `npx skills add`; keep both copies identical.
 const files = (dir) =>
   readdirSync(dir, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
@@ -49,7 +45,6 @@ const out = join(root, "dist/plugins");
 const zip = join(out, `armin-${openai.version}-openai.zip`);
 mkdirSync(out, { recursive: true });
 rmSync(zip, { force: true });
-// OpenAI reads the portable manifest; leave out the Claude-only files.
 const result = spawnSync(
   "zip",
   ["-r", "-X", zip, "plugin.json", "mcp.json", "skills", "assets", "README.md", "LICENSE"],

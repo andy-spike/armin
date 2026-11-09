@@ -3,7 +3,6 @@ import { editorViewOptionsCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
 import { formatImageTitle, parseImageWidth, stripImageWidth } from "@/lib/image-size";
 
-/** Keep Armin's portable image format; Crepe otherwise writes resize ratios as alt text. */
 export function configureCardImages(ctx: Ctx, onPreview: (src: string) => void) {
   ctx.update(imageBlockSchema.key, (previous) => (context) => ({
     ...previous(context),

@@ -14,7 +14,6 @@ export type GraphLayoutWorkerEdge = {
 
 export type GraphLayoutWorkerRequest = {
   requestId: number;
-  /** Return every node's position (Tidy layout), not only the unplaced ones. */
   all?: boolean;
   nodes: GraphLayoutWorkerNode[];
   edges: GraphLayoutWorkerEdge[];

@@ -20,11 +20,6 @@ function chunkCards<TCard>(cards: readonly TCard[], columns: number) {
   return rows;
 }
 
-/**
- * Flashcard tiles in a responsive grid that mounts only the rows near the
- * viewport, and asks for the next Browse page when the loader row comes into
- * range. Used by the deck page and Browse.
- */
 export function VirtualFlashcardGrid<TCard extends UiFlashcard>({
   cards,
   hasMore,
@@ -40,11 +35,6 @@ export function VirtualFlashcardGrid<TCard extends UiFlashcard>({
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [scrollElement, setScrollElement] = useState<Element | null>(null);
-  // `columns` is the single source of truth for the grid: it sizes both the
-  // chunking below and the rendered `grid-template-columns`, so every row holds
-  // exactly as many cards as it renders. It keys off the viewport width to
-  // match the app's Tailwind breakpoints (e.g. the loading skeleton's
-  // `sm:`/`lg:` grid), keeping the column count consistent across the route.
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 0 : window.innerWidth,
   );
@@ -63,11 +53,6 @@ export function VirtualFlashcardGrid<TCard extends UiFlashcard>({
 
   const columns = getColumnCount(viewportWidth);
   const rows = useMemo(() => chunkCards(cards, columns), [cards, columns]);
-  // Pre-build the tile elements once per data/layout change. Scrolling re-renders
-  // this component as the virtual range moves, but the memo hands back the exact
-  // same element objects for rows that haven't changed, so React bails out of
-  // re-rendering those tiles (and their heavy Base UI menu trees) instead of
-  // rebuilding them every scroll step. Only rows entering the window mount.
   const renderedRows = useMemo(
     () => rows.map((row) => row.map((card) => renderCard(card))),
     [rows, renderCard],

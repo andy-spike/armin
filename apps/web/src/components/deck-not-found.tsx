@@ -22,7 +22,6 @@ export function BackToDeckLink({ deckSlug }: { deckSlug: string }) {
   );
 }
 
-/** A deck page whose deck isn't in the library. */
 export function DeckNotFound() {
   return (
     <EmptyState
@@ -39,7 +38,6 @@ export function DeckNotFound() {
   );
 }
 
-/** A review or cram session whose deck isn't in the library. */
 export function SessionDeckNotFound() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8">

@@ -1,12 +1,6 @@
 import { hasOcclusionMarkers } from "./occlusion";
 import type { AnkiCollection, AnkiNote, AnkiNotetype } from "./types";
 
-/**
- * How an Anki notetype maps onto an Armin flashcard type. Anki lets users
- * rename and translate notetypes, fields, and templates, so detection reads the
- * stock kind when the package records one and otherwise compares template
- * structure, with field names turned into positions.
- */
 export type NotetypeKind =
   | { kind: "basic"; front: number; back: number }
   | { kind: "basic_reversed"; front: number; back: number }
@@ -22,7 +16,6 @@ export type NotetypeKind =
     }
   | { kind: "custom" };
 
-/** Replace field references with `f<i>` so the template shape is name-independent. */
 function shape(fmt: string, fieldNames: string[]) {
   return fmt
     .replace(/<hr\s+id\s*=\s*["']?answer["']?\s*\/?>/gi, "<hr>")
@@ -55,7 +48,6 @@ function structuralKind(notetype: AnkiNotetype): NotetypeKind {
   if (templates.length === 1 && fieldCount >= 2) {
     const [t] = templates;
     if (t.q === "{{f0}}" && t.a === "{{FS}}<hr>{{f1}}") return { kind: "basic", front: 0, back: 1 };
-    // Typing notetypes ask for the typed field on the front: `{{f0}}{{type:f1}}`.
     const typed = /^\{\{f0\}\}\{\{type:f(\d+)\}\}$/.exec(t.q);
     if (typed && Number(typed[1]) < fieldCount) {
       return { kind: "type_answer", front: 0, answer: Number(typed[1]) };
@@ -74,7 +66,6 @@ function structuralKind(notetype: AnkiNotetype): NotetypeKind {
   return { kind: "custom" };
 }
 
-/** Highest field position any template of the notetype refers to. */
 function highestFieldUsed(notetype: AnkiNotetype) {
   const names = notetype.fields.map((field) => field.name);
   const used = notetype.templates.flatMap((template) =>
@@ -85,7 +76,6 @@ function highestFieldUsed(notetype: AnkiNotetype) {
   return Math.max(-1, ...used);
 }
 
-/** Does the notetype still look like the stock one it was created from? */
 function stockMatchesShape(notetype: AnkiNotetype, stockKind: number) {
   const fields = notetype.fields.length;
   const templates = notetype.templates.length;
@@ -123,7 +113,6 @@ function clozeKind(notetype: AnkiNotetype, notes: AnkiNote[]): NotetypeKind {
       extra: byName(notetype, /^back extra$/i) ?? rest[1] ?? null,
     };
   }
-  // The text field is the one the template wraps in `{{cloze:…}}`.
   const referenced = /\{\{cloze:([^{}]+)\}\}/.exec(notetype.templates[0]?.qfmt ?? "")?.[1]?.trim();
   const textIndex = Math.max(0, referenced ? names.indexOf(referenced) : 0);
   const extra =
@@ -138,7 +127,6 @@ export function classifyNotetype(notetype: AnkiNotetype, notes: AnkiNote[]): Not
 
   const structural = structuralKind(notetype);
   const stock = notetype.stockKind;
-  // A recorded stock kind wins as long as the notetype still has that shape.
   if (stock !== null && stockMatchesShape(notetype, stock)) {
     if (stock === 1) return { kind: "basic", front: 0, back: 1 };
     if (stock === 2) return { kind: "basic_reversed", front: 0, back: 1 };
@@ -152,14 +140,11 @@ export function classifyNotetype(notetype: AnkiNotetype, notes: AnkiNote[]): Not
   return structural;
 }
 
-/** A note type Armin can't map on its own, for the preview's field mapping. */
 export type CustomNotetypeSummary = {
   id: string;
   name: string;
   fields: string[];
-  /** Notes of this type in the selected decks. */
   noteCount: number;
-  /** One note's field values as plain text, so the user can tell the fields apart. */
   sample: string[];
 };
 
@@ -172,7 +157,6 @@ const plainSample = (html: string) =>
     .trim()
     .slice(0, 80);
 
-/** Custom note types with notes in the selected decks (every deck when `deckIds` is omitted). */
 export function customNotetypes(
   collection: AnkiCollection,
   deckIds?: readonly string[],

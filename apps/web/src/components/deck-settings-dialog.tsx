@@ -19,8 +19,6 @@ import type { DeckSettingsOverrides, SchedulingSettings } from "@armin/core/stud
 
 type SchedulingKey = keyof SchedulingSettings;
 
-// Keys this dialog exposes, in display order. `weights` is intentionally
-// omitted — FSRS weights come from optimization, not from a study-style choice.
 const OVERRIDE_KEYS = [
   "requestRetention",
   "maximumInterval",
@@ -46,8 +44,6 @@ export function DeckSettingsDialog({
   const toast = useToast();
   const [overrides, setOverrides] = useState<DeckSettingsOverrides | null>(null);
 
-  // A form reads a snapshot when it opens; a live update must never replace
-  // overrides being edited.
   const query = useQuery({
     queryKey: ["deck-settings", deckId],
     queryFn: () => armin.settings.getDeck(deckId),
@@ -55,7 +51,6 @@ export function DeckSettingsDialog({
     staleTime: 0,
   });
 
-  // Each fetch (one per open) replaces the overrides being edited.
   const [syncedData, setSyncedData] = useState(query.data);
   if (query.data !== syncedData) {
     setSyncedData(query.data);
@@ -76,9 +71,6 @@ export function DeckSettingsDialog({
   const localOverrides = overrides ?? data?.overrides ?? null;
   const effective = data && localOverrides ? resolveEffective(data.global, localOverrides) : null;
 
-  // Editing a field stores it as an override only when it diverges from the
-  // global value; setting it back to the global value clears the override
-  // (and, with it, the reset affordance) — exactly as if it were never touched.
   const setField = <K extends SchedulingKey>(key: K, value: SchedulingSettings[K]) => {
     if (!localOverrides || !data) return;
     const matchesGlobal = value === data.global[key];
@@ -344,7 +336,6 @@ function OverrideRowsSkeleton({ rows }: { rows: number }) {
   ));
 }
 
-/** A deck override row: resetting returns the setting to the library value. */
 function OverrideRow({
   overridden,
   onRevert,

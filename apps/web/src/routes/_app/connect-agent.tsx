@@ -12,7 +12,6 @@ import { useConnection } from "@/lib/session";
 
 type ConnectAgentSearch = { request?: string };
 
-/** Only follow redirects that leave the page the ordinary way. */
 function isNavigableUrl(value: string) {
   try {
     const { protocol } = new URL(value);
@@ -72,7 +71,6 @@ function Consent({ requestId }: { requestId: string }) {
 
   const leave = (redirectUrl: string) => {
     if (!isNavigableUrl(redirectUrl)) throw new Error("Armin got an unusable return address.");
-    // Stay busy while the browser leaves; a second click must not send a second answer.
     setLeaving(true);
     window.location.assign(redirectUrl);
   };

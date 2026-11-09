@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { AnkiImportDialog } from "@/components/anki-import-dialog";
 import { useConnection } from "@/lib/session";
 
-/** Opens the Anki importer; the file reader loads after a file is chosen. */
 export function ImportSettings() {
   const { online } = useConnection();
   const [open, setOpen] = useState(false);

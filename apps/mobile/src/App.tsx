@@ -23,12 +23,6 @@ import { authClient, convexToken } from "./lib/auth-client";
 import { convexSiteUrl, convexUrl } from "./lib/env";
 import { MathText } from "./MathText";
 
-/**
- * Minimal authenticated smoke path for the shared backend: sign in, read the
- * library, rate and undo one review, and load a private image. Full mobile
- * authoring and study screens are later work.
- */
-
 const convex = new ConvexReactClient(convexUrl, { expectAuth: true });
 
 export default function App() {
@@ -150,7 +144,6 @@ function Button({
   );
 }
 
-/** Pause subscriptions in the background and catch up when returning. */
 function useStudyClock(enabled: boolean) {
   const [active, setActive] = useState(AppState.currentState === "active");
   const [now, setNow] = useState(Date.now);
@@ -241,11 +234,6 @@ function Library() {
 
 type Shown = { item: ReviewQueueItem; requestId: string };
 
-/**
- * One review at a time. The prompt on screen stays fixed while the queue
- * updates reactively; if it changes elsewhere the rating is refused and the
- * user moves on deliberately.
- */
 function Study({ now, active }: { now: number; active: boolean }) {
   const queue = useQuery(api.review.queue, active ? { now, metadataOnly: true } : "skip");
   const contents = useQuery(
@@ -267,8 +255,6 @@ function Study({ now, active }: { now: number; active: boolean }) {
   }
 
   const latest = queue?.items.find((item) => item.reviewUnitId === shown?.item.reviewUnitId);
-  // Admission can disappear when another device uses the daily budget. Verify
-  // the displayed unit directly before treating queue exclusion as a change.
   const displayedContents = useQuery(
     api.review.items,
     active && shown && !latest ? { ids: [shown.item.reviewUnitId] } : "skip",
@@ -305,7 +291,6 @@ function Study({ now, active }: { now: number; active: boolean }) {
     setPending(true);
     setNotice(null);
     try {
-      // The same request id is reused if this answer is retried.
       const result = await rate({
         reviewUnitId: shown.item.reviewUnitId,
         rating,
@@ -392,7 +377,6 @@ function UndoButton({
   setPending: (value: boolean) => void;
   clear: () => void;
 }) {
-  // A fresh request id for each review that can be undone.
   // oxlint-disable-next-line react-hooks/exhaustive-deps
   const requestId = useMemo(() => newRequestId(), [last.reviewLogId]);
   return (
@@ -422,7 +406,6 @@ function UndoButton({
 
 const MARKDOWN_IMAGE = /!\[[^\]]*\]\(([^)\s]+)\)/g;
 
-/** Card text with Markdown images pulled out and loaded privately. */
 function CardSide({ text }: { text: string }) {
   const images = [...text.matchAll(MARKDOWN_IMAGE)]
     .map((match) => parseMediaRef(match[1]))
@@ -439,11 +422,6 @@ function CardSide({ text }: { text: string }) {
   );
 }
 
-/**
- * Images are never public URLs: each request carries the session's Convex
- * token and the backend checks the image belongs to the caller's library.
- * The bytes are fetched here because Android's Image drops custom headers.
- */
 function PrivateImage({ fileName }: { fileName: string }) {
   const [uri, setUri] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);

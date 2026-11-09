@@ -10,10 +10,6 @@ import {
 import { Tooltip } from "@/components/ui/tooltip";
 import { MenuShortcut, ShortcutLabel } from "./parts";
 
-/**
- * Card info and the actions menu in the card's top bar. An action is listed
- * only when the session provides its handler.
- */
 export function CardActions({
   keymap,
   online,
@@ -30,13 +26,11 @@ export function CardActions({
   keymap: Record<string, string | undefined>;
   online: boolean;
   burying: boolean;
-  /** An archive or delete is running. */
   actionPending: boolean;
   onInfo: () => void;
   onMenuOpenChange: (open: boolean) => void;
   onEdit?: () => void;
   onBury?: () => void;
-  /** Concept cards: set the exercise on screen aside and show the next one. */
   onFlagVariant?: () => void;
   onArchive?: () => void;
   onDelete?: () => void;

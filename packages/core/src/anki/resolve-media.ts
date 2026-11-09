@@ -4,7 +4,6 @@ import { ANKI_MEDIA_PREFIX } from "./types";
 
 const MARKDOWN_PLACEHOLDER_RE = /!\[([^\]]*)\]\(anki-media:([^)\s]+)\)/g;
 
-/** Tidy the gaps left where a missing image was removed. */
 function tidy(text: string) {
   return text
     .replace(/[ \t]+\n/g, "\n")
@@ -20,25 +19,13 @@ function resolveMarkdown(text: string, media: ReadonlyMap<string, string>, requi
     const ref = media.get(decodeMediaName(encoded));
     if (ref) return audio ? `![audio](${ref})` : `![](${ref})`;
     dropped = true;
-    // Audio accompanies text; a card that only had audio ends up empty and is rejected.
     if (!audio) removed = true;
     return "";
   });
-  // A required field may contain static labels around its image. Keeping
-  // those labels cannot establish that the question or answer still works.
   if (removed && required) throw new Error("A required image could not be imported.");
   return dropped ? tidy(out) : out;
 }
 
-/**
- * Swap the `anki-media:` placeholders in converted content for the Armin media
- * references the client got back from uploading (`media` maps the Anki file name
- * to its `armin-media:` reference). A placeholder with no entry is dropped
- * from optional answer extras. Missing images in question/answer fields reject
- * the card rather than retaining an unanswerable static prompt; missing audio is
- * dropped, and a field left empty by it fails validation. A missing
- * occlusion base becomes empty so `validateContent` rejects that card too.
- */
 export function resolveImportMedia(
   content: FlashcardContent,
   type: FlashcardType,
@@ -83,7 +70,6 @@ export function resolveImportMedia(
       } as FlashcardContent;
     }
     case "concept":
-      // Anki import never creates concept cards (ADR 0023), and they carry no media.
       return content;
   }
 }

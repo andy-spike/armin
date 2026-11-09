@@ -565,7 +565,6 @@ export const write = internalMutation({
       connection,
       { requestId: parsed.requestId as string | undefined, fingerprint: args.fingerprint },
       {
-        // An upload token is only ever returned once.
         replay: (previous) =>
           "uploadTokenIssued" in previous
             ? { ...previous, uploadTokenIssued: false, uploadTokenExpiresAt: null }
@@ -599,7 +598,6 @@ export const write = internalMutation({
   },
 });
 
-/** A staging import's upload token: this hash, not expired, and the import still open. */
 function uploadTokenValid(row: Doc<"agentImports">, tokenHash: string) {
   const now = Date.now();
   return (
@@ -610,7 +608,6 @@ function uploadTokenValid(row: Doc<"agentImports">, tokenHash: string) {
   );
 }
 
-/** The library is active and the import's connection is unrevoked, in that library, and active. */
 async function importStillAuthorized(ctx: QueryCtx, row: Doc<"agentImports">) {
   const library = await ctx.db.get(row.libraryId);
   const connection = await ctx.db.get(row.connectionId);
@@ -624,7 +621,6 @@ async function importStillAuthorized(ctx: QueryCtx, row: Doc<"agentImports">) {
   );
 }
 
-/** Authenticate a scoped upload token before reading its bytes. */
 export const mediaTarget = internalQuery({
   args: { importId: v.string(), tokenHash: v.string() },
   handler: async (ctx, args) => {
@@ -636,7 +632,6 @@ export const mediaTarget = internalQuery({
   },
 });
 
-/** Record an uploaded image for a staging import, using the same quota and sniffed bytes. */
 export const recordMedia = internalMutation({
   args: {
     importId: v.id("agentImports"),
@@ -700,12 +695,6 @@ export const recordMedia = internalMutation({
   },
 });
 
-/** Move staged cards into hidden product decks in bounded transactions. */
-/**
- * Writes one batch of staged cards into the hidden staging decks, then
- * schedules itself again; once every card is written, publishes the decks.
- * Any failure marks the import failed and schedules its cleanup.
- */
 export const materializeNext = internalMutation({
   args: { importId: v.id("agentImports") },
   handler: async (ctx, { importId }) => {
@@ -733,13 +722,11 @@ export const materializeNext = internalMutation({
   },
 });
 
-/** The library and the assistant's connection must still allow this import. */
 async function assertStillAuthorized(ctx: MutationCtx, row: Doc<"agentImports">) {
   if (!(await importStillAuthorized(ctx, row)))
     throw new Error("The import authorization is no longer active.");
 }
 
-/** Every card is written: make the decks visible and record the result. */
 async function publishStagingDecks(ctx: MutationCtx, row: Doc<"agentImports">) {
   const importId = row._id;
   if (row.materialized !== row.counts.flashcards)
@@ -788,13 +775,10 @@ async function publishStagingDecks(ctx: MutationCtx, row: Doc<"agentImports">) {
     deckId: decks[0]!.deckId,
     createdAt: now,
   });
-  // Cards now hold the media links. Release import-only tracking so unused
-  // uploads become eligible for the normal unreferenced-image cleanup.
   await ctx.scheduler.runAfter(0, internal.agentImports.cleanupImport, { importId });
   await bumpRevision(ctx, row.libraryId);
 }
 
-/** Write the next staged cards, sized to stay inside one mutation's write budget. */
 async function writeCardBatch(
   ctx: MutationCtx,
   row: Doc<"agentImports">,
@@ -810,8 +794,6 @@ async function writeCardBatch(
     if (!deckId) throw new Error("A staged card names a deck that is not materializing.");
     const input = validateFlashcardInput(card.type, JSON.parse(card.content) as unknown);
     const units = generateReviewUnits(input.type, input.content).length;
-    // Review items and derived summaries can repeat content. Leave room for
-    // indexes and trigger writes within Convex's per-mutation write budget.
     const bytes = new TextEncoder().encode(input.serialized).byteLength * (units + 3);
     if (
       prepared.length > 0 &&
@@ -878,7 +860,6 @@ export const removeDecks = internalMutation({
   },
 });
 
-/** Delete staged rows, then release upload tracking so unreferenced images can be collected. */
 export const cleanupImport = internalMutation({
   args: { importId: v.id("agentImports") },
   handler: async (ctx, { importId }) => {
@@ -908,7 +889,6 @@ export const cleanupImport = internalMutation({
   },
 });
 
-/** Expire abandoned staging sessions and forget old terminal records. */
 export const sweep = internalMutation({
   args: {},
   handler: async (ctx) => {

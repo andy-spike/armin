@@ -7,7 +7,6 @@ import { fail } from "./model/errors";
 import { EXPORT_BUILD_TIMEOUT_MS, EXPORT_TTL_MS } from "./model/limits";
 import { getSettingsRow, libraryRevision } from "./model/study";
 
-/** Start building a ZIP export of the caller's library. */
 export const start = mutation({
   args: { includeAudio: v.optional(v.boolean()) },
   handler: async (ctx, { includeAudio = true }) => {
@@ -30,9 +29,6 @@ export const start = mutation({
       expiresAt: now + EXPORT_TTL_MS,
     });
     await ctx.scheduler.runAfter(0, internal.exportBuilder.build, { exportId: id });
-    // A build can stop without reporting back (an action timeout or a deploy
-    // mid-run). The watchdog then fails the row, so the user can export again;
-    // it does nothing once the build has stored or failed.
     await ctx.scheduler.runAfter(EXPORT_BUILD_TIMEOUT_MS, internal.exports.expireBuild, {
       exportId: id,
     });
@@ -73,12 +69,6 @@ export const expire = internalMutation({
   },
 });
 
-/**
- * The watchdog `start` schedules: a build still pending after
- * `EXPORT_BUILD_TIMEOUT_MS` stopped without reporting back, so the row fails
- * with an error and the user can start another export. A late result from that
- * build is dropped by `markResult`.
- */
 export const expireBuild = internalMutation({
   args: { exportId: v.id("exports") },
   handler: async (ctx, { exportId }) => {
@@ -100,9 +90,6 @@ export const markResult = internalMutation({
   },
   handler: async (ctx, { exportId, storageId, size, error }) => {
     const row = await ctx.db.get(exportId);
-    // Expired, failed by its watchdog, or the account was deleted while
-    // building. A late result must not overwrite a terminal state, so drop the
-    // file it stored too.
     if (row?.status !== "pending") {
       if (storageId) await ctx.storage.delete(storageId);
       return;
@@ -115,7 +102,6 @@ export const markResult = internalMutation({
   },
 });
 
-/** Export job input: the library it belongs to, if still active. */
 export const jobLibrary = internalQuery({
   args: { exportId: v.id("exports") },
   handler: async (ctx, { exportId }) => {
@@ -137,11 +123,6 @@ export const revision = internalQuery({
   handler: (ctx, { libraryId }) => libraryRevision(ctx, libraryId),
 });
 
-/**
- * Library-level rows for an export. Deck contents are paged separately
- * (`deckPage`); the builder checks the revision before and after collection,
- * so the pages form one consistent snapshot.
- */
 export const snapshotCore = internalQuery({
   args: { libraryId: v.id("libraries") },
   handler: async (ctx, { libraryId }) => {
@@ -164,7 +145,6 @@ export const snapshotCore = internalQuery({
   },
 });
 
-/** One page of a deck's flashcards, review units, or prerequisite edges. */
 export const deckPage = internalQuery({
   args: {
     deckId: v.id("decks"),
@@ -182,7 +162,6 @@ export const deckPage = internalQuery({
   },
 });
 
-/** Every concept card variant (ADR 0023), by library; each holds up to 10,000 characters. */
 export const variantPage = internalQuery({
   args: { libraryId: v.id("libraries"), cursor: v.union(v.string(), v.null()) },
   handler: async (ctx, { libraryId, cursor }) => {
@@ -203,7 +182,6 @@ export const logPage = internalQuery({
   },
 });
 
-/** Resolve a ready export for the current session; null unless it's theirs. */
 export const lookupForViewer = internalQuery({
   args: { exportId: v.string() },
   handler: async (ctx, { exportId }) => {

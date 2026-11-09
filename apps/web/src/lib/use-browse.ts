@@ -14,7 +14,6 @@ type PageResult = QueryObserverResult<
   Awaited<ReturnType<NonNullable<ReturnType<typeof browsePageQuery>["queryFn"]>>>
 >;
 
-/** Merge the pages; TanStack keeps the result's identity while no page changes. */
 function combinePages(results: PageResult[]) {
   const seen = new Set<string>();
   const last = results.at(-1);
@@ -32,12 +31,6 @@ function combinePages(results: PageResult[]) {
   };
 }
 
-/**
- * Browse results as live, cursor-paged subscriptions. Loading more pins the
- * last page's end to its cursor (Convex's `endCursor`), so as cards change,
- * each page grows or shrinks in place instead of leaving a gap or a repeat at
- * the page boundary. Changing the filters starts over at the first page.
- */
 export function useBrowse(filters: BrowseQueryFilters) {
   const filtersKey = JSON.stringify(filters);
   const [paging, setPaging] = useState({ filtersKey, pages: FIRST_PAGE });
@@ -68,7 +61,6 @@ export function useBrowse(filters: BrowseQueryFilters) {
   return {
     flashcards,
     filteredTotal: counts.data?.filteredTotal ?? 0,
-    /** The filtered total is a lower bound in a very large library. */
     filteredCapped: counts.data?.filteredCapped ?? false,
     filteredArchived: counts.data?.filteredArchived ?? 0,
     libraryTotal: counts.data?.libraryTotal ?? 0,

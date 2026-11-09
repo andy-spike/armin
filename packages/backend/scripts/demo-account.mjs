@@ -2,8 +2,6 @@ import { hashPassword } from "better-auth/crypto";
 import { ConvexHttpClient } from "convex/browser";
 import { convex } from "./dev-environment.mjs";
 
-// Operator-only component calls against this checkout's local deployment.
-// No fixture endpoint or verification bypass is added to the application.
 function adapter(name, args) {
   return JSON.parse(
     convex(["run", `adapter:${name}`, JSON.stringify(args), "--component", "betterAuth"], {
@@ -12,10 +10,6 @@ function adapter(name, args) {
   );
 }
 
-/**
- * Creates a verified email/password account on the local deployment unless it
- * already exists. Returns whether the user was created.
- */
 export async function ensureDemoAccount({ email, password, name }) {
   const now = Date.now();
   let user = adapter("findOne", {
@@ -56,10 +50,6 @@ export async function ensureDemoAccount({ email, password, name }) {
   return { created };
 }
 
-/**
- * Signs in through Better Auth and returns a Convex client authenticated as
- * that account. Call `signOut` when done.
- */
 export async function signInDemoAccount(values, state, { email, password }) {
   const response = await fetch(`${values.CONVEX_SITE_URL}/api/auth/sign-in/email`, {
     method: "POST",

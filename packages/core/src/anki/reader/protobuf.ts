@@ -1,18 +1,7 @@
-/**
- * A minimal protobuf wire-format reader, enough for the few Anki messages the
- * importer needs (notetype config, template config, package metadata, media
- * entries, deck options). Varint, length-delimited, and 32-bit float fields are
- * surfaced; 64-bit fields are skipped.
- */
-
 export type ProtoField = {
-  /** Field number from the `.proto` definition. */
   number: number;
-  /** Set for varint fields. Large values lose precision; the importer only reads small enums. */
   varint?: number;
-  /** Set for length-delimited fields (strings, bytes, nested messages). */
   bytes?: Uint8Array;
-  /** Set for 32-bit fields, read as a little-endian float. */
   float?: number;
 };
 
@@ -64,7 +53,6 @@ export function protoString(field: ProtoField) {
   return field.bytes ? utf8.decode(field.bytes) : "";
 }
 
-/** A `repeated float` field: packed (one length-delimited run) or one value per field. */
 export function protoFloats(field: ProtoField) {
   if (field.float !== undefined) return [field.float];
   if (!field.bytes) return [];

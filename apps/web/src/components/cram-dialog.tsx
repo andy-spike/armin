@@ -26,10 +26,6 @@ function clampDays(raw: string) {
   return Number.isFinite(value) ? Math.min(365, Math.max(1, value)) : 7;
 }
 
-/**
- * Cram setup for one deck: which states, tag, recent lapses, and locks are in
- * scope. The server counts matches live; Start opens the practice session.
- */
 function matchCountLabel(loading: boolean, failed: boolean, count: number) {
   if (loading) return "Counting matching cards…";
   if (failed) return "Couldn’t count matching cards.";

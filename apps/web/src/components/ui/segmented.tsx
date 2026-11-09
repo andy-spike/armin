@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils";
 
-/** Compact segmented control for mutually-exclusive choices. */
 export function Segmented<T extends string>({
   options,
   value,
@@ -14,7 +13,6 @@ export function Segmented<T extends string>({
   onChange: (value: T) => void;
   size?: "sm" | "md";
   className?: string;
-  /** Names the group when several controls sit side by side. */
   "aria-label"?: string;
 }) {
   return (

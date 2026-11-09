@@ -7,10 +7,8 @@ import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { selfHosted } from "@/lib/self-host";
 
-/** The Convex HTTP site serves the MCP endpoint, not the app origin. */
 const MCP_ENDPOINT = `${String(import.meta.env.VITE_CONVEX_SITE_URL ?? "").replace(/\/$/, "")}/mcp`;
 
-/** Hosted assistants need a public HTTPS address; development servers aren't one. */
 const MCP_IS_PUBLIC = (() => {
   try {
     const { protocol, hostname } = new URL(MCP_ENDPOINT);
@@ -27,8 +25,6 @@ const MCP_IS_PUBLIC = (() => {
 
 const EXAMPLE_PROMPT =
   "Read this article and save a deck of study cards from it to Armin. Keep each card to one idea.";
-
-/* ------------------------------------------------------------- copying */
 
 function useCopy() {
   const toast = useToast();
@@ -66,7 +62,6 @@ function CopyButton({ text, label }: { text: string; label: string }) {
         aria-label={label}
         onClick={() => void copy(text)}
       >
-        {/* Both icons share one cell so the check crossfades in over the copy icon. */}
         <span className="grid size-4 *:col-start-1 *:row-start-1" aria-hidden>
           <Copy
             className={cn(
@@ -90,10 +85,6 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
-/**
- * One copyable line. Long commands wrap instead of scrolling, so the box never
- * grows a scrollbar, and both the box and the button are h-9 on one line.
- */
 function CodeLine({ text, label, wrap }: { text: string; label: string; wrap?: boolean }) {
   return (
     <div className="flex items-start gap-2">
@@ -110,7 +101,6 @@ function CodeLine({ text, label, wrap }: { text: string; label: string; wrap?: b
   );
 }
 
-/** A long, multi-line block (an agent prompt) with its copy button above it. */
 function CodeBlock({ text, label }: { text: string; label: string }) {
   return (
     <div className="border border-border bg-surface-sunken">
@@ -125,19 +115,12 @@ function CodeBlock({ text, label }: { text: string; label: string }) {
   );
 }
 
-/* --------------------------------------------------------------- guides */
-
 type ChatGuide = {
   kind: "chat";
   id: string;
   label: string;
   steps: ReactNode[];
-  /** Who can add a custom server; one short line under the steps. */
   note: string;
-  /**
-   * Armin's listing in the app's plugin directory. Flip `listed` once the
-   * directory approves and publishes the plugin. See plugins/PUBLISHING.md.
-   */
   directory?: { listed: boolean; url: string; name: string; steps: ReactNode[] };
 };
 
@@ -147,7 +130,6 @@ type AgentGuide = {
   label: string;
   prompt: (endpoint: string) => string;
   commands: (endpoint: string) => string[];
-  /** What to do after running the commands by hand. */
   after: ReactNode;
 };
 
@@ -306,7 +288,6 @@ const CODEX: AgentGuide = {
 
 const GUIDES: Guide[] = [CLAUDE, CHATGPT, GEMINI, CLAUDE_CODE, CODEX];
 
-/** Every tab value: the guides above, in order, then the generic MCP client guide. */
 export const AI_SETUP_PLATFORMS = [
   "claude",
   "chatgpt",
@@ -315,8 +296,6 @@ export const AI_SETUP_PLATFORMS = [
   "codex",
   "other",
 ] as const;
-
-/* ------------------------------------------------------------ building blocks */
 
 function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
   return (
@@ -362,10 +341,7 @@ function LocalOnlyNotice() {
   );
 }
 
-/* --------------------------------------------------------------- panels */
-
 function ChatPanel({ guide }: { guide: ChatGuide }) {
-  // The directory plugin connects to armincards.app, never a self-hosted instance.
   const directory = guide.directory?.listed && !selfHosted ? guide.directory : undefined;
   return (
     <div className="space-y-5">
@@ -426,11 +402,8 @@ function OtherClientPanel() {
   );
 }
 
-/* --------------------------------------------------------------- page */
-
 export type AiSetupPlatform = (typeof AI_SETUP_PLATFORMS)[number];
 
-/** The AI setup page body: the server address, a guide per platform, and next steps. */
 export function AiSetupGuide({
   platform,
   onPlatformChange,

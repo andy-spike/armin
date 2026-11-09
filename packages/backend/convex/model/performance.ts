@@ -4,7 +4,6 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { MAX_REVIEW_UNITS_PER_FLASHCARD } from "./limits";
 
-// Longer than every displayed window, including week alignment and DST margins.
 export const ACTIVITY_DAYS = 400;
 export const activityCutoff = () => Date.now() - ACTIVITY_DAYS * 86_400_000;
 export const statsGeneration = (library: Doc<"libraries">) =>
@@ -45,9 +44,6 @@ export async function flushActivity(ctx: MutationCtx, batch: ReturnType<typeof a
         1,
       );
   }
-  // Large history imports must not spend an index range per boundary lookup
-  // on top of their existing per-card and daily-activity reads: read each
-  // card's units once, which covers every sibling's boundary.
   const summaries = new Map<Id<"reviewUnits">, Doc<"unitSummaries">>();
   const bulk = batch.boundaries.size > 128;
   if (bulk) {
@@ -110,7 +106,6 @@ export async function adjustActivity(
   }
 }
 
-/** Called with the unwrapped DB, so marker/projection writes cannot recurse. */
 export async function recordActivity(
   ctx: MutationCtx,
   table: "reviewLogs" | "cramLogs",
@@ -185,7 +180,6 @@ export async function recordActivity(
   }
 }
 
-/** A move or deletion transfers only the bounded, displayed history window. */
 export async function transferActivity(
   ctx: MutationCtx,
   before: Doc<"flashcards">,
@@ -238,11 +232,6 @@ export async function removeDeckActivity(ctx: MutationCtx, deck: Doc<"decks">) {
   }
 }
 
-/**
- * A unit's fixed place in the new-card order: a hash of its flashcard, so
- * siblings stay together and the order is random across cards but never
- * reshuffles. Queue selection reads new units in this order from an index.
- */
 export function frontierKey(flashcardId: Id<"flashcards">) {
   let h = 2166136261;
   for (let i = 0; i < flashcardId.length; i++) {
@@ -252,7 +241,6 @@ export function frontierKey(flashcardId: Id<"flashcards">) {
   return h >>> 0;
 }
 
-/** A unit's new-card order key: one chosen at import, otherwise the flashcard hash. */
 export function unitFrontierKey(unit: { flashcardId: Id<"flashcards">; frontierKey?: number }) {
   return unit.frontierKey ?? frontierKey(unit.flashcardId);
 }
@@ -302,14 +290,12 @@ export async function syncUnitSummary(
     buriedUntil,
     createdAt,
     frontierKey: order,
-    // A unit's subKey never changes, so neither does this marker.
     ...(subKey === CONCEPT_SUBKEY ? { concept: true as const } : {}),
   };
   if (row) await ctx.db.patch(row._id, fields);
   else await ctx.db.insert("unitSummaries", { ...fields, ...(await logBoundaries(ctx, unitId)) });
 }
 
-/** The unit's latest Again review and the review that introduced it. */
 async function logBoundaries(ctx: MutationCtx, unitId: Id<"reviewUnits">) {
   const again = await ctx.db
     .query("reviewLogs")

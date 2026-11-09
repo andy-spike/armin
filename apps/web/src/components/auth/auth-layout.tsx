@@ -5,7 +5,6 @@ import { authClient } from "@/lib/auth-client";
 import { ArminMark, ArminWordmark } from "@/components/brand";
 import { SelfHostedBadge } from "@/components/self-hosted-badge";
 
-/** Centered single-column frame shared by the sign-in family of pages. */
 export function AuthLayout({
   title,
   subtitle,
@@ -107,11 +106,6 @@ export function GoogleIcon() {
 
 const EMAIL_UNAVAILABLE_MESSAGE = "Email isn't available right now. Contact support.";
 
-/**
- * Better Auth client errors carry a message; fall back to a plain sentence.
- * Pass `emailAvailable` from `useAuthFeatures` so an unverified sign-in does
- * not claim a link was sent when this deployment cannot send mail.
- */
 export function authErrorMessage(
   error: { message?: string; code?: string } | null | undefined,
   options?: { emailAvailable?: boolean },
@@ -127,10 +121,6 @@ export function authErrorMessage(
   return error.message || "Something went wrong. Try again.";
 }
 
-/**
- * "Continue with Google" and the divider above the email form. Busy until
- * Google redirects; a failure to start goes to `onError`.
- */
 export function GoogleSignIn({
   callbackURL,
   errorCallbackURL,

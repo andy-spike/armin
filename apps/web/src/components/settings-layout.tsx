@@ -41,14 +41,8 @@ export function Row({
 }: {
   label: string;
   hint?: string;
-  /**
-   * A node, or a function that receives the visible label's id for the
-   * control's `aria-labelledby`. Pass the function whenever the row contains a
-   * form control so screen readers announce the label.
-   */
   children: ReactNode | ((labelId: string) => ReactNode);
   last?: boolean;
-  /** Shows a reset button that restores `resetTo`. */
   onReset?: () => void;
   resetTo?: string;
   hintClassName?: string;

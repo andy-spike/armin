@@ -23,7 +23,6 @@ import {
   type Viewport,
   type XYPosition,
 } from "@xyflow/react";
-// Loaded with the graph page's code instead of on every page.
 import "@xyflow/react/dist/style.css";
 import "./graph.css";
 import { Link2, Pencil, Plus, Unlink, Trash2 } from "lucide-react";
@@ -61,11 +60,6 @@ const defaultEdgeOptions = {
   markerEnd: EDGE_MARKER_END,
 };
 
-// First-open framing when there's no saved viewport. We deliberately do NOT
-// fit the whole graph on open: fitting a large Deck brings every node on-screen,
-// which (with virtualization) would force all of them to render at once. Landing
-// at a normal zoom keeps the first paint to a screenful of cards; the Fit-view
-// control frames the whole graph on demand.
 const DEFAULT_VIEWPORT: Viewport = { x: 48, y: 48, zoom: 1 };
 
 type NodePlacement = { flashcardId: string; x: number; y: number };
@@ -85,7 +79,6 @@ type PrerequisiteGraphProps = {
   graph: UiDeckGraph;
   deckName?: string;
   onBack?: () => void;
-  /** Called with the full link list after the user adds or removes links. */
   onEdgesChange: (edges: UiDeckGraph["edges"]) => void;
   onConnectError?: (message: string) => void;
   nodePlacements?: Record<string, XYPosition>;
@@ -108,7 +101,6 @@ function savedPositionsOf(graph: UiDeckGraph): Map<string, XYPosition> {
   return map;
 }
 
-/** Card under a screen point, or null when the pointer is on the pane. */
 function cardIdAtScreenPoint(point: { x: number; y: number }) {
   const element = document.elementFromPoint(point.x, point.y);
   const card = element?.closest<HTMLElement>(".react-flow__node");
@@ -163,8 +155,6 @@ function PrerequisiteGraphCanvas({
 }: PrerequisiteGraphProps) {
   const { screenToFlowPosition, fitView } = useReactFlow();
   const connectFrom = useRef<string | null>(null);
-  // Set once the async builder commits the first real graph; the incremental
-  // sync effects stay dormant until then so they don't fight the build.
   const initialFlowLoaded = useRef(false);
   const cancelReadySignal = useRef<(() => void) | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
@@ -172,25 +162,16 @@ function PrerequisiteGraphCanvas({
   const [linkPicker, setLinkPicker] = useState<LinkPickerRequest | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [interactive, setInteractive] = useState(false);
-  // Two-part readiness gate: `flowReady` once the async build commits nodes and
-  // edges, `reactFlowReady` once ReactFlow's `onInit` fires. Marking the graph
-  // interactive needs both, so we never signal ready on the empty init.
   const [flowReady, setFlowReady] = useState(false);
   const [reactFlowReady, setReactFlowReady] = useState(false);
 
-  // Selection + search lens. The selected card lights up itself, its edges, and
-  // its direct neighbors; search dims everything outside its scope.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const search = useGraphSearch(graph.nodes, interactive);
 
-  // Start ReactFlow empty: the initial conversion happens off the render path in
-  // an abortable, chunked effect (see below) so a large Deck graph can't freeze
-  // the renderer while it mounts.
   const [nodes, setNodes, onNodesChange] = useNodesState<CardFlowNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   const nodeById = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph.nodes]);
-  // Incremental updates after the initial build.
   const { seedKnownNodes } = useGraphElementSync({
     graph,
     nodeById,
@@ -201,11 +182,8 @@ function PrerequisiteGraphCanvas({
     setEdges,
   });
 
-  // Always-fresh snapshot of node positions for layout persistence.
   const nodesRef = useRef(nodes);
 
-  // Keep `onReady` in a ref so the readiness effect doesn't re-run (and cancel a
-  // pending ready signal) when the parent passes a fresh callback identity.
   const onReadyRef = useRef(onReady);
   useLayoutEffect(() => {
     nodesRef.current = nodes;
@@ -214,11 +192,6 @@ function PrerequisiteGraphCanvas({
 
   useEffect(() => () => cancelReadySignal.current?.(), []);
 
-  // Convert the persisted graph into ReactFlow elements off the render path, in
-  // an abortable chunked task. Runs once for the initial graph; afterwards the
-  // incremental sync effects own updates. If the route unmounts (or the graph is
-  // replaced) before the build finishes, the controller aborts and the stale
-  // result is dropped instead of being committed into an unmounted canvas.
   useEffect(() => {
     if (initialFlowLoaded.current) return;
     const controller = new AbortController();
@@ -241,10 +214,6 @@ function PrerequisiteGraphCanvas({
     return () => controller.abort();
   }, [graph, setNodes, setEdges, seedKnownNodes]);
 
-  // Signal ready only after both the async build has committed real nodes/edges
-  // and ReactFlow has initialized, then reveal the canvas on the next paint. We
-  // don't fit-to-all here: framing is handled by `defaultViewport` so the first
-  // paint stays cheap (see DEFAULT_VIEWPORT).
   useEffect(() => {
     if (!flowReady || !reactFlowReady || interactive) return;
     cancelReadySignal.current?.();
@@ -348,21 +317,14 @@ function PrerequisiteGraphCanvas({
       if (!point) return;
       const screen = { x: point.clientX, y: point.clientY };
 
-      // React Flow only reports `toNode` for a handle target. A release over a
-      // card's body carries the same intent, so resolve the card under the
-      // pointer and run it through the shared link validation instead of
-      // treating it as an empty-pane release.
       const targetId = connectionState.toNode?.id ?? cardIdAtScreenPoint(screen);
 
       if (targetId) {
-        // A valid handle drop already reached onConnect; only rejected drops
-        // need the shared validation's toast.
         if (connectionState.toNode && connectionState.isValid) return;
         addLink(sourceId, targetId);
         return;
       }
 
-      // Only an empty-pane release opens the add-card popup.
       setConnectMenu({
         x: screen.x,
         y: screen.y,
@@ -395,10 +357,6 @@ function PrerequisiteGraphCanvas({
     [edges, onEdgesDelete],
   );
 
-  // Delete and Backspace remove links the user explicitly selected. React Flow
-  // also puts every edge attached to a selected card in this candidate set, so
-  // only keep edges with their own selection; the card itself is never deleted
-  // by a keypress (that goes through the confirmation dialog).
   const onBeforeDelete: OnBeforeDelete<CardFlowNode, Edge> = useCallback(
     async ({ edges: candidates }) => ({
       nodes: [],
@@ -429,8 +387,6 @@ function PrerequisiteGraphCanvas({
     });
   }, []);
 
-  // Focusable cards support the same actions from the keyboard: Enter opens the
-  // editor, and Shift+F10 or the Context Menu key opens the node menu.
   const onCanvasKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       const nodeElement = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node");
@@ -478,7 +434,6 @@ function PrerequisiteGraphCanvas({
     })
       .then((placements) => {
         const byId = new Map(placements.map((placement) => [placement.flashcardId, placement]));
-        // Apply to the current nodes, so a card added while the layout ran stays.
         const laidOut = nodesRef.current.map((node) => {
           const placement = byId.get(node.id);
           return placement
@@ -539,7 +494,6 @@ function PrerequisiteGraphCanvas({
       label: "Delete flashcard",
       icon: <Trash2 className="h-4 w-4" />,
       variant: "destructive",
-      // Opens the confirmation dialog; the card is only deleted there.
       onClick: () => onDeleteCardRequest(nodeId),
     });
     return items;
@@ -573,12 +527,7 @@ function PrerequisiteGraphCanvas({
     <>
       <GraphToolbar deckName={deckName} onBack={onBack} search={search} onTidy={onTidy} />
       <ReactFlow
-        className={cn(
-          isConnecting && "graph-connecting",
-          // Keep the still-loading canvas from capturing pointer events so the
-          // surrounding app stays clickable while the graph builds.
-          !interactive && "pointer-events-none",
-        )}
+        className={cn(isConnecting && "graph-connecting", !interactive && "pointer-events-none")}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
@@ -600,9 +549,6 @@ function PrerequisiteGraphCanvas({
         onMoveEnd={(_, viewport) => onViewportChange?.(viewport)}
         onInit={() => {
           markGraphPerf("reactFlow:onInit");
-          // ReactFlow may init before the async build commits real nodes; the
-          // readiness effect waits for both before signalling ready, so we never
-          // mark interactive on the empty init.
           setReactFlowReady(true);
         }}
         defaultViewport={initialViewport ?? DEFAULT_VIEWPORT}
@@ -616,16 +562,12 @@ function PrerequisiteGraphCanvas({
         nodesDraggable
         nodesConnectable
         elementsSelectable
-        // Links are removable from the card menu pickers, so keeping dozens of
-        // invisible edge stops out of the tab order gets keyboard users to the
-        // cards faster.
         edgesFocusable={false}
         deleteKeyCode={["Backspace", "Delete"]}
         proOptions={{ hideAttribution: true }}
         connectionLineStyle={connectionLineStyle}
         defaultEdgeOptions={defaultEdgeOptions}
       >
-        {/* The page's paper dots, drawn by the canvas so they move with it. */}
         <Background
           variant={BackgroundVariant.Dots}
           gap={24}
@@ -642,8 +584,6 @@ function PrerequisiteGraphCanvas({
           className="hidden md:block"
           style={{ width: 160, height: 110 }}
           bgColor="var(--color-surface)"
-          // Dim, don't hide, the cards outside the view: an opaque mask
-          // painted over them and left the map looking empty.
           maskColor="color-mix(in oklab, var(--color-bg) 60%, transparent)"
           maskStrokeColor="var(--color-muted)"
           maskStrokeWidth={1}

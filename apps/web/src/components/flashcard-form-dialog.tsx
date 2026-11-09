@@ -42,11 +42,6 @@ type CardFormDialogProps = {
   initialContent?: FlashcardContent | null;
   initialTags?: string[];
   onSubmit: (values: CardFormValues) => void | Promise<void>;
-  /**
-   * When the caller can't infer the deck, pass the deck list + selected deck to
-   * render a deck picker in create mode. Omit when the deck is already known
-   * (deck page, deck graph, connected add).
-   */
   decks?: { id: string; name: string }[];
   deckId?: string | null;
   onDeckChange?: (deckId: string) => void;
@@ -60,7 +55,6 @@ const TYPE_OPTIONS: { value: FlashcardType; label: string }[] = [
   { value: "concept", label: "Concept" },
 ];
 
-/** The editable text of every card type; only the current type's fields are used. */
 type FormFields = {
   front: string;
   back: string;
@@ -87,7 +81,6 @@ const EMPTY_FIELDS: FormFields = {
   solution: "",
 };
 
-/** The form fields for stored card content (empty for a new card). */
 function fieldsFromContent(type: FlashcardType, content: FlashcardContent | null): FormFields {
   if (!content) return EMPTY_FIELDS;
   switch (type) {
@@ -127,12 +120,10 @@ function fieldsFromContent(type: FlashcardType, content: FlashcardContent | null
   }
 }
 
-/** Comparable form state, used to detect unsaved changes. */
 function formSnapshot(type: FlashcardType, fields: FormFields, tags: string[]) {
   return JSON.stringify({ type, ...fields, tags });
 }
 
-/** Card content to save, or null while required fields are missing. */
 function contentFromFields(
   type: FlashcardType,
   fields: FormFields,
@@ -146,8 +137,6 @@ function contentFromFields(
       return front && back ? { front, back } : null;
     }
     case "cloze": {
-      // Trimmed like the other rich-text fields: the editor ends its Markdown
-      // with a newline.
       const text = fields.clozeText.trim();
       if (parseClozes(text).length === 0 || hasEmptyClozeDeletion(text)) {
         return null;
@@ -189,8 +178,6 @@ export function FlashcardFormDialog({
 }: CardFormDialogProps) {
   const [type, setType] = useState<FlashcardType>(initialType);
   const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
-  // Image occlusion can't be edited here; its content is kept so saving tags
-  // preserves the masks.
   const [imageOcclusion, setImageOcclusion] = useState<FlashcardContent | null>(null);
   const [tags, setTags] = useState<string[]>(initialTags);
 
@@ -207,23 +194,15 @@ export function FlashcardFormDialog({
   }, []);
   const [submitting, setSubmitting] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
-  // Full page: the same form filling the window, for long or image-heavy
-  // cards. Every open starts in the layout chosen in Settings (the dialog
-  // unless the account picked full page); the corner button switches for
-  // this open only.
   const preferredLayout = useQuery(settingsQuery()).data?.cardEditorLayout ?? "dialog";
   const [fullPage, setFullPage] = useState(false);
   const [initialSnapshot, setInitialSnapshot] = useState<string | null>(null);
   const keepEditingRef = useRef<HTMLButtonElement>(null);
-  // Starts closed even when mounted open: the lazy wrapper first mounts this
-  // dialog already open, and that first open must hydrate like any other.
   const [wasOpen, setWasOpen] = useState(false);
 
   const setField = <K extends keyof FormFields>(key: K, value: FormFields[K]) =>
     setFields((current) => ({ ...current, [key]: value }));
 
-  // Hydrate the form from the card each time the dialog opens, during render
-  // so the first open frame already shows the card.
   if (open !== wasOpen) {
     setWasOpen(open);
     setDiscardOpen(false);
@@ -246,20 +225,15 @@ export function FlashcardFormDialog({
     return () => cancelAnimationFrame(frame);
   }, [discardOpen]);
 
-  // A new concept card needs a generator; an existing one stays editable.
   const conceptAvailability = useQuery({ ...conceptAvailabilityQuery(), enabled: open }).data;
   const conceptUnavailable =
     conceptAvailability && !conceptAvailability.available ? conceptAvailability.reason : null;
-  // Concept cards are Pro-only: a free library sees the type as an upsell, and
-  // a lapsed one sees its concept cards read-only until Pro returns.
   const conceptNeedsPro = useConceptCardsAllowed() === false;
 
   const displayMode = open ? mode : displaySession.mode;
   const displayCardId = open ? (reviewUnitId ?? null) : displaySession.reviewUnitId;
 
   const content = contentFromFields(type, fields, imageOcclusion);
-  // Disconnected: keep the draft but don't start a save whose outcome
-  // can't be confirmed.
   const { online } = useConnection();
   const blockedConcept =
     type === "concept" && (conceptNeedsPro || (displayMode === "create" && !!conceptUnavailable));
@@ -268,7 +242,6 @@ export function FlashcardFormDialog({
   const dirty = initialSnapshot !== null && formSnapshot(type, fields, tags) !== initialSnapshot;
 
   const requestClose = () => {
-    // Closing mid-save would hide whether the save landed.
     if (submitting) return;
     if (dirty) {
       setDiscardOpen(true);
@@ -288,15 +261,12 @@ export function FlashcardFormDialog({
     try {
       await onSubmit({ type, content, tags });
       if (mode === "create") {
-        // Ready for the next card: same type and tags, empty fields.
         setFields(EMPTY_FIELDS);
         setImageOcclusion(null);
         setCreateSession((session) => session + 1);
         setInitialSnapshot(formSnapshot(type, EMPTY_FIELDS, tags));
       }
     } catch {
-      // The caller already reported the failure; the form stays open with the
-      // user's edits so they can try again.
     } finally {
       setSubmitting(false);
     }
@@ -335,8 +305,6 @@ export function FlashcardFormDialog({
       }
       description={discardOpen ? "Your edits to this card haven't been saved." : undefined}
       className="max-w-[35rem]"
-      // The discard question is short; it asks from the floating panel and
-      // "Keep editing" returns to the full page.
       fullscreen={fullPage && !discardOpen}
       headerActions={
         discardOpen ? undefined : (
@@ -392,9 +360,6 @@ export function FlashcardFormDialog({
           Discarding removes everything you changed since opening this card.
         </p>
       ) : (
-        // One tree in both modes, so switching never remounts the editors. Full
-        // page on a wide screen, the card's content takes the main column and
-        // the deck, type, and tags sit beside it; narrower, it stays one column.
         <div
           className={cn(
             "grid gap-4 [grid-template-areas:'meta'_'content'_'tags']",
@@ -443,9 +408,6 @@ export function FlashcardFormDialog({
                 )}
               >
                 {TYPE_OPTIONS.map((option) => {
-                  // Without a generator, a new card can't be a concept card. The
-                  // button stays focusable (aria-disabled) so its tooltip can say why.
-                  // A library without Pro can still pick it, to see the upsell.
                   const unavailable =
                     option.value === "concept" &&
                     displayMode === "create" &&
@@ -462,7 +424,6 @@ export function FlashcardFormDialog({
                       }}
                       aria-pressed={type === option.value}
                       aria-disabled={unavailable ? true : undefined}
-                      // A saved card can't change to or from a concept card.
                       disabled={
                         displayMode === "edit" &&
                         (initialType === "concept") !== (option.value === "concept")

@@ -13,7 +13,6 @@ import {
   type UiReviewUnit,
 } from "@/types/view-models";
 
-/** Server-backed actions shared by the deck and all-decks review screens. */
 export function useReviewActions() {
   const toast = useToast();
   const { online } = useConnection();
@@ -56,7 +55,6 @@ export function useReviewActions() {
   return {
     online,
     loadPreview: (reviewUnitId: string) => armin.review.preview(reviewUnitId),
-    // Live queries pick up the result; nothing needs refetching.
     onRate: (card: UiReviewUnit, rating: Grade, requestId: string) =>
       armin.review.rate({
         reviewUnitId: card.id,
@@ -68,7 +66,6 @@ export function useReviewActions() {
       entry.kind === "bury"
         ? armin.review.unbury({
             flashcardId: entry.flashcardId,
-            // Ids the server issued for this bury, echoed back unchanged.
             units: entry.units as BuryUnit[],
             requestId,
           })
