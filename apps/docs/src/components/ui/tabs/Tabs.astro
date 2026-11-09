@@ -1,27 +1,15 @@
 ---
-/**
- *   <Tabs syncKey="pkg">
- *     <TabItem label="npm">npm install</TabItem>
- *     <TabItem label="pnpm">pnpm install</TabItem>
- *   </Tabs>
- *
- * For manual control: TabsList, TabsTrigger, TabsContent.
- */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 import TabsList from "./TabsList.astro";
 
 interface Props extends HTMLAttributes<"div"> {
-  /** Sync tab selection across instances with the same key via localStorage */
   syncKey?: string;
 }
 
 const { syncKey, class: className, ...attrs } = Astro.props;
 
-// Manual mode brings its own TabsList, so don't render a second, empty one.
 const content = await Astro.slots.render("default");
-// It's manual when its TabsList comes before any TabItem, so intro text can
-// precede the list and Tabs nested in a panel don't count.
 const list = content.search(/\sdata-nb-tabs-list\b/);
 const item = content.search(/\sdata-nb-tab-label\b/);
 const manual = list !== -1 && (item === -1 || list < item);

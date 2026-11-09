@@ -1,9 +1,3 @@
-/**
- * Scroll-spy + animated rail indicator. Active heading tracked via a single
- * IntersectionObserver; the dash slides by arc-length so it weaves through the
- * rail's curves instead of cutting across.
- */
-
 import { mount } from "@cloudflare/nimbus-docs/client";
 
 const READING_BAND = 0.25;
@@ -18,9 +12,6 @@ function initToc(root: HTMLElement): () => void {
 
   const scrollHost = root.closest<HTMLElement>("[data-nb-toc-scroll-host]") ?? root;
   const slugs = Array.from(links).map((l) => l.dataset.nbSlug!);
-  // Observe only resolvable headings, each carrying its original index, so
-  // scroll-spy stays aligned with the full-length links/segments even when a
-  // heading slugs to "" (e.g. emoji-only `## 🎉`) and has no DOM target.
   const observed = slugs
     .map((slug, index) => ({ el: document.getElementById(slug), index }))
     .filter((o): o is { el: HTMLElement; index: number } => o.el !== null);
@@ -33,11 +24,8 @@ function initToc(root: HTMLElement): () => void {
   let currentLink: HTMLElement | null = null;
   let hasApplied = false;
 
-  // Measure the rail from the DOM so the path stays pixel-perfect over the
-  // static gray rail, capturing each link's arc-length range as we go.
   function buildRail() {
     const navRect = nav!.getBoundingClientRect();
-    // The rail is the links' inline-start border: their left edge, or right in RTL.
     const rtl = getComputedStyle(nav!).direction === "rtl";
 
     const m = Array.from(links).map((link) => {
@@ -52,13 +40,6 @@ function initToc(root: HTMLElement): () => void {
     let d = "";
     const newSegments: { start: number; length: number }[] = [];
 
-    // Measure each command in isolation (O(1)) and accumulate, rather than
-    // re-measuring the whole cumulatively-growing path with getTotalLength()
-    // on every iteration — the latter is O(n^2) and blocks the main thread on
-    // pages with hundreds of headings. Arc length is additive across
-    // contiguous commands, so summing isolated sub-paths matches the total.
-    // activePath doubles as the scratch measurer here; the full `d` is written
-    // back once at the end.
     const measure = (subPath: string) => {
       activePath!.setAttribute("d", subPath);
       return activePath!.getTotalLength();
@@ -79,7 +60,6 @@ function initToc(root: HTMLElement): () => void {
         if (Math.abs(cur.x - prev.x) < 0.5) {
           connector = `L ${cur.x} ${cur.yTop} `;
         } else {
-          // Indent change → S-curve matching the static gap SVG.
           const midY = (prev.yBot + cur.yTop) / 2;
           connector = `C ${prev.x} ${midY}, ${cur.x} ${midY}, ${cur.x} ${cur.yTop} `;
         }
@@ -110,7 +90,6 @@ function initToc(root: HTMLElement): () => void {
 
     if (instant) {
       activePath!.setAttribute("data-initial", "true");
-      // Force recalc so only opacity transitions on first paint (no dash sweep).
       void activePath!.getBoundingClientRect();
     }
 
@@ -169,7 +148,6 @@ function initToc(root: HTMLElement): () => void {
     setActive(atBottom ? links.length - 1 : observedIndex);
   }
 
-  // rootMargin collapses the root to the top band; deepest in-band heading wins.
   const spy = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
@@ -273,7 +251,6 @@ function initToc(root: HTMLElement): () => void {
     { signal: controller.signal },
   );
 
-  // Hand-driven scrolling releases the pin and resumes auto-tracking.
   function releasePin() {
     if (pinnedIndex === null) return;
     pinnedIndex = null;
@@ -314,8 +291,6 @@ function initToc(root: HTMLElement): () => void {
     passive: true,
     signal: controller.signal,
   });
-  // Content that loads later (the API home's parts) dispatches
-  // `nb:toc-headings`: track the headings that have appeared since.
   document.addEventListener(
     "nb:toc-headings",
     () => {

@@ -2,7 +2,6 @@
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import "@fontsource-variable/source-serif-4";
-// The body font starts downloading with the page instead of after the CSS.
 import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 import "../styles/globals.css";
 import "../styles/prose.css";
@@ -36,12 +35,6 @@ const {
 } = Astro.props;
 
 const lang = config.locale ?? "en";
-// Per-page agent-index pointer. For pages in non-primary or version
-// collections, this resolves to `/<prefix>/llms.txt` (e.g. `/v0/llms.txt`
-// for a v0 docs page, `/blog/llms.txt` for a blog post). Falls back to
-// the root `/llms.txt` when no collection is provided.
-// Hidden-version pages don't advertise an agent index (the per-version
-// llms.txt isn't emitted for them); suppress the AgentDirective entirely.
 const versionStatusKey =
   apiVersion && collection ? `${collection}@${apiVersion}` : collection;
 const versionStatus = versionStatusKey
@@ -75,7 +68,6 @@ const resolvedMarkdownUrl =
       (() => {
         const KEY = "ui-mode";
         const media = window.matchMedia("(prefers-color-scheme: dark)");
-        // A choice storage refused, kept until the page unloads.
         let unsaved = null;
 
         const readPref = () => {
@@ -111,7 +103,6 @@ const resolvedMarkdownUrl =
           if (e.key === KEY) applyTheme();
         });
 
-        // The toggle passes a mode only when storage refused it.
         window.__nbApplyTheme = (mode) => {
           if (mode === "dark" || mode === "light") unsaved = mode;
           applyTheme();

@@ -1,22 +1,11 @@
 ---
-/**
- * Card — a titled panel, optionally with an icon. With `href`, the whole card
- * is the link.
- *
- *   <Card title="Write a page" icon="ph:pencil-simple">Create an .mdx file.</Card>
- *   <Card title="Quickstart" href="/get-started/quickstart/">Your first request.</Card>
- *
- * For a rich title or a custom mark, use the `title` and `icon` slots.
- */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 
 interface Props extends HTMLAttributes<"article"> {
   title?: string;
-  /** Iconify icon name, e.g. `ph:lightning`. */
   icon?: string;
-  /** Makes the whole card a link. */
   href?: string;
 }
 
@@ -24,8 +13,6 @@ const { title, icon, href, class: className, ...attrs } = Astro.props;
 const hasIcon = Boolean(icon) || Astro.slots.has("icon");
 const hasTitle = Boolean(title) || Astro.slots.has("title");
 const Tag = href ? "a" : "article";
-// A linked card is named by its link, so its title is not a heading: a row of
-// cards under the page title would otherwise skip a heading level.
 const Title = href ? "p" : "h3";
 ---
 

@@ -1,16 +1,4 @@
 ---
-/**
- * MobileTOC — compact "jump to section" menu for narrow viewports.
- *
- * The desktop `TOC` rail only renders at `xl+` (right column). Below that
- * there's no on-this-page nav, so this native `<select>` fills the gap: it
- * sits under the page title, tracks the active heading via scroll-spy, and
- * jumps to a section on change.
- *
- * A native `<select>` whose options are the page headings, indented by depth.
- * The caret is an overlaid icon since native selects can't be styled, and the
- * client mirrors the active heading back into the select value.
- */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";

@@ -1,15 +1,3 @@
-/**
- * The site's social cards, 1200 × 630 PNGs rendered at build time: the logo
- * over a hairline, then the page's section and title. `og/[...slug].ts`
- * draws one per page and `og.png.ts` the site's own, with its description as
- * the title. This file is the cards' look; edit it freely.
- *
- * `@cloudflare/nimbus-docs/og` does the rest: it loads the fonts, fits text
- * to its lines by measuring it, and renders the PNG. To use another script,
- * such as Chinese or Japanese, add a font that covers it to `fonts`.
- *
- * The leading underscore keeps Astro from routing this file or `_fonts/`.
- */
 import { createCardRenderer, type CardNode, type CardTypography } from "@cloudflare/nimbus-docs/og";
 import { root } from "astro:config/server";
 
@@ -39,8 +27,6 @@ const SECTION: CardTypography = {
   color: MUTED,
 };
 
-// Fonts sit beside this file, not in public/, so they never ship. Read from
-// the project so `astro build --root <site>` finds them.
 const font = (file: string) => new URL(`src/pages/og/_fonts/${file}`, root);
 const renderer = await createCardRenderer({
   width: WIDTH,
@@ -98,8 +84,6 @@ async function card({
         height: 0,
         borderTop: `1.5px solid ${BORDER}`,
       }),
-      // Hung from the hairline rather than set on the bottom margin: X crops
-      // the card to 2:1 and covers its foot with the link's domain.
       el(
         "div",
         { position: "absolute", left: LEFT, top: 204, display: "flex", flexDirection: "column" },
@@ -109,10 +93,8 @@ async function card({
   );
 }
 
-/** A page's card. */
 export const renderPageCard = async (input: { section?: string; title: string }) =>
   renderer.png(await card({ ...input, sizes: [64, 56, 50, 44] }));
 
-/** The site's card: its description, or its title when it has none. */
 export const renderSiteCard = async (input: { title: string }) =>
   renderer.png(await card({ ...input, sizes: [72, 64, 56, 50, 44] }));

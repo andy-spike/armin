@@ -1,14 +1,9 @@
 ---
-/**
- * Banner — announcement strip. Pass `dismissible: { id, days? }` to
- * show a close button that persists to localStorage.
- */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 
 interface Props extends HTMLAttributes<"div"> {
-  /** HTML, rendered as written: trusted like the rest of the site's content. */
   content: string;
   variant?: "note" | "tip" | "caution" | "danger";
   dismissible?: { id: string; days?: number };

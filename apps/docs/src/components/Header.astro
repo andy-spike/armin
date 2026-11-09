@@ -10,34 +10,20 @@ import { config } from "virtual:nimbus/config";
 import { getCollectionUrl, getSidebarSections, stripBase, withBase } from "@cloudflare/nimbus-docs/runtime";
 
 interface Props {
-  /** Astro collection id for the current page, forwarded from DocsLayout. */
   collection?: string;
-  /** Astro entry id for the current page, forwarded from DocsLayout. */
   entryId?: string;
-  /**
-   * Whether the page has a sidebar to open. When `false`, the mobile
-   * menu button is hidden — pages that opted out via `sidebar: false`
-   * shouldn't show a button that opens an empty dialog. Default `true`.
-   */
   showSidebar?: boolean;
   sections?: SidebarSection[];
 }
 
-// `entryId` is part of Props as a forward-compat hook (the version-switcher
-// recipe reads it) but the base Header doesn't use it — leave it off the
-// destructure to avoid an unused-var warning.
 const { collection, showSidebar = true, sections: sectionsProp } = Astro.props;
 
-// Normalize trailing slash so isActive matches sidebar hrefs.
 const currentSlug = stripBase(Astro.url.pathname, import.meta.env.BASE_URL).replace(/\/$/, "") || "/";
 const sidebarSections =
   sectionsProp ?? (await getSidebarSections(currentSlug, { collection }));
-// An API reference beside the docs isn't in the docs sidebar, so the docs and
-// each reference become the tabs. A reference served at the root is the site.
 const apiHrefs = (
   await Promise.all((config.api ?? []).map(async (entry) => ({ entry, href: await getCollectionUrl(entry.collection) })))
 ).filter(({ href }) => href !== "/");
-// The reference the page is in: the longest mount that is the path or a folder of it.
 const mountOf = (href: string) => href.replace(/\/$/, "");
 const activeApi = apiHrefs
   .filter(({ href }) => currentSlug === mountOf(href) || currentSlug.startsWith(`${mountOf(href)}/`))
@@ -46,7 +32,6 @@ const sections =
   sidebarSections.length >= 2 || sectionsProp || apiHrefs.length === 0
     ? sidebarSections
     : [
-        // A page outside every collection (the 404) is in neither tab.
         { label: "Docs", href: "/", isActive: activeApi === undefined && collection !== undefined },
         ...apiHrefs.map((api) => ({
           label: apiHrefs.length === 1 ? "API reference" : (api.entry.label ?? api.entry.collection),
@@ -64,7 +49,6 @@ const resolveSectionHref = (href: string): string =>
   <div class="mx-auto flex items-center justify-between gap-3 h-14 px-4 lg:px-6">
     <div class="flex items-center gap-3 min-w-0">
       <slot name="brand">
-        {/* The mark alone; the site title stays as the link's accessible name. */}
         <a href={homeHref} class="flex shrink-0 items-center gap-2 text-foreground transition-opacity hover:opacity-70">
           <Logo class="h-6 w-6" wordmark />
           <span class="sr-only">Armin</span>
@@ -123,7 +107,6 @@ const resolveSectionHref = (href: string): string =>
       )}
     </div>
   </div>
-  {/* Phones: the tabs on a row of their own under the bar. */}
   {showSections && (
     <nav aria-label="Sections" data-nb-header-tabs class="md:hidden flex items-center gap-1 h-10 px-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {sections.map((section) => (

@@ -3,7 +3,6 @@ import { variants } from "@/lib/variants";
 import type { HTMLAttributes } from "astro/types";
 
 interface Props extends HTMLAttributes<"span"> {
-  /** Badge text. When omitted, slotted children render instead. */
   text?: string;
   variant?: "default" | "info" | "note" | "success" | "tip" | "warning" | "caution" | "danger" | "outline";
   size?: "small" | "medium" | "large";
@@ -11,7 +10,6 @@ interface Props extends HTMLAttributes<"span"> {
 
 const { text, variant, size, class: className, ...attrs } = Astro.props;
 
-// note→info, tip→success, caution→warning: variant aliases
 const badge = variants({
   base: "inline-flex items-center rounded-full font-medium whitespace-nowrap",
   variants: {
@@ -27,7 +25,6 @@ const badge = variants({
       outline: "bg-card text-foreground ring ring-border ring-inset",
     },
     size: {
-      // Whole-pixel heights: 20, 24 and 28.
       small:  "px-2 py-0.5 text-xs leading-4",
       medium: "px-2.5 py-0.5 text-[0.8125rem] leading-5",
       large:  "px-3 py-1 text-sm leading-5",

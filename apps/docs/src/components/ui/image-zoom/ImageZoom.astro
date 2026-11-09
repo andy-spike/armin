@@ -1,11 +1,4 @@
 ---
-/**
- * ImageZoom — one native <dialog> that shows a content image at full size.
- * Render it once in the docs layout; the client wraps each content image
- * that would get meaningfully bigger in a button that opens it.
- *
- * Opt an image out with `data-nb-zoom="off"` on it or on a wrapper.
- */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 ---
 
@@ -31,8 +24,6 @@ import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
   }
-  /* A Frame with an aspect ratio fills its box with the image; the button
-     takes that place so the image still fills it. */
   .frame[data-frame-aspect] .frame-media > [data-nb-zoom-trigger] {
     position: absolute;
     inset: 0;
@@ -45,7 +36,6 @@ import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
     border-radius: 0.5rem;
   }
 
-  /* Global: the dialog shows a clone of the page's image or <picture>. */
   .nb-zoom {
     width: 100vw;
     height: 100dvh;

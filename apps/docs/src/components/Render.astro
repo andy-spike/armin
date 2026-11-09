@@ -1,22 +1,10 @@
 ---
-/**
- * Render — include a reusable partial in any docs page.
- *
- *   <Render file="quickstart" />
- *   <Render file="workers/setup" params={{ runtime: "node" }} />
- *
- * Partials live in `src/content/partials/` as MDX. Declare params in
- * partial frontmatter (`params: [runtime, version?]`); required params
- * fail at build time, optional use a `?` suffix.
- */
 import { getVisibleEntries, getVisibleEntry } from "@cloudflare/nimbus-docs/runtime";
 import { render } from "astro:content";
 import { components } from "../components";
 
 interface Props {
-  /** Partial ID — path relative to src/content/partials/ without extension. */
   file: string;
-  /** Parameters passed to the partial as props. */
   params?: Record<string, unknown>;
 }
 
@@ -74,7 +62,6 @@ if (declaredParams) {
 
 const { Content } = await render(partial);
 
-/** Levenshtein distance — inlined to keep this component dep-free. */
 function distance(a: string, b: string): number {
   if (a === b) return 0;
   if (!a.length) return b.length;

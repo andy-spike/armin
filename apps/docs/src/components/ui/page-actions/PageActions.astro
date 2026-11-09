@@ -17,8 +17,6 @@ const resolvedMarkdownUrl = markdownUrl
 const baseBtn =
   "inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-transparent px-2 py-1 text-muted-foreground no-underline transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2";
 
-// Extra actions (the layout passes Connect MCP) render after the built-in
-// ones. Rendered here so an action that renders nothing adds no separator.
 const extra = Astro.slots.has("default") ? (await Astro.slots.render("default")).trim() : "";
 
 const absoluteMarkdownUrl =

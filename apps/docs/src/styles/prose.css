@@ -1,23 +1,10 @@
-/* Docs markdown styling scoped to docs content containers only.
-   Every size and line height is a whole pixel on a 4px grid: body 16/28,
-   small text 14/24, headings from the --nb-h* tokens in globals.css. */
-
 .docs-content {
   font-size: 1rem;
   line-height: 1.75rem;
   color: var(--nb-foreground);
-  /* Break a long unbroken token (URL, hash, no-space string) so it wraps within
-     the content column instead of leaking past the page width. Inherited, so it
-     covers headings, paragraphs, list items, and inline code; `pre` code blocks
-     are unaffected (their `white-space: pre` doesn't wrap — they scroll instead,
-     via `pre.astro-code { overflow-x: auto }`), and wide tables keep their own
-     `.nb-table-scroll` handling. */
   overflow-wrap: break-word;
 }
 
-/* Vertical rhythm — every direct child gets spacing by default.
-   Components can override with their own margin utilities (my-4, mt-6, etc.)
-   because :where() keeps specificity at (0,1,0) and utilities come later. */
 .docs-content > :where(:not(:first-child)) {
   margin-top: 1.25rem;
 }
@@ -45,7 +32,6 @@
   padding-inline-start: 0.25rem;
 }
 
-/* Markers sit back a step so the text leads, not the bullet. */
 .docs-content :where(li:not([class]))::marker {
   color: var(--nb-muted-foreground);
 }
@@ -66,15 +52,11 @@
   margin: 2.5rem 0;
 }
 
-/* Component boundary — elements with a class attribute are component-owned.
-   Markdown never adds classes to h1–h6 or p; components always do. */
 .docs-content :where(h1, h2, h3, h4, h5, h6, p):where([class]) {
   margin: 0;
   font-size: inherit;
 }
 
-/* Markdown heading typography is token-driven from globals.css. Space above
-   a heading is larger than below it, so each heading groups with its section. */
 .docs-content :where(h1:not([class])) {
   font-size: var(--nb-h1-size);
   line-height: var(--nb-h1-leading);
@@ -108,7 +90,6 @@
   margin-top: 0.5rem;
 }
 
-/* Clear the sticky header, plus the On this page bar below xl. */
 .docs-content :where(h1:not([class]), h2:not([class]), h3:not([class]), h4:not([class])),
 .docs-content :where([data-footnote-ref][id], [data-footnotes] li[id]) {
   scroll-margin-top: calc(var(--nb-header-height) + 4.5rem);
@@ -121,9 +102,6 @@
   }
 }
 
-/* Typographic wrapping — balance multi-line headings (no orphan words),
-   pretty-wrap body copy (no single-word last lines). Progressive
-   enhancement; unsupported browsers ignore both. */
 .docs-content :where(h1:not([class]), h2:not([class]), h3:not([class]), h4:not([class])) {
   text-wrap: balance;
 }
@@ -155,8 +133,6 @@
   color: var(--nb-foreground);
 }
 
-/* Inline code: a quiet tint, no outline. 14px on a 16px line, so a run of
-   code reads as part of the sentence rather than a row of buttons. */
 .docs-content :where(code:not([class])):not(:where(pre *)) {
   font-family: var(--nb-font-mono);
   direction: ltr;
@@ -165,8 +141,6 @@
   border-radius: var(--nb-radius-sm);
   padding: 0.125rem 0.3125rem;
   font-size: 0.875em;
-  /* A smaller font on its own line height would grow the line box by half a
-     pixel; 1 keeps every line of text exactly 28px. */
   line-height: 1;
   font-weight: 450;
   -webkit-box-decoration-break: clone;
@@ -178,7 +152,6 @@
   content: none;
 }
 
-/* Links that are code keep the link's underline, not a tint. */
 .docs-content :where(a:not([class])) :where(code:not([class])) {
   background: none;
   padding: 0;
@@ -188,16 +161,10 @@
   font-family: var(--nb-font-mono);
 }
 
-/* Shiki-rendered code blocks — wider vertical margin than base rhythm
-   because code blocks are visually dense. Inline code-token styling
-   (background, padding) is reset because Shiki spans already carry
-   their own colors via inline styles. */
 .docs-content .nb-code-figure {
   margin: 1.5rem 0;
 }
 
-/* Inside a step, code follows its title closely: the step already spaces
-   itself from its neighbours. */
 .docs-content :where([data-step] > div) > .nb-code-figure:first-child {
   margin-top: 0.75rem;
 }
@@ -217,10 +184,6 @@
   border-radius: 0;
 }
 
-/* Tables: 14/20 cells on a 41px row, an unfilled header in secondary text,
-   and lines only between rows. Fills its column; scroll is owned by the
-   `.nb-table-scroll` wrapper (injected by the tableScroll() hast plugin),
-   since `overflow` is ignored on a table. */
 .docs-content :where(table:not([class])) {
   display: table;
   width: 100%;
@@ -235,8 +198,6 @@
   line-height: 1.25rem;
 }
 
-/* Wide tables scroll within this box at all widths instead of overflowing the
-   page; short tables still fill it via the inner `width: 100%`. */
 .docs-content :where(.nb-table-scroll) {
   max-width: 100%;
   overflow-x: auto;
@@ -259,8 +220,6 @@
   white-space: nowrap;
 }
 
-/* Code in a cell is usually an identifier: keep it whole and let the table
-   scroll rather than break `RateLimit-Remaining` across two lines. */
 .docs-content :where(td:not([class])) :where(code:not([class])) {
   white-space: nowrap;
 }
@@ -287,13 +246,6 @@
   font-weight: 600;
 }
 
-/* ---- Long-tail prose vocabulary ----
-   Elements markdown/MDX authors can reach for that would otherwise
-   render with raw browser defaults. Same component boundary as the rest
-   of the file: `:not([class])` leaves component-owned markup alone. */
-
-/* Keycaps: a 20px cap with a 1px pressed edge drawn by the shadow, so the
-   key sits on the text baseline without changing the line height. */
 .docs-content :where(kbd:not([class])) {
   display: inline-flex;
   align-items: center;
@@ -315,9 +267,6 @@
   vertical-align: 0.0625rem;
 }
 
-/* Inline highlight — harmonized with ::selection instead of the
-   browser's fluorescent yellow. `box-decoration-break` keeps the tint
-   coherent when the highlight wraps across lines. */
 .docs-content :where(mark:not([class])) {
   background: color-mix(in oklch, var(--nb-primary) 10%, transparent);
   color: var(--nb-foreground);
@@ -328,9 +277,6 @@
   box-decoration-break: clone;
 }
 
-/* Native disclosure. Scope guard: FileTree builds classless <details>
-   internally (`.file-tree :global(details)`), so exclude its subtree —
-   without this the rows below would grow double carets and borders. */
 .docs-content :where(details:not([class]):not(.file-tree *)) {
   border: 1px solid var(--nb-border);
   border-radius: var(--nb-radius);
@@ -352,7 +298,6 @@
   display: none;
 }
 
-/* Trailing chevron — label left, indicator right, matching Collapsible. */
 .docs-content :where(details:not([class]):not(.file-tree *) > summary)::after {
   content: "";
   flex-shrink: 0;
@@ -376,7 +321,6 @@
   color: var(--nb-muted-foreground);
 }
 
-/* Definition lists — a term, then its description in secondary text. */
 .docs-content :where(dt:not([class])) {
   font-weight: 600;
 }
@@ -389,7 +333,6 @@
   color: var(--nb-muted-foreground);
 }
 
-/* Footnotes: set apart below a rule, in small secondary text. */
 .docs-content :where([data-footnotes]) {
   margin-top: 3rem;
   padding-top: 1.5rem;

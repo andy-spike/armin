@@ -1,11 +1,5 @@
-/** Wraps each content image that would get meaningfully bigger in a button
- *  that opens it in the zoom dialog, and keeps that right as images load,
- *  appear (a tab or disclosure opening) or the viewport changes. */
-
 import { lockScroll, mount, unlockScroll } from "@cloudflare/nimbus-docs/client";
 
-// Below this gain, zooming isn't worth a button (a phone screenshot already
-// fills the column).
 const MIN_GAIN = 1.2;
 const TRIGGER = "[data-nb-zoom-trigger]";
 
@@ -19,7 +13,6 @@ mount("[data-nb-image-zoom]", (root) => {
 
   const worthZooming = (img: HTMLImageElement): boolean => {
     if (img.closest(`a, button:not(${TRIGGER}), [data-nb-zoom="off"]`)) return false;
-    // The dialog shows the file at its own size, which can beat the attribute.
     const width = Math.max(Number(img.getAttribute("width")) || 0, img.naturalWidth);
     const height = Math.max(Number(img.getAttribute("height")) || 0, img.naturalHeight);
     if (!width || !height) return false;
@@ -42,7 +35,6 @@ mount("[data-nb-image-zoom]", (root) => {
   };
 
   const images = [...content.querySelectorAll<HTMLImageElement>("img")];
-  // All measuring first, then all DOM changes, so layout runs once.
   const sync = () => {
     const plan = images.map((img) => {
       const trigger = img.closest<HTMLElement>(TRIGGER);
@@ -64,8 +56,6 @@ mount("[data-nb-image-zoom]", (root) => {
   const open = (trigger: HTMLElement) => {
     const img = trigger.querySelector("img");
     if (!img) return;
-    // A clone of the image or its <picture>, sized for the viewport, so the
-    // browser picks the largest source that fits.
     const source = img.parentElement instanceof HTMLPictureElement ? img.parentElement : img;
     const clone = source.cloneNode(true) as HTMLElement;
     const view = clone instanceof HTMLImageElement ? clone : clone.querySelector("img")!;
@@ -85,15 +75,12 @@ mount("[data-nb-image-zoom]", (root) => {
     const trigger = (event.target as Element).closest<HTMLElement>(TRIGGER);
     if (trigger && content.contains(trigger)) open(trigger);
   };
-  // Esc, the close button, or a click anywhere closes it.
   const onDialogClick = () => dialog.close();
   const onClose = () => {
     unlockScroll();
     opener?.focus();
     opener = null;
   };
-  // An image's box changes when it loads, when a hidden tab or disclosure
-  // shows it, and when the viewport does; the viewport also moves the cap.
   let frame = 0;
   const schedule = () => {
     cancelAnimationFrame(frame);
@@ -114,7 +101,6 @@ mount("[data-nb-image-zoom]", (root) => {
     removeEventListener("resize", schedule);
     observer.disconnect();
     cancelAnimationFrame(frame);
-    // `close` fires later, after the page has gone; release the lock now.
     if (dialog.open) {
       dialog.close();
       unlockScroll();

@@ -1,5 +1,3 @@
-/** Wires <Tabs>; auto-detects manual triggers vs. synthesized-from-TabItem mode. */
-
 import { mount, initTabs } from "@cloudflare/nimbus-docs/client";
 
 const TRIGGER_CLASS =
@@ -13,20 +11,15 @@ function initTabContainer(container: HTMLElement): () => void {
   const tablist = container.querySelector<HTMLElement>(":scope > [role=tablist]");
   const indicator = tablist?.querySelector<HTMLElement>("[data-nb-tabs-indicator]") ?? null;
 
-  // Scope to this container so a nested <Tabs>'s triggers don't flip the
-  // parent into manual mode (or vice-versa), independent of mount order.
   const existingTriggers = Array.from(container.querySelectorAll("[data-nb-tabs-trigger]")).filter(
     (t) => (t as HTMLElement).closest("[data-nb-tabs]") === container,
   );
   const synthesize = existingTriggers.length === 0;
-  // Only this container's own panels — exclude a nested <Tabs>'s panels,
-  // whose nearest [data-nb-tabs] ancestor is the inner container.
   const panels = Array.from(
     container.querySelectorAll<HTMLElement>("[data-nb-tabs-content]"),
   ).filter((p) => p.closest("[data-nb-tabs]") === container);
 
   if (!synthesize) {
-    // Manual triggers name their panel by `value`; link each pair both ways.
     (existingTriggers as HTMLElement[]).forEach((trigger, i) => {
       const panel = panels.find((p) => p.dataset.nbValue === trigger.dataset.nbValue);
       if (!panel) return;
@@ -70,12 +63,6 @@ function initTabContainer(container: HTMLElement): () => void {
     boundarySelector: "[data-nb-tabs]",
     indicator,
     sync: syncKey ? { key: `ui-synced-tabs__${syncKey}` } : undefined,
-    // Keep the active tab within the horizontally-scrollable (scrollbar-hidden)
-    // strip's visible range. Fires on every activate() — including the initial
-    // paint and a synced/restored selection — so a right-edge active tab can't
-    // render off-screen with no affordance. Scrolls by the overhang (not
-    // scrollIntoView, which would also scroll the page vertically), which
-    // works in both directions; RTL scrollLeft runs negative.
     onActivate: (index) => {
       if (!tablist) return;
       const trigger = tablist.querySelectorAll<HTMLElement>("[data-nb-tabs-trigger]")[index];
@@ -90,11 +77,9 @@ function initTabContainer(container: HTMLElement): () => void {
     },
   });
 
-  // Mark which edges have tabs scrolled out of view, for the fade in TabsList.
   const markOverflow = () => {
     if (!tablist) return;
     const max = tablist.scrollWidth - tablist.clientWidth;
-    // RTL scrollLeft runs from 0 down to -max, so measure the distance.
     const scrolled = Math.abs(tablist.scrollLeft);
     const start = scrolled > 1;
     const end = scrolled < max - 1;
@@ -108,8 +93,6 @@ function initTabContainer(container: HTMLElement): () => void {
     tablist.addEventListener("scroll", markOverflow, { passive: true });
   }
 
-  // Cross-instance sync is keyed by trigger label; duplicate labels in a group
-  // resolve by first-match and activate the wrong panel. Surface it in dev.
   if (import.meta.env.DEV && syncKey && tablist) {
     const labels = Array.from(tablist.querySelectorAll<HTMLElement>("[data-nb-tabs-trigger]"))
       .filter((t) => t.closest("[data-nb-tabs]") === container)
@@ -129,7 +112,6 @@ function initTabContainer(container: HTMLElement): () => void {
     resize?.disconnect();
     tablist?.removeEventListener("scroll", markOverflow);
     instance.destroy();
-    // Remove synthesized triggers so re-mount doesn't double up.
     if (synthesize && tablist) {
       tablist.querySelectorAll("[data-nb-tabs-trigger]").forEach((b) => b.remove());
     }

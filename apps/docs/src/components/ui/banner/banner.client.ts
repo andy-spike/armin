@@ -1,8 +1,3 @@
-/**
- * Storage key: `nb-banner-dismissed-{id}`. Value is "0" for permanent,
- * or a future timestamp (ms) for time-limited dismissal.
- */
-
 import { mount } from "@cloudflare/nimbus-docs/client";
 
 const KEY_PREFIX = "nb-banner-dismissed-";
@@ -23,9 +18,7 @@ function initBanner(banner: HTMLElement): () => void {
       }
       localStorage.removeItem(key);
     }
-  } catch {
-    // localStorage unavailable; show without persistence.
-  }
+  } catch {}
 
   const btn = banner.querySelector<HTMLButtonElement>("[data-nb-banner-close]");
   if (!btn) return () => {};
@@ -35,9 +28,7 @@ function initBanner(banner: HTMLElement): () => void {
     const value = days > 0 ? String(Date.now() + days * 86400000) : "0";
     try {
       localStorage.setItem(key, value);
-    } catch {
-      // localStorage unavailable; dismissal is session-only.
-    }
+    } catch {}
     banner.remove();
   }
 

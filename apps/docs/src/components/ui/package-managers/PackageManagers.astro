@@ -1,9 +1,4 @@
 ---
-/**
- * PackageManagers — code block with a tab per package manager (npm,
- * pnpm, yarn, bun). Selection syncs across instances via sessionStorage;
- * an inline custom element restores the saved tab before paint.
- */
 import { createHash } from "node:crypto";
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { getTabs } from "@cloudflare/nimbus-docs/lib/pkgm";
@@ -17,9 +12,6 @@ interface Props extends CommandOptions {
 
 const { pkg, type = "add", args, dev, comment } = Astro.props;
 const tabs = getTabs(type, pkg, { args, dev, comment });
-// Prop hash + a per-page counter (on Astro.locals) so two blocks with
-// identical props still get distinct ids. Counter order is stable within a
-// render, so incremental/warm builds match cold — unlike crypto.randomUUID().
 const locals = Astro.locals as typeof Astro.locals & {
   __nbCounters?: Map<string, number>;
 };
@@ -131,8 +123,6 @@ const uid =
 </script>
 
 <style>
-  /* The command in the same colours the site's code blocks give a shell
-     command (github-light / github-dark): the program, then its arguments. */
   .nb-pm-cmd { color: #6f42c1; }
   .nb-pm-args { color: #032f62; }
   :global([data-mode="dark"]) .nb-pm-cmd { color: #b392f0; }

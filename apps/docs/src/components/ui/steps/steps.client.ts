@@ -1,11 +1,3 @@
-/**
- * steps.client.ts — Safari list-role restoration.
- *
- * Safari strips list semantics when `list-style: none` is applied
- * (which we do for the numbered counter styling). Restoring `role="list"`
- * on the inner `<ol>` makes VoiceOver announce the item count again.
- */
-
 import { mount } from "@cloudflare/nimbus-docs/client";
 
 function initSteps(root: HTMLElement): () => void {

@@ -26,7 +26,6 @@ const edges = [...markEdges.matchAll(/M([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)/g)].m
 });
 
 export const logo = {
-  /** The drawing's box; callers size it by height and keep the ratio. */
   width: 100,
   height: 100,
   paths: [...edges, ...markNodes.map((node) => circle(node.cx, node.cy, node.r))],

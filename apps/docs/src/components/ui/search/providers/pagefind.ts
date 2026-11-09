@@ -33,21 +33,6 @@ interface PagefindApi {
 
 let pagefind: PagefindApi | undefined;
 
-/**
- * Default Pagefind filters applied to every search.
- *
- * Versioning: when the site has a `versions.deprecated` list, the
- * layout emits `data-pagefind-filter="status:deprecated"` on every
- * deprecated-version page. Search defaults to current and non-deprecated
- * results.
- *
- * Versions are still searchable individually — readers on a v0 page
- * who explicitly search from there can opt the UI into a version-scoped
- * filter. The default exclusion is just for the top-level search.
- *
- * Computed at module-import time so we don't pay the config lookup on
- * every keystroke.
- */
 const defaultFilters: PagefindFilters | undefined =
   config.versions && config.versions.deprecated && config.versions.deprecated.length > 0
     ? { status: { none: "deprecated" } }
@@ -56,20 +41,11 @@ const defaultFilters: PagefindFilters | undefined =
 export const provider: SearchProvider = {
   async init() {
     if (pagefind) return;
-    // `searchIndex.bundle` is the site's bundle (`/pagefind/`, under the
-    // base when there is one); a site built in slices (`NIMBUS_BUILD_ONLY`)
-    // keeps each slice's bundle under its prefix, and `merge` names the other
-    // slices' bundles, so one search box still covers the site. Both are
-    // served URLs, base included.
     const pagefindUrl = new URL(`${searchIndex.bundle}pagefind.js`, window.location.origin);
     const loaded = (await import(/* @vite-ignore */ pagefindUrl.href)) as PagefindApi;
-    // Every index is built from the output root, so result URLs already carry
-    // their prefix and need only the base, which Pagefind adds to each one.
     const baseUrl = `${(import.meta.env.BASE_URL ?? "/").replace(/\/+$/, "")}/`;
     await loaded.options({ baseUrl, ranking: { pageLength: 0.2 } });
     await loaded.init();
-    // A slice that holds several collections writes one bundle; the other
-    // collections' URLs answer 404 and are skipped.
     await mergeSearchIndexes(loaded, searchIndex.merge, { baseUrl });
     pagefind = loaded;
   },

@@ -1,11 +1,3 @@
-/** Sidebar runtime: persistence.
- *
- * Groups are native `<details>`: open state is the element's own `open`
- * property, and changes arrive as `toggle` events (captured on the root —
- * `toggle` doesn't bubble). No click simulation. Rows carry no class or data
- * attribute, so a link row is any `li > a` and a group any `details`.
- */
-
 import { mount } from "@cloudflare/nimbus-docs/client";
 
 const STORAGE_KEY = "sidebar-state";
@@ -32,13 +24,7 @@ function initSidebar(root: HTMLElement): () => void {
   return () => teardowns.forEach((t) => t());
 }
 
-// ---------------------------------------------------------------------------
-// Persistence (open state + scroll)
-// ---------------------------------------------------------------------------
-
 function initPersistence(root: HTMLElement): (() => void) | null {
-  // The scrollable container: the movable tree wrapper (shared between the
-  // desktop rail and the drawer), the enclosing <aside>, or the root itself.
   const scrollHost: HTMLElement =
     root.closest<HTMLElement>("[data-nb-sidebar-tree]") ?? root.closest("aside") ?? root;
   const hash = root.dataset.nbSidebarHash ?? "";
@@ -52,8 +38,6 @@ function initPersistence(root: HTMLElement): (() => void) | null {
     }
   }
 
-  // A hidden tree (the rail on a phone) reads scrollTop 0: keep the last
-  // scroll it had while visible.
   function readState(): SidebarState {
     return {
       hash,
@@ -62,8 +46,6 @@ function initPersistence(root: HTMLElement): (() => void) | null {
     };
   }
 
-  // Shown after being hidden (the mobile drawer opening): apply the saved
-  // scroll, then bring the current page into view if it is outside it.
   function restoreScroll() {
     const scroll = savedScroll();
     if (scroll !== null) scrollHost.scrollTop = scroll;
@@ -93,8 +75,6 @@ function initPersistence(root: HTMLElement): (() => void) | null {
     } catch {}
   }
 
-  // `toggle` doesn't bubble; capture on the root observes every group. A
-  // group the filter opened is transient state and not saved.
   const handleToggle = (event: Event) => {
     const group = event.target as HTMLElement | null;
     if (!(group instanceof HTMLDetailsElement)) return;

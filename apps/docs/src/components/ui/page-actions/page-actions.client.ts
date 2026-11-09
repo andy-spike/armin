@@ -35,8 +35,6 @@ function initPageActions(root: HTMLElement): () => void {
     });
     markdown.catch(() => {});
     try {
-      // Hand the clipboard a pending item inside the click: Safari refuses a
-      // write that starts after the fetch resolves.
       if (typeof ClipboardItem === "function") {
         await navigator.clipboard.write([new ClipboardItem({ "text/plain": markdown })]);
       } else {

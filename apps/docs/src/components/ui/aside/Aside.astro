@@ -1,22 +1,11 @@
 ---
-/**
- * Aside — a note, tip, caution or danger callout.
- *
- *   <Aside type="tip" title="Before you start">Install Node 22.</Aside>
- *
- * For a rich title, pass it as a slot: <Fragment slot="title">Uses <code>env</code></Fragment>.
- * Each type's colour comes from CSS keyed on `data-type`, so a site can add
- * its own type with a rule and an icon.
- */
 import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 
 interface Props extends HTMLAttributes<"aside"> {
-  // Uses `type` (not `variant`) to match the conventional <Aside type="…"> authoring API.
   type?: "note" | "tip" | "caution" | "danger";
   title?: string;
-  /** Iconify name; replaces the type's icon. */
   icon?: string;
 }
 
@@ -67,8 +56,6 @@ const displayTitle = title ?? d.label;
   .aside-card[data-type="caution"] { --_c: var(--nb-warning); --_f: var(--nb-warning-foreground); --_t: var(--nb-warning-muted); }
   .aside-card[data-type="danger"]  { --_c: var(--nb-danger);  --_f: var(--nb-danger-foreground);  --_t: var(--nb-danger-muted); }
 
-  /* Icon + title in the type's text colour; body text stays readable.
-     --_c tints the border and inline code, --_f is for text. */
   .aside-card-icon,
   .aside-card-title { color: var(--_f); }
   .aside-card-body { color: var(--nb-foreground); }
@@ -77,7 +64,6 @@ const displayTitle = title ?? d.label;
   .aside-card-body :global(p + p) { margin-top: 0.5rem; }
   .aside-card-body :global(a) { color: var(--nb-foreground); font-weight: 500; text-decoration: underline; text-decoration-color: var(--nb-border-strong); text-underline-offset: 4px; }
 
-  /* Inline code only — exclude code inside Expressive Code pre blocks */
   .aside-card-body :global(code:not(:where(pre *))) {
     font-family: var(--nb-font-mono);
     font-size: 0.875em;
@@ -89,7 +75,6 @@ const displayTitle = title ?? d.label;
   }
   .aside-card-body :global(strong) { font-weight: 600; color: var(--nb-foreground); }
 
-  /* Shiki code blocks inside Asides */
   .aside-card-body :global(.astro-code) {
     margin: 0.75rem 0;
   }

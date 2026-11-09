@@ -1,8 +1,4 @@
 ---
-/**
- * PaginationKey — the key cap that moves to this page. Hidden on touch
- * screens, and when the bar has `keys={false}`.
- */
 import { cn } from "@/lib/cn";
 import type { HTMLAttributes } from "astro/types";
 
@@ -21,8 +17,6 @@ const { class: className, ...attrs } = Astro.props;
 ><slot /></kbd>
 
 <style>
-  /* A 20px cap with a 1px pressed edge drawn by the shadow; it presses on
-     [ / ] or a click, then the page changes. */
   .nb-pagination-key {
     display: inline-flex;
     flex-shrink: 0;

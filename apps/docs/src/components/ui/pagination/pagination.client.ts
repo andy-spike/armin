@@ -1,8 +1,5 @@
 import { mount } from "@cloudflare/nimbus-docs/client";
 
-// Warm the next page the moment its key goes down, so it's ready when the
-// press finishes. A plain prefetch link, so sites that turn off Astro's
-// prefetch still build.
 function warm(href: string) {
   if (document.head.querySelector(`link[rel="prefetch"][href="${CSS.escape(href)}"]`)) return;
   const link = document.createElement("link");
@@ -17,7 +14,6 @@ function initPagination(root: HTMLElement): () => void {
   const cleanups: Array<() => void> = [];
   let current: HTMLElement | null = null;
 
-  // The highlight takes the box of the half being pointed at or focused.
   const show = (item: HTMLElement) => {
     current = item;
     if (!highlight) return;
@@ -31,17 +27,7 @@ function initPagination(root: HTMLElement): () => void {
   };
 
   for (const item of items) {
-    const onShow = () => {
-      show(item);
-      // A cut-off title shows in full on hover.
-      const title = item.querySelector<HTMLElement>("[data-slot='pagination-title']");
-      if (title) {
-        const cut =
-          title.scrollWidth > title.clientWidth || title.scrollHeight > title.clientHeight;
-        if (cut) item.title = title.textContent?.trim() ?? "";
-        else item.removeAttribute("title");
-      }
-    };
+    const onShow = () => show(item);
     item.addEventListener("pointerenter", onShow);
     item.addEventListener("focus", onShow);
     cleanups.push(() => {
@@ -56,15 +42,11 @@ function initPagination(root: HTMLElement): () => void {
   root.addEventListener("pointerleave", onLeave);
   root.addEventListener("focusout", onFocusOut);
 
-  // The highlight follows its half when the layout shifts under it.
   const resize = new ResizeObserver(() => {
     if (current) show(current);
   });
   resize.observe(root);
 
-  // [ and ] press the matching key, then go: only while focus is in this bar,
-  // so single-key shortcuts never fire from elsewhere on the page (WCAG
-  // 2.1.4), and never with a modifier held.
   const onKey = (e: KeyboardEvent) => {
     if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || e.defaultPrevented) return;
     const item = items.find((i) => i.dataset.nbPaginationKey === e.key);
