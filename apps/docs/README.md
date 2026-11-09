@@ -95,7 +95,9 @@ pnpm --filter @armin/docs exec nimbus-docs check
 
 `nimbus-docs check` reports structure as "partly checked": it can't verify
 request-rendered pages, so a passing production build is the gate for them.
-`pnpm check` at the root formats and lints this workspace too. It reads `.astro`
+`pnpm check` at the root formats and lints this workspace too. It needs the
+types Astro generates into `.astro/` (for `virtual:nimbus/config`), which
+`pnpm install` writes through this package's `postinstall` (`astro sync`). It reads `.astro`
 imports through the ambient declaration in `src/env.d.ts`; `astro check` does
 the real type checking for them. CI runs the typecheck and build.
 

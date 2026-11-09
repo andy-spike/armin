@@ -6,6 +6,7 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
+    "postinstall": "astro sync",
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
