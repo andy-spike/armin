@@ -948,6 +948,10 @@ html[data-scroll="document"] body {
   line-height: inherit;
   overflow-wrap: anywhere;
 }
+/* The full-page editor's taller fields: the whole empty area is clickable text. */
+.card-markdown-editor[data-tall] .milkdown > .ProseMirror {
+  min-height: 10rem;
+}
 /* Crepe's reset clears list indentation; match the card renderer instead. */
 .card-markdown-editor .milkdown > .ProseMirror :is(ul, ol) {
   padding-left: 1.4em;
