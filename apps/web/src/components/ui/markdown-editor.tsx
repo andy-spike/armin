@@ -132,6 +132,7 @@ type MarkdownEditorProps = {
   "aria-label"?: string;
   cloze?: boolean;
   textOnly?: boolean;
+  tall?: boolean;
 };
 
 export function MarkdownEditor({
@@ -144,6 +145,7 @@ export function MarkdownEditor({
   "aria-label": ariaLabel,
   cloze = false,
   textOnly = false,
+  tall = false,
 }: MarkdownEditorProps) {
   const toast = useToast();
   const alive = useRef(true);
@@ -452,6 +454,7 @@ export function MarkdownEditor({
         className,
       )}
       ref={rootRef}
+      data-tall={tall || undefined}
       onFocus={() => setFocusWithin(true)}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setFocusWithin(false);
@@ -481,7 +484,10 @@ export function MarkdownEditor({
       <div
         ref={bodyRef}
         style={switchHeight ? { minHeight: switchHeight } : undefined}
-        className="flex min-h-[88px] flex-col px-3 py-2 text-sm leading-relaxed text-ink"
+        className={cn(
+          "flex flex-col px-3 py-2 text-sm leading-relaxed text-ink",
+          tall ? "min-h-44" : "min-h-[88px]",
+        )}
         {...(autoFocus ? { "data-autofocus": true } : {})}
       >
         {source ? (
@@ -490,7 +496,7 @@ export function MarkdownEditor({
             value={value}
             onChange={(event) => onChange(event.target.value)}
             autoFocus={autoFocus}
-            minHeight={72}
+            minHeight={tall ? 160 : 72}
             placeholder={placeholder}
             aria-label={ariaLabel}
             className="flex-1 resize-none border-0 bg-transparent px-0 py-0 font-mono text-xs focus-visible:ring-0"

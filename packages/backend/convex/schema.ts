@@ -184,6 +184,7 @@ export default defineSchema({
     schedulingPreset: v.string(),
     keybindings: v.union(v.string(), v.null()),
     autoplayAudio: v.optional(v.boolean()),
+    cardEditorLayout: v.optional(v.union(v.literal("fullPage"), v.literal("dialog"))),
     updatedAt: v.number(),
   }).index("by_library", ["libraryId"]),
 

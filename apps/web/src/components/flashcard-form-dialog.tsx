@@ -1,6 +1,7 @@
 import { useConnection } from "@/lib/session";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -16,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { conceptAvailabilityQuery } from "@/lib/queries";
+import { conceptAvailabilityQuery, settingsQuery } from "@/lib/queries";
 import { CONCEPT_BATCH_SIZE } from "@armin/core/concept";
 import { hasEmptyClozeDeletion, parseClozes } from "@armin/core/flashcard-rules";
 import { ClozeField, Field, TagsInput } from "@/components/flashcard-form-fields";
@@ -193,6 +194,8 @@ export function FlashcardFormDialog({
   }, []);
   const [submitting, setSubmitting] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
+  const preferredLayout = useQuery(settingsQuery()).data?.cardEditorLayout ?? "dialog";
+  const [fullPage, setFullPage] = useState(false);
   const [initialSnapshot, setInitialSnapshot] = useState<string | null>(null);
   const keepEditingRef = useRef<HTMLButtonElement>(null);
   const [wasOpen, setWasOpen] = useState(false);
@@ -204,6 +207,7 @@ export function FlashcardFormDialog({
     setWasOpen(open);
     setDiscardOpen(false);
     if (open) {
+      setFullPage(preferredLayout === "fullPage");
       const initialFields = fieldsFromContent(initialType, initialContent);
       setType(initialType);
       setFields(initialFields);
@@ -301,6 +305,26 @@ export function FlashcardFormDialog({
       }
       description={discardOpen ? "Your edits to this card haven't been saved." : undefined}
       className="max-w-[35rem]"
+      fullscreen={fullPage && !discardOpen}
+      headerActions={
+        discardOpen ? undefined : (
+          <Tooltip content={fullPage ? "Exit full page" : "Full page"}>
+            <button
+              type="button"
+              onClick={() => setFullPage((current) => !current)}
+              aria-label={fullPage ? "Exit full page" : "Full page"}
+              aria-pressed={fullPage}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              {fullPage ? (
+                <Minimize2 className="h-4 w-4" aria-hidden />
+              ) : (
+                <Maximize2 className="h-4 w-4" aria-hidden />
+              )}
+            </button>
+          </Tooltip>
+        )
+      }
       footer={
         discardOpen ? (
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -336,264 +360,288 @@ export function FlashcardFormDialog({
           Discarding removes everything you changed since opening this card.
         </p>
       ) : (
-        <div className="space-y-4">
-          {displayMode === "create" && decks && decks.length > 0 && onDeckChange && (
-            <Field label="Deck" hint="Which deck this card is filed under.">
-              <Select
-                value={deckId ?? undefined}
-                items={decks.map((deck) => ({
-                  value: deck.id,
-                  label: deck.name,
-                }))}
-                onValueChange={(next) => onDeckChange(next as string)}
+        <div
+          className={cn(
+            "grid gap-4 [grid-template-areas:'meta'_'content'_'tags']",
+            fullPage &&
+              "lg:grid-cols-[minmax(0,1fr)_17rem] lg:grid-rows-[auto_1fr] lg:gap-x-10 lg:gap-y-6 lg:[grid-template-areas:'content_meta'_'content_tags']",
+          )}
+        >
+          <div className="min-w-0 space-y-4 [grid-area:meta]">
+            {displayMode === "create" && decks && decks.length > 0 && onDeckChange && (
+              <Field label="Deck" hint="Which deck this card is filed under.">
+                <Select
+                  value={deckId ?? undefined}
+                  items={decks.map((deck) => ({
+                    value: deck.id,
+                    label: deck.name,
+                  }))}
+                  onValueChange={(next) => onDeckChange(next as string)}
+                >
+                  <SelectTrigger className="w-full" aria-label="Deck">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    <SelectGroup>
+                      {decks.map((deck) => (
+                        <SelectItem key={deck.id} value={deck.id}>
+                          {deck.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+            <Field
+              label="Type"
+              hint={
+                displayMode === "edit" && initialType === "concept"
+                  ? "A concept card keeps its type."
+                  : undefined
+              }
+            >
+              <div
+                className={cn(
+                  "grid w-full grid-cols-3 gap-1.5 sm:grid-cols-5",
+                  fullPage && "lg:grid-cols-2",
+                )}
               >
-                <SelectTrigger className="w-full" aria-label="Deck">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
-                  <SelectGroup>
-                    {decks.map((deck) => (
-                      <SelectItem key={deck.id} value={deck.id}>
-                        {deck.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-          )}
-          <Field
-            label="Type"
-            hint={
-              displayMode === "edit" && initialType === "concept"
-                ? "A concept card keeps its type."
-                : undefined
-            }
-          >
-            <div className="grid w-full grid-cols-3 gap-1.5 sm:grid-cols-5">
-              {TYPE_OPTIONS.map((option) => {
-                const unavailable =
-                  option.value === "concept" &&
-                  displayMode === "create" &&
-                  !conceptNeedsPro &&
-                  conceptUnavailable;
-                const proOnly =
-                  option.value === "concept" && displayMode === "create" && conceptNeedsPro;
-                const button = (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => {
-                      if (!unavailable) setType(option.value);
-                    }}
-                    aria-pressed={type === option.value}
-                    aria-disabled={unavailable ? true : undefined}
-                    disabled={
-                      displayMode === "edit" &&
-                      (initialType === "concept") !== (option.value === "concept")
-                    }
-                    className={cn(
-                      proOnly && "relative",
-                      "min-w-0 rounded-md border px-2.5 py-1.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50",
-                      type === option.value
-                        ? "border-accent bg-accent text-on-accent"
-                        : "border-border-strong bg-surface text-muted hover:text-ink aria-disabled:hover:text-muted",
-                    )}
-                  >
-                    {option.label}
-                    {proOnly && (
-                      <ProMarker className="absolute -right-1.5 -top-2 bg-accent-deep text-on-accent" />
-                    )}
-                  </button>
-                );
-                return unavailable ? (
-                  <Tooltip key={option.value} content={unavailable}>
-                    {button}
-                  </Tooltip>
-                ) : (
-                  button
-                );
-              })}
-            </div>
-          </Field>
-
-          {(type === "basic" || type === "basic_reversed") && (
-            <>
-              <Field label="Front" hint="The prompt or question.">
-                <MarkdownEditor
-                  onUploadChange={onUploadChange}
-                  key={`front-${editorKey}`}
-                  autoFocus
-                  aria-label="Flashcard front"
-                  value={fields.front}
-                  onChange={(value) => setField("front", value)}
-                  placeholder="What does `typeof null` return?"
-                />
-              </Field>
-              <Field
-                label="Back"
-                hint={
-                  type === "basic_reversed"
-                    ? "Creates 2 reviews — one each direction."
-                    : "The answer to recall."
-                }
-              >
-                <MarkdownEditor
-                  onUploadChange={onUploadChange}
-                  key={`back-${editorKey}`}
-                  aria-label="Flashcard back"
-                  value={fields.back}
-                  onChange={(value) => setField("back", value)}
-                  placeholder={'`"object"` — a historical bug kept for compatibility.'}
-                />
-              </Field>
-            </>
-          )}
-
-          {type === "cloze" && (
-            <ClozeField
-              key={`cloze-${editorKey}`}
-              value={fields.clozeText}
-              onChange={(value) => setField("clozeText", value)}
-              onUploadChange={onUploadChange}
-            />
-          )}
-          {type === "cloze" && (
-            <Field label="Extra" hint="Optional. Shown only after the answer is revealed.">
-              <MarkdownEditor
-                onUploadChange={onUploadChange}
-                key={`cloze-extra-${editorKey}`}
-                aria-label="Cloze extra"
-                value={fields.clozeExtra}
-                onChange={(value) => setField("clozeExtra", value)}
-                placeholder="A source, mnemonic, or fuller explanation."
-              />
-            </Field>
-          )}
-
-          {type === "type_answer" && (
-            <>
-              <Field label="Prompt" hint="The question to answer.">
-                <MarkdownEditor
-                  onUploadChange={onUploadChange}
-                  key={`prompt-${editorKey}`}
-                  autoFocus
-                  aria-label="Prompt"
-                  value={fields.prompt}
-                  onChange={(value) => setField("prompt", value)}
-                  placeholder="Capital of France?"
-                />
-              </Field>
-              <Field label="Answer" hint="The expected typed answer.">
-                <Input
-                  key={`answer-${editorKey}`}
-                  value={fields.answer}
-                  onChange={(e) => setField("answer", e.target.value)}
-                  aria-label="Answer"
-                  placeholder="Paris"
-                />
-              </Field>
-              <Field
-                label="Accepted answers"
-                hint="Other answers counted as correct. Press Enter to add."
-              >
-                <TagsInput
-                  key={`accepted-${editorKey}`}
-                  ariaLabel="Add accepted answer"
-                  value={fields.acceptedAnswers}
-                  onChange={(value) => setField("acceptedAnswers", value)}
-                  placeholder="e.g. paris, ville de paris"
-                />
-              </Field>
-            </>
-          )}
-
-          {type === "concept" && conceptNeedsPro && displayMode === "create" && (
-            <ConceptProNotice variant="create" />
-          )}
-
-          {type === "concept" && conceptNeedsPro && displayMode === "edit" && (
-            <>
-              <ConceptProNotice variant="lapsed" />
-              <Field label="Brief">
-                <MarkdownContent content={fields.brief} className="text-sm" />
-              </Field>
-              <Field label="Example">
-                <MarkdownContent content={fields.exercise} className="text-sm" />
-              </Field>
-              <Field label="Solution">
-                <MarkdownContent content={fields.solution} className="text-sm" />
-              </Field>
-              {displayCardId && (
-                <Field label="Variants">
-                  <ConceptVariantsPanel flashcardId={displayCardId} />
-                </Field>
-              )}
-            </>
-          )}
-
-          {type === "concept" && !conceptNeedsPro && (
-            <>
-              <Field
-                label="Brief"
-                hint="The concept, what to vary, the difficulty, and what to avoid."
-              >
-                <MarkdownEditor
-                  textOnly
-                  key={`brief-${editorKey}`}
-                  autoFocus
-                  aria-label="Brief"
-                  value={fields.brief}
-                  onChange={(value) => setField("brief", value)}
-                  placeholder="Derivatives of polynomials with 2–4 terms. Vary the coefficients and exponents; avoid fractional exponents."
-                />
-              </Field>
-              <Field label="Example" hint="One exercise, in the format you expect.">
-                <MarkdownEditor
-                  textOnly
-                  key={`exercise-${editorKey}`}
-                  aria-label="Example exercise"
-                  value={fields.exercise}
-                  onChange={(value) => setField("exercise", value)}
-                  placeholder="Differentiate $3x^4 - 2x + 5$."
-                />
-              </Field>
-              <Field label="Solution" hint="The example's worked solution, step by step.">
-                <MarkdownEditor
-                  textOnly
-                  key={`solution-${editorKey}`}
-                  aria-label="Example solution"
-                  value={fields.solution}
-                  onChange={(value) => setField("solution", value)}
-                  placeholder="Apply the power rule to each term: $12x^3 - 2$."
-                />
-              </Field>
-              {displayMode === "edit" && displayCardId ? (
-                <Field label="Variants" hint="Exercises generated from this template.">
-                  <ConceptVariantsPanel flashcardId={displayCardId} />
-                </Field>
-              ) : (
-                <p className="text-xs text-muted">
-                  Text and equations only. After you add the card, Armin generates about{" "}
-                  {CONCEPT_BATCH_SIZE} exercises from this template.
-                </p>
-              )}
-            </>
-          )}
-
-          {type === "image_occlusion" && (
-            <Field label="Image occlusion">
-              <div className="rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-muted">
-                Image occlusion authoring is not available in this editor yet. Existing masks are
-                preserved when saving tags or other metadata.
+                {TYPE_OPTIONS.map((option) => {
+                  const unavailable =
+                    option.value === "concept" &&
+                    displayMode === "create" &&
+                    !conceptNeedsPro &&
+                    conceptUnavailable;
+                  const proOnly =
+                    option.value === "concept" && displayMode === "create" && conceptNeedsPro;
+                  const button = (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        if (!unavailable) setType(option.value);
+                      }}
+                      aria-pressed={type === option.value}
+                      aria-disabled={unavailable ? true : undefined}
+                      disabled={
+                        displayMode === "edit" &&
+                        (initialType === "concept") !== (option.value === "concept")
+                      }
+                      className={cn(
+                        proOnly && "relative",
+                        "min-w-0 rounded-md border px-2.5 py-1.5 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50",
+                        type === option.value
+                          ? "border-accent bg-accent text-on-accent"
+                          : "border-border-strong bg-surface text-muted hover:text-ink aria-disabled:hover:text-muted",
+                      )}
+                    >
+                      {option.label}
+                      {proOnly && (
+                        <ProMarker className="absolute -right-1.5 -top-2 bg-accent-deep text-on-accent" />
+                      )}
+                    </button>
+                  );
+                  return unavailable ? (
+                    <Tooltip key={option.value} content={unavailable}>
+                      {button}
+                    </Tooltip>
+                  ) : (
+                    button
+                  );
+                })}
               </div>
             </Field>
-          )}
+          </div>
+
+          <div className={cn("min-w-0 space-y-4 [grid-area:content]", fullPage && "lg:space-y-6")}>
+            {(type === "basic" || type === "basic_reversed") && (
+              <>
+                <Field label="Front" hint="The prompt or question.">
+                  <MarkdownEditor
+                    onUploadChange={onUploadChange}
+                    key={`front-${editorKey}`}
+                    tall={fullPage}
+                    autoFocus
+                    aria-label="Flashcard front"
+                    value={fields.front}
+                    onChange={(value) => setField("front", value)}
+                    placeholder="What does `typeof null` return?"
+                  />
+                </Field>
+                <Field
+                  label="Back"
+                  hint={
+                    type === "basic_reversed"
+                      ? "Creates 2 reviews — one each direction."
+                      : "The answer to recall."
+                  }
+                >
+                  <MarkdownEditor
+                    onUploadChange={onUploadChange}
+                    key={`back-${editorKey}`}
+                    tall={fullPage}
+                    aria-label="Flashcard back"
+                    value={fields.back}
+                    onChange={(value) => setField("back", value)}
+                    placeholder={'`"object"` — a historical bug kept for compatibility.'}
+                  />
+                </Field>
+              </>
+            )}
+
+            {type === "cloze" && (
+              <ClozeField
+                key={`cloze-${editorKey}`}
+                value={fields.clozeText}
+                onChange={(value) => setField("clozeText", value)}
+                onUploadChange={onUploadChange}
+                tall={fullPage}
+              />
+            )}
+            {type === "cloze" && (
+              <Field label="Extra" hint="Optional. Shown only after the answer is revealed.">
+                <MarkdownEditor
+                  onUploadChange={onUploadChange}
+                  key={`cloze-extra-${editorKey}`}
+                  aria-label="Cloze extra"
+                  value={fields.clozeExtra}
+                  onChange={(value) => setField("clozeExtra", value)}
+                  placeholder="A source, mnemonic, or fuller explanation."
+                />
+              </Field>
+            )}
+
+            {type === "type_answer" && (
+              <>
+                <Field label="Prompt" hint="The question to answer.">
+                  <MarkdownEditor
+                    onUploadChange={onUploadChange}
+                    key={`prompt-${editorKey}`}
+                    tall={fullPage}
+                    autoFocus
+                    aria-label="Prompt"
+                    value={fields.prompt}
+                    onChange={(value) => setField("prompt", value)}
+                    placeholder="Capital of France?"
+                  />
+                </Field>
+                <Field label="Answer" hint="The expected typed answer.">
+                  <Input
+                    key={`answer-${editorKey}`}
+                    value={fields.answer}
+                    onChange={(e) => setField("answer", e.target.value)}
+                    aria-label="Answer"
+                    placeholder="Paris"
+                  />
+                </Field>
+                <Field
+                  label="Accepted answers"
+                  hint="Other answers counted as correct. Press Enter to add."
+                >
+                  <TagsInput
+                    key={`accepted-${editorKey}`}
+                    ariaLabel="Add accepted answer"
+                    value={fields.acceptedAnswers}
+                    onChange={(value) => setField("acceptedAnswers", value)}
+                    placeholder="e.g. paris, ville de paris"
+                  />
+                </Field>
+              </>
+            )}
+
+            {type === "concept" && conceptNeedsPro && displayMode === "create" && (
+              <ConceptProNotice variant="create" />
+            )}
+
+            {type === "concept" && conceptNeedsPro && displayMode === "edit" && (
+              <>
+                <ConceptProNotice variant="lapsed" />
+                <Field label="Brief">
+                  <MarkdownContent content={fields.brief} className="text-sm" />
+                </Field>
+                <Field label="Example">
+                  <MarkdownContent content={fields.exercise} className="text-sm" />
+                </Field>
+                <Field label="Solution">
+                  <MarkdownContent content={fields.solution} className="text-sm" />
+                </Field>
+                {displayCardId && (
+                  <Field label="Variants">
+                    <ConceptVariantsPanel flashcardId={displayCardId} />
+                  </Field>
+                )}
+              </>
+            )}
+
+            {type === "concept" && !conceptNeedsPro && (
+              <>
+                <Field
+                  label="Brief"
+                  hint="The concept, what to vary, the difficulty, and what to avoid."
+                >
+                  <MarkdownEditor
+                    textOnly
+                    key={`brief-${editorKey}`}
+                    tall={fullPage}
+                    autoFocus
+                    aria-label="Brief"
+                    value={fields.brief}
+                    onChange={(value) => setField("brief", value)}
+                    placeholder="Derivatives of polynomials with 2–4 terms. Vary the coefficients and exponents; avoid fractional exponents."
+                  />
+                </Field>
+                <Field label="Example" hint="One exercise, in the format you expect.">
+                  <MarkdownEditor
+                    textOnly
+                    key={`exercise-${editorKey}`}
+                    tall={fullPage}
+                    aria-label="Example exercise"
+                    value={fields.exercise}
+                    onChange={(value) => setField("exercise", value)}
+                    placeholder="Differentiate $3x^4 - 2x + 5$."
+                  />
+                </Field>
+                <Field label="Solution" hint="The example's worked solution, step by step.">
+                  <MarkdownEditor
+                    textOnly
+                    key={`solution-${editorKey}`}
+                    tall={fullPage}
+                    aria-label="Example solution"
+                    value={fields.solution}
+                    onChange={(value) => setField("solution", value)}
+                    placeholder="Apply the power rule to each term: $12x^3 - 2$."
+                  />
+                </Field>
+                {displayMode === "edit" && displayCardId ? (
+                  <Field label="Variants" hint="Exercises generated from this template.">
+                    <ConceptVariantsPanel flashcardId={displayCardId} />
+                  </Field>
+                ) : (
+                  <p className="text-xs text-muted">
+                    Text and equations only. After you add the card, Armin generates about{" "}
+                    {CONCEPT_BATCH_SIZE} exercises from this template.
+                  </p>
+                )}
+              </>
+            )}
+
+            {type === "image_occlusion" && (
+              <Field label="Image occlusion">
+                <div className="rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-muted">
+                  Image occlusion authoring is not available in this editor yet. Existing masks are
+                  preserved when saving tags or other metadata.
+                </div>
+              </Field>
+            )}
+          </div>
 
           {!(type === "concept" && conceptNeedsPro) && (
-            <Field label="Tags" hint="Press Enter or comma to add.">
-              <TagsInput key={`tags-${editorKey}`} value={tags} onChange={setTags} />
-            </Field>
+            <div className="min-w-0 self-start [grid-area:tags]">
+              <Field label="Tags" hint="Press Enter or comma to add.">
+                <TagsInput key={`tags-${editorKey}`} value={tags} onChange={setTags} />
+              </Field>
+            </div>
           )}
         </div>
       )}

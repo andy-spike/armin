@@ -879,6 +879,9 @@ html[data-scroll="document"] body {
   line-height: inherit;
   overflow-wrap: anywhere;
 }
+.card-markdown-editor[data-tall] .milkdown > .ProseMirror {
+  min-height: 10rem;
+}
 .card-markdown-editor .milkdown > .ProseMirror :is(ul, ol) {
   padding-left: 1.4em;
 }
