@@ -47,6 +47,30 @@ the Nimbus registry with `pnpm --filter @armin/docs exec nimbus-docs add <name>`
 [AGENT.md](AGENT.md) is Nimbus's guide for coding agents working on the site,
 including upgrades.
 
+## AI agents
+
+Nimbus publishes a Markdown version of every page (`/<slug>/index.md`),
+`llms.txt` indexes, `llms-full.txt`, and the agent discovery files under
+`/.well-known/`. On top of that:
+
+- **Markdown at page URLs.** `worker/index.ts` runs in front of the static
+  files on Cloudflare. A request whose `Accept` header asks for `text/markdown`
+  at least as strongly as for HTML gets the page's Markdown at the page's own
+  URL (with `Content-Location` naming the `.md` file), and an unknown page gets
+  a short Markdown 404 that links `llms.txt`. Browsers never ask for Markdown,
+  so they get HTML as before. Both forms send `Vary: Accept`, and HTML pages
+  link their Markdown version in a `Link` header. Built files under `_astro/`,
+  `pagefind/`, `og/`, and `.well-known/` skip the Worker (`run_worker_first`
+  in `wrangler.jsonc`). The pages stay prerendered; there's no server
+  rendering.
+- **Ask ChatGPT / Ask Claude.** Each page's actions open a new chat that reads
+  the page's Markdown from `https://docs.armincards.app`, so they answer from
+  the live site, not a local build (`src/components/ui/page-actions/`).
+
+Try the Worker locally with `pnpm --filter @armin/docs preview:cf` (it builds,
+then runs `wrangler dev`), and ask for Markdown with
+`curl -H 'Accept: text/markdown' http://localhost:8787/guides/reviewing/`.
+
 ## Validate
 
 ```bash

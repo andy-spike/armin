@@ -21,6 +21,28 @@ const baseBtn =
 // ones. Rendered here so an action that renders nothing adds no separator.
 const extra = Astro.slots.has("default") ? (await Astro.slots.render("default")).trim() : "";
 
+// "Ask ChatGPT" and "Ask Claude" start a chat that reads this page's
+// Markdown version from the public site, so the answer cites the docs.
+const absoluteMarkdownUrl =
+  resolvedMarkdownUrl && Astro.site ? new URL(resolvedMarkdownUrl, Astro.site).href : undefined;
+const assistantPrompt = absoluteMarkdownUrl
+  ? `Read ${absoluteMarkdownUrl} so I can ask questions about it. It is a page of the Armin docs, a spaced-repetition flashcard app.`
+  : undefined;
+const assistants = assistantPrompt
+  ? [
+      {
+        label: "ChatGPT",
+        href: `https://chatgpt.com/?hints=search&q=${encodeURIComponent(assistantPrompt)}`,
+        icon: "ph:open-ai-logo",
+      },
+      {
+        label: "Claude",
+        href: `https://claude.ai/new?q=${encodeURIComponent(assistantPrompt)}`,
+        icon: "ph:chat-circle-dots",
+      },
+    ]
+  : [];
+
 const formattedDate = lastUpdated
   ? new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric" }).format(lastUpdated)
   : null;
@@ -32,19 +54,15 @@ const formattedDate = lastUpdated
     data-slot="page-actions"
     data-pagefind-ignore
     data-md-url={resolvedMarkdownUrl}
-    class={cn("not-prose -ms-2 flex flex-wrap items-center gap-y-1 text-[0.8125rem] leading-5", className)}
+    class={cn("not-prose -ms-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-[0.8125rem] leading-5", className)}
     {...attrs}
   >
-    {/* Phones get the short forms ("Oct 12, 2026", "Markdown"), so the row stays on one line. */}
+    {/* No separators: the row wraps on narrow layouts, and each action has its own icon and hover fill. Phones get the short forms ("Oct 12, 2026", "ChatGPT"). */}
     {lastUpdated && (
       <span class="inline-flex items-center gap-1.5 px-2 py-1 text-muted-foreground">
         <Icon name="ph:clock" class="w-3.5 h-3.5" />
         <span class="sr-only sm:not-sr-only">Updated</span> <time datetime={lastUpdated.toISOString()}>{formattedDate}</time>
       </span>
-    )}
-
-    {markdownUrl && lastUpdated && (
-      <span aria-hidden="true" data-slot="page-actions-separator" class="hidden select-none text-muted-foreground/40 sm:inline">|</span>
     )}
 
     {markdownUrl && (
@@ -55,8 +73,6 @@ const formattedDate = lastUpdated
           <span data-nb-page-actions-label aria-live="polite">Copy page</span>
         </button>
 
-        <span aria-hidden="true" data-slot="page-actions-separator" class="hidden select-none text-muted-foreground/40 sm:inline">|</span>
-
         <a
           href={resolvedMarkdownUrl}
           target="_blank"
@@ -65,14 +81,24 @@ const formattedDate = lastUpdated
           class={baseBtn}
         >
           <Icon name="ph:markdown-logo" class="w-3.5 h-3.5" />
-          <span class="sm:hidden" aria-hidden="true">Markdown</span>
-          <span class="hidden sm:inline" aria-hidden="true">View as Markdown</span>
+          <span aria-hidden="true">Markdown</span>
         </a>
-      </>
-    )}
 
-    {extra && (markdownUrl || lastUpdated) && (
-      <span aria-hidden="true" data-slot="page-actions-separator" class="hidden select-none text-muted-foreground/40 sm:inline">|</span>
+        {assistants.map((assistant) => (
+            <a
+              href={assistant.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Ask ${assistant.label} about this page (opens a new tab)`}
+              data-nb-page-actions-assistant={assistant.label.toLowerCase()}
+              class={baseBtn}
+            >
+              <Icon name={assistant.icon} class="w-3.5 h-3.5" />
+              <span class="sm:hidden" aria-hidden="true">{assistant.label}</span>
+              <span class="hidden sm:inline" aria-hidden="true">Ask {assistant.label}</span>
+            </a>
+        ))}
+      </>
     )}
     {extra && <Fragment set:html={extra} />}
   </div>

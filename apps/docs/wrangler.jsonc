@@ -1,9 +1,16 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "armin-docs",
-  "compatibility_date": "2026-11-09",
+  "compatibility_date": "2026-10-19",
+  // Serves each page's Markdown at its own URL to clients that ask for it
+  // (Accept: text/markdown); see worker/index.ts. Everything else is the
+  // static build, unchanged.
+  "main": "./worker/index.ts",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "404-page",
+    // Only page URLs can negotiate; built files skip the Worker entirely.
+    "run_worker_first": ["/*", "!/_astro/*", "!/pagefind/*", "!/og/*", "!/.well-known/*"],
   },
 }
