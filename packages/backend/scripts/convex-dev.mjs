@@ -26,11 +26,16 @@ try {
     },
   );
   // A worktree's origin follows its branch name, which T3 can change after setup.
-  syncConvexSiteUrl(state).catch((error) =>
-    console.error(`Could not update SITE_URL: ${error.message} Rerun pnpm worktree:setup.`),
-  );
+  // `--once` pushes and stops the backend, so it leaves SITE_URL to the next start.
+  const sync = new AbortController();
+  if (!process.argv.includes("--once"))
+    syncConvexSiteUrl(state, sync.signal).catch((error) => {
+      if (!sync.signal.aborted)
+        console.error(`Could not update SITE_URL: ${error.message} Rerun pnpm worktree:setup.`);
+    });
   for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => child.kill(signal));
   child.on("exit", (code, signal) => {
+    sync.abort();
     process.exitCode = signal ? 130 : (code ?? 1);
   });
 } catch (error) {

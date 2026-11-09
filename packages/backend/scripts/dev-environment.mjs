@@ -11,8 +11,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createServer } from "node:net";
-import { networkInterfaces, tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { homedir, networkInterfaces, tmpdir } from "node:os";
+import { basename, dirname, join, resolve } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
 
@@ -196,25 +197,47 @@ export function mainState() {
   };
 }
 
+const slug = (value) => value.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+// A DNS label holds at most 63 characters.
+const label = (value, length = 63) => slug(value.slice(0, length));
+
+function branchLabel(branch, path) {
+  return label(slug((branch.replace(/^t3\//, "") || basename(path)).toLowerCase())) || "worktree";
+}
+
 // Worktree web origins are named after the current branch, such as
 // `http://concept-card-review.armin.localhost:4110` for `t3/concept-card-review`.
 // T3 renames a worktree's branch after setup, so the launchers refresh it.
-export function hostLabel() {
-  const branch = run("git", ["branch", "--show-current"], { cwd: root, stdio: "pipe" });
-  const name = branch.replace(/^t3\//, "") || basename(root);
-  const slug = (value) => value.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  // A DNS label holds at most 63 characters.
-  return slug(slug(name.toLowerCase()).slice(0, 63)) || "worktree";
+// Cookies ignore ports, so when another worktree's branch maps to the same
+// label (`foo_bar` and `foo-bar`), the checkout ID is appended to keep them apart.
+export function hostLabel(id) {
+  const own = branchLabel(
+    run("git", ["branch", "--show-current"], { cwd: root, stdio: "pipe" }),
+    root,
+  );
+  const others = run("git", ["worktree", "list", "--porcelain"], { cwd: root, stdio: "pipe" })
+    .split(/\n\n+/)
+    .map((block) => ({
+      path: block.match(/^worktree (.+)$/m)?.[1] ?? "",
+      branch: block.match(/^branch refs\/heads\/(.+)$/m)?.[1] ?? "",
+    }))
+    // The first entry is the main checkout, which uses localhost.
+    .slice(1)
+    .filter(({ path }) => resolve(path) !== resolve(root))
+    .map(({ branch, path }) => branchLabel(branch, path));
+  if (!others.includes(own)) return own;
+  const suffix = `-${id.slice(0, 6)}`;
+  return `${label(own, 63 - suffix.length)}${suffix}`;
 }
 
-function worktreeSiteUrl(webPort) {
-  return `http://${hostLabel()}.armin.localhost:${webPort}`;
+function worktreeSiteUrl(id, webPort) {
+  return `http://${hostLabel(id)}.armin.localhost:${webPort}`;
 }
 
 // Keeps the saved origin in step with the branch name. Returns the current state.
 export function refreshSiteUrl(state) {
   if (state.id === "main") return state;
-  const siteUrl = worktreeSiteUrl(state.webPort);
+  const siteUrl = worktreeSiteUrl(state.id, state.webPort);
   if (siteUrl === state.siteUrl) return state;
   const next = { ...state, siteUrl };
   saveState(next);
@@ -226,18 +249,32 @@ export function refreshSiteUrl(state) {
 
 // The local backend serves `/version` once it accepts requests. Sets the
 // deployment's SITE_URL (auth callbacks, email links) when the origin changed.
-export async function syncConvexSiteUrl(state) {
-  for (let attempt = 0; ; attempt++) {
+// `signal` aborts the wait and any running command when the backend exits.
+export async function syncConvexSiteUrl(state, signal) {
+  const deadline = Date.now() + 300_000;
+  for (;;) {
     try {
-      if ((await fetch(`http://127.0.0.1:${state.convexPort}/version`)).ok) break;
-    } catch {}
-    if (attempt === 600) throw new Error("The local backend did not start within 5 minutes.");
-    await new Promise((done) => setTimeout(done, 500));
+      const response = await fetch(`http://127.0.0.1:${state.convexPort}/version`, {
+        signal: AbortSignal.any([signal, AbortSignal.timeout(2_000)]),
+      });
+      if (response.ok) break;
+    } catch {
+      signal.throwIfAborted();
+    }
+    if (Date.now() > deadline) throw new Error("The local backend did not start within 5 minutes.");
+    await sleep(500, undefined, { signal });
   }
   const exec = (args) =>
     new Promise((resolveExec, rejectExec) =>
-      execFile("pnpm", ["exec", "convex", ...args], { cwd: backend }, (error, stdout) =>
-        error ? rejectExec(new Error(`convex ${args[0]} ${args[1]} failed.`)) : resolveExec(stdout),
+      execFile(
+        "pnpm",
+        ["exec", "convex", ...args],
+        { cwd: backend, signal, timeout: 60_000 },
+        (error, stdout) => {
+          if (signal.aborted) rejectExec(signal.reason);
+          else if (error) rejectExec(new Error(`convex ${args[0]} ${args[1]} failed.`));
+          else resolveExec(stdout);
+        },
       ),
     );
   if ((await exec(["env", "get", "SITE_URL"])).trim() === state.siteUrl) return;
@@ -247,7 +284,8 @@ export async function syncConvexSiteUrl(state) {
 
 // Worktrees take the lowest free slot: web 4100, 4110, 4120, and so on, with
 // Expo, Convex API, and Convex HTTP on the next three ports. Ports stay below
-// 10000, and slots overlapping the main checkout's ports are skipped.
+// 10000, and slots overlapping the main checkout's ports or the shared Polar
+// relay port are skipped (the relay may be stopped during setup).
 const SLOT_BASE = 4100;
 const SLOT_STEP = 10;
 const SLOT_COUNT = 590;
@@ -285,6 +323,8 @@ export async function allocate() {
       main.mobilePort,
       main.convexPort,
       main.convexSitePort,
+      // Matches polar-sandbox.mjs, which imports this module.
+      Number(readEnv(join(homedir(), ".config/armin/polar-sandbox.env")).POLAR_RELAY_PORT ?? 3219),
       ...Object.entries(registry)
         .filter(([path]) => path !== root)
         .flatMap(([, entry]) => [
@@ -310,7 +350,7 @@ export async function allocate() {
         mobilePort: webPort + 1,
         convexPort: webPort + 2,
         convexSitePort: webPort + 3,
-        siteUrl: worktreeSiteUrl(webPort),
+        siteUrl: worktreeSiteUrl(id, webPort),
       };
       registry[root] = state;
       writeFileSync(registryPath, `${JSON.stringify(registry, null, 2)}\n`);

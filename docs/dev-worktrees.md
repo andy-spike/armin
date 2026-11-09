@@ -149,7 +149,9 @@ setup is running before removing that directory from Git's common directory.
 
 Web origins use `<branch>.armin.localhost:<port>`: the current branch without its
 `t3/` prefix, lowercased, with other characters turned into hyphens and cut to
-63 characters (a detached checkout uses its directory name). T3 renames a branch
+63 characters (a detached checkout uses its directory name). If another
+worktree's branch maps to the same name (`foo_bar` and `foo-bar`), both get a
+short checkout ID appended, since cookies ignore ports. T3 renames a branch
 after setup, so `pnpm dev`, `pnpm dev:web`, and `pnpm dev:backend` recompute
 the origin at every start; when it changed, they print the old and new origin
 and the backend launcher updates the local deployment's `SITE_URL` once the
