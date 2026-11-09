@@ -59,6 +59,10 @@ the Expo trusted origins, and a session secret, and seeds a sample account
 variables in [the backend README](packages/backend/README.md#deployment-environment-variables)
 on the local deployment. Data lives in `packages/backend/.convex/local/`.
 
+Coding agents get Convex and Cloudflare skills from `.agents/skills/` in this
+repository (installed with the `skills` CLI and recorded in `skills-lock.json`).
+Refresh them with `npx skills update -p`.
+
 `dev:setup` refreshes only the Convex URL entries in the web and mobile
 `.env.local` files, preserving other settings. To refresh those URLs without
 pushing backend code, run `pnpm --filter @armin/backend dev:clients`.
