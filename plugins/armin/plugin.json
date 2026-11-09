@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "armin",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Turn articles, notes, documents, and Anki decks into Armin spaced-repetition cards, with prerequisites and a guided, image-preserving Anki import.",
   "author": {
     "name": "Andy Spike",
