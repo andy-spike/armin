@@ -65,7 +65,7 @@ const agentImportDeck = v.object({
 });
 
 /**
- * A concept card's variant pool (ADR 0023): where its latest generation job
+ * A concept card's variant pool: where its latest generation job
  * stands. Jobs are numbered so a superseded job's result is discarded.
  */
 /** The variant allowance a running generation job holds: a count in one library's month. */
@@ -345,12 +345,11 @@ export default defineSchema({
 
   /**
    * A concept card's variants: generated exercises with worked solutions
-   * (ADR 0023). Each belongs to one library and one concept card; the card's
+   *. Each belongs to one library and one concept card; the card's
    * single review unit shows whichever variant is assigned to it.
    */
   /**
-   * A library's concept card variant allowance for one UTC month (ADR 0023,
-   * `usageMonth`): variants stored, and variants held by running jobs. A job
+   * A library's concept card variant allowance for one UTC month (* `usageMonth`): variants stored, and variants held by running jobs. A job
    * reserves its batch before calling the model and, when it ends, charges
    * what it stored and releases the reservation. Self-hosted instances keep
    * no rows.
@@ -405,7 +404,7 @@ export default defineSchema({
     /**
      * Concept cards only: the variant this unit shows as its front and back.
      * Absent until the first variant exists; the unit waits on the pending
-     * schedule until then (ADR 0023).
+     * schedule until then.
      */
     variantId: v.optional(v.id("conceptVariants")),
     /** Incremented on every schedule or display change; reviews name the version shown. */
@@ -496,7 +495,7 @@ export default defineSchema({
     frontierKey: v.optional(v.number()),
     /**
      * Set on a concept card's unit only, so a library without Pro can select
-     * from its other units by index (ADR 0023). Absent on every other unit.
+     * from its other units by index. Absent on every other unit.
      */
     concept: v.optional(v.literal(true)),
   })
@@ -655,7 +654,7 @@ export default defineSchema({
     frontierCandidates: v.number(),
     /**
      * The concept card units among `frontierCandidates`, which a library
-     * without Pro withholds (ADR 0023). Absent on rows from before it was
+     * without Pro withholds. Absent on rows from before it was
      * counted, which hold none.
      */
     conceptFrontierCandidates: v.optional(v.number()),

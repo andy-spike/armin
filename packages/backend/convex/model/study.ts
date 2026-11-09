@@ -361,7 +361,7 @@ async function computeLocked(
 /**
  * Whether a never-reviewed unit waits on the far-future pending schedule
  * instead of being New: while its card is locked, or, for a concept card,
- * while no variant is assigned for it to show (ADR 0023). Pending is the one
+ * while no variant is assigned for it to show. Pending is the one
  * admission rule queues, Frontier counts, rating, and cram already respect.
  */
 function waitsPending(locked: boolean, unit: Parameters<typeof isAwaitingVariant>[0]) {

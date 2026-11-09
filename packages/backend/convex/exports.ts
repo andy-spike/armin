@@ -182,7 +182,7 @@ export const deckPage = internalQuery({
   },
 });
 
-/** Every concept card variant (ADR 0023), by library; each holds up to 10,000 characters. */
+/** Every concept card variant, by library; each holds up to 10,000 characters. */
 export const variantPage = internalQuery({
   args: { libraryId: v.id("libraries"), cursor: v.union(v.string(), v.null()) },
   handler: async (ctx, { libraryId, cursor }) => {

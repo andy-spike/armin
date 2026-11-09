@@ -42,7 +42,7 @@ export const cleanupUnitLogs = internalMutation({
 const VARIANT_BATCH = 100;
 
 /**
- * Remove a deleted concept card's variant pool in bounded batches (ADR 0023).
+ * Remove a deleted concept card's variant pool in bounded batches.
  * Card and deck deletion schedule it once the card row is gone, so no review,
  * Browse summary, or generation job can reach these variants meanwhile.
  */

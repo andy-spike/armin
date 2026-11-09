@@ -15,7 +15,7 @@ export const PLAN_LIMITS = {
     mediaBytes: 1024 * 1024 * 1024,
     agentCardsPerMonth: 300,
     agentWritesPerHour: 60,
-    /** Generated concept card variants (ADR 0023); concept cards are a Pro feature. */
+    /** Generated concept card variants; concept cards are a Pro feature. */
     conceptVariantsPerMonth: 0,
   },
   pro: {

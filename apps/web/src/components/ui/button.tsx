@@ -32,8 +32,7 @@ export interface ButtonProps
    * Marks the button as performing an async action: it becomes non-interactive
    * and reports `aria-busy`, but its visible label stays unchanged. Use this for
    * dialog actions instead of swapping the label to a busy verb ("Deleting…"),
-   * which flashes during the dialog's close animation. See
-   * docs/adr/0016-dialog-action-labels-stay-static.md.
+   * which flashes during the dialog's close animation.
    */
   busy?: boolean;
 }

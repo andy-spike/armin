@@ -5,7 +5,7 @@ import { useViewer } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 /**
- * Whether the signed-in library may use concept cards (ADR 0023): Pro only,
+ * Whether the signed-in library may use concept cards: Pro only,
  * which the backend already resolves for complimentary Pro and self-hosted
  * instances. Undefined while the viewer loads, so callers neither upsell nor
  * unlock before they know.

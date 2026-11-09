@@ -83,8 +83,7 @@ export function Dialog({
   // Escape/Tab handlers (below) are intrinsic and unaffected.
   useModalIsolation(present);
 
-  // Keep the last open render's content to show through the exit animation
-  // (ADR 0016).
+  // Keep the last open render's content to show through the exit animation.
   if (
     open &&
     (snapshot.title !== title ||

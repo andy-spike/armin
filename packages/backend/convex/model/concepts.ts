@@ -18,7 +18,7 @@ import { requireConceptCards } from "./usage";
 import { reserveVariants, settleVariants, variantAllowance } from "./variantAllowance";
 
 /*
- * A concept card's variant pool (ADR 0023). Generation runs as a scheduled
+ * A concept card's variant pool. Generation runs as a scheduled
  * action (`conceptGeneration.generate`), the only caller of the generator
  * module. Each job gets the next number in the card's `conceptPool`; only the
  * card's latest job may store variants or fail the pool, so a superseded job's
@@ -193,8 +193,7 @@ export async function nextVariant(ctx: QueryCtx, flashcardId: Id<"flashcards">) 
 }
 
 /**
- * A concept card's part of a rating, written in the rating mutation (ADR
- * 0023): mark the shown variant seen and assign the next one. Returns the
+ * A concept card's part of a rating, written in the rating mutation: mark the shown variant seen and assign the next one. Returns the
  * unit's new display, to patch together with its schedule and version, and
  * the shown variant's prior state for the review log, so Undo can restore
  * both. Null for any other unit. When no variant is active the unit keeps
@@ -249,7 +248,7 @@ export async function refillIfLow(
  * previous last-shown time and reassign it. When the learner has since
  * deleted or flagged that variant, Undo still restores the schedule but
  * keeps the unit on the active variant it shows now, so a removed exercise
- * never comes back (ADR 0023); a flagged one still gets its last-shown time
+ * never comes back; a flagged one still gets its last-shown time
  * back. Returns the display to write, or undefined to keep the current one.
  */
 export async function restoreVariant(
@@ -287,7 +286,7 @@ export async function assignIfAwaiting(
 }
 
 /**
- * A learner's change to one variant (curation, ADR 0023): `edit` replaces its
+ * A learner's change to one variant (curation): `edit` replaces its
  * text, `flag` sets it aside, `unflag` returns it to selection, and `delete`
  * removes it. One transaction keeps the review in step: when the card's unit
  * shows this variant, an edit rewrites what it shows, and a flag or delete

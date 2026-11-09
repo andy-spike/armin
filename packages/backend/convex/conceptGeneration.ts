@@ -7,7 +7,7 @@ import { variantReservation } from "./schema";
 import { GenerationError, generateVariants, selectProvider } from "./model/generator";
 
 /**
- * One generation job for a concept card (ADR 0023): read the template and the
+ * One generation job for a concept card: read the template and the
  * exercises to avoid, ask the generator module for a batch, and store what it
  * returns. Every failure ends in the pool's failed state with a reason, so the
  * card can offer Retry. A job that is no longer the card's latest does nothing.

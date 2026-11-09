@@ -7,7 +7,7 @@ import { isSelfHosted } from "./selfHost";
 import { libraryLimits } from "./usage";
 
 /*
- * The monthly concept card variant allowance (ADR 0023), per library and UTC
+ * The monthly concept card variant allowance, per library and UTC
  * month (`usageMonth`, the same key as the assistant card allowance). A
  * generation job reserves its batch in the mutation that schedules it, before
  * the action calls the model; when the job ends, it charges only the variants

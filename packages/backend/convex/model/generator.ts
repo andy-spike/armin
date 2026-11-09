@@ -9,7 +9,7 @@ import { isSelfHosted } from "./selfHost";
 
 /*
  * The generator module: the only code that ever asks a model for concept card
- * variants (ADR 0023). Callers hand it a template and the exercises to avoid
+ * variants. Callers hand it a template and the exercises to avoid
  * and get back a validated batch. A provider only produces candidates; every
  * candidate is checked against the core variant schema here, so no provider
  * can store an invalid or image-bearing variant.

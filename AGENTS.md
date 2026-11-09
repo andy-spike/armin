@@ -1,42 +1,31 @@
 # AGENTS.md
 
-## Start here
+Armin is a spaced-repetition flashcard app. It is a pnpm monorepo on the Vite+ toolchain (`vp`):
 
-Read @README.md first. The repo is a pnpm monorepo on the Vite+ toolchain (`vp`):
+- `apps/web`: TanStack Start web client
+- `apps/mobile`: Expo mobile client
+- `packages/backend`: Convex + Better Auth
+- `packages/core`: portable study domain, free of Electron, Node, and database-driver APIs
 
-- `apps/web` — TanStack Start web client
-- `apps/mobile` — Expo mobile client
-- `packages/backend` — Convex + Better Auth (`@armin/backend`)
-- `packages/core` — portable study domain (`@armin/core`)
+Each workspace's README has the details. Read one only when the task touches that area.
 
-Never use npm or yarn, and don't commit `package-lock.json`.
+## Workflow
 
-## Git workflow
-
-- Work on the branch and checkout the user names.
-- Open a PR only when the user explicitly asks for one; otherwise leave the work in the checkout.
-- Never push directly to `master`. A PR must be up to date and pass the required `Verify` check before merging through GitHub.
-- After a successful merge into `master`, follow the cleanup steps in @docs/dev-worktrees.md before reporting completion. Keep unmerged worktrees unless the user requests their removal. Report deployment only when it is verified.
-- In a worktree, read @docs/dev-worktrees.md before starting servers, pushing Convex code, or seeding data, and use `pnpm worktree:setup` plus the root `pnpm dev*` launchers.
-- Whenever you start a dev server, include its web URL, exactly as the launcher prints it, in your reply to the user, and confirm it responds first.
+- Use pnpm, never npm or yarn.
+- Work on the branch you were given. Open a PR only when asked, and never push to `master`.
+- Run the app with `pnpm dev` (in a new worktree, run `pnpm worktree:setup` first) and open the URL it prints. Test login: `test@example.com` / `armin1234`.
+- Commit regenerated `packages/backend/convex/_generated` and `apps/web/src/routeTree.gen.ts`.
 
 ## Validate
 
-- `pnpm check` — format, lint, and typecheck across all workspaces. `pnpm format` fixes formatting. Lint and format settings live only in the root `vite.config.ts`; keep scripts in their workspace.
-- For web, backend, or mobile changes also run `pnpm --filter @armin/web build`, the mobile bundle check, and a running-app walkthrough recorded under `docs/qa/`. Never describe an emulated viewport as a real device or browser.
-- Add no new unit, integration, or E2E suites (user decision).
+- `pnpm check` runs format, lint, and typecheck; `pnpm format` fixes formatting.
+- Before a PR, also run `pnpm --filter @armin/web build` and `pnpm --filter @armin/mobile check:bundle`.
+- Check UI changes in the running app. Don't add test suites.
 
 ## Code rules
 
-- Put code in `packages/core/` only when it is free of Electron, Node, and database-driver APIs.
-- Components use Base UI, never Radix UI, unless the user explicitly asks for the Radix API. Primitives in `apps/web/src/components/ui/` are shadcn components in their Base UI form (`@base-ui/react`); add or update one from shadcn's Base UI variant, never as a hand-rolled element or a Radix port.
-- Tooltips use `Tooltip` from `apps/web/src/components/ui/tooltip.tsx` (or `TruncatedLabel` for clipped text), never the native `title` attribute. Icon-only buttons get one naming the action.
-- Dialog actions keep a static label; show progress with the `busy` prop on `Button`, never a busy verb like "Deleting…". See @packages/core/docs/adr/0016-dialog-action-labels-stay-static.md.
-- Don't use return types unless a shared library needs them.
-- Backend: read @packages/backend/README.md first. Ownership derives from the session's library, study writes stay in single Convex mutations, and clients import only `@armin/backend/api` and `@armin/backend/types`. Commit regenerated `packages/backend/convex/_generated` and `apps/web/src/routeTree.gen.ts`.
-- Mobile: read @apps/mobile/README.md before changing dependencies or native setup.
-
-## Docs and issues
-
-- `CONTEXT-MAP.md` indexes each context's `CONTEXT.md` and `docs/adr/`; system-wide decisions live in the root `docs/adr/`.
-- Issues are tracked in GitHub Issues (`andy-spike/armin`) via the `gh` CLI. Triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/`.
+- UI primitives in `apps/web/src/components/ui/` are shadcn components in their Base UI form. Don't use Radix.
+- Use `Tooltip` from `components/ui/tooltip.tsx`, never the `title` attribute. Icon-only buttons get one.
+- Dialog action labels stay static; show progress with the `busy` prop on `Button`.
+- Don't write return types unless a shared library needs them.
+- Backend ownership comes from the session's library. Clients import only `@armin/backend/api` and `@armin/backend/types`.

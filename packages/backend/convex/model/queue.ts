@@ -157,7 +157,7 @@ export async function reviewsDoneToday(
 }
 
 /**
- * A concept card's unit in a library without Pro (ADR 0023). It keeps its
+ * A concept card's unit in a library without Pro. It keeps its
  * schedule and history but is withheld from every selection, count, and
  * rating until Pro returns. Only concept units carry `CONCEPT_SUBKEY`.
  */
@@ -625,8 +625,8 @@ export async function dueCounts(ctx: QueryCtx, library: Doc<"libraries">, now: n
  * the queue selects at most the remaining capacity (`selectSession`), and a
  * unit admitted to a session stays answerable. Recomputing the selection here
  * would reject a card already on screen when other ratings, an unlock, or a
- * settings change exhausts a budget (ADR 0021 keeps both caps account-wide and
- * lets the chosen view consume what remains).
+ * settings change exhausts a budget. Both caps stay account-wide, and
+ * the chosen view consumes what remains.
  */
 export async function checkEligible(
   unit: Doc<"reviewUnits">,

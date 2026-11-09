@@ -83,7 +83,7 @@ const imageOcclusionContentSchema = z.object({
   revealMode: z.enum(["hide_all", "hide_one"]).default("hide_all"),
 });
 
-/** Required Markdown with KaTeX and no images or audio (ADR 0023). */
+/** Required Markdown with KaTeX and no images or audio. */
 function conceptText(label: string, max?: number) {
   const text = z
     .string()

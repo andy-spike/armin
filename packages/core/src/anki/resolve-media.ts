@@ -83,7 +83,7 @@ export function resolveImportMedia(
       } as FlashcardContent;
     }
     case "concept":
-      // Anki import never creates concept cards (ADR 0023), and they carry no media.
+      // Anki import never creates concept cards, and they carry no media.
       return content;
   }
 }

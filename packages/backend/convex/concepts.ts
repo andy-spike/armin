@@ -22,7 +22,7 @@ import { variantReservation } from "./schema";
 import { bumpRevision, parseFlashcard } from "./model/study";
 
 /*
- * Concept card variant pools (ADR 0023). The card editor reads a card's pool
+ * Concept card variant pools. The card editor reads a card's pool
  * and offers Retry; the generation action reads its input and reports back
  * through the internal functions here.
  */

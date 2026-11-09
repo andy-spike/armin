@@ -396,7 +396,7 @@ export const update = mutation({
       };
     }
     // A concept card outside Pro keeps its data but can't be edited until Pro
-    // returns (ADR 0023).
+    // returns.
     if (flashcard.type === "concept") requireConceptCards(library);
     let input: ValidatedFlashcard | undefined;
     if (args.content !== undefined || args.type !== undefined) {

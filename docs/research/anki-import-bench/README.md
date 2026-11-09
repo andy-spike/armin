@@ -6,8 +6,7 @@ Fixtures and a standalone control for the measurements in
 
 The Convex Node-action experiment (`packages/backend/convex/experiments/` and its
 `run.mjs` driver) has been retired; its results stay in the benchmark write-up,
-and its code is in Git history. Browser import remains the product path
-([ADR 0022](../../../packages/core/docs/adr/0022-anki-import-runs-in-the-browser.md)).
+and its code is in Git history. Browser import remains the product path.
 
 ## Standalone control
 

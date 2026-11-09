@@ -30,7 +30,7 @@ import {
 
 /**
  * Validate type + content with the shared core rules; coded errors for clients.
- * Concept cards come only from the card editor (ADR 0023): assistants and
+ * Concept cards come only from the card editor: assistants and
  * imports can't create them, so a caller opts in with `concept`.
  */
 export function validateFlashcardInput(

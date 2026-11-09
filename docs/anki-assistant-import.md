@@ -8,8 +8,7 @@ parses the original archive.
 
 This route is recommended inside the Anki import dialog. Browser import remains
 available immediately and keeps its existing local parsing, progress options,
-warnings, and capacity checks. See
-[ADR 0022](../packages/core/docs/adr/0022-anki-import-runs-in-the-browser.md).
+warnings, and capacity checks.
 
 ## Capability requirements
 

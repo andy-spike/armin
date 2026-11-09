@@ -1,5 +1,5 @@
 /**
- * Concept cards (ADR 0023): a flashcard whose template is practiced through
+ * Concept cards: a flashcard whose template is practiced through
  * generated exercise variants. These rules need no validation library; the
  * template and variant schemas live with the other content schemas in
  * `flashcard-types`.
@@ -7,7 +7,7 @@
 
 /**
  * The fixed `subKey` of a concept card's one review unit. Every variant
- * counts toward this unit, so template edits keep its FSRS history (ADR 0004).
+ * counts toward this unit, so template edits keep its FSRS history.
  */
 export const CONCEPT_SUBKEY = "concept";
 

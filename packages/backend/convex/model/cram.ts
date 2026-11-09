@@ -70,7 +70,7 @@ export async function selectCramUnits(
       !unit.archived &&
       (args.includeLocked || !unit.locked) &&
       states.has(unit.state) &&
-      // Outside Pro, concept cards stay out of cram too (ADR 0023).
+      // Outside Pro, concept cards stay out of cram too.
       !isWithheldConcept(unit, library),
   );
   if (units.length === 0) return [];
