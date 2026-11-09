@@ -116,12 +116,17 @@ export function pinDeckOptimistically(
 /** Display preferences the settings query returns exactly as they are saved. */
 export function updateSettingsOptimistically(
   store: OptimisticLocalStore,
-  args: { keybindings?: string | null; autoplayAudio?: boolean },
+  args: {
+    keybindings?: string | null;
+    autoplayAudio?: boolean;
+    cardEditorLayout?: "fullPage" | "dialog";
+  },
 ) {
   const settings = store.getQuery(api.settings.get, {});
   if (!settings) return;
   const next = { ...settings };
   if (args.keybindings !== undefined) next.keybindings = args.keybindings;
   if (args.autoplayAudio !== undefined) next.autoplayAudio = args.autoplayAudio;
+  if (args.cardEditorLayout !== undefined) next.cardEditorLayout = args.cardEditorLayout;
   store.setQuery(api.settings.get, {}, next);
 }

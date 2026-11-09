@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { conceptAvailabilityQuery } from "@/lib/queries";
+import { conceptAvailabilityQuery, settingsQuery } from "@/lib/queries";
 import { CONCEPT_BATCH_SIZE } from "@armin/core/concept";
 import { hasEmptyClozeDeletion, parseClozes } from "@armin/core/flashcard-rules";
 import { ClozeField, Field, TagsInput } from "@/components/flashcard-form-fields";
@@ -208,7 +208,10 @@ export function FlashcardFormDialog({
   const [submitting, setSubmitting] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   // Full page: the same form filling the window, for long or image-heavy
-  // cards. Every open starts as the floating editor.
+  // cards. Every open starts in the layout chosen in Settings (full page
+  // unless the account picked the dialog); the corner button switches for
+  // this open only.
+  const preferredLayout = useQuery(settingsQuery()).data?.cardEditorLayout ?? "fullPage";
   const [fullPage, setFullPage] = useState(false);
   const [initialSnapshot, setInitialSnapshot] = useState<string | null>(null);
   const keepEditingRef = useRef<HTMLButtonElement>(null);
@@ -225,7 +228,7 @@ export function FlashcardFormDialog({
     setWasOpen(open);
     setDiscardOpen(false);
     if (open) {
-      setFullPage(false);
+      setFullPage(preferredLayout === "fullPage");
       const initialFields = fieldsFromContent(initialType, initialContent);
       setType(initialType);
       setFields(initialFields);

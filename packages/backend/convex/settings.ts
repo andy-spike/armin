@@ -26,6 +26,7 @@ function publicSettings(row: Omit<Doc<"settings">, "_id" | "_creationTime">) {
     schedulingPreset: row.schedulingPreset,
     keybindings: row.keybindings,
     autoplayAudio: row.autoplayAudio ?? true,
+    cardEditorLayout: row.cardEditorLayout ?? "fullPage",
   };
 }
 
@@ -57,6 +58,7 @@ export const update = mutation({
     schedulingPreset: v.optional(v.string()),
     keybindings: v.optional(v.union(v.string(), v.null())),
     autoplayAudio: v.optional(v.boolean()),
+    cardEditorLayout: v.optional(v.union(v.literal("fullPage"), v.literal("dialog"))),
   },
   handler: async (ctx, patch) => {
     const library = await writableLibrary(ctx);
