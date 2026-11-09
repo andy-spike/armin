@@ -7,7 +7,11 @@ Armin is a spaced-repetition flashcard app. It is a pnpm monorepo on the Vite+ t
 - `packages/backend`: Convex + Better Auth
 - `packages/core`: portable study domain, free of Electron, Node, and database-driver APIs
 
-Each workspace's README has the details. Read one only when the task touches that area.
+Each workspace's README has the details. Read one only when the task touches that area. `packages/core/CONTEXT.md` is the study domain glossary; use its terms.
+
+## Keep docs current
+
+When you change behavior, commands, setup, or terms that a README, `CONTEXT.md`, or other doc describes, update that doc in the same change. Remove text that is no longer true instead of adding to it. Search the docs for what you changed (`git grep`) before finishing.
 
 ## Workflow
 

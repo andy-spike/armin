@@ -1,3 +1,0 @@
-- textbox "Answer" [ref=e326]
-- textbox "Add accepted answer" [ref=e327]
-- textbox "Add tag" [ref=e328]

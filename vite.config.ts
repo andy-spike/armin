@@ -7,7 +7,6 @@ const ignored = [
   "**/convex/_generated/**",
   "**/routeTree.gen.ts",
   "apps/web/src/components/brand-paths.ts",
-  "docs/qa/**",
   ".agents/**",
   ".claude/**",
   "skills-lock.json",

@@ -64,5 +64,4 @@ pnpm --filter @armin/web build
 ```
 
 This migration deliberately adds no unit, integration, or E2E suites for the
-web app. Verify behavior by running the app; see the walkthrough record in
-[`docs/qa/`](../../docs/qa/).
+web app. Verify behavior by running the app.
