@@ -60,14 +60,15 @@ const resolveSectionHref = (href: string): string =>
   withBase(href, import.meta.env.BASE_URL);
 ---
 
-<header class="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur-lg">
+<header class="sticky top-0 z-30 border-b border-border bg-card">
   <div class="mx-auto flex items-center justify-between gap-3 h-14 px-4 lg:px-6">
     <div class="flex items-center gap-3 min-w-0">
       <slot name="brand">
         {/* The mark alone; the site title stays as the link's accessible name. */}
         <a href={homeHref} class="flex shrink-0 items-center gap-2 text-foreground transition-opacity hover:opacity-70">
-          <Logo class="h-6 w-6 shrink-0" />
-          <span class="text-[0.9375rem] font-semibold tracking-tight">Armin <span class="font-normal text-muted-foreground">docs</span></span>
+          <Logo class="h-6 w-6" wordmark />
+          <span class="sr-only">Armin</span>
+          <span class="text-sm text-muted-foreground">docs</span>
         </a>
       </slot>
 

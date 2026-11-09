@@ -1,11 +1,11 @@
 ---
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
+import "@fontsource-variable/source-serif-4";
 // The body font starts downloading with the page instead of after the CSS.
 import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 import "../styles/globals.css";
 import "../styles/prose.css";
-import { ClientRouter } from "astro:transitions";
 import { config } from "virtual:nimbus/config";
 import {
   getCollectionLlmsUrl,
@@ -95,6 +95,9 @@ const resolvedMarkdownUrl =
           const mode = resolveMode();
           if (mode === "dark") root.setAttribute("data-mode", "dark");
           else root.removeAttribute("data-mode");
+          // The app's Flexoki tokens (apps/web/src/styles/flexoki-theme.css)
+          // switch on data-theme.
+          root.setAttribute("data-theme", mode);
           root.style.colorScheme = mode;
           document.querySelectorAll("[data-nb-theme-toggle]").forEach((b) => {
             b.setAttribute("data-nb-state", mode);
@@ -103,7 +106,6 @@ const resolvedMarkdownUrl =
         };
 
         applyTheme();
-        document.addEventListener("astro:after-swap", applyTheme);
         media.addEventListener("change", () => {
           if (!readPref()) applyTheme();
         });
@@ -133,9 +135,8 @@ const resolvedMarkdownUrl =
       apiVersion={apiVersion}
       coordinate={coordinate}
     />
-    <ClientRouter />
   </head>
-  <body class="min-h-screen bg-background text-foreground antialiased">
+  <body class="min-h-screen text-foreground antialiased">
     <a
       href="#main-content"
       class="sr-only focus:not-sr-only focus:absolute focus:start-2 focus:top-2 focus:z-100 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:no-underline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"

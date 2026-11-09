@@ -50,5 +50,20 @@ site to the `armin-docs` Cloudflare Worker. To serve it at
 `docs.armincards.app`, add that custom domain to the Worker in the Cloudflare
 dashboard (or as a `routes` entry in `wrangler.jsonc`).
 
-The Armin logo comes from the web app's generated
-`apps/web/src/components/brand-paths.ts` (see `src/components/logo.ts`).
+## Look
+
+The site wears the app's design system ([DESIGN.md](../../DESIGN.md)). Colours
+come from the web app's Flexoki tokens, imported by `src/styles/globals.css`
+from `apps/web/src/styles/`, so a palette change there reaches the docs too;
+the Nimbus `--nb-*` tokens only point at them. `BaseLayout.astro` sets
+`data-theme` alongside Nimbus's `data-mode` so those tokens switch for dark
+mode. Headings use Source Serif 4, corners are square, and the page carries the
+app's dot-grid paper. The logo and wordmark come from the web app's generated
+`apps/web/src/components/brand-paths.ts`.
+
+Pages load as ordinary navigations: Astro's client router and its view
+transitions are removed on purpose, so moving between pages has no animation.
+
+Every page links to its source with **Edit this page on GitHub**
+(`editPattern` in `astro.config.ts`), and the sidebar links to the repository
+and its issues.

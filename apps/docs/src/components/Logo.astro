@@ -1,10 +1,36 @@
 ---
-/* The site's logo, inline so it takes the text colour in light and dark. The
-   drawing lives in logo.ts, which the social cards read too. */
-import { logo } from "./logo";
+/* The Armin tree and serif wordmark, drawn exactly as the app draws them
+   (apps/web/src/components/brand.tsx): branches in the text colour, learned
+   tips in the accent. The social cards use the single-colour version in
+   logo.ts. */
+import {
+  markEdges,
+  markNodes,
+  markStroke,
+  wordmarkPath,
+  wordmarkViewBox,
+} from "../../../web/src/components/brand-paths";
 
-interface Props { class?: string }
-// Callers give it a whole-pixel box and the drawing centres inside.
-const { class: cls = "h-6 w-6" } = Astro.props;
+interface Props {
+  class?: string;
+  /** Show the "armin" wordmark beside the mark. */
+  wordmark?: boolean;
+}
+const { class: cls = "h-6 w-6", wordmark = false } = Astro.props;
 ---
-<svg xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${logo.width} ${logo.height}`} class={cls} aria-hidden="true">{logo.paths.map((d) => <path d={d} fill="currentColor" />)}</svg>
+
+<svg viewBox="0 0 100 100" class:list={["shrink-0", cls]} aria-hidden="true">
+  <path d={markEdges} fill="none" stroke="currentColor" stroke-width={markStroke} stroke-linecap="round" />
+  {
+    markNodes.map((node) => (
+      <circle cx={node.cx} cy={node.cy} r={node.r} fill={node.goal ? "var(--armin-accent)" : "currentColor"} />
+    ))
+  }
+</svg>
+{
+  wordmark && (
+    <svg viewBox={wordmarkViewBox} class="h-[1.05rem] w-auto shrink-0" aria-hidden="true">
+      <path d={wordmarkPath} fill="currentColor" />
+    </svg>
+  )
+}

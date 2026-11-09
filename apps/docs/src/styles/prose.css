@@ -270,9 +270,9 @@
 }
 
 .docs-content :where(a:not([class])) {
-  color: var(--nb-foreground);
+  color: var(--nb-brand);
   text-decoration-line: underline;
-  text-decoration-color: var(--nb-border-strong);
+  text-decoration-color: color-mix(in oklch, var(--nb-brand) 40%, transparent);
   text-underline-offset: 4px;
   text-decoration-thickness: 1px;
   font-weight: 500;

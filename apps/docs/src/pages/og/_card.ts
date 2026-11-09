@@ -15,11 +15,12 @@ import { root } from "astro:config/server";
 
 import { logo } from "@/components/logo";
 
-// The starter's light theme (src/styles/globals.css), in hex for Satori.
-const FOREGROUND = "#171717";
-const MUTED = "#696969";
-const BORDER = "#eaeaea";
-const BACKGROUND = "#ffffff";
+// The app's Flexoki light theme (apps/web/src/styles/flexoki-palette.css),
+// in hex for Satori: ink, muted 700, border 100, and paper.
+const FOREGROUND = "#100f0f";
+const MUTED = "#575653";
+const BORDER = "#e6e4d9";
+const BACKGROUND = "#fffcf0";
 
 const WIDTH = 1200;
 const HEIGHT = 630;

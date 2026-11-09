@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "../../../web/src/styles/flexoki-palette.css";
+@import "../../../web/src/styles/flexoki-theme.css";
 
 @custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
 
@@ -20,87 +22,82 @@
  *     `shadow-lg`, etc. as color names — they collide with built-ins)
  * ============================================================ */
 
-/* ---- Light mode (default) ---- */
+/* ---- Armin theme ----
+ * The docs wear the app's design system (DESIGN.md): Flexoki warm paper and
+ * ink, the cyan accent, serif headings, sharp corners, and flat surfaces.
+ * Colours come straight from the web app's Flexoki tokens (imported above),
+ * which switch on `data-theme`; BaseLayout sets it with `data-mode`. The
+ * Nimbus tokens below only point at them, so every component follows.
+ */
 :root {
-  color-scheme: light;
+  /* Surfaces: a warm paper page beside a sunken bg-2 sidebar. */
+  --nb-background: var(--armin-bg);
+  --nb-foreground: var(--armin-ink);
 
-  /* Surfaces (paired with foregrounds for contrast) */
-  --nb-background: oklch(0.99 0 0);
-  --nb-foreground: oklch(0.21 0 0);
+  --nb-card: var(--armin-bg-2);
+  --nb-card-foreground: var(--armin-ink);
 
-  --nb-card: oklch(1 0 0);
-  --nb-card-foreground: var(--nb-foreground);
+  --nb-muted: var(--armin-surface-sunken);
+  /* Labels and secondary text, at least 4.5:1 on paper. */
+  --nb-muted-foreground: var(--armin-muted);
 
-  --nb-muted: oklch(0.98 0 0);
-  /* 4.5:1 or better on every light surface, inline code included. */
-  --nb-muted-foreground: oklch(0.52 0 0);
+  /* Hover rows step one tone further down, as in the app's sidebar. */
+  --nb-accent: var(--armin-border);
+  --nb-accent-foreground: var(--armin-ink);
 
-  --nb-accent: oklch(0.967 0 0);
-  --nb-accent-foreground: var(--nb-foreground);
+  /* Primary action: the cyan accent with paper text. */
+  --nb-primary: var(--armin-accent);
+  --nb-primary-foreground: var(--armin-on-accent);
+  --nb-primary-hover: var(--armin-accent-deep);
 
-  /* Primary action / brand */
-  --nb-primary: oklch(0.145 0 0);
-  --nb-primary-foreground: oklch(0.97 0 0);
-  --nb-primary-hover: oklch(0.371 0 0);
+  /* Wayfinding (current page, focus, link hover) uses the same accent. */
+  --nb-brand: var(--armin-accent);
+  --nb-brand-wash: var(--armin-surface);
 
-  /* Brand — Nimbus steel, the accent of the Chrome palette: a grey with a
-	   trace of blue, so it reads apart from the pure-neutral ink. Used only
-	   for wayfinding: where you are (current page, section, tab) and what you
-	   can act on (focus, link hover). */
-  --nb-brand: oklch(0.373 0.034 260.2);
-  /* The current page's fill: a light wash of the brand. */
-  --nb-brand-wash: color-mix(in oklch, var(--nb-brand) 7%, transparent);
+  --nb-border: var(--armin-border);
+  --nb-border-strong: var(--armin-border-strong);
+  --nb-selected: var(--armin-ui-3);
+  --nb-code-tint: var(--armin-surface-sunken);
+  --nb-ring: var(--armin-accent);
 
-  /* Borders / focus */
-  --nb-border: oklch(0.935 0 0);
-  --nb-border-strong: oklch(0.87 0 0);
-  --nb-selected: oklch(0.92 0 0);
-  /* Inline code's tint. */
-  --nb-code-tint: color-mix(in oklch, var(--nb-foreground) 4.5%, transparent);
-  --nb-ring: oklch(0.373 0.034 260.2 / 0.4);
+  /* Callouts. Rating hues are reserved for review, so these use the Flexoki
+     accents directly: cyan for notes, green for tips, orange, red. */
+  --nb-info: var(--flexoki-cyan-700);
+  --nb-info-foreground: var(--flexoki-cyan-700);
+  --nb-info-muted: var(--flexoki-cyan-50);
 
-  /* Status colors — paired (saturated for text/border + muted for bg) */
-  --nb-info: oklch(0.424 0.199 265.638);
-  --nb-info-foreground: oklch(0.424 0.199 265.638);
-  --nb-info-muted: oklch(0.932 0.032 255.6 / 0.45);
+  --nb-success: var(--flexoki-green-600);
+  --nb-success-foreground: #4f650a;
+  --nb-success-muted: var(--flexoki-green-50);
 
-  --nb-success: oklch(0.432 0.095 166.913);
-  --nb-success-foreground: oklch(0.432 0.095 166.913);
-  --nb-success-muted: oklch(0.962 0.043 156.7 / 0.57);
+  --nb-warning: var(--flexoki-orange-600);
+  --nb-warning-foreground: #9d4310;
+  --nb-warning-muted: var(--flexoki-orange-50);
 
-  --nb-warning: oklch(0.597 0.144 57.5);
-  /* Darker than the line colour so text on the warning tint reads at 4.5:1. */
-  --nb-warning-foreground: oklch(0.55 0.144 57.5);
-  --nb-warning-muted: oklch(0.931 0.107 94.6 / 0.2);
+  --nb-danger: var(--flexoki-red-600);
+  --nb-danger-foreground: var(--flexoki-red-700);
+  --nb-danger-muted: var(--flexoki-red-50);
 
-  --nb-danger: oklch(0.505 0.213 27.518);
-  --nb-danger-foreground: oklch(0.505 0.213 27.518);
-  --nb-danger-muted: oklch(0.936 0.032 17.7 / 0.42);
-
-  /* API method palette — shared source of truth for the method chip across the
-	   sidebar, endpoint card, and code rail (api-sidebar / api-layout /
-	   api-code-rail). Each method maps onto a status token for text and tint.
-	   The line is 25% of the status's solid colour, which has no token. */
+  /* API method palette (unused until an API reference is added). */
   --nb-m-get: var(--nb-success);
   --nb-m-get-tint: var(--nb-success-muted);
-  --nb-m-get-line: oklch(0.596 0.145 163.225 / 0.25);
+  --nb-m-get-line: var(--nb-border-strong);
   --nb-m-post: var(--nb-info);
   --nb-m-post-tint: var(--nb-info-muted);
-  --nb-m-post-line: oklch(0.685 0.169 237.323 / 0.25);
-  /* A step darker than the warning colour: 4.5:1 on its own tint. */
-  --nb-m-put: oklch(0.5 0.13 55);
+  --nb-m-post-line: var(--nb-border-strong);
+  --nb-m-put: var(--nb-warning-foreground);
   --nb-m-put-tint: var(--nb-warning-muted);
-  --nb-m-put-line: oklch(0.739 0.177 58.2 / 0.25);
+  --nb-m-put-line: var(--nb-border-strong);
   --nb-m-delete: var(--nb-danger);
   --nb-m-delete-tint: var(--nb-danger-muted);
-  --nb-m-delete-line: oklch(0.637 0.237 25.331 / 0.25);
+  --nb-m-delete-line: var(--nb-border-strong);
   --nb-m-other: var(--nb-muted-foreground);
   --nb-m-other-tint: var(--nb-accent);
   --nb-m-other-line: var(--nb-border);
 
-  /* Layout */
-  --nb-sidebar-width: 18.75rem;
-  --nb-toc-width: 18rem;
+  /* Layout: the app's 16rem sidebar. */
+  --nb-sidebar-width: 16rem;
+  --nb-toc-width: 16rem;
   --nb-content-max: 43.5rem;
   /* The sticky header's height: taller on phones when the section tabs take
 	   a row of their own (set below). Sticky bars and scroll margins read it. */
@@ -108,41 +105,38 @@
   /* Used only by the API reference (registry: api-layout); harmless elsewhere. */
   --nb-code-rail-width: 34rem;
 
-  /* Typography — self-hosted via @fontsource-variable in BaseLayout.astro */
+  /* Typography: Inter for text and UI, Source Serif 4 for headings, JetBrains
+     Mono for code, as in the app. Self-hosted via @fontsource-variable in
+     BaseLayout.astro. */
   --nb-font-sans:
-    "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --nb-font-serif: "Source Serif 4 Variable", "Source Serif 4", Georgia, "Times New Roman", serif;
   --nb-font-mono:
-    "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "Cascadia Code", "Source Code Pro",
-    Menlo, Consolas, monospace;
-  /* Type scale: one ratio, √1.5, stepping up from the 16px body. Two steps
-	   make 1.5, so body → h2 → h1 is the same interval twice and lands on
-	   whole pixels: 16 → 24 → 36, with h3 at the half step (19.6 → 20).
-	   Line heights sit on the 4px grid. Weight falls as size rises, since a
-	   larger glyph needs less stroke to carry the same visual weight. */
+    "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Serif headings at the app's display weight (600, -0.015em). */
   --nb-h1-size: 2.25rem;
   --nb-h1-leading: 2.75rem;
-  --nb-h1-weight: 500;
-  --nb-h1-tracking: -0.025em;
+  --nb-h1-weight: 600;
+  --nb-h1-tracking: -0.015em;
   --nb-h2-size: 1.5rem;
   --nb-h2-leading: 2rem;
-  --nb-h2-weight: 550;
-  --nb-h2-tracking: -0.018em;
+  --nb-h2-weight: 600;
+  --nb-h2-tracking: -0.015em;
   --nb-h3-size: 1.25rem;
   --nb-h3-leading: 1.75rem;
   --nb-h3-weight: 600;
-  --nb-h3-tracking: -0.012em;
+  --nb-h3-tracking: -0.01em;
   --nb-h4-weight: 600;
 
-  /* Corners: surfaces (cards, callouts, code blocks, buttons, sidebar rows)
-	   share one radius; small marks inside them (inline code, badges in a
-	   title bar) use the smaller one. Change these two to re-round the site. */
-  --nb-radius: 0.5rem;
-  --nb-radius-sm: 0.25rem;
+  /* Sharp corners throughout, as in the app. */
+  --nb-radius: 0;
+  --nb-radius-sm: 0;
 
-  /* Shadows */
-  --nb-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.04);
-  --nb-shadow: 0 1px 3px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04);
-  --nb-shadow-lg: 0 4px 12px oklch(0 0 0 / 0.08), 0 2px 4px oklch(0 0 0 / 0.04);
+  /* Flat by default: hairlines, not shadows. Overlays (search, menus) keep
+     the app's overlay shadow. */
+  --nb-shadow-sm: none;
+  --nb-shadow: none;
+  --nb-shadow-lg: var(--armin-shadow-overlay);
 }
 
 /* Wider content area on large displays (e.g. MacBook Pro 16″) */
@@ -152,60 +146,24 @@
   }
 }
 
-/* ---- Dark mode ---- */
+/* Dark mode: the Flexoki tokens switch on `data-theme`; only the fixed
+   callout shades need their dark values here. */
 [data-mode="dark"] {
-  color-scheme: dark;
+  --nb-info: var(--flexoki-cyan-400);
+  --nb-info-foreground: var(--flexoki-cyan-400);
+  --nb-info-muted: var(--flexoki-cyan-950);
 
-  --nb-background: oklch(0.085 0 0);
-  --nb-foreground: oklch(0.97 0 0);
+  --nb-success: var(--flexoki-green-400);
+  --nb-success-foreground: var(--flexoki-green-400);
+  --nb-success-muted: var(--flexoki-green-950);
 
-  --nb-card: #0f0f0f;
-  --nb-card-foreground: var(--nb-foreground);
+  --nb-warning: var(--flexoki-orange-400);
+  --nb-warning-foreground: var(--flexoki-orange-400);
+  --nb-warning-muted: var(--flexoki-orange-950);
 
-  --nb-muted: #060606;
-  --nb-muted-foreground: oklch(0.708 0 0);
-
-  --nb-accent: oklch(0.269 0 0);
-  --nb-accent-foreground: var(--nb-foreground);
-
-  --nb-primary: oklch(0.9 0 0);
-  --nb-primary-foreground: oklch(0.085 0 0);
-  --nb-primary-hover: oklch(0.7 0 0);
-
-  --nb-brand: oklch(0.837 0.018 261.3);
-  --nb-brand-wash: color-mix(in oklch, var(--nb-brand) 10%, transparent);
-
-  --nb-border: oklch(0.269 0 0);
-  --nb-border-strong: oklch(0.371 0 0);
-  --nb-selected: oklch(0.371 0 0);
-  --nb-code-tint: color-mix(in oklch, var(--nb-foreground) 6%, transparent);
-  --nb-ring: oklch(0.837 0.018 261.3 / 0.45);
-
-  --nb-info: oklch(0.707 0.165 254.624);
-  --nb-info-foreground: oklch(0.707 0.165 254.624);
-  --nb-info-muted: oklch(0.38 0.145 265.5 / 0.22);
-
-  --nb-success: oklch(0.905 0.093 164.15);
-  --nb-success-foreground: oklch(0.905 0.093 164.15);
-  --nb-success-muted: oklch(0.393 0.096 152.3 / 0.2);
-
-  --nb-warning: oklch(0.75 0.183 55.934);
-  --nb-warning-foreground: oklch(0.75 0.183 55.934);
-  --nb-warning-muted: oklch(0.353 0.079 65 / 0.37);
-
-  --nb-danger: oklch(0.704 0.191 22.216);
-  --nb-danger-foreground: oklch(0.704 0.191 22.216);
-  --nb-danger-muted: oklch(0.429 0.176 28.7 / 0.17);
-
-  /* API method palette — dark lines; text and tint follow the status tokens. */
-  --nb-m-get-line: oklch(0.765 0.177 163.223 / 0.25);
-  --nb-m-put: var(--nb-warning);
-  --nb-m-put-line: oklch(0.645 0.168 50 / 0.25);
-  --nb-m-delete-line: oklch(0.577 0.245 27.325 / 0.25);
-
-  --nb-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.2);
-  --nb-shadow: 0 1px 3px oklch(0 0 0 / 0.3), 0 1px 2px oklch(0 0 0 / 0.2);
-  --nb-shadow-lg: 0 4px 12px oklch(0 0 0 / 0.4), 0 2px 4px oklch(0 0 0 / 0.2);
+  --nb-danger: var(--flexoki-red-400);
+  --nb-danger-foreground: var(--flexoki-red-400);
+  --nb-danger-muted: var(--flexoki-red-950);
 }
 
 /* ---- Tailwind theme mapping ----
@@ -254,6 +212,7 @@
 
   --font-sans: var(--nb-font-sans);
   --font-mono: var(--nb-font-mono);
+  --font-serif: var(--nb-font-serif);
 
   --radius-lg: var(--nb-radius);
   --radius-sm: var(--nb-radius-sm);
@@ -675,13 +634,13 @@ pre.astro-code .highlighted-word {
     background-color: var(--nb-accent);
     color: var(--nb-foreground);
   }
-  /* You are here: the one place the sidebar uses the brand. */
+  /* You are here: lifted back to paper with ink text, as in the app. */
   :is(
     .nb-sidebar-link,
     :is([data-nb-sidebar], [data-nb-api-nav], [data-nb-nav-results]) li > a
   )[aria-current="page"] {
     background-color: var(--nb-brand-wash);
-    color: var(--nb-brand);
+    color: var(--nb-foreground);
   }
   :is(
     .nb-sidebar-link,
@@ -768,56 +727,45 @@ body:not(:has([data-mobile-sidebar])) [data-menu-btn] {
   display: none;
 }
 
-/* ---- View transitions ---- */
-
-/* Scoped to <main transition:name="nb-content"> only — chrome snap-swaps
-   via the root rule below so the visual field doesn't shift on nav. */
-@media (prefers-reduced-motion: no-preference) {
-  ::view-transition-old(nb-content) {
-    animation: nb-content-out 100ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
-  ::view-transition-new(nb-content) {
-    animation: nb-content-in 100ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
-
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
-    animation: none;
-  }
-
-  @keyframes nb-content-out {
-    from {
-      opacity: 1;
-    }
-    to {
-      opacity: 0;
-    }
-  }
-
-  @keyframes nb-content-in {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(nb-content),
-  ::view-transition-new(nb-content),
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
-    animation: none;
-  }
-}
-
 /* Phones: the section tabs sit on a second header row. */
 @media (max-width: 47.999rem) {
   :root:has([data-nb-header-tabs]) {
     --nb-header-height: 6rem;
   }
+}
+
+/* ---- Armin finish ---- */
+
+/* The page is paper on a desk, as in the app (`notebook-bg`): soft light from
+   above, a faint 24px dot grid, and a fine static grain. */
+body {
+  background-color: var(--armin-bg);
+  background-image:
+    radial-gradient(ellipse 90% 40rem at 50% 0, var(--armin-paper-light), transparent),
+    radial-gradient(circle, var(--armin-paper-dot) 0.8px, transparent 1.1px),
+    var(--armin-paper-grain);
+  background-size:
+    100% 100%,
+    1.5rem 1.5rem,
+    180px 180px;
+  background-repeat: no-repeat, repeat, repeat;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* Serif for page titles and section headings; components keep sans. */
+[data-nb-page-title],
+.docs-content :where(h1:not([class]), h2:not([class]), h3:not([class])) {
+  font-family: var(--nb-font-serif);
+}
+
+::selection {
+  background-color: var(--armin-accent-tint);
+  color: var(--armin-accent-deep);
+}
+
+/* Sharp corners everywhere, as in the app. */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
 }

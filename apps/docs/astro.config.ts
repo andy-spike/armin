@@ -11,10 +11,18 @@ const nimbusConfig = defineNimbusConfig({
   description: "How to study with Armin: decks, cards, prerequisites, reviews, and imports.",
   locale: "en",
   github: "https://github.com/andy-spike/armin",
+  // "Edit this page on GitHub" under every page; {path} is the source file's
+  // path from this workspace (src/content/docs/…).
+  editPattern: "https://github.com/andy-spike/armin/edit/master/apps/docs/{path}",
   socialImageAlt: "Armin user guide",
   // The home page leads the sidebar; every other page joins it automatically.
   sidebar: {
-    items: ["index", { autogenerate: { collection: "docs" } }],
+    items: [
+      "index",
+      { autogenerate: { collection: "docs" } },
+      { label: "Source code on GitHub", link: "https://github.com/andy-spike/armin" },
+      { label: "Report an issue", link: "https://github.com/andy-spike/armin/issues" },
+    ],
   },
 });
 

@@ -97,14 +97,14 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
     {hasHeader ? <slot name="header" /> : <Header collection={collection} entryId={entryId} showSidebar={showSidebar} />}
 
     {isCustom ? (
-      <main id="main-content" tabindex="-1" transition:name="nb-content" class="flex-1">
+      <main id="main-content" tabindex="-1" class="flex-1">
         <slot />
       </main>
     ) : (
       <div class="flex-1 mx-auto w-full">
         <div class="flex">
           {showSidebar && (
-            <aside id="desktop-sidebar" aria-label="Sidebar" data-nb-desktop-sidebar class="hidden md:flex w-60 lg:w-(--nb-sidebar-width) shrink-0 border-e border-border bg-background sticky top-14 h-[calc(100vh-3.5rem)] flex-col relative">
+            <aside id="desktop-sidebar" aria-label="Sidebar" data-nb-desktop-sidebar class="hidden md:flex w-60 lg:w-(--nb-sidebar-width) shrink-0 border-e border-border bg-card sticky top-14 h-[calc(100vh-3.5rem)] flex-col relative">
               {/* One tree per page: this node moves into the mobile drawer
                   while it is open and comes back on close. It owns the
                   scroll, so open-group and scroll state follow it. */}
@@ -198,7 +198,7 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
           {/* No sidebar: a spacer the TOC's width keeps the body centred on the page. */}
           {!showSidebar && showToc && <div aria-hidden="true" class="hidden xl:block w-(--nb-toc-width) shrink-0" />}
 
-          <main id="main-content" tabindex="-1" transition:name="nb-content" class="flex-1 min-w-0">
+          <main id="main-content" tabindex="-1" class="flex-1 min-w-0">
             <div class="mx-auto max-w-(--nb-content-max) px-4 md:px-6 pt-6 pb-12">
               {versionStatus?.isDeprecated && (
                 <Banner
@@ -221,7 +221,7 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
                     {/* The page header: title, description and page actions, as one styleable part. */}
                     <div data-slot="page-header" class="mt-6">
                     <div class="flex items-center gap-3 flex-wrap">
-                      <h1 class="text-foreground mb-0 [overflow-wrap:anywhere] [text-wrap:balance]" style={`font-size:var(--nb-h1-size);line-height:var(--nb-h1-leading);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)`}>{title}</h1>
+                      <h1 data-nb-page-title class="text-foreground mb-0 [overflow-wrap:anywhere] [text-wrap:balance]" style={`font-size:var(--nb-h1-size);line-height:var(--nb-h1-leading);font-weight:var(--nb-h1-weight);letter-spacing:var(--nb-h1-tracking)`}>{title}</h1>
                       {draft && <Badge text="Draft" variant="warning" size="medium" />}
                     </div>
                     {description && (
@@ -232,7 +232,7 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
                     </PageActions>
                     </div>
                     {hasMobileToc && (
-                      <div class="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-(--nb-header-height) z-20 -mx-4 mt-3 mb-6 border-y px-4 py-2 backdrop-blur md:-mx-6 md:px-6 xl:hidden">
+                      <div class="border-border bg-background sticky top-(--nb-header-height) z-20 -mx-4 mt-3 mb-6 border-y px-4 py-2 md:-mx-6 md:px-6 xl:hidden">
                         <MobileTOC headings={headings} />
                       </div>
                     )}
@@ -258,8 +258,8 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
                 ) : editUrl && (
                   <div class="mt-8 mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <a href={editUrl} class="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors no-underline" target="_blank" rel="noopener">
-                      <Icon name="ph:pencil-simple" class="w-3.5 h-3.5" />
-                      Edit this page
+                      <Icon name="ph:github-logo" class="w-3.5 h-3.5" />
+                      Edit this page on GitHub
                     </a>
                   </div>
                 )}
@@ -295,8 +295,9 @@ const showToc = headings !== false && (hasToc || headings.length > 0);
         <div class="sticky top-0 z-[1] flex items-center justify-between border-b border-border bg-card px-4 py-3">
           {/* The logo, as in the header; the site title stays as its accessible name. */}
           <a href={homeHref} class="flex items-center gap-2 text-foreground transition-opacity hover:opacity-70">
-            <Logo class="h-6 w-6 shrink-0" />
-            <span class="text-[0.9375rem] font-semibold tracking-tight">Armin <span class="font-normal text-muted-foreground">docs</span></span>
+            <Logo class="h-6 w-6" wordmark />
+            <span class="sr-only">Armin</span>
+            <span class="text-sm text-muted-foreground">docs</span>
           </a>
           <button data-close-sidebar class="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Close sidebar">
             <Icon name="ph:x" class="w-5 h-5" />
