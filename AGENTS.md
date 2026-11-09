@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Armin is a spaced-repetition flashcard app. It's a pnpm monorepo with `apps/web` (TanStack Start), `apps/mobile` (Expo), `packages/backend` (Convex + Better Auth), and `packages/core` (shared study logic, no Node or database APIs). Read a workspace's README only when the task needs it. `packages/core/CONTEXT.md` defines the domain terms.
+Armin is a spaced-repetition flashcard app. It's a pnpm monorepo with `apps/web` (TanStack Start), `apps/mobile` (Expo), `apps/docs` (the user guide, a Nimbus docs site), `packages/backend` (Convex + Better Auth), and `packages/core` (shared study logic, no Node or database APIs). Read a workspace's README only when the task needs it. `packages/core/CONTEXT.md` defines the domain terms.
 
 - Use pnpm. Run the app with `pnpm dev` and sign in as `test@example.com` / `armin1234`.
 - Run `pnpm check` before finishing. Don't add test suites.

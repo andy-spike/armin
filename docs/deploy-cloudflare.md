@@ -1,11 +1,12 @@
 # Production deployment
 
-Production has two parts, deployed separately from `master`:
+Production has three parts, deployed separately from `master`:
 
 | Part                                      | Where                                               | URL                                        |
 | ----------------------------------------- | --------------------------------------------------- | ------------------------------------------ |
 | Backend (Convex functions, data, auth)    | Convex cloud, prod deployment `intent-bullfrog-922` | `https://intent-bullfrog-922.convex.cloud` |
 | Web app (TanStack Start, server-rendered) | Cloudflare Workers, Worker `armin-web`              | `https://armincards.app`                   |
+| Docs site (Nimbus, the user guide)        | Cloudflare Workers, Worker `armin-docs`             | `https://docs.armincards.app`              |
 
 Deploy the backend first when a change touches both, so the web app never
 calls functions that don't exist yet.
@@ -82,8 +83,21 @@ Redirect `www` once, in the Cloudflare dashboard: add a proxied DNS record for
 Check the build locally with `pnpm preview:cloudflare` (runs the production
 build in workerd against the production backend; use a throwaway account).
 
+## Docs site
+
+The docs site has no backend and deploys on its own. From `apps/docs`:
+
+```bash
+pnpm run deploy
+```
+
+This runs `astro check`, builds with the Nimbus Cloudflare adapter, and runs
+`wrangler deploy`. The first deploy creates the `armin-docs` Worker and
+attaches the `docs.armincards.app` custom domain. Check the build locally first
+with `pnpm preview:cf`.
+
 ## Compatibility date
 
-`compatibility_date` in `wrangler.jsonc` must not be newer than the date the
+`compatibility_date` in each `wrangler.jsonc` must not be newer than the date the
 installed `workerd` supports, or `pnpm dev` fails to start. Raise it when
 upgrading `wrangler` and `@cloudflare/vite-plugin`.

@@ -1,0 +1,52 @@
+---
+title: Cards and decks
+description: The card types Armin supports, and how decks hold cards and their links.
+sidebar:
+  order: 1
+---
+
+A **deck** is a named set of cards. Prerequisite links connect cards within
+one deck, so keep cards that build on each other together.
+
+A **card** is what you write. When you study, Armin shows you its **review
+units**: a Basic card has one, a reversed card has two (one per direction), and
+a cloze card has one per deletion. Each review unit is scheduled on its own.
+
+## Card types
+
+| Type               | What you write                                       | What you review                                          |
+| ------------------ | ---------------------------------------------------- | -------------------------------------------------------- |
+| Basic              | A front and a back.                                  | The front; recall the back.                              |
+| Basic and reversed | A front and a back.                                  | Both directions, scheduled separately.                   |
+| Cloze              | Text with hidden parts, such as `{{mitochondria}}`.  | The text with one deletion hidden at a time.             |
+| Type the answer    | A prompt, an answer, and any other accepted answers. | The prompt; type the answer and Armin checks it.         |
+| Image occlusion    | An image with masked regions.                        | The image with one region hidden at a time.              |
+| Concept            | A brief and one worked example.                      | A new exercise from the concept each time. Requires Pro. |
+
+## Cloze deletions
+
+Wrap each part to hide in double braces. Every deletion becomes its own review
+unit unless you number them: deletions with the same number are hidden
+together.
+
+```text
+The {{1::mitochondria}} is the {{2::powerhouse}} of the {{2::cell}}.
+```
+
+This card has two review units: one hides "mitochondria", the other hides
+"powerhouse" and "cell" together. Add a hint after a second `::`, as in
+`{{1::mitochondria::organelle}}`.
+
+## Concept cards
+
+A concept card practises a skill rather than a fact. You describe the concept
+and give one worked example, and Armin generates a pool of exercises from it.
+Each review shows a different exercise, while the schedule tracks the concept
+as one card. You can edit, flag, or delete exercises you don't want.
+
+Concept cards need a Pro plan. See [Plans and limits](/reference/plans/).
+
+## Images and audio
+
+Cards can include images and audio. Armin shrinks images and compresses audio
+in your browser before upload, and stores them privately in your library.

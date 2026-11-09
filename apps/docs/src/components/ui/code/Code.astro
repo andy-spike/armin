@@ -1,0 +1,24 @@
+---
+import { Code as AstroCode } from "astro:components";
+import { defaultCodeTransformers } from "@cloudflare/nimbus-docs/runtime";
+
+type Props = Parameters<typeof AstroCode>[0];
+const rawProps = Astro.props as Props;
+const usesNimbusDefaultThemes = !("theme" in rawProps) && !("themes" in rawProps);
+const themed = usesNimbusDefaultThemes
+  ? {
+      ...rawProps,
+      themes: { light: "github-light", dark: "github-dark" },
+      defaultColor: false,
+    }
+  : rawProps;
+const userTransformers = themed.transformers ?? [];
+const props = {
+  ...themed,
+  transformers: defaultCodeTransformers({
+    beforeTitleTransformers: userTransformers,
+  }),
+};
+---
+
+<AstroCode {...(props as Props)} />

@@ -44,3 +44,6 @@ jobs:
 
       - name: Check mobile bundles
         run: pnpm --filter ./apps/mobile check:bundle
+
+      - name: Check and build docs site
+        run: pnpm --filter @armin/docs typecheck && pnpm --filter @armin/docs build

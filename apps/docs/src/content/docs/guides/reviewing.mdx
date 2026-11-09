@@ -1,0 +1,50 @@
+---
+title: Reviewing
+description: How ratings, scheduling, daily limits, burying, undo, and cram work.
+sidebar:
+  order: 3
+---
+
+A review shows you one card at a time. Try to recall the answer, reveal it,
+then rate how well you remembered.
+
+## Ratings
+
+| Rating | Use it when                                    |
+| ------ | ---------------------------------------------- |
+| Again  | You didn't remember. The card comes back soon. |
+| Hard   | You remembered, with real effort.              |
+| Good   | You remembered with normal effort.             |
+| Easy   | You remembered instantly.                      |
+
+Armin schedules the next review with [FSRS](https://github.com/open-spaced-repetition/fsrs4anki/wiki),
+which models how quickly you forget each card. Each rating button shows when
+you would see the card next.
+
+Made a mistake? **Undo** restores the card to exactly how it was before your
+last rating.
+
+## What each day contains
+
+Each day's queue holds cards that are due, oldest first, followed by new cards.
+Two settings under **Settings → Learning path** limit it, across all your
+decks:
+
+- **New review units per day** caps how much new material enters study each
+  day.
+- **Reviews per day** caps the total, new and due together. It's empty, meaning
+  no limit, by default.
+
+A card that's already on screen can always be answered, even if a limit is
+reached mid-session.
+
+## Bury
+
+**Bury until tomorrow** hides every review unit of a card until the start of your next study
+day. Its schedule doesn't change, and the card returns on its own. Undo
+reverses a bury.
+
+## Cram
+
+**Cram** lets you practise a deck outside the schedule, for example before an
+exam. Cram ratings don't change any schedule or review history.
