@@ -1,8 +1,9 @@
 # Armin docs
 
 The Armin user guide, built with [Nimbus](https://nimbus-docs.com), Cloudflare's
-docs framework on Astro. It is a static site, separate from the web app, meant
-to be served at `https://docs.armincards.app` (the `site` in `astro.config.ts`).
+docs framework on Astro. It is a Cloudflare Worker, separate from the web app,
+meant to be served at `https://docs.armincards.app` (the `site` in
+`astro.config.ts`). It needs no backend.
 
 ## Develop
 
@@ -12,7 +13,10 @@ From the repository root:
 pnpm dev:docs   # http://localhost:4321
 ```
 
-The site needs no backend.
+The dev server renders pages as you edit, and answers `Accept: text/markdown`
+too. Search needs the production build; see
+[Preview the production build](#preview-the-production-build). After changing
+`astro.config.ts` or the adapter, restart the dev server.
 
 ## Search
 
@@ -29,8 +33,8 @@ in this browser's storage only) and suggested searches, set in
 up. The dialog's markup is in that file and its behaviour in `search.client.ts`;
 the ranking option lives in `src/components/ui/search/providers/pagefind.ts`.
 
-The dev server has no index, so try search with
-`pnpm --filter @armin/docs build` followed by `pnpm --filter @armin/docs preview`.
+The dev server has no index, so try search on the
+[production build](#preview-the-production-build).
 
 ## Write a page
 
@@ -51,25 +55,35 @@ including upgrades.
 
 Nimbus publishes a Markdown version of every page (`/<slug>/index.md`),
 `llms.txt` indexes, `llms-full.txt`, and the agent discovery files under
-`/.well-known/`. On top of that:
+`/.well-known/` ([Docs for agents](https://nimbus-docs.com/ai/docs-for-agents)).
+On top of that:
 
-- **Markdown at page URLs.** `worker/index.ts` runs in front of the static
-  files on Cloudflare. A request whose `Accept` header asks for `text/markdown`
-  at least as strongly as for HTML gets the page's Markdown at the page's own
-  URL (with `Content-Location` naming the `.md` file), and an unknown page gets
-  a short Markdown 404 that links `llms.txt`. Browsers never ask for Markdown,
-  so they get HTML as before. Both forms send `Vary: Accept`, and HTML pages
-  link their Markdown version in a `Link` header. Built files under `_astro/`,
-  `pagefind/`, `og/`, and `.well-known/` skip the Worker (`run_worker_first`
-  in `wrangler.jsonc`). The pages stay prerendered; there's no server
-  rendering.
+- **Markdown at page URLs**, set up as Nimbus documents it
+  ([Serve Markdown at page URLs](https://nimbus-docs.com/ai/markdown-negotiation)):
+  the Cloudflare server adapter (`nimbus-docs add adapter-cloudflare`) and
+  `rendering: { default: "request" }` in `astro.config.ts`, so the docs render
+  on request. A request whose `Accept` header ranks `text/markdown` above every
+  HTML and wildcard type gets the page's Markdown at the page's own URL; a
+  browser's `*/*` still gets HTML. Both send `Vary: Accept`, and an unknown page
+  asked for in Markdown gets a short Markdown 404 that links `llms.txt`. The
+  search index, sitemap, `llms.txt`, and Markdown versions are still prepared at
+  build time; the 404 page, social cards, and `robots.txt` stay prerendered.
 - **Ask ChatGPT / Ask Claude.** Each page's actions open a new chat that reads
   the page's Markdown from `https://docs.armincards.app`, so they answer from
   the live site, not a local build (`src/components/ui/page-actions/`).
 
-Try the Worker locally with `pnpm --filter @armin/docs preview:cf` (it builds,
-then runs `wrangler dev`), and ask for Markdown with
-`curl -H 'Accept: text/markdown' http://localhost:8787/guides/reviewing/`.
+The build prints a warning that `404.astro` reads request headers while
+prerendered. A fresh Nimbus site with the Cloudflare adapter prints the same
+one; it comes from Nimbus, not this project, and the 404 page works.
+
+## Preview the production build
+
+```bash
+pnpm --filter @armin/docs preview:cf   # builds, then runs it with wrangler dev on http://localhost:8787
+curl -H 'Accept: text/markdown' http://localhost:8787/guides/reviewing/
+```
+
+This runs the Worker as Cloudflare will, with search and Markdown at page URLs.
 
 ## Validate
 
@@ -79,14 +93,20 @@ pnpm --filter @armin/docs build              # validates frontmatter, MDX, and l
 pnpm --filter @armin/docs exec nimbus-docs check
 ```
 
+`nimbus-docs check` reports structure as "partly checked": it can't verify
+request-rendered pages, so a passing production build is the gate for them.
 `pnpm check` at the root formats and lints this workspace too. It reads `.astro`
 imports through the ambient declaration in `src/env.d.ts`; `astro check` does
 the real type checking for them. CI runs the typecheck and build.
 
 ## Deploy
 
-`pnpm --filter @armin/docs deploy` checks, builds, and publishes the static
-site to the `armin-docs` Cloudflare Worker. To serve it at
+`pnpm --filter @armin/docs deploy` checks, builds, and publishes the
+`armin-docs` Cloudflare Worker: the server the adapter builds, with the static
+files beside it. The adapter writes the full deploy config to
+`dist/server/wrangler.json`; `wrangler.jsonc` holds only the name, the
+compatibility date, and flags. Its compatibility date matches the web app's: a
+date newer than the installed Workers runtime stops `wrangler dev` and deploys. To serve it at
 `docs.armincards.app`, add that custom domain to the Worker in the Cloudflare
 dashboard (or as a `routes` entry in `wrangler.jsonc`).
 

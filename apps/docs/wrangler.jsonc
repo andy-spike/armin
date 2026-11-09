@@ -1,16 +1,14 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "armin-docs",
+  // Matches the web app. A date newer than the installed Workers runtime
+  // supports stops `wrangler dev` and a deploy from starting.
   "compatibility_date": "2026-10-19",
-  // Serves each page's Markdown at its own URL to clients that ask for it
-  // (Accept: text/markdown); see worker/index.ts. Everything else is the
-  // static build, unchanged.
-  "main": "./worker/index.ts",
+  "compatibility_flags": ["nodejs_compat"],
+  // Server output (`nimbus-docs add adapter-cloudflare`): the Astro Cloudflare
+  // adapter writes the full deploy config, with the Worker entry and the
+  // static assets, to dist/server/wrangler.json at build time.
   "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS",
-    "not_found_handling": "404-page",
-    // Only page URLs can negotiate; built files skip the Worker entirely.
-    "run_worker_first": ["/*", "!/_astro/*", "!/pagefind/*", "!/og/*", "!/.well-known/*"],
+    "not_found_handling": "none",
   },
 }

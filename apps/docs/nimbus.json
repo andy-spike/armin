@@ -11,5 +11,8 @@
       "@/*": "src/*"
     }
   },
-  "components": []
+  "components": [],
+  "serverOutput": {
+    "adapter": "cloudflare"
+  }
 }
