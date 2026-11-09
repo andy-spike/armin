@@ -241,7 +241,7 @@ export function LandingPage() {
             <ArminMark className="size-4.5" />
             <ArminWordmark />
           </span>
-          <span>Open source under the AGPL-3.0 license</span>
+          <span>Open source under the MIT license</span>
           <a href={DOCS_URL} className={TEXT_LINK}>
             Documentation
           </a>

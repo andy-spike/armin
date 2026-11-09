@@ -212,14 +212,10 @@ there are no automated test suites.
 ## License
 
 Copyright © 2026 Andy Spike. Armin is free software under the
-[GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`). If
-you run a modified version as a service for other people, the AGPL requires you
-to offer those users its source code; point `apps/web/src/lib/source-code.ts`
-at your repository so the app's "Source code" links do that. The
+[MIT License](LICENSE). The
 `writing-study-cards` skill is licensed separately under
 [CC BY 4.0](.agents/skills/writing-study-cards/LICENSE.md). The Armin name and
 logo are not covered by either license; see [TRADEMARKS.md](TRADEMARKS.md).
-Versions published before 28 October 2026 were released under the MIT license.
 
 ## Contributions
 

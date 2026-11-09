@@ -1,13 +1,13 @@
 # Armin name and logo
 
-Armin's code is open source under the [AGPL-3.0](LICENSE). The license covers
+Armin's code is open source under the [MIT](LICENSE). The license covers
 the code only. It does not grant rights to the **Armin** name, the Armin logo
 and mark, or the `armincards.app` domain, which identify the service operated
 by Andy Spike.
 
 You may, without asking:
 
-- Run, modify, and share the code under the AGPL-3.0.
+- Run, modify, and share the code under the MIT.
 - Self-host Armin for your own use and keep calling it Armin there.
 - Say truthfully that your project is "based on Armin" or "a fork of Armin".
 - Use the name to refer to Armin, for example in an article, review, or
