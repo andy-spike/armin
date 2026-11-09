@@ -11,7 +11,7 @@ interface RecentPage {
 const RECENT_KEY = "armin-docs-recent-searches";
 const RECENT_LIMIT = 5;
 
-function readRecent(): RecentPage[] {
+function readRecent() {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
     return Array.isArray(value)
@@ -25,13 +25,13 @@ function readRecent(): RecentPage[] {
   }
 }
 
-function writeRecent(pages: RecentPage[]): void {
+function writeRecent(pages: RecentPage[]) {
   try {
     localStorage.setItem(RECENT_KEY, JSON.stringify(pages.slice(0, RECENT_LIMIT)));
   } catch {}
 }
 
-function rememberPage(page: RecentPage): void {
+function rememberPage(page: RecentPage) {
   writeRecent([page, ...readRecent().filter((item) => item.url !== page.url)]);
 }
 
@@ -45,15 +45,7 @@ export interface SearchElements {
   suggestions: HTMLElement | null;
 }
 
-export interface SearchInstance {
-  open(): void;
-  destroy(): void;
-}
-
-export function initSearch(
-  elements: SearchElements,
-  searchProvider: SearchProvider,
-): SearchInstance {
+export function initSearch(elements: SearchElements, searchProvider: SearchProvider) {
   const { dialog, input, clearButton, body, status, listbox, suggestions } = elements;
 
   let activeIndex = -1;
@@ -62,20 +54,19 @@ export function initSearch(
   let activeController: AbortController | undefined;
   let lastQuery = "";
 
-  const icon = (name: string): Node | null =>
+  const icon = (name: string) =>
     dialog
       .querySelector<HTMLTemplateElement>(`template[data-search-icon="${name}"]`)
       ?.content.cloneNode(true) ?? null;
 
-  function setStatus(message: string, quiet = false): void {
+  function setStatus(message: string, quiet = false) {
     status.textContent = message;
     status.toggleAttribute("data-quiet", quiet || message === "");
   }
 
-  const options = (): HTMLElement[] =>
-    Array.from(listbox.querySelectorAll<HTMLElement>("[role='option']"));
+  const options = () => Array.from(listbox.querySelectorAll<HTMLElement>("[role='option']"));
 
-  function highlight(index: number, { scroll = true } = {}): void {
+  function highlight(index: number, { scroll = true } = {}) {
     const all = options();
     activeIndex = all.length === 0 ? -1 : Math.max(0, Math.min(index, all.length - 1));
     all.forEach((option, i) => {
@@ -92,7 +83,7 @@ export function initSearch(
     }
   }
 
-  function clearOptions(): void {
+  function clearOptions() {
     listbox.replaceChildren();
     listbox.hidden = true;
     activeIndex = -1;
@@ -100,14 +91,14 @@ export function initSearch(
     input.removeAttribute("aria-activedescendant");
   }
 
-  function showOptions(): void {
+  function showOptions() {
     listbox.hidden = false;
     input.setAttribute("aria-expanded", "true");
     body.scrollTop = 0;
     highlight(0, { scroll: false });
   }
 
-  function option(page: RecentPage, kind: "page" | "heading" | "recent"): HTMLAnchorElement {
+  function option(page: RecentPage, kind: "page" | "heading" | "recent") {
     const link = document.createElement("a");
     link.id = `search-option-${optionCounter++}`;
     link.href = page.url;
@@ -160,7 +151,7 @@ export function initSearch(
     return link;
   }
 
-  function groupLabel(text: string, action?: HTMLElement): HTMLElement {
+  function groupLabel(text: string, action?: HTMLElement) {
     const row = document.createElement("div");
     row.className = "flex items-center justify-between px-3 pt-2 pb-1";
     const label = document.createElement("span");
@@ -171,7 +162,7 @@ export function initSearch(
     return row;
   }
 
-  function showIdle(): void {
+  function showIdle() {
     clearOptions();
     const recent = readRecent();
     if (suggestions) suggestions.hidden = false;
@@ -201,7 +192,7 @@ export function initSearch(
     showOptions();
   }
 
-  function showResults(query: string, results: SectionedSearchResult[]): void {
+  function showResults(query: string, results: SectionedSearchResult[]) {
     clearOptions();
     if (results.length === 0) {
       setStatus(
@@ -244,7 +235,7 @@ export function initSearch(
 
   let ready: Promise<boolean> | undefined;
 
-  function ensureReady(): Promise<boolean> {
+  function ensureReady() {
     ready ??= Promise.resolve(searchProvider.init?.())
       .then(() => true)
       .catch(() => {
@@ -254,7 +245,7 @@ export function initSearch(
     return ready;
   }
 
-  async function runSearch(query: string): Promise<void> {
+  async function runSearch(query: string) {
     activeController?.abort();
     const controller = new AbortController();
     activeController = controller;
@@ -284,11 +275,11 @@ export function initSearch(
     }
   }
 
-  function syncClearButton(): void {
+  function syncClearButton() {
     if (clearButton) clearButton.hidden = input.value === "";
   }
 
-  function handleInput(): void {
+  function handleInput() {
     syncClearButton();
     activeController?.abort();
     if (debounceTimer) clearTimeout(debounceTimer);
@@ -301,7 +292,7 @@ export function initSearch(
     debounceTimer = setTimeout(() => void runSearch(query), 120);
   }
 
-  function handleKeydown(event: KeyboardEvent): void {
+  function handleKeydown(event: KeyboardEvent) {
     const count = options().length;
     if (event.key === "ArrowDown" && count) {
       event.preventDefault();
@@ -334,14 +325,14 @@ export function initSearch(
     }
   }
 
-  function handlePointerMove(event: PointerEvent): void {
+  function handlePointerMove(event: PointerEvent) {
     const target = (event.target as Element | null)?.closest<HTMLElement>("[role='option']");
     if (!target) return;
     const index = options().indexOf(target);
     if (index !== -1 && index !== activeIndex) highlight(index, { scroll: false });
   }
 
-  function handleSuggestion(event: Event): void {
+  function handleSuggestion(event: Event) {
     const button = (event.target as Element | null)?.closest<HTMLButtonElement>(
       "[data-search-suggestion]",
     );
@@ -352,7 +343,7 @@ export function initSearch(
     void runSearch(input.value);
   }
 
-  function handleClear(): void {
+  function handleClear() {
     input.value = "";
     input.focus();
     handleInput();
@@ -394,11 +385,11 @@ type SearchDialogElement = HTMLDialogElement & {
   __openSearchDialog?: () => void;
 };
 
-function primaryDialog(): SearchDialogElement | null {
+function primaryDialog() {
   return document.querySelector<SearchDialogElement>("[data-search-dialog][data-search-ready]");
 }
 
-const isTyping = (element: Element | null): boolean =>
+const isTyping = (element: Element | null) =>
   element instanceof HTMLElement &&
   (element.tagName === "INPUT" ||
     element.tagName === "TEXTAREA" ||

@@ -83,7 +83,7 @@ export const provider: SearchProvider = {
       defaultFilters ? { filters: defaultFilters } : undefined,
     );
     const results = await Promise.all(search.results.slice(0, 10).map((result) => result.data()));
-    return results.map((result): SectionedSearchResult => ({
+    return results.map((result) => ({
       title: result.meta?.title ?? "Untitled",
       section: result.meta?.section,
       url: result.url,
