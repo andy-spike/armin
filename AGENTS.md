@@ -6,6 +6,7 @@ Read @README.md first. The repo is a pnpm monorepo on the Vite+ toolchain (`vp`)
 
 - `apps/web` — TanStack Start web client
 - `apps/mobile` — Expo mobile client
+- `apps/docs` — user guide, a static Nimbus (Astro) docs site; see @apps/docs/README.md
 - `packages/backend` — Convex + Better Auth (`@armin/backend`)
 - `packages/core` — portable study domain (`@armin/core`)
 

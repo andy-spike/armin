@@ -16,6 +16,7 @@ FSRS continues scheduling that prerequisite for practice.
 
 - [`apps/web`](apps/web/README.md): TanStack Start web client.
 - [`apps/mobile`](apps/mobile/README.md): Expo mobile client for the same backend.
+- [`apps/docs`](apps/docs/README.md): the user guide, a static [Nimbus](https://nimbus-docs.com) docs site.
 - [`packages/backend`](packages/backend/README.md): Convex backend and Better Auth,
   with account-owned libraries, server-side scheduling, images, and ZIP export.
 - [`packages/core`](packages/core): portable study types and rules.
@@ -72,6 +73,7 @@ Additional commands, each run from the root in its own terminal:
 | `pnpm dev:ios`     | Expo Go and opens the iOS simulator, requires macOS |
 | `pnpm dev:web`     | Web client only, port 3000                          |
 | `pnpm dev:backend` | Local Convex backend and watcher only               |
+| `pnpm dev:docs`    | User guide (docs site) only, port 4321              |
 
 Keep `pnpm dev` running when using mobile; the local backend only runs while it
 does. Mobile URLs use this machine's LAN address, so a phone on the same network
@@ -197,7 +199,8 @@ and plugin users already have it. Keep the two copies identical;
 ## Validation
 
 Run `pnpm check`, `pnpm --filter @armin/web build`, and
-`pnpm --filter @armin/mobile check:bundle`. `pnpm check` runs `vp check`, which
+`pnpm --filter @armin/mobile check:bundle`. For the docs site, also run
+`pnpm --filter @armin/docs typecheck` and `pnpm --filter @armin/docs build`. `pnpm check` runs `vp check`, which
 checks formatting (Oxfmt), lints (Oxlint), and type checks every workspace in one
 pass; `pnpm format` fixes formatting. Lint and format settings live in the root
 `vite.config.ts` ([ADR 0003](docs/adr/0003-vite-plus-toolchain.md)). Web, backend,

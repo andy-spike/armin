@@ -18,6 +18,7 @@
     "dev:setup": "pnpm --filter @armin/backend dev:setup",
     "dev:web": "node packages/backend/scripts/start-dev.mjs web",
     "dev:backend": "node packages/backend/scripts/start-dev.mjs backend",
+    "dev:docs": "pnpm --filter @armin/docs dev",
     "dev:mobile": "node packages/backend/scripts/start-dev.mjs mobile",
     "dev:android": "node packages/backend/scripts/start-dev.mjs android",
     "dev:ios": "node packages/backend/scripts/start-dev.mjs ios",
