@@ -176,6 +176,7 @@ overrides:
   miniflare>undici: 7.30.1
 
 patchedDependencies:
+  '@convex-dev/mcp@0.1.0-alpha.7': 6107c00a30f74593e09d0e6f5a7fa2ba8076c65d6eda19a65bf6f8496be29d88
   '@tanstack/start-server-core': 4400ad05f92fb5f7fad946f6798f55f97f86c8938581e08eaa8ccfadd882cd54
 
 importers:
@@ -502,7 +503,7 @@ importers:
         version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.33(@tanstack/react-start@1.169.3(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.12.4)(@volar/typescript@2.4.31(typescript@5.9.3))(esbuild@0.28.2)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(typescript@5.9.3)(yaml@2.9.1))(esbuild@0.28.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.2.14)(rollup@4.62.0)(supports-color@8.1.1)(webpack@5.107.2(csso@5.0.5)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.31)))(better-sqlite3@12.10.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@types/better-sqlite3@7.6.13)(@types/sql.js@1.4.11)(better-sqlite3@12.10.1)(kysely@0.29.6)(sql.js@1.15.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.8)(vue@3.5.44(typescript@5.9.3)))(convex@1.47.0(react@19.2.7))(hono@4.13.13)(react@19.2.7)(typescript@5.9.3)
       '@convex-dev/mcp':
         specifier: 0.1.0-alpha.7
-        version: 0.1.0-alpha.7(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.7))(hono@4.13.13)(react@19.2.7)(typescript@5.9.3)(zod@4.6.7)
+        version: 0.1.0-alpha.7(patch_hash=6107c00a30f74593e09d0e6f5a7fa2ba8076c65d6eda19a65bf6f8496be29d88)(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.7))(hono@4.13.13)(react@19.2.7)(typescript@5.9.3)(zod@4.6.7)
       '@convex-dev/resend':
         specifier: 0.2.9
         version: 0.2.9(convex-helpers@0.1.128(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.7))(hono@4.13.13)(react@19.2.7)(typescript@5.9.3)(zod@4.6.7))(convex@1.47.0(react@19.2.7))(react@19.2.7)
@@ -10924,7 +10925,7 @@ snapshots:
       - hono
       - typescript
 
-  '@convex-dev/mcp@0.1.0-alpha.7(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.7))(hono@4.13.13)(react@19.2.7)(typescript@5.9.3)(zod@4.6.7)':
+  '@convex-dev/mcp@0.1.0-alpha.7(patch_hash=6107c00a30f74593e09d0e6f5a7fa2ba8076c65d6eda19a65bf6f8496be29d88)(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.7))(hono@4.13.13)(react@19.2.7)(typescript@5.9.3)(zod@4.6.7)':
     dependencies:
       '@convex-dev/rate-limiter': 0.4.2(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.7))(hono@4.13.13)(react@19.2.7)(typescript@5.9.3)(zod@4.6.7)
       convex: 1.47.0(react@19.2.7)

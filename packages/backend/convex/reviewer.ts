@@ -4,6 +4,7 @@ import { internalMutation } from "./functions";
 import { components, internal } from "./_generated/api";
 import { cleanupLibraryData } from "./deletion";
 import { insertDeck } from "./model/decks";
+import { bumpGraphRevision } from "./model/prereqs";
 import { reviewerResetHours } from "./model/reviewer";
 import { bumpRevision, defaultSettingsRow, reconcileReviewUnits } from "./model/study";
 
@@ -111,6 +112,7 @@ export const finishReset = internalMutation({
       ids.push(id);
     }
     await ctx.db.insert("prereqs", { libraryId, deckId, prereqId: ids[0]!, dependentId: ids[1]! });
+    await bumpGraphRevision(ctx, deckId);
     await ctx.db.insert("tags", { libraryId, name: "demo", key: "demo" });
     await ctx.db.patch(libraryId, {
       status: "active",

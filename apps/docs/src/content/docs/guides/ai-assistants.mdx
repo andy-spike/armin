@@ -1,6 +1,6 @@
 ---
 title: AI assistants
-description: Connect ChatGPT, Claude, Gemini, or a coding agent to write and organize cards for you.
+description: Connect ChatGPT, Claude, Gemini, or a coding agent to write, organize, and study cards for you.
 sidebar:
   order: 6
 ---
@@ -11,20 +11,32 @@ one.
 
 ## What an assistant can do
 
-After you approve a connection, the assistant can work across your whole
-library:
+Each connection asks for one or more permission groups, and each group covers
+your whole library:
 
-- Read, create, edit, archive, move, and link cards.
-- Create and rename decks.
-- [Import Anki files](/guides/import-from-anki/) with a preview you approve.
+- **Read**: find and read decks, cards, prerequisite links, study stats, and card
+  details.
+- **Write**: create and edit cards and decks, archive cards, move cards, and link
+  prerequisites.
+- **Import**: [convert Anki files](/guides/import-from-anki/) into new decks with
+  a preview you approve.
+- **Study**: show cards that are due and record your own ratings.
 
-It **can't** permanently delete anything, rate reviews, change scheduling,
-export your library, or manage your account.
+A client that asks for no permission receives all four. An assistant with the
+study group shows one prompt at a time, hides the answer until you answer, and
+records only the rating you give; it never picks a rating for you.
+
+It **can't** permanently delete anything, reschedule cards on its own, export
+your library, or manage your account.
 
 ## Manage connections
 
-**Settings → AI assistants** lists every connection. Disconnect one at any time
-and its access ends immediately.
+**Settings → AI assistants** lists every connection and the permission groups it
+has. Disconnect one at any time and its access ends immediately.
+
+Connections approved before the permission groups existed are marked as needing
+reconnection. Reconnect from your assistant and approve the current groups to
+continue.
 
 For technical details, see the [MCP server
 documentation](https://armincards.app/docs/mcp).

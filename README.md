@@ -152,13 +152,15 @@ or ChatGPT's plugin directory; coding agents connect to Armin's hosted MCP
 server directly. **AI setup** in the sidebar shows step-by-step instructions for
 each, including a prompt that lets a coding agent set itself up; Settings → AI
 assistants lists connections. After you
-approve a connection, its assistant can use Armin authoring and import tools on your whole
-library: reading, creating, editing, archiving, moving, and linking cards, plus
-creating and renaming decks, across every deck, including decks you add later.
+approve a connection, its assistant can use the permission groups you granted on
+your whole library: reading, creating, editing, archiving, moving, and linking
+cards, creating and renaming decks, importing Anki files, and showing due cards
+with your own ratings, across every deck, including decks you add later.
+Connections can be limited to read, write, import, or study tools.
 Ordinary authoring is text-only; Anki imports have a scoped image-upload route.
-It cannot permanently delete content, rate reviews, change
-scheduling, export your library, or manage your account. You can disconnect any
-assistant at any time.
+It cannot permanently delete content, reschedule cards on its own, export your
+library, or manage your account. Ratings are recorded only when you give them.
+You can disconnect any assistant at any time.
 
 See [AI assistant connections](docs/agent-connections.md) for the access model,
 OAuth/MCP endpoints, operation limits, and deployment verification needs, and

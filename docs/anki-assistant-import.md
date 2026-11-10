@@ -36,7 +36,7 @@ The kit is served by the web deployment at:
 ${SITE_URL}/anki-kit/armin-anki-kit-<version>.zip
 ```
 
-`get_anki_import_guide` returns the exact current URL, SHA-256, size, runtime,
+`get_guide` with topic `anki_import` returns the exact current URL, SHA-256, size, runtime,
 and command. The archive contains `armin-anki-kit.mjs`, `sql-wasm.wasm`,
 `README.md`, `LICENSE`, and third-party notices. It needs no `pnpm install`, repository checkout, or
 Armin source code.
@@ -85,7 +85,7 @@ by text.
 
 ## Staged MCP flow
 
-1. `get_anki_import_guide` — download and checksum the kit.
+1. `get_guide` with topic `anki_import` — download and checksum the kit.
 2. `anki_import_start` — declare every kit deck, every `planKeys` entry, totals,
    warnings, and unresolved notes. Returns an import id and a scoped upload token.
 3. Upload each `media/` file:
@@ -106,7 +106,7 @@ by text.
    request ids. Every converter key must eventually be staged or explicitly
    skipped with a reason. Repairs use the unresolved key; polish keeps the
    original key.
-5. `anki_import_preview` — returns final counts, images, warnings, skips, repairs,
+5. `anki_import_status` with `includePreview: true` — returns final counts, images, warnings, skips, repairs,
    and an approval checksum.
 6. Show the preview to the user and wait for explicit approval.
 7. `anki_import_finalize` with the exact checksum and `confirm: true`.
@@ -146,6 +146,6 @@ in `skipped` with a reason; finalization rejects a plan with a missing
 disposition. The final preview checksum prevents approving one manifest and
 committing a different one. To change an already-staged card, cancel the session and stage a replacement plan, then obtain approval for its new preview.
 
-No automatic prerequisite inference occurs. Use the `writing-study-cards` skill
-and the normal authoring tools only for a separate, explicit prerequisite
+No automatic prerequisite inference occurs. Call `get_guide` with topic `authoring`
+and use the `writing-study-cards` skill only for a separate, explicit prerequisite
 request.

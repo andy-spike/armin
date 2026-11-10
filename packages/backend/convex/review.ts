@@ -1,21 +1,13 @@
 import { v } from "convex/values";
 import { Rating, type Grade } from "ts-fsrs";
-import {
-  fsrsFieldsFromMs,
-  fsrsFieldsToMs,
-  fromFsrsCard,
-  isPrereqSecured,
-  retrievabilityAt,
-  toFsrsCard,
-} from "@armin/core/scheduler";
+import { fsrsFieldsFromMs, toFsrsCard } from "@armin/core/scheduler";
 import { formatInterval, startOfNextStudyDayMs } from "@armin/core/study";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { owned, readableDeck, readableLibrary, writableLibrary } from "./model/access";
-import { advanceVariant, refillIfLow, restoreVariant } from "./model/concepts";
+import { restoreVariant } from "./model/concepts";
 import {
-  checkEligible,
   isBuried,
   isWithheldConcept,
   selectSession,
@@ -24,17 +16,18 @@ import {
   dueCounts,
   scopeDecks,
 } from "./model/queue";
+import { cardDetails } from "./model/cardDetails";
+import { rateReviewUnit, type RateResult } from "./model/review";
 import {
   bumpRevision,
-  displayFor,
   findRequest,
-  fsrsSnapshot,
-  parseFlashcard,
   recordRequest,
   refreshAfterPrereqChange,
   schedulerFor,
   SettingsCache,
 } from "./model/study";
+
+export type { RateResult } from "./model/review";
 
 const GRADES: Grade[] = [Rating.Again, Rating.Hard, Rating.Good, Rating.Easy];
 
@@ -141,123 +134,14 @@ export const preview = query({
   },
 });
 
-const REVIEW_STATE_NAMES = ["New", "Learning", "Review", "Relearning"] as const;
-
-function reviewStateName(state: number) {
-  return REVIEW_STATE_NAMES[state] ?? "Unknown";
-}
-
-const CARD_INFO_HISTORY_LIMIT = 100;
-
 export const cardInfo = query({
   args: { flashcardId: v.string() },
   handler: async (ctx, { flashcardId }) => {
     const library = await readableLibrary(ctx);
     if (!library) return null;
-    const id = ctx.db.normalizeId("flashcards", flashcardId);
-    const flashcard = id ? await owned(ctx, library, id) : null;
-    if (!flashcard) return null;
-    const now = Date.now();
-    const parsed = parseFlashcard(flashcard);
-    const displayed = displayFor(parsed.type, parsed.content);
-    const [deck, unitRows, logs] = await Promise.all([
-      ctx.db.get(flashcard.deckId),
-      ctx.db
-        .query("reviewUnits")
-        .withIndex("by_flashcard", (q) => q.eq("flashcardId", flashcard._id))
-        .collect(),
-      ctx.db
-        .query("reviewLogs")
-        .withIndex("by_flashcard_review", (q) => q.eq("flashcardId", flashcard._id))
-        .order("desc")
-        .take(CARD_INFO_HISTORY_LIMIT + 1),
-    ]);
-    const settings = new SettingsCache(ctx, library._id);
-    const schedulers = new Map<Id<"decks">, ReturnType<typeof schedulerFor>>();
-    const schedulerForDeck = async (deckId: Id<"decks">) => {
-      const cached = schedulers.get(deckId);
-      if (cached) return cached;
-      const scheduler = schedulerFor(await settings.forDeck(deckId));
-      schedulers.set(deckId, scheduler);
-      return scheduler;
-    };
-
-    const units = [...unitRows].sort(
-      (a, b) => a.createdAt - b.createdAt || a.subKey.localeCompare(b.subKey),
-    );
-    for (const unit of unitRows) await schedulerForDeck(unit.deckId);
-
-    const unitViews = units.map((unit) => ({
-      reviewUnitId: unit._id,
-      subKey: unit.subKey,
-      front: unit.front,
-      back: unit.back,
-      state: unit.state,
-      stateName: reviewStateName(unit.state),
-      due: unit.due,
-      stability: unit.stability,
-      difficulty: unit.difficulty,
-      retrievability: retrievabilityAt(unit, now, schedulers.get(unit.deckId)!),
-      reps: unit.reps,
-      lapses: unit.lapses,
-      locked: unit.locked,
-      archived: unit.archived,
-      buried: isBuried(unit, now),
-      buriedUntil: unit.buriedUntil ?? null,
-      version: unit.version,
-    }));
-
-    const unitById = new Map(unitRows.map((unit) => [unit._id, unit]));
-    const newerByUnit = new Map<Id<"reviewUnits">, Doc<"reviewLogs">>();
-    const reviews = logs.slice(0, CARD_INFO_HISTORY_LIMIT).map((log) => {
-      const newer = newerByUnit.get(log.reviewUnitId);
-      newerByUnit.set(log.reviewUnitId, log);
-      const resultingDue = newer?.before.due ?? unitById.get(log.reviewUnitId)?.due ?? log.due;
-      return {
-        reviewLogId: log._id,
-        reviewUnitId: log.reviewUnitId,
-        review: log.review,
-        rating: log.rating,
-        state: log.state,
-        stateName: reviewStateName(log.state),
-        intervalMs: Math.max(0, resultingDue - log.review),
-        elapsedDays: log.elapsedDays,
-      };
-    });
-
-    return {
-      serverNow: now,
-      flashcard: {
-        id: flashcard._id,
-        deckId: flashcard.deckId,
-        deckName: deck?.name ?? "",
-        type: parsed.type,
-        front: displayed.front,
-        back: displayed.back,
-        tags: flashcard.tags,
-        archived: flashcard.archived,
-        locked: flashcard.locked,
-        version: flashcard.version,
-        createdAt: flashcard.createdAt,
-      },
-      units: unitViews,
-      reviews,
-      historyLimit: CARD_INFO_HISTORY_LIMIT,
-      historyTruncated: logs.length > CARD_INFO_HISTORY_LIMIT,
-    };
+    return cardDetails(ctx, library, flashcardId);
   },
 });
-
-export type RateResult =
-  | {
-      status: "ok";
-      reviewLogId: Id<"reviewLogs">;
-      reviewUnitId: Id<"reviewUnits">;
-      deckId: Id<"decks">;
-      version: number;
-    }
-  | { status: "stale"; message: string }
-  | { status: "ineligible"; message: string };
 
 export const rate = mutation({
   args: {
@@ -271,75 +155,15 @@ export const rate = mutation({
     const previous = await findRequest(ctx, library._id, args.requestId, "review.rate");
     if (previous) return previous.result as RateResult;
 
-    const now = Date.now();
-    const unit = await owned(ctx, library, args.reviewUnitId);
-    if (!unit) {
-      return { status: "stale", message: "This review unit no longer exists." };
-    }
-    if (unit.version !== args.expectedVersion) {
-      return {
-        status: "stale",
-        message: "This card changed since it was shown. Reload it to continue.",
-      };
-    }
-    const ineligible = await checkEligible(unit, library, now);
-    if (ineligible) return { status: "ineligible", message: ineligible };
-
-    const settings = new SettingsCache(ctx, library._id);
-    const deckSettings = await settings.forDeck(unit.deckId);
-    const scheduler = schedulerFor(deckSettings);
-    const { card: next, log } = scheduler.next(
-      toFsrsCard(fsrsFieldsFromMs(unit)),
-      new Date(now),
-      args.rating as Grade,
-    );
-    const version = unit.version + 1;
-    const fields = fsrsFieldsToMs(fromFsrsCard(next));
-    const concept = await advanceVariant(ctx, unit, now);
-    await ctx.db.patch(unit._id, {
-      ...fields,
-      ...concept?.display,
-      version,
-      updatedAt: now,
+    const result = await rateReviewUnit(ctx, library, {
+      reviewUnitId: args.reviewUnitId,
+      rating: args.rating as Grade,
+      expectedVersion: args.expectedVersion,
     });
-    const flashcard = await ctx.db.get(unit.flashcardId);
-    if (flashcard && !flashcard.prerequisiteAccessGranted) {
-      await ctx.db.patch(flashcard._id, { prerequisiteAccessGranted: true });
+    if (result.status === "ok") {
+      await bumpRevision(ctx, library._id);
+      await recordRequest(ctx, library._id, args.requestId, "review.rate", result, Date.now());
     }
-    if (flashcard && concept) await refillIfLow(ctx, flashcard, concept.pool, now);
-    const reviewLogId = await ctx.db.insert("reviewLogs", {
-      libraryId: library._id,
-      deckId: unit.deckId,
-      flashcardId: unit.flashcardId,
-      reviewUnitId: unit._id,
-      rating: log.rating,
-      state: log.state,
-      due: log.due.getTime(),
-      stability: log.stability,
-      difficulty: log.difficulty,
-      elapsedDays: log.elapsed_days,
-      lastElapsedDays: log.last_elapsed_days,
-      scheduledDays: log.scheduled_days,
-      learningSteps: log.learning_steps,
-      review: log.review.getTime(),
-      before: fsrsSnapshot(unit),
-      ...(concept?.beforeVariant ? { beforeVariant: concept.beforeVariant } : {}),
-      unitVersionAfter: version,
-    });
-    const floor = deckSettings.prereqStabilityFloor;
-    if (isPrereqSecured(unit, floor) !== isPrereqSecured(fields, floor)) {
-      await refreshAfterPrereqChange(ctx, unit.flashcardId, settings, now);
-    }
-    await bumpRevision(ctx, library._id);
-
-    const result: RateResult = {
-      status: "ok",
-      reviewLogId,
-      reviewUnitId: unit._id,
-      deckId: unit.deckId,
-      version,
-    };
-    await recordRequest(ctx, library._id, args.requestId, "review.rate", result, now);
     return result;
   },
 });

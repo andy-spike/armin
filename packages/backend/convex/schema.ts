@@ -234,6 +234,7 @@ export default defineSchema({
     name: v.string(),
     description: v.union(v.string(), v.null()),
     version: v.number(),
+    graphRevision: v.optional(v.number()),
     staging: v.optional(v.boolean()),
     pinnedAt: v.optional(v.number()),
     createdAt: v.number(),

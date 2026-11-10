@@ -1,26 +1,16 @@
 import { v } from "convex/values";
+import { reviewStreaks, studyDaySeries, studyDayWindowStarts } from "@armin/core/stats";
+import { query } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
+import { readableDeck, readableLibrary } from "./model/access";
 import {
-  bucketForecast,
-  bucketStudyDayCounts,
-  reviewStreaks,
-  STATS_FORECAST_DAYS,
-  STATS_HEATMAP_WEEKS,
-  STATS_RECENT_DAYS,
-  studyDayForwardStarts,
-  studyDaySeries,
-  studyDayStarts,
-  studyDayWindowStarts,
-  summarizeReviewUnitStates,
-  type ReviewUnitStateCounts,
-} from "@armin/core/stats";
-import { statsGeneration } from "./model/performance";
-import { query, type QueryCtx } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
-import { activeDeckIds, readableDeck, readableLibrary } from "./model/access";
-import { MAX_REVIEW_UNITS_PER_DECK } from "./model/limits";
-import { sumSizes } from "./model/deckSizes";
-import { State } from "@armin/core/scheduler";
-import { startOfNextStudyDayMs } from "@armin/core/study";
+  activityDays,
+  clampHeatmapWeeks,
+  heatmapDayCount,
+  overviewSnapshot,
+  readActivity,
+} from "./model/overview";
 
 async function resolveDeckScope(
   ctx: QueryCtx,
@@ -32,110 +22,6 @@ async function resolveDeckScope(
   return deck ? { ok: true as const, deckId: deck._id } : { ok: false as const };
 }
 
-async function readActivity(
-  ctx: QueryCtx,
-  library: Doc<"libraries">,
-  deckId: Id<"decks"> | null,
-  since: number,
-) {
-  return ctx.db
-    .query("dailyActivity")
-    .withIndex("by_scope_day", (q) =>
-      q
-        .eq("libraryId", library._id)
-        .eq("scope", deckId ?? "")
-        .eq("generation", statsGeneration(library))
-        .gte("day", since),
-    )
-    .take(370);
-}
-
-function activityDays(rows: Doc<"dailyActivity">[], starts: number[], timeZone: string) {
-  const days = bucketStudyDayCounts([], starts, timeZone);
-  const byDay = new Map(rows.map((row) => [row.day, row.count]));
-  return days.map((day, index) => ({ ...day, count: byDay.get(starts[index]) ?? 0 }));
-}
-
-function clampHeatmapWeeks(weeks: number | undefined) {
-  if (weeks === undefined || !Number.isFinite(weeks)) return STATS_HEATMAP_WEEKS;
-  return Math.min(STATS_HEATMAP_WEEKS, Math.max(1, Math.floor(weeks)));
-}
-
-function heatmapDayCount(weeks: number) {
-  return (weeks - 1) * 7 + 1;
-}
-
-const FORECAST_ROWS_PER_STATE = 8000;
-
-async function forecastDues(
-  ctx: QueryCtx,
-  library: Doc<"libraries">,
-  deckId: Id<"decks"> | null,
-  decks: Set<Id<"decks">>,
-  end: number,
-) {
-  const dues: number[] = [];
-  let truncated = false;
-  for (const state of [State.Learning, State.Review, State.Relearning]) {
-    const rows = deckId
-      ? await ctx.db
-          .query("unitSummaries")
-          .withIndex("by_deck_state_due", (q) =>
-            q
-              .eq("deckId", deckId)
-              .eq("locked", false)
-              .eq("archived", false)
-              .eq("state", state)
-              .lt("due", end),
-          )
-          .take(FORECAST_ROWS_PER_STATE)
-      : await ctx.db
-          .query("unitSummaries")
-          .withIndex("by_library_state_due", (q) =>
-            q
-              .eq("libraryId", library._id)
-              .eq("locked", false)
-              .eq("archived", false)
-              .eq("state", state)
-              .lt("due", end),
-          )
-          .take(FORECAST_ROWS_PER_STATE);
-    if (rows.length === FORECAST_ROWS_PER_STATE) truncated = true;
-    for (const row of rows) if (decks.has(row.deckId)) dues.push(row.due);
-  }
-  return { dues, truncated };
-}
-
-async function stateTotals(ctx: QueryCtx, library: Doc<"libraries">, decks: Set<Id<"decks">>) {
-  const rows = await ctx.db
-    .query("deckUnitCounts")
-    .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-    .collect();
-  const counted = rows.filter((row) => decks.has(row.deckId));
-  const sizes = sumSizes(counted);
-  const totals: ReviewUnitStateCounts = {
-    newCount: sizes.newCount,
-    learningCount: sizes.learningCount,
-    reviewCount: sizes.reviewCount,
-    relearningCount: sizes.relearningCount,
-    lockedCount: sizes.lockedCount,
-    archivedCount: sizes.archivedCount,
-    total: sizes.total,
-  };
-  const have = new Set(counted.map((row) => row.deckId));
-  for (const deckId of decks) {
-    if (have.has(deckId)) continue;
-    const units = await ctx.db
-      .query("unitSummaries")
-      .withIndex("by_deck", (q) => q.eq("deckId", deckId))
-      .take(MAX_REVIEW_UNITS_PER_DECK);
-    const deck = summarizeReviewUnitStates(units);
-    for (const key of Object.keys(totals) as (keyof ReviewUnitStateCounts)[])
-      totals[key] += deck[key];
-  }
-  return totals;
-}
-
 export const overview = query({
   args: { deckId: v.optional(v.string()), now: v.number() },
   handler: async (ctx, { deckId: deckIdArg, now }) => {
@@ -143,36 +29,7 @@ export const overview = query({
     if (!library) return null;
     const scope = await resolveDeckScope(ctx, library, deckIdArg);
     if (!scope.ok) return null;
-
-    const timeZone = library.timeZone;
-    const heatmapStarts = studyDayWindowStarts(now, timeZone, heatmapDayCount(STATS_HEATMAP_WEEKS));
-    const dailyStarts = studyDayStarts(now, timeZone, STATS_RECENT_DAYS);
-    const decks = scope.deckId ? new Set([scope.deckId]) : await activeDeckIds(ctx, library._id);
-    const rows = await readActivity(ctx, library, scope.deckId, heatmapStarts[0]);
-    const heatmapDays = activityDays(rows, heatmapStarts, timeZone);
-    const dailyDays = activityDays(rows, dailyStarts, timeZone);
-    const forecasts = studyDayForwardStarts(now, timeZone, STATS_FORECAST_DAYS);
-    const forecast = await forecastDues(
-      ctx,
-      library,
-      scope.deckId,
-      decks,
-      startOfNextStudyDayMs(forecasts[forecasts.length - 1], timeZone),
-    );
-    const recent = rows.filter((row) => row.day >= dailyStarts[0]);
-    const reviews = recent.reduce((sum, row) => sum + row.reviews, 0);
-    const retained = recent.reduce((sum, row) => sum + row.retained, 0);
-    return {
-      timeZone,
-      heatmap: studyDaySeries(heatmapDays),
-      daily: studyDaySeries(dailyDays),
-      forecast: studyDaySeries(bucketForecast(forecast.dues, forecasts, timeZone)),
-      retention: { reviews, retained, ratio: reviews === 0 ? null : retained / reviews },
-      states: await stateTotals(ctx, library, decks),
-      streak: reviewStreaks(heatmapDays),
-      truncated: forecast.truncated,
-      pending: library.statsReady !== true,
-    };
+    return overviewSnapshot(ctx, library, scope.deckId, now);
   },
 });
 

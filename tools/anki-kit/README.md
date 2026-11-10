@@ -54,7 +54,7 @@ skip reason.
 
 ## Next step
 
-Return to the Armin MCP session and follow `get_anki_import_guide`. Start an
+Return to the Armin MCP session and follow `get_guide` with topic `anki_import`. Start an
 import with this plan's deck and card keys, upload each `media/` file through the
 one-time upload URL, add batches, show the final preview, and finalize only after
 the user approves it.

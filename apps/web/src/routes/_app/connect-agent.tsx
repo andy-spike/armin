@@ -161,7 +161,7 @@ function Consent({ requestId }: { requestId: string }) {
         </div>
       </section>
 
-      <AgentAccess className="mt-6" />
+      <AgentAccess scopes={request.scopes} className="mt-6" />
 
       {failure && (
         <p

@@ -8,6 +8,7 @@ export const PLAN_LIMITS = {
     mediaBytes: 1024 * 1024 * 1024,
     agentCardsPerMonth: 300,
     agentWritesPerHour: 60,
+    agentReadsPerHour: 2000,
     conceptVariantsPerMonth: 0,
   },
   pro: {
@@ -17,6 +18,7 @@ export const PLAN_LIMITS = {
     mediaBytes: 5 * 1024 * 1024 * 1024,
     agentCardsPerMonth: 10_000,
     agentWritesPerHour: 600,
+    agentReadsPerHour: 6000,
     conceptVariantsPerMonth: 2000,
   },
 } satisfies Record<PlanId, Record<string, number>>;

@@ -41,6 +41,7 @@ minimumReleaseAgeExclude:
   - vite-plus@1.4.0
 
 patchedDependencies:
+  "@convex-dev/mcp@0.1.0-alpha.7": patches/@convex-dev__mcp@0.1.0-alpha.7.patch
   "@tanstack/start-server-core": patches/@tanstack__start-server-core.patch
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.4.0

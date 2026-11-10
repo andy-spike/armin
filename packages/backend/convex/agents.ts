@@ -8,23 +8,34 @@ import {
   activeComponentGrant,
   agentSiteUrl,
   agentUser,
+  AGENT_SCOPES,
   DAY,
   hashSecret,
+  isAgentScope,
   MAX_CONNECTIONS,
   newSecret,
 } from "./model/agentAuth";
 import { fail } from "./model/errors";
+import { countRead } from "./model/agentWrites";
 
 const CODE_TTL_MS = 60_000;
 
-function connectionView(row: Doc<"agentConnections">, live: Set<string>) {
-  const usable = row.componentConnectionId !== undefined && live.has(row.componentConnectionId);
+function connectionView(
+  row: Doc<"agentConnections">,
+  grants: Map<string, { lastUsedAt?: number; scopes: string[] }>,
+) {
+  const id = row.componentConnectionId;
+  const grant = id === undefined ? undefined : grants.get(id);
+  const usable = grant !== undefined;
+  const scopes = grant?.scopes ?? [];
   return {
     _id: row._id,
     name: row.name,
     createdAt: row.createdAt,
-    lastUsedAt: row.lastUsedAt,
+    lastUsedAt: id === undefined ? undefined : grant?.lastUsedAt,
     revokedAt: row.revokedAt ?? (usable ? undefined : (row.lastUsedAt ?? row.createdAt)),
+    scopes,
+    needsReconnect: usable && !scopes.some(isAgentScope),
   };
 }
 
@@ -36,13 +47,13 @@ export const connections = query({
     const grants = await ctx.runQuery(components.mcp.grants.list, {
       userId: library.ownerId,
     });
-    const live = new Set(grants.map((grant) => grant._id));
+    const byId = new Map(grants.map((grant) => [grant._id, grant]));
     const recent = await ctx.db
       .query("agentConnections")
       .withIndex("by_library", (q) => q.eq("libraryId", library._id))
       .order("desc")
       .take(50);
-    const views = recent.map((row) => connectionView(row, live));
+    const views = recent.map((row) => connectionView(row, byId));
     const linked = new Set(
       recent.map((row) => row.componentConnectionId).filter((id): id is string => id !== undefined),
     );
@@ -54,6 +65,8 @@ export const connections = query({
         createdAt: grant._creationTime,
         lastUsedAt: grant.lastUsedAt,
         revokedAt: undefined,
+        scopes: grant.scopes,
+        needsReconnect: !grant.scopes.some(isAgentScope),
       }));
     const activity = await ctx.db
       .query("agentActivity")
@@ -86,6 +99,10 @@ export const authorization = query({
     return {
       clientName: request.clientName?.trim() || "AI assistant",
       redirectOrigin: new URL(request.redirectUri).origin,
+      scopes: request.scopes.map((name) => ({
+        name,
+        description: isAgentScope(name) ? AGENT_SCOPES[name] : name,
+      })),
     };
   },
 });
@@ -157,8 +174,8 @@ export const decide = internalMutation({
 });
 
 export const touchConnection = internalMutation({
-  args: { user: agentUser },
-  handler: async (ctx, { user }) => {
+  args: { user: agentUser, read: v.boolean() },
+  handler: async (ctx, { user, read }) => {
     const grant = await activeComponentGrant(ctx, user);
     const library = await ctx.db
       .query("libraries")
@@ -188,20 +205,19 @@ export const touchConnection = internalMutation({
           "QUOTA",
           "Disconnect an assistant before adding another. Up to 20 connections are supported.",
         );
-      await ctx.db.insert("agentConnections", {
+      const connectionId = await ctx.db.insert("agentConnections", {
         libraryId: library._id,
         componentConnectionId: user.connectionId,
         name: grant.name,
         resource: grant.resource,
         createdAt: now,
-        lastUsedAt: now,
       });
+      if (read) await countRead(ctx, { _id: connectionId, libraryId: library._id });
       return null;
     }
     if (existing.revokedAt || existing.libraryId !== library._id)
       fail("UNAUTHENTICATED", "Reconnect your assistant in Armin.");
-    if (!existing.lastUsedAt || existing.lastUsedAt < now - 60_000)
-      await ctx.db.patch(existing._id, { lastUsedAt: now });
+    if (read) await countRead(ctx, existing);
     return null;
   },
 });
