@@ -62,7 +62,16 @@ const card = z
   .strict();
 
 export const agentToolSchemas = {
-  list_decks: z.object({}).strict(),
+  list_decks: z
+    .object({
+      cursor: z
+        .string()
+        .max(8192)
+        .nullable()
+        .optional()
+        .describe("nextCursor from the previous list_decks call; omit for the first page."),
+    })
+    .strict(),
   search_cards: z
     .object({
       query: z
@@ -301,7 +310,9 @@ const cardContent = v.union(
 );
 
 export const agentToolArgs = {
-  list_decks: {},
+  list_decks: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+  },
   search_cards: {
     query: v.string(),
     deckId: v.optional(v.string()),
@@ -405,7 +416,7 @@ export const agentToolTitles: Record<AgentToolName, string> = {
 
 export const agentToolDescriptions: Record<AgentToolName, string> = {
   list_decks:
-    "List the user's decks with versions, active card counts, and cards due now. Start here to find a deck ID before reading or editing.",
+    "List the user's decks with versions, active card counts, and cards due now, 200 per page. Start here to find a deck ID before reading or editing, and follow nextCursor until null.",
   search_cards:
     "Find the user's cards by text across the library or one deck, with IDs and versions. Use it to locate a card the user mentions before update_card, set_card_archived, or move_card. Searches front, back, tags, and typed answers, and returns at most 100 matches (default 20).",
   read_deck:
@@ -482,6 +493,7 @@ const stateCounts = v.object({
 export const agentToolReturns = {
   list_decks: v.object({
     decks: v.array(deckListing),
+    nextCursor: v.union(v.string(), v.null()),
     retryWindowDays: v.number(),
   }),
   search_cards: v.object({

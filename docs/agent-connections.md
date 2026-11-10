@@ -131,7 +131,7 @@ directories require.
 
 | Tool                 | Behavior                                                                                                                                                                      |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `list_decks`         | List decks with versions, active card counts, and cards due now.                                                                                                              |
+| `list_decks`         | List decks, 200 per page, with versions, active card counts, and cards due now.                                                                                               |
 | `search_cards`       | Find cards by text, deck, or tag, with IDs, versions, and deck links; 100 matches maximum.                                                                                    |
 | `read_deck`          | Read cards in pages of 20 with full content, or 100 previews with `format: "summary"`, plus the deck's prerequisite links and graph revision.                                 |
 | `get_study_overview` | Summarize due now, scheduled reviews due today, new cards available, streak, 30-day retention, and the five weakest decks by recent retention; optionally scoped to one deck. |

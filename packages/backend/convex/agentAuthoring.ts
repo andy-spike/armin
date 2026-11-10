@@ -188,41 +188,51 @@ export const read = internalQuery({
     if (scope !== required) fail("INVALID", "This tool's permission check does not match.");
     const { connection, library } = await agentAccess(ctx, user, required);
     if (tool === "list_decks") {
-      parseAgentInput(agentToolSchemas.list_decks, input);
+      const args = parseAgentInput(agentToolSchemas.list_decks, input);
       const now = Date.now();
-      const decks = await ctx.db
+      const page = await ctx.db
         .query("decks")
         .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-        .take(MAX_DECKS);
-      const counters = await ctx.db
-        .query("deckCounters")
-        .withIndex("by_library", (q) => q.eq("libraryId", library._id))
-        .take(MAX_DECKS);
+        .paginate({ cursor: args.cursor ?? null, numItems: MAX_DECKS });
+      const decks = page.page.filter((deck) => !deck.staging);
+      const counters = await Promise.all(
+        decks.map((deck) =>
+          ctx.db
+            .query("deckCounters")
+            .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
+            .unique(),
+        ),
+      );
       const due = (await dueCounts(ctx, library, now)).perDeck;
-      const byDeck = new Map(counters.map((row) => [row.deckId, row]));
-      const items = decks
-        .filter((deck) => !deck.staging)
-        .map((deck) => ({
-          id: deck._id,
-          name: deck.name,
-          description: deck.description,
-          version: deck.version,
-          cardCount: byDeck.get(deck._id)?.active ?? 0,
-          dueCount: due[deck._id] ?? 0,
-          url: deckUrl(deck._id),
-        }));
+      const items = decks.map((deck, index) => ({
+        id: deck._id,
+        name: deck.name,
+        description: deck.description,
+        version: deck.version,
+        cardCount: counters[index]?.active ?? 0,
+        dueCount: due[deck._id] ?? 0,
+        url: deckUrl(deck._id),
+      }));
+      const nextCursor = page.isDone ? null : page.continueCursor;
+      const cursorLine = nextCursor
+        ? `nextCursor: ${nextCursor}`
+        : "nextCursor: null (end of list)";
       const header = items.length
-        ? `${plural(items.length, "deck", "decks")}${decks.length === MAX_DECKS ? " (first 200)" : ""}:`
-        : "No decks yet. save_cards with deck mode new creates one.";
+        ? `${plural(items.length, "deck", "decks")}:`
+        : nextCursor
+          ? "No decks on this page."
+          : "No decks yet. save_cards with deck mode new creates one.";
       return {
-        value: { decks: items, retryWindowDays: 7 },
+        value: { decks: items, nextCursor, retryWindowDays: 7 },
         text: items.length
-          ? listedText(
+          ? `${listedText(
               header,
               items.map(deckLine),
               "The full list is in structuredContent; ask about a deck by name.",
-            )
-          : header,
+            )}\n${cursorLine}`
+          : nextCursor
+            ? `${header}\n${cursorLine}`
+            : header,
         links: items
           .slice(0, 5)
           .map((deck) => ({ uri: deck.url, name: deck.name, description: "Open in Armin" })),
