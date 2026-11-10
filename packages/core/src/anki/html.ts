@@ -223,6 +223,14 @@ export type HtmlOptions = {
   plain?: boolean;
   /** Keep SVG images; the caller converts them to PNG before upload. */
   svg?: boolean;
+  /**
+   * HTML rendered from a custom notetype's templates. Template chrome (shared
+   * `_` assets, hint buttons, hidden UI, tag containers) is removed instead of
+   * turned into card text.
+   */
+  template?: boolean;
+  /** The note's field HTML, so hidden UI without field content can be told apart. */
+  fieldValues?: readonly string[];
 };
 
 const SOUND_RE = /\[sound:([^\]]*)\]/g;
@@ -266,6 +274,151 @@ function textOf(nodes: HtmlNode[]): string {
   return nodes
     .map((node) => ("text" in node ? decodeEntities(node.text) : textOf(node.children)))
     .join("");
+}
+
+/** Anki treats media files starting with `_` as shared template assets, not note content. */
+function isTemplateAsset(rawSrc: string) {
+  const name = packageFile(rawSrc)?.name.split(/[\\/]/).pop() ?? "";
+  return name.startsWith("_");
+}
+
+function inlineHidden(el: HtmlElement) {
+  return /(?:^|;)\s*display\s*:\s*none\b/i.test(el.attrs.style ?? "");
+}
+
+function unhide(el: HtmlElement) {
+  const attrs = { ...el.attrs };
+  const style = (attrs.style ?? "")
+    .replace(/(?:^|;)\s*display\s*:\s*none\b[^;]*/gi, "")
+    .replace(/^\s*;\s*/, "")
+    .trim();
+  if (style) attrs.style = style;
+  else delete attrs.style;
+  return { ...el, attrs };
+}
+
+function isChromeAnchor(el: HtmlElement) {
+  const href = (el.attrs.href ?? "").trim().toLowerCase();
+  return (
+    href === "" ||
+    href.startsWith("#") ||
+    href.startsWith("javascript:") ||
+    el.attrs.onclick !== undefined
+  );
+}
+
+function imageSources(nodes: HtmlNode[], out: string[] = []) {
+  for (const node of nodes) {
+    if (!("tag" in node)) continue;
+    if (node.tag === "img" && node.attrs.src) out.push(node.attrs.src.trim());
+    imageSources(node.children, out);
+  }
+  return out;
+}
+
+/** A note's fields as whitespace-free text and image sources, parsed once per conversion. */
+type FieldContent = { text: string; sources: string[] };
+
+function fieldContents(fields: readonly string[]): FieldContent[] {
+  return fields.filter(Boolean).map((field) => {
+    const children = parseHtml(field).children;
+    return { text: textOf(children).replace(/\s+/g, ""), sources: imageSources(children) };
+  });
+}
+
+/** Does a hidden part of a template still carry one of the note's fields? */
+function containsFieldContent(el: HtmlElement, fields: readonly FieldContent[]) {
+  const text = textOf(el.children).replace(/\s+/g, "");
+  const sources = imageSources(el.children);
+  return fields.some(
+    (field) =>
+      (text && field.text && text.includes(field.text)) ||
+      field.sources.some((src) => sources.includes(src)),
+  );
+}
+
+/** A hint/collapsible block: a label button paired with inline-hidden content. */
+function hintBlock(el: HtmlElement) {
+  const button = el.children.find(
+    (child): child is HtmlElement => "tag" in child && child.tag === "button",
+  );
+  const hintAnchor = el.children.find(
+    (child): child is HtmlElement =>
+      "tag" in child && child.tag === "a" && /(?:^|\s)hint(?:\s|$)/.test(child.attrs.class ?? ""),
+  );
+  const hidden = el.children.filter(
+    (child): child is HtmlElement => "tag" in child && inlineHidden(child),
+  );
+  if (hidden.length === 0 || (!button && !hintAnchor)) return null;
+  const label = [
+    button ? textOf(button.children) : "",
+    el.attrs["data-name"],
+    button?.attrs["aria-label"],
+    button?.attrs.title,
+    hintAnchor?.attrs["aria-label"],
+  ]
+    .map((text) => text?.replace(/\s+/g, " ").trim())
+    .find(Boolean);
+  return { label: label ?? "", hidden };
+}
+
+/** Whether content survives template cleanup (text, kept images, or media). */
+function hasVisibleContent(nodes: HtmlNode[]) {
+  for (const node of nodes) {
+    if ("text" in node) {
+      if (decodeEntities(node.text).trim()) return true;
+      continue;
+    }
+    if (node.tag === "img") {
+      if (node.attrs.src && !isTemplateAsset(node.attrs.src)) return true;
+      continue;
+    }
+    if (node.tag === "audio" || node.tag === "video" || node.tag === AUDIO_TAG) return true;
+    if (hasVisibleContent(node.children)) return true;
+  }
+  return false;
+}
+
+/**
+ * Remove template chrome before Markdown rendering: buttons, script-link
+ * anchors, hidden UI, and the chrome around hint blocks. Tags stay separate
+ * metadata, and hidden content that carries a note field is kept.
+ */
+function cleanTemplateNodes(nodes: HtmlNode[], fields: readonly FieldContent[]): HtmlNode[] {
+  const out: HtmlNode[] = [];
+  for (const node of nodes) {
+    if ("text" in node) {
+      out.push(node);
+      continue;
+    }
+    if (node.tag === "button") continue;
+    if (node.tag === "a" && isChromeAnchor(node)) {
+      // A script link is UI, but a field wrapped in one is still note content.
+      if (containsFieldContent(node, fields))
+        out.push(...cleanTemplateNodes(node.children, fields));
+      continue;
+    }
+    const hint = hintBlock(node);
+    if (hint) {
+      const contents = hint.hidden
+        .map((hidden) =>
+          unhide({ ...hidden, children: cleanTemplateNodes(hidden.children, fields) }),
+        )
+        .filter((hidden) => hasVisibleContent(hidden.children));
+      if (contents.length === 0) continue;
+      if (hint.label) out.push({ tag: "h3", attrs: {}, children: [{ text: hint.label }] });
+      out.push(...contents);
+      continue;
+    }
+    const el = { ...node, children: cleanTemplateNodes(node.children, fields) };
+    if (inlineHidden(el)) {
+      if (!containsFieldContent(el, fields)) continue;
+      out.push(unhide(el));
+      continue;
+    }
+    out.push(el);
+  }
+  return out;
 }
 
 function fileExtension(name: string) {
@@ -413,6 +566,8 @@ function highlighted(el: HtmlElement) {
 
 /** Resolve an `<img src>` to a placeholder reference, or null when it can't be kept. */
 function imagePlaceholder(rawSrc: string, state: RenderState) {
+  // Shared template assets are never note content, so they are not a loss.
+  if (state.options.template && isTemplateAsset(rawSrc)) return null;
   const image = inspectImage(rawSrc, state.options.mediaNames, state.options.svg);
   if (!image.ok) {
     state.options.warn(image.reason);
@@ -804,7 +959,10 @@ export function htmlToMarkdown(html: string, options: HtmlOptions): HtmlConversi
     .join("");
 
   const tree = parseHtml(source);
-  const markdown = tidy(renderBlocks(tree.children, state).join("\n\n")).replace(
+  const nodes = options.template
+    ? cleanTemplateNodes(tree.children, fieldContents(options.fieldValues ?? []))
+    : tree.children;
+  const markdown = tidy(renderBlocks(nodes, state).join("\n\n")).replace(
     new RegExp(`${marker}(\\d+)\uE001`, "g"),
     (_, index: string) => math[Number(index)]!,
   );

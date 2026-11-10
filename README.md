@@ -99,7 +99,8 @@ routes.
 **Recommended: import with an AI assistant.** A connected assistant receives
 the Anki file, downloads Armin's versioned converter kit, and runs it in its own
 sandbox. The kit uses the same deterministic converter and file reader as the
-browser, extracts supported images, and reports warnings and unresolved notes.
+browser, extracts supported images (SVG is rendered to PNG), and reports
+warnings and unresolved notes.
 The assistant stages the result, shows a final preview, and saves only after you
 approve it. Large or image-heavy decks benefit most: unsupported cards can be
 repaired on request, or explicitly skipped with a reason. MCP imports always
@@ -111,14 +112,27 @@ clients without those capabilities should use browser import.
 decks (`.apkg`), whole collections (`.colpkg`, from Anki 2.1 through current
 releases), and plain-text exports (`.txt`, `.csv`, `.tsv`). Each Anki deck
 becomes an Armin deck; Basic, reversed, typed-answer, Cloze, and Image Occlusion
-notes map to the matching Armin card types. Other note types are rendered from
+notes map to the matching Armin card types. Notes from the older Image
+Occlusion Enhanced add-on become one image occlusion card per image, a mask per
+note, each keeping its own review progress. Other note types are rendered from
 their templates, or the preview lets you choose which fields go on each side.
+Template chrome (shared `_` assets, hint buttons, tag containers) stays out;
+typing templates become typed-answer cards, and mirrored two-template types
+become one Basic and reversed card. Other occlusion formats, such as AnKing's
+"IO-one by one", are left out and listed.
 Images (SVG is converted to PNG), audio, superscript, subscript, highlights,
 flags (as `flag::<color>` tags), and deck options (desired retention, steps,
 maximum interval, FSRS parameters) come along, and optionally review progress,
-including buried cards and Anki's new-card order. Video, text-to-speech, card
-styling, and per-deck daily limits don't. The file is read in the browser and
-the preview lists anything left out before importing. See
+including buried cards and Anki's new-card order. A deck over Armin's per-deck
+cap imports as consecutive numbered decks such as `AnKing (1 of 4)`, keeping
+each note's cards together. If the whole selection doesn't fit the library,
+the preview can import the first cards that fit: reviewed cards by due date,
+then new cards in Anki's order. The newest 300,000 past reviews come along;
+older ones are left out while every card keeps its Anki schedule. Tags up to
+200 characters and 100 per card are kept whole, including hierarchical tag
+paths. Video, text-to-speech, card styling, and per-deck daily limits don't.
+The file is read in the browser and the preview lists anything left out before
+importing. See
 [ADR 0022](packages/core/docs/adr/0022-anki-import-runs-in-the-browser.md) and
 [AI assistant Anki import](docs/agent-connections.md#anki-import).
 

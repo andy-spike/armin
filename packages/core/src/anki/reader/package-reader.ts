@@ -26,6 +26,7 @@ import type {
 } from "../types";
 import type { Database, SqlJsStatic } from "sql.js";
 import { decompress as zstdDecompress } from "fzstd";
+import { occlusionMaskNames } from "../occlusion-enhanced";
 import { AnkiImportError } from "./errors";
 import { protoFloats, protoString, readProtoFields } from "./protobuf";
 import { readZipDirectory, readZipEntry, type ByteSource, type ZipEntry } from "./zip";
@@ -81,15 +82,44 @@ export async function openAnkiPackage(
   }
   collection.mediaNames = [...mediaEntries.keys()];
 
-  return {
-    collection,
-    async readMedia(name) {
-      const entry = mediaEntries.get(name);
-      if (!entry) return null;
-      const bytes = await readZipEntry(source, entry);
-      return compressedMedia ? decompressZstd(bytes) : bytes;
-    },
+  const readMedia = async (name: string) => {
+    const entry = mediaEntries.get(name);
+    if (!entry) return null;
+    const bytes = await readZipEntry(source, entry);
+    return compressedMedia ? decompressZstd(bytes) : bytes;
   };
+  collection.occlusionMasks = await readOcclusionMasks(collection, mediaEntries, readMedia);
+
+  return { collection, readMedia };
+}
+
+/** Mask files are a few kilobytes; these bounds only stop a hostile package. */
+const MAX_MASK_BYTES = 1024 * 1024;
+const MAX_MASKS_TOTAL_BYTES = 64 * 1024 * 1024;
+
+/** Text of the Image Occlusion Enhanced mask SVGs the notes refer to. */
+async function readOcclusionMasks(
+  collection: AnkiCollection,
+  mediaEntries: Map<string, ZipEntry>,
+  readMedia: (name: string) => Promise<Uint8Array | null>,
+) {
+  const masks: Record<string, string> = {};
+  let total = 0;
+  const decoder = new TextDecoder();
+  for (const name of occlusionMaskNames(collection.notes)) {
+    const entry = mediaEntries.get(name);
+    if (!entry || entry.size > MAX_MASK_BYTES) continue;
+    try {
+      const bytes = await readMedia(name);
+      if (!bytes || bytes.length > MAX_MASK_BYTES || total + bytes.length > MAX_MASKS_TOTAL_BYTES)
+        continue;
+      total += bytes.length;
+      masks[name] = decoder.decode(bytes);
+    } catch {
+      // An unreadable mask leaves its occlusion out with a reason, like a missing one.
+    }
+  }
+  return masks;
 }
 
 function pickCollection(entries: Map<string, ZipEntry>) {

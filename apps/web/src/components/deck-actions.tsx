@@ -149,7 +149,7 @@ export function useDeckActions({ onDeleted }: { onDeleted?: (deck: UiDeck) => vo
         title="Delete deck?"
         description={
           deletingDeck
-            ? `“${deletingDeck.name}” and all ${deletingDeck.total} flashcards in it will be permanently removed.`
+            ? `“${deletingDeck.name}” and all ${deletingDeck.total.toLocaleString()} flashcards in it will be permanently removed.`
             : undefined
         }
       >

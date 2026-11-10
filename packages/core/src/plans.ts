@@ -2,7 +2,8 @@
  * Account plans and their limits. The backend enforces these; the web pricing
  * page shows them. Pro's library limits are the technical bounds in
  * `packages/backend/convex/model/limits.ts`, advertised as fair-use
- * "unlimited". Every deck holds at most 10,000 cards on any plan.
+ * "unlimited". The per-deck caps live here because the converter and the
+ * server share them.
  */
 export type PlanId = "free" | "pro";
 
@@ -34,6 +35,8 @@ export const PLAN_PRICES = {
 };
 
 export const MAX_FLASHCARDS_PER_DECK = 10_000;
+/** Deck-wide graph, lock, and cram work must fit one transaction. */
+export const MAX_REVIEW_UNITS_PER_DECK = 15_000;
 
 /**
  * The upload response when a file doesn't fit the library's image and audio

@@ -163,3 +163,20 @@ export function contentMediaFileNames(type: FlashcardType, content: FlashcardCon
 }
 
 export { isMediaRef };
+
+/**
+ * The PNG size an imported SVG is drawn at, in the browser and in the converter
+ * kit alike: its intrinsic size (512 px square when it has none), with the
+ * longest side capped at 2048 px.
+ */
+export function svgRasterSize(intrinsicWidth: number, intrinsicHeight: number) {
+  const sourceWidth = intrinsicWidth > 0 && intrinsicHeight > 0 ? intrinsicWidth : 512;
+  const sourceHeight = intrinsicWidth > 0 && intrinsicHeight > 0 ? intrinsicHeight : 512;
+  const scale = Math.min(1, 2048 / Math.max(sourceWidth, sourceHeight));
+  return {
+    sourceWidth,
+    sourceHeight,
+    width: Math.max(1, Math.round(sourceWidth * scale)),
+    height: Math.max(1, Math.round(sourceHeight * scale)),
+  };
+}

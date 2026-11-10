@@ -1,4 +1,6 @@
-import { hasOcclusionMarkers } from "./occlusion";
+import { hasClosetOcclusions, hasOcclusionMarkers } from "./occlusion";
+import { ioeFields, type IoeFields } from "./occlusion-enhanced";
+import { templateRefs } from "./template";
 import type { AnkiCollection, AnkiNote, AnkiNotetype } from "./types";
 
 /**
@@ -19,8 +21,15 @@ export type NotetypeKind =
       image: number;
       header: number | null;
       extra: number | null;
+      /** Further fields with content (such as Comments), added to the extra. */
+      others: number[];
     }
-  | { kind: "custom" };
+  /** Image Occlusion Enhanced: one note per mask, grouped into one card per image. */
+  | ({ kind: "image_occlusion_enhanced" } & IoeFields)
+  /** An occlusion format Armin can't convert faithfully; its notes are left out. */
+  | { kind: "unsupported_occlusion" }
+  /** `mirrored`: two templates that ask for each other's field (study both ways). */
+  | { kind: "custom"; mirrored?: boolean };
 
 /** Replace field references with `f<i>` so the template shape is name-independent. */
 function shape(fmt: string, fieldNames: string[]) {
@@ -115,12 +124,15 @@ function clozeKind(notetype: AnkiNotetype, notes: AnkiNote[]): NotetypeKind {
     const occlusionIndex = occlusion !== -1 ? occlusion : (byName(notetype, /occlusion/i) ?? 0);
     const imageIndex = byName(notetype, /^image$/i) ?? (occlusionIndex === 0 ? 1 : 0);
     const rest = names.map((_, i) => i).filter((i) => i !== occlusionIndex && i !== imageIndex);
+    const header = byName(notetype, /^header$/i) ?? rest[0] ?? null;
+    const extra = byName(notetype, /^back extra$/i) ?? rest.find((i) => i !== header) ?? null;
     return {
       kind: "image_occlusion",
       occlusion: occlusionIndex,
       image: imageIndex,
-      header: byName(notetype, /^header$/i) ?? rest[0] ?? null,
-      extra: byName(notetype, /^back extra$/i) ?? rest[1] ?? null,
+      header,
+      extra,
+      others: rest.filter((i) => i !== header && i !== extra),
     };
   }
   // The text field is the one the template wraps in `{{cloze:…}}`.
@@ -133,8 +145,58 @@ function clozeKind(notetype: AnkiNotetype, notes: AnkiNote[]): NotetypeKind {
   return { kind: "cloze", text: textIndex, extra };
 }
 
+/**
+ * Two templates that mirror each other: each front asks for its own fields, and
+ * each back shows both fronts plus the same shared fields (JLPT N5 style).
+ */
+function mirroredTemplates(notetype: AnkiNotetype) {
+  if (notetype.templates.length !== 2) return false;
+  const names = new Set(notetype.fields.map((field) => field.name));
+  const side = (source: string, front?: Set<string>) => {
+    const refs = templateRefs(source);
+    const fields = new Set([...refs.fields].filter((name) => names.has(name)));
+    if (front && refs.frontSide) for (const name of front) fields.add(name);
+    return fields;
+  };
+  const [forward, reverse] = notetype.templates;
+  const frontForward = side(forward.qfmt);
+  const frontReverse = side(reverse.qfmt);
+  if (frontForward.size === 0 || frontReverse.size === 0) return false;
+  if ([...frontForward].some((name) => frontReverse.has(name))) return false;
+  const backForward = side(forward.afmt, frontForward);
+  const backReverse = side(reverse.afmt, frontReverse);
+  const fronts = [...frontForward, ...frontReverse];
+  if (!fronts.every((name) => backForward.has(name) && backReverse.has(name))) return false;
+  const shared = (fields: Set<string>) =>
+    [...fields]
+      .filter((name) => !frontForward.has(name) && !frontReverse.has(name))
+      .sort()
+      .join("\n");
+  return shared(backForward) === shared(backReverse);
+}
+
+/** Classification depends only on the notetype and its notes, so a preview reuses it. */
+const classified = new WeakMap<AnkiNotetype, NotetypeKind>();
+
 export function classifyNotetype(notetype: AnkiNotetype, notes: AnkiNote[]): NotetypeKind {
+  let kind = classified.get(notetype);
+  if (!kind) {
+    kind = classify(notetype, notes);
+    classified.set(notetype, kind);
+  }
+  return kind;
+}
+
+function classify(notetype: AnkiNotetype, notes: AnkiNote[]): NotetypeKind {
+  if (notes.some((note) => note.fields.some(hasClosetOcclusions))) {
+    return { kind: "unsupported_occlusion" };
+  }
   if (notetype.kind === "cloze") return clozeKind(notetype, notes);
+  const ioe = ioeFields(
+    notetype.fields.map((field) => field.name),
+    notes,
+  );
+  if (ioe) return { kind: "image_occlusion_enhanced", ...ioe };
 
   const structural = structuralKind(notetype);
   const stock = notetype.stockKind;
@@ -149,7 +211,9 @@ export function classifyNotetype(notetype: AnkiNotetype, notes: AnkiNote[]): Not
         : { kind: "type_answer", front: 0, answer: 1 };
     }
   }
-  return structural;
+  return structural.kind === "custom"
+    ? { kind: "custom", mirrored: mirroredTemplates(notetype) }
+    : structural;
 }
 
 /** A note type Armin can't map on its own, for the preview's field mapping. */

@@ -266,12 +266,16 @@ export function flashcardDisplay(
     case "image_occlusion": {
       const imageOcclusion = content as ImageOcclusionContent;
       const count = imageOcclusion.masks.length;
+      const masks = `${count} mask${count === 1 ? "" : "s"}`;
+      const labels = imageOcclusion.masks
+        .map((mask) => mask.label)
+        .filter(Boolean)
+        .join(" · ");
+      // The header says what the image asks about, so it names the card.
+      const header = imageOcclusion.header?.trim();
       return {
-        front: `Image occlusion · ${count} mask${count === 1 ? "" : "s"}`,
-        back: imageOcclusion.masks
-          .map((mask) => mask.label)
-          .filter(Boolean)
-          .join(" · "),
+        front: header || `Image occlusion · ${masks}`,
+        back: [header ? masks : "", labels].filter(Boolean).join(" · "),
       };
     }
     case "concept": {

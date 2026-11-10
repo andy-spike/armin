@@ -17,7 +17,7 @@ export const BROWSE_SORT_OPTIONS: { value: BrowseSortKey; label: string }[] = [
  */
 export function formatCardCounts(active: number, archived: number) {
   const cards = plural(active, "flashcard");
-  return archived > 0 ? `${cards} · ${archived} archived` : cards;
+  return archived > 0 ? `${cards} · ${archived.toLocaleString()} archived` : cards;
 }
 
 /**

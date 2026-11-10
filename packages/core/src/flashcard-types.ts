@@ -70,7 +70,13 @@ const imageOcclusionGeometrySchema = z.object({
 
 const imageOcclusionMaskSchema = z.object({
   id: z.string().min(1),
+  /** The mask's bounding box: everything a renderer without `parts` covers. */
   geometry: imageOcclusionGeometrySchema,
+  /**
+   * Separate boxes, inside `geometry`, that together form one mask, such as
+   * an Anki occlusion drawn as several shapes. Absent for a single box.
+   */
+  parts: z.array(imageOcclusionGeometrySchema).min(2).max(32).optional(),
   label: z.string().min(1).optional(),
   hint: z.string().optional(),
 });

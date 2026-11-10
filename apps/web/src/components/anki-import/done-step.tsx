@@ -18,9 +18,11 @@ export function DoneStep({
   onImportAnother: () => void;
 }) {
   const leftOut = [
+    summary.leftOut > 0 && `${plural(summary.leftOut, "card")} left out to fit your plan`,
     summary.skippedCards > 0 &&
       `${plural(summary.skippedCards, "card")} left out because an image they need couldn't be imported`,
-    skippedNotes > 0 && `${plural(skippedNotes, "note")} skipped for having no usable content`,
+    skippedNotes > 0 &&
+      `${plural(skippedNotes, "note")} Armin couldn't convert, as listed before importing`,
     summary.skippedImages > 0 &&
       `${plural(summary.skippedImages, "media file")} left out (unsupported, too large, or missing)`,
   ].filter(Boolean);

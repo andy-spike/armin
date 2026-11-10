@@ -13,7 +13,7 @@ import { fail } from "./model/errors";
 import { insertFlashcard, validateFlashcardInput } from "./model/flashcards";
 import { cleanDeckName, insertDeck } from "./model/decks";
 import { planLimits } from "@armin/core/plans";
-import { MAX_REVIEW_UNITS_PER_FLASHCARD } from "./model/limits";
+import { MAX_IMPORT_REVIEW_LOGS, MAX_REVIEW_UNITS_PER_FLASHCARD } from "./model/limits";
 import { bumpRevision, findRequest, recordRequest, type TagCache } from "./model/study";
 import { checkCapacity, libraryPlan, libraryUsage } from "./model/usage";
 import { checkRanges, checkSteps, checkWeights } from "./model/settingsChecks";
@@ -24,8 +24,6 @@ import { emptyDeckOverrides, startOfNextStudyDayMs } from "@armin/core/study";
 const MAX_CARDS_PER_CALL = 100;
 const MAX_UNITS_PER_CALL = 1500;
 const MAX_LOGS_PER_CALL = 1000;
-/** Review history has no library quota, so an import bounds it itself. */
-const MAX_IMPORT_REVIEW_LOGS = 300_000;
 /** A running import that makes no progress for this long is treated as abandoned. */
 const ABANDON_AFTER_MS = 60 * 60_000;
 /** Finished, cancelled, and failed import records are kept this long. */

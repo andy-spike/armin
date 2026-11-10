@@ -241,7 +241,7 @@ function DeckPage() {
             <>
               <p className="mb-3 text-xs text-muted">
                 {hasMore
-                  ? `Showing ${deferredDisplayed.length} of ${filteredTotal} matching cards · ${formatCardCounts(filteredActive, filteredArchived)}`
+                  ? `Showing ${deferredDisplayed.length} of ${filteredTotal.toLocaleString()} matching cards · ${formatCardCounts(filteredActive, filteredArchived)}`
                   : formatCardCounts(filteredActive, filteredArchived)}
               </p>
               <VirtualFlashcardGrid
@@ -321,11 +321,11 @@ function DeckHeader({
         <p className="mt-1 text-sm text-muted">
           {formatCardCounts(deck.total, deck.archived)}
           <span className="text-border-strong"> · </span>
-          {deck.learned} learned
+          {deck.learned.toLocaleString()} learned
           {dueCount > 0 && (
             <>
               <span className="text-border-strong"> · </span>
-              <span className="font-medium text-accent">{dueCount} due now</span>
+              <span className="font-medium text-accent">{dueCount.toLocaleString()} due now</span>
             </>
           )}
         </p>

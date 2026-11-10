@@ -4,8 +4,7 @@
  * render it safely as an image: an `<img>` never runs SVG scripts or loads
  * external resources. Returns null when the file doesn't render.
  */
-const MAX_SIDE = 2048;
-const FALLBACK_SIDE = 512;
+import { svgRasterSize } from "@armin/core/media";
 
 export async function rasterizeSvg(bytes: Uint8Array): Promise<Uint8Array | null> {
   if (typeof document === "undefined") return null;
@@ -17,12 +16,8 @@ export async function rasterizeSvg(bytes: Uint8Array): Promise<Uint8Array | null
     image.decoding = "async";
     image.src = url;
     await image.decode();
-    // SVGs without intrinsic dimensions report 0; give them a sensible canvas.
-    let width = image.naturalWidth || FALLBACK_SIDE;
-    let height = image.naturalHeight || FALLBACK_SIDE;
-    const scale = Math.min(1, MAX_SIDE / Math.max(width, height));
-    width = Math.max(1, Math.round(width * scale));
-    height = Math.max(1, Math.round(height * scale));
+    // SVGs without intrinsic dimensions report 0; svgRasterSize gives them a canvas.
+    const { width, height } = svgRasterSize(image.naturalWidth, image.naturalHeight);
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;

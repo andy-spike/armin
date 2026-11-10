@@ -1,4 +1,4 @@
-import type { ImportDeck, ImportPlan } from "@armin/core/anki";
+import { armDeckName, uniqueDeckNames, type ImportDeck, type ImportPlan } from "@armin/core/anki";
 import { AnkiImportError, openAnkiFile, type AnkiReader } from "./reader";
 
 /** An Anki file read in the browser, ready for the import page. */
@@ -7,10 +7,28 @@ export type OpenedAnkiFile = {
   fileName: string;
   fileSize: number;
   openedAt: number;
-  /** Every deck the file offers, for the checklist; selection only changes the plan. */
+  /** Every Anki deck the file offers, keyed by its Anki id, for the checklist. */
   decks: ImportDeck[];
   initialPlan: ImportPlan;
 };
+
+/**
+ * The checklist's decks, not the plan's: an oversized Anki deck arrives split
+ * into parts, but the user still picks the one source deck.
+ */
+function sourceDecks(plan: ImportPlan) {
+  const decks = new Map<string, ImportDeck>();
+  for (const { split, ...deck } of plan.decks) {
+    const key = split?.key ?? deck.key;
+    const existing = decks.get(key);
+    if (existing) existing.cardCount += deck.cardCount;
+    else decks.set(key, { ...deck, key, name: split ? armDeckName(deck.ankiName) : deck.name });
+  }
+  const list = [...decks.values()];
+  const names = uniqueDeckNames(list);
+  list.forEach((deck, index) => (deck.name = names[index]!));
+  return list;
+}
 
 /** Reads and converts a file. Throws an `AnkiImportError` with a user-facing message. */
 export async function openAnkiImport(file: File): Promise<OpenedAnkiFile> {
@@ -33,7 +51,7 @@ export async function openAnkiImport(file: File): Promise<OpenedAnkiFile> {
       fileName: file.name,
       fileSize: file.size,
       openedAt,
-      decks: initialPlan.decks,
+      decks: sourceDecks(initialPlan),
       initialPlan,
     };
   } catch (error) {

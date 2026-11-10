@@ -17,6 +17,7 @@ import { bumpRevision } from "./model/study";
 import { reserveMediaBytes } from "./model/mediaQuota";
 import { isSafeMediaFileName } from "@armin/core/media-ref";
 import { checkCapacity, libraryLimits, libraryUsage } from "./model/usage";
+import { MAX_TAG_CHARS, MAX_TAGS_PER_FLASHCARD } from "./model/limits";
 
 const STAGING_TTL_MS = 24 * 3_600_000;
 const RETENTION_MS = 30 * 24 * 3_600_000;
@@ -366,8 +367,11 @@ async function addBatch(
   const parsedCards = parsed.cards.map((card) => {
     const input = validateFlashcardInput(card.type, card.content);
     const tags = card.tags ?? [];
-    if (tags.length > 20 || tags.some((tag) => tag.length > 60))
-      fail("INVALID", "A card can have at most 20 tags, each at most 60 characters.");
+    if (tags.length > MAX_TAGS_PER_FLASHCARD || tags.some((tag) => tag.length > MAX_TAG_CHARS))
+      fail(
+        "INVALID",
+        `A card can have at most ${MAX_TAGS_PER_FLASHCARD} tags, each at most ${MAX_TAG_CHARS} characters.`,
+      );
     return { card, input };
   });
   const units = parsedCards.reduce(

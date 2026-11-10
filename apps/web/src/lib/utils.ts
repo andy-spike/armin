@@ -12,5 +12,5 @@ export function formatTimestamp(ms: number) {
 
 /** "1 flashcard", "2 flashcards". */
 export function plural(count: number, singular: string, pluralForm = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : pluralForm}`;
+  return `${count.toLocaleString()} ${count === 1 ? singular : pluralForm}`;
 }

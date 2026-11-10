@@ -5,9 +5,11 @@
 
 export const MAX_CONTENT_CHARS = 20_000;
 export const MAX_NAME_CHARS = 120;
-export const MAX_TAGS_PER_FLASHCARD = 20;
-export const MAX_TAG_CHARS = 60;
+export const MAX_TAGS_PER_FLASHCARD = 100;
+export const MAX_TAG_CHARS = 200;
 export const MAX_REVIEW_UNITS_PER_FLASHCARD = 60;
+/** Past reviews one Anki import may carry; the converter keeps the most recent. */
+export const MAX_IMPORT_REVIEW_LOGS = 300_000;
 
 export const RETENTION_MIN = 0.7;
 export const RETENTION_MAX = 0.99;

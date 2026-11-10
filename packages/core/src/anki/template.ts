@@ -77,7 +77,6 @@ function furigana(html: string, mode: "furigana" | "kana" | "kanji") {
 
 export type TemplateContext = {
   fields: ReadonlyMap<string, string>;
-  tags: string;
   deck: string;
   subdeck: string;
   notetype: string;
@@ -103,6 +102,8 @@ type RenderResult = {
   tts: boolean;
 };
 
+const filterName = (filter: string) => filter.split(/\s/)[0].toLowerCase();
+
 function applyFilters(
   value: string,
   filters: string[],
@@ -111,7 +112,7 @@ function applyFilters(
 ) {
   let out = value;
   for (const filter of filters) {
-    const name = filter.split(/\s/)[0].toLowerCase();
+    const name = filterName(filter);
     if (name === "tts") {
       if (!isFieldEmpty(value)) result.tts = true;
       return "";
@@ -123,7 +124,7 @@ function applyFilters(
       const { text } = convertAnkiCloze(out);
       out = renderClozeText(text, ctx.side === "front" ? ctx.clozeNum : null);
     }
-    // hint and unknown filters show the plain field value.
+    // Unknown filters show the plain field value.
   }
   return out;
 }
@@ -139,12 +140,20 @@ function renderNodes(nodes: Node[], ctx: TemplateContext, result: RenderResult):
     } else {
       const raw = lookup(node.name, ctx);
       if (raw === undefined) continue;
-      const value = applyFilters(raw, node.filters, ctx, result);
+      const filters = node.filters.filter((filter) => filterName(filter) !== "hint");
+      const hint = filters.length !== node.filters.length;
+      const value = applyFilters(raw, filters, ctx, result);
       if (ctx.fields.has(node.name) && !isFieldEmpty(value)) {
         if (ctx.fieldIsUsable && !ctx.fieldIsUsable(value)) result.unusableField = true;
         else result.usedField = true;
       }
-      out += value;
+      if (hint) {
+        // A hint shows nothing on the front, and its own labelled section on the back.
+        if (ctx.side === "back" && !isFieldEmpty(value))
+          out += `<h3>${escapeHtml(node.name)}</h3>${value}`;
+      } else {
+        out += value;
+      }
     }
   }
   return out;
@@ -157,7 +166,8 @@ function lookup(name: string, ctx: TemplateContext) {
     case "FrontSide":
       return ctx.frontSide;
     case "Tags":
-      return escapeHtml(ctx.tags);
+      // Tags are imported as card tags; a template's tag container is UI, not content.
+      return "";
     case "Deck":
       return escapeHtml(ctx.deck);
     case "Subdeck":
@@ -180,6 +190,28 @@ export function renderTemplate(source: string, ctx: TemplateContext): RenderResu
   };
   result.html = renderNodes(parseTemplate(source), ctx, result);
   return result;
+}
+
+/**
+ * What a template side refers to: the fields it shows or tests in sections,
+ * whether it repeats `{{FrontSide}}`, and the field a `{{type:Field}}` box asks for.
+ */
+export function templateRefs(source: string) {
+  const fields = new Set<string>();
+  let frontSide = false;
+  let typeField: string | null = null;
+  const walk = (nodes: Node[]) => {
+    for (const node of nodes) {
+      if (node.kind === "text") continue;
+      if (node.name === "FrontSide") frontSide = true;
+      else fields.add(node.name);
+      if (node.kind === "section") walk(node.children);
+      else if (!typeField && node.filters.some((filter) => filterName(filter) === "type"))
+        typeField = node.name;
+    }
+  };
+  walk(parseTemplate(source));
+  return { fields, frontSide, typeField: typeField as string | null };
 }
 
 const FRONT_MARK = "\u{F8FF}FRONT\u{F8FF}";
@@ -217,5 +249,35 @@ export function renderCard(
     .join("");
   // A back that only repeats the front has nothing new to show.
   if (isFieldEmpty(backHtml)) backHtml = front.html;
-  return { front: front.html, back: backHtml, tts: front.tts || back.tts };
+  return {
+    front: front.html,
+    back: backHtml,
+    tts: front.tts || back.tts,
+    answerRule: rule !== null,
+  };
+}
+
+/**
+ * Drop one or more copies of the front from the start of a back that has no
+ * `<hr id=answer>` (JLPT-style templates repeat the front by hand). Falls back
+ * to the front so the back is never empty.
+ */
+export function stripRepeatedFront(front: string, back: string) {
+  const normalize = (block: string) => block.replace(/\s+/g, " ").trim();
+  const frontBlocks = front
+    .split(/\n{2,}/)
+    .map(normalize)
+    .filter(Boolean);
+  if (frontBlocks.length === 0) return back;
+  const backBlocks = back.split(/\n{2,}/);
+  let index = 0;
+  while (index + frontBlocks.length <= backBlocks.length) {
+    const repeated = frontBlocks.every(
+      (block, offset) => normalize(backBlocks[index + offset] ?? "") === block,
+    );
+    if (!repeated) break;
+    index += frontBlocks.length;
+  }
+  if (index === 0) return back;
+  return backBlocks.slice(index).join("\n\n").trim() || front;
 }

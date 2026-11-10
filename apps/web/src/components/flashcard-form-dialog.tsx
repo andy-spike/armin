@@ -24,7 +24,13 @@ import { ClozeField, Field, TagsInput } from "@/components/flashcard-form-fields
 import { ConceptVariantsPanel } from "@/components/concept-variants-panel";
 import { ConceptProNotice, ProMarker, useConceptCardsAllowed } from "@/components/concept-pro";
 import { MarkdownContent } from "@/components/ui/markdown-content";
-import type { ConceptContent, FlashcardContent, FlashcardType } from "@armin/core/flashcard-types";
+import { ImageOcclusionFields } from "@/components/image-occlusion-fields";
+import type {
+  ConceptContent,
+  FlashcardContent,
+  FlashcardType,
+  ImageOcclusionContent,
+} from "@armin/core/flashcard-types";
 
 export type CardFormValues = {
   type: FlashcardType;
@@ -433,7 +439,9 @@ export function FlashcardFormDialog({
               hint={
                 displayMode === "edit" && initialType === "concept"
                   ? "A concept card keeps its type."
-                  : undefined
+                  : displayMode === "edit" && initialType === "image_occlusion"
+                    ? "Image occlusion. Changing the type would discard the masks."
+                    : undefined
               }
             >
               <div
@@ -463,9 +471,11 @@ export function FlashcardFormDialog({
                       aria-pressed={type === option.value}
                       aria-disabled={unavailable ? true : undefined}
                       // A saved card can't change to or from a concept card.
+                      // An image occlusion card can't be authored here, so it keeps its type.
                       disabled={
                         displayMode === "edit" &&
-                        (initialType === "concept") !== (option.value === "concept")
+                        ((initialType === "concept") !== (option.value === "concept") ||
+                          initialType === "image_occlusion")
                       }
                       className={cn(
                         proOnly && "relative",
@@ -666,12 +676,7 @@ export function FlashcardFormDialog({
             )}
 
             {type === "image_occlusion" && (
-              <Field label="Image occlusion">
-                <div className="rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-muted">
-                  Image occlusion authoring is not available in this editor yet. Existing masks are
-                  preserved when saving tags or other metadata.
-                </div>
-              </Field>
+              <ImageOcclusionFields content={imageOcclusion as ImageOcclusionContent | null} />
             )}
           </div>
 

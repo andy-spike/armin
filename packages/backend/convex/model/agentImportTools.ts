@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { z } from "zod";
+import { MAX_TAG_CHARS, MAX_TAGS_PER_FLASHCARD } from "./limits";
 
 const id = z.string().min(1).max(100);
 const key = z.string().min(1).max(120);
@@ -10,7 +11,7 @@ const requestId = z
   .describe(
     "A unique operation ID. Reuse it only when retrying the identical request, within seven days.",
   );
-const tags = z.array(z.string().max(60)).max(20);
+const tags = z.array(z.string().max(MAX_TAG_CHARS)).max(MAX_TAGS_PER_FLASHCARD);
 
 const deck = z
   .object({

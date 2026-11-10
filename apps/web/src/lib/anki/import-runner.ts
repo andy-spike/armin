@@ -55,6 +55,8 @@ export type ImportSummary = {
   skippedImages: number;
   /** Decks whose Anki options preset carried scheduling settings over. */
   decksWithSettings: number;
+  /** Cards the plan's remaining-room limit left out. */
+  leftOut: number;
 };
 
 /** Thrown when the user cancels; everything created so far has been removed. */
@@ -428,5 +430,6 @@ export async function runImport({
     skippedCards,
     skippedImages,
     decksWithSettings: decks.filter((deck) => deck.settings).length,
+    leftOut: plan.limit?.leftOut ?? 0,
   };
 }

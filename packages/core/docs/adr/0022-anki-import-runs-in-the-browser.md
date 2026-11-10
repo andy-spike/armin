@@ -37,8 +37,10 @@ the backend receives ordinary flashcard input in batches through
   deletes every deck the import made, and a cron removes imports that stall for
   an hour (a closed tab).
 - Each Anki deck becomes one Armin deck named with its full path
-  (`Spanish › Verbs`). Anki has no prerequisites, so imported cards start
-  unlocked with no prerequisite edges.
+  (`Spanish › Verbs`). A deck over a per-deck cap (10,000 cards or 15,000
+  review items) becomes consecutive numbered decks (`AnKing (1 of 4)`), keeping
+  each note's cards together and carrying the same settings. Anki has no
+  prerequisites, so imported cards start unlocked with no prerequisite edges.
 - Anki scheduling is kept by default: Anki's own FSRS memory state when present,
   otherwise a replay of the review log; Anki's due dates always win. Imported
   review logs can't be undone (`unitVersionAfter` is 0).
@@ -47,8 +49,8 @@ the backend receives ordinary flashcard input in batches through
 - Images and audio (MP3, OGG, M4A, WAV, FLAC, AAC) are kept. Audio is stored
   as `![audio](armin-media:…)` and plays from a button, with autoplay and a
   replay shortcut in review; it has its own per-library quota because it is
-  far larger than images. SVG is drawn to a PNG in the browser (never stored as
-  SVG); the Node kit can't, so it reports those cards. MathJax becomes KaTeX.
+  far larger than images. SVG is drawn to a PNG (never stored as SVG), in the
+  browser and in the Node kit alike. MathJax becomes KaTeX.
 - Superscript, subscript, and deliberate highlights (`<mark>`, `<u>`, colored
   text that isn't black, white, or gray) become `^x^`, `~x~`, and `==x==`.
   The rich editor can't show these or audio, so such fields open as source
@@ -61,11 +63,32 @@ the backend receives ordinary flashcard input in batches through
   study day, new cards keep Anki's queue order (spread over the order keys so
   they interleave with existing new cards), and flags become `flag::<color>`
   tags.
+- Anki's built-in image occlusion maps one note to one image occlusion card.
+  Image Occlusion Enhanced (the pre-2023 add-on) makes a note per mask: the
+  notes of one occlusion (same ID prefix) become one card with a mask per
+  note in note order, each unit keeping its note's schedule and history. The
+  reader passes the text of the add-on's SVG mask files (bounded) to the
+  converter as `occlusionMasks`; they are parsed as data for shape geometry
+  only. Shapes grouped into one mask keep each box as a mask `part`; round,
+  free-form, and rotated shapes become their bounding box. Text labels are
+  left out with a warning. As in Anki, a "hide all" answer keeps the other
+  masks and outlines the revealed one; a toggle lifts them. An occlusion whose image or masks can't be read is
+  left out whole and listed, and so are formats Armin doesn't map, such as
+  AnKing's "IO-one by one" (closet `[#!occlusions …#]`).
 - Custom note types render from their templates by default; the preview can
   instead map their fields onto Basic, Basic and reversed, or Type the answer.
-  Re-importing an updated deck is out of scope: it creates new decks.
-- The beta library limits still apply. The preview blocks a selection that would
-  exceed them and lets the user import a subset of decks.
+  Template chrome is left out: shared `_` images, hint buttons, tag containers,
+  scripts, and hidden UI. A template with `{{type:Field}}` becomes a typed-answer
+  card, and two mirrored templates become one Basic and reversed card whose
+  review units keep their own Anki schedules. Re-importing an updated deck is
+  out of scope: it creates new decks.
+- The beta library limits still apply. When the selection exceeds the room left
+  for flashcards or review items, the preview can import the first cards that
+  fit instead of stopping: reviewed cards by due date, then new cards in Anki's
+  new-card order, never separating a note's cards. Deck-count problems still ask
+  the user to deselect decks. Review history keeps the newest 300,000 reviews
+  globally, so the schedule always arrives even when older logs are left out.
+  Tags up to 200 characters and 100 per card keep hierarchical tag paths whole.
 
 ## Assistant-assisted import
 

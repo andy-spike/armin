@@ -76,8 +76,8 @@ export function NotetypeMappingSection({
           Custom note types
         </h3>
         <p className="mt-0.5 text-[0.8125rem] text-muted">
-          Armin doesn&apos;t know these note types. Each card keeps its Anki layout as a basic card,
-          or you can choose which fields go on each side.
+          Armin doesn&apos;t know these note types. Each card keeps its Anki layout, or you can
+          choose which fields go on each side.
         </p>
       </div>
       <ul className="space-y-2">

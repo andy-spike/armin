@@ -1,7 +1,9 @@
 import { useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { CircleHelp, X } from "lucide-react";
+import { MAX_TAG_CHARS, MAX_TAGS_PER_FLASHCARD } from "@armin/core/limits";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
+import { TruncatedLabel } from "@/components/ui/truncated-label";
 import { parseClozes } from "@armin/core/flashcard-rules";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 
@@ -89,6 +91,7 @@ export function TagsInput({
   ariaLabel?: string;
 }) {
   const [draft, setDraft] = useState("");
+  const full = value.length >= MAX_TAGS_PER_FLASHCARD;
 
   const addTag = (raw: string) => {
     const tag = raw.trim().replace(/,+$/, "").trim();
@@ -97,6 +100,7 @@ export function TagsInput({
       setDraft("");
       return;
     }
+    if (full) return;
     onChange([...value, tag]);
     setDraft("");
   };
@@ -119,9 +123,9 @@ export function TagsInput({
       {value.map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center gap-1 rounded-sm bg-surface-sunken px-1.5 py-0.5 text-xs font-medium text-ink"
+          className="inline-flex min-w-0 max-w-64 items-center gap-1 rounded-sm bg-surface-sunken px-1.5 py-0.5 text-xs font-medium text-ink"
         >
-          {tag}
+          <TruncatedLabel label={tag} className="max-w-56" />
           <button
             type="button"
             onClick={() => removeTag(tag)}
@@ -137,8 +141,16 @@ export function TagsInput({
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={() => addTag(draft)}
+        maxLength={MAX_TAG_CHARS}
         aria-label={ariaLabel}
-        placeholder={value.length === 0 ? (placeholder ?? "e.g. closures, async") : ""}
+        disabled={full}
+        placeholder={
+          full
+            ? "Tag limit reached"
+            : value.length === 0
+              ? (placeholder ?? "e.g. closures, async")
+              : ""
+        }
         spellCheck={false}
         autoCorrect="off"
         autoCapitalize="off"

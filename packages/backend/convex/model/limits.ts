@@ -7,8 +7,7 @@ export const MAX_DECKS = 1000;
 export const MAX_FLASHCARDS = 100_000;
 export const MAX_REVIEW_UNITS = 250_000;
 /** A deck's flashcards, units, and edges must fit one transaction's 32,000 reads. */
-export { MAX_FLASHCARDS_PER_DECK } from "@armin/core/plans";
-export const MAX_REVIEW_UNITS_PER_DECK = 15_000;
+export { MAX_FLASHCARDS_PER_DECK, MAX_REVIEW_UNITS_PER_DECK } from "@armin/core/plans";
 /** Due reviews read for one queue selection; the queue shows at most this many. */
 export const MAX_SESSION_REVIEWS = 2000;
 /** Prerequisite edges per deck, so deck-wide graph work fits one transaction. */
@@ -17,6 +16,7 @@ export const MAX_PREREQS_PER_DECK = 2000;
 export const MAX_EXPORT_BYTES = 95 * 1024 * 1024;
 export {
   MAX_CONTENT_CHARS,
+  MAX_IMPORT_REVIEW_LOGS,
   MAX_NAME_CHARS,
   MAX_REVIEW_UNITS_PER_FLASHCARD,
   MAX_TAG_CHARS,

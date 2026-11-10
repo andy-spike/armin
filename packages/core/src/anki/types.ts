@@ -136,6 +136,12 @@ export type AnkiCollection = {
   revlog: AnkiReview[];
   /** File names present in the package's media, as referenced from note HTML. */
   mediaNames: string[];
+  /**
+   * Text of the SVG mask files Image Occlusion Enhanced notes refer to, by
+   * media name (the converter never reads media itself). Bounded by the reader;
+   * a missing entry means the file is absent or too large.
+   */
+  occlusionMasks?: Record<string, string>;
 };
 
 // --- Stage 2: Armin import plan (converter output) ---
@@ -152,6 +158,12 @@ export type ImportOptions = {
   progress: ImportProgressMode;
   /** Anki deck ids to import. Omit for every deck that has cards. */
   deckIds?: string[];
+  /**
+   * Take only the first cards that fit this much remaining room: cards with
+   * review progress by due date, then new cards in Anki's order. An Anki note's
+   * flashcards stay together.
+   */
+  limit?: { flashcards: number; reviewUnits: number };
   /** Import time, epoch ms. */
   now: number;
   /**
@@ -184,7 +196,7 @@ export type ImportDeckSettings = {
 };
 
 export type ImportDeck = {
-  /** Anki deck id. */
+  /** Anki deck id, or `<id>#<part>` for a split part. */
   key: string;
   /** Armin deck name: the Anki path joined with " › ", trimmed to the name limit. */
   name: string;
@@ -194,6 +206,16 @@ export type ImportDeck = {
   settings?: ImportDeckSettings;
   /** The preset's Anki daily limits, which Armin replaces with its one library-wide limit. */
   ankiLimits?: { newPerDay: number | null; reviewsPerDay: number | null; preset: string };
+  /** Set when the converter split an oversized Anki deck into consecutive parts. */
+  split?: {
+    /** The source Anki deck id, shared by every part. */
+    key: string;
+    parts: number;
+    /** Cards across every part. */
+    cards: number;
+    /** The per-deck cap that required the split. */
+    cap: "flashcards" | "reviewUnits";
+  };
 };
 
 /** One review in the imported history, mirroring the backend `reviewLogs` row. */
@@ -250,7 +272,11 @@ export type ImportOmittedReason =
   | "missing_image"
   | "unsupported_image"
   | "audio_only"
-  | "unusable_template";
+  | "unusable_template"
+  /** An Image Occlusion Enhanced note whose mask files are missing or unreadable. */
+  | "unreadable_masks"
+  /** An occlusion format Armin doesn't convert, such as AnKing's "IO-one by one". */
+  | "unsupported_occlusion";
 
 /** An Anki note that produced no Armin card, with enough context to repair it. */
 export type ImportOmitted = {
@@ -274,6 +300,7 @@ export type ImportWarningCode =
   | "nested_cloze_flattened"
   | "shared_cloze_narrowed"
   | "occlusion_shape_approximated"
+  | "occlusion_labels_removed"
   | "custom_notetype_rendered"
   | "audio_only_card_skipped"
   | "required_content_card_skipped"
@@ -298,6 +325,10 @@ export type ImportPlan = {
   warnings: ImportWarning[];
   /** Notes that produced no card. Empty or absent means every source note is represented. */
   omitted?: ImportOmitted[];
+  /** Present when {@link ImportOptions.limit} applied: the cards the room left out. */
+  limit?: { leftOut: number };
+  /** Older past reviews dropped so the history fits the import bound. */
+  reviewLogsDropped?: number;
   totals: {
     flashcards: number;
     reviewUnits: number;
