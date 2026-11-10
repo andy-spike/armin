@@ -1,20 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { LegalPage } from "@/components/legal/legal-page";
-import guide from "@/content/docs/mcp.md?raw";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { docsUrl } from "@/lib/docs-site";
 
 export const Route = createFileRoute("/docs/mcp")({
-  staticData: { documentScroll: true },
   ssr: true,
-  headers: () => ({ "Cache-Control": "public, max-age=300, s-maxage=300" }),
-  head: () => ({
-    meta: [
-      { title: "MCP server documentation · Armin" },
-      {
-        name: "description",
-        content:
-          "Connect Claude, ChatGPT, Gemini, Claude Code, Codex, or any MCP client to Armin. Review whole-library access, manage connections, and troubleshoot the hosted MCP server.",
-      },
-    ],
-  }),
-  component: () => <LegalPage source={guide} />,
+  beforeLoad: () => {
+    throw redirect({ href: docsUrl("reference/mcp-server/"), statusCode: 301 });
+  },
 });

@@ -7,7 +7,7 @@
   "bugs": {
     "url": "https://github.com/andy-spike/armin/issues"
   },
-  "license": "AGPL-3.0-only",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/andy-spike/armin.git"

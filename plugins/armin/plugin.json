@@ -2,14 +2,14 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "armin",
   "version": "1.1.1",
-  "description": "Turn articles, notes, documents, and Anki decks into Armin spaced-repetition cards, with prerequisites, a guided image-preserving Anki import, and study of due cards.",
+  "description": "Turn articles, notes, documents, and Anki decks into Armin spaced-repetition cards, with prerequisites, a guided, image-preserving Anki import, and study of due cards.",
   "author": {
     "name": "Andy Spike",
     "url": "https://armincards.app"
   },
   "homepage": "https://armincards.app",
   "repository": "https://github.com/andy-spike/armin",
-  "license": "AGPL-3.0-only",
+  "license": "MIT",
   "keywords": ["flashcards", "spaced-repetition", "study", "learning", "fsrs"],
   "extensions": {
     "com.openai": {
