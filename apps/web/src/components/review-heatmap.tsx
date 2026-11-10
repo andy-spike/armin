@@ -8,18 +8,11 @@ import { tooltip } from "@tanstack/charts/tooltip";
 import { cn, plural } from "@/lib/utils";
 
 type HeatmapDay = {
-  /** Calendar date (YYYY-MM-DD) in the library's time zone. */
   key: string;
   count: number;
-  /** 0 = Sunday … 6 = Saturday. */
   weekday: number;
 };
 
-/**
- * Fills from no reviews to the busiest days. Mixing with the surface instead
- * of transparency keeps every level opaque, so the page grid never shows
- * through a cell.
- */
 const LEVEL_FILLS = [
   "var(--color-border)",
   "color-mix(in srgb, var(--color-accent) 28%, var(--color-surface))",
@@ -30,10 +23,8 @@ const LEVEL_FILLS = [
 
 const WEEKDAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
 
-/** Space kept clear right of the newest column, in pixels. */
 const EDGE_ROOM = 4;
 
-/** Height of the month label row above the cells, in pixels. */
 const MONTH_ROW = 16;
 
 const SIZES = {
@@ -63,23 +54,15 @@ function dateFromKey(key: string) {
   return new Date(Date.UTC(year, month - 1, day));
 }
 
-/** Format a study-day key without letting the browser's zone shift the date. */
 export function formatStudyDay(key: string) {
   return DAY_FORMAT.format(dateFromKey(key));
 }
 
-/** Quartiles of the busiest day, so the peak day always gets the full accent. */
 function levelFor(count: number, peak: number) {
   if (count <= 0) return 0;
   return Math.max(1, Math.min(4, Math.ceil((count / peak) * 4)));
 }
 
-/**
- * Month labels sit over the first week column whose days start that month.
- * A label needs three columns of room before the next label or the calendar's
- * end, or it is dropped: a label for a month that has only just begun would
- * run past the last column and make the calendar scroll.
- */
 function monthLabels(days: readonly HeatmapDay[], offset: number, weeks: number) {
   const labels: { week: number; text: string }[] = [];
   let lastMonth = "";
@@ -88,20 +71,12 @@ function monthLabels(days: readonly HeatmapDay[], offset: number, weeks: number)
     if (month === lastMonth) return;
     lastMonth = month;
     const week = Math.floor((offset + index) / 7);
-    // A month that begins mid-week is labeled from its first full column.
     const column = day.weekday === 0 || index === 0 ? week : week + 1;
     labels.push({ week: column, text: MONTH_FORMAT.format(dateFromKey(day.key)) });
   });
   return labels.filter((label, index) => (labels[index + 1]?.week ?? weeks) - label.week >= 3);
 }
 
-/**
- * Review activity as a GitHub-style calendar drawn with TanStack Charts: one
- * column per week, oldest to newest, with days aligned to their weekday in the
- * library's time zone. Cells stretch to fill the container up to a comfortable
- * size; on narrow screens the calendar scrolls, starting at the current week.
- * Today's cell is outlined so the newest column is easy to find.
- */
 export function ReviewHeatmap({
   days,
   size = "full",
@@ -176,8 +151,6 @@ export function ReviewHeatmap({
     });
   }, [days, offset, weeks, gap, maxCell]);
 
-  // Start scrolled to the current week when the calendar is wider than its
-  // container, so a phone shows recent activity first.
   useLayoutEffect(() => {
     const node = scroller.current;
     if (node) node.scrollLeft = node.scrollWidth;
@@ -185,8 +158,6 @@ export function ReviewHeatmap({
 
   const chartWidth = weeks * (maxCell + gap) - gap;
   const chartHeight = 7 * (maxCell + gap) - gap;
-  // Weekday labels (24px plus the 8px gap) and room past the last column, so
-  // today's outline never meets the scroller's clipping edge at any width.
   const frameWidth = chartWidth + 32 + EDGE_ROOM;
 
   return (

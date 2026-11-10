@@ -3,12 +3,6 @@ import { ioeFields, type IoeFields } from "./occlusion-enhanced";
 import { templateRefs } from "./template";
 import type { AnkiCollection, AnkiNote, AnkiNotetype } from "./types";
 
-/**
- * How an Anki notetype maps onto an Armin flashcard type. Anki lets users
- * rename and translate notetypes, fields, and templates, so detection reads the
- * stock kind when the package records one and otherwise compares template
- * structure, with field names turned into positions.
- */
 export type NotetypeKind =
   | { kind: "basic"; front: number; back: number }
   | { kind: "basic_reversed"; front: number; back: number }
@@ -21,17 +15,12 @@ export type NotetypeKind =
       image: number;
       header: number | null;
       extra: number | null;
-      /** Further fields with content (such as Comments), added to the extra. */
       others: number[];
     }
-  /** Image Occlusion Enhanced: one note per mask, grouped into one card per image. */
   | ({ kind: "image_occlusion_enhanced" } & IoeFields)
-  /** An occlusion format Armin can't convert faithfully; its notes are left out. */
   | { kind: "unsupported_occlusion" }
-  /** `mirrored`: two templates that ask for each other's field (study both ways). */
   | { kind: "custom"; mirrored?: boolean };
 
-/** Replace field references with `f<i>` so the template shape is name-independent. */
 function shape(fmt: string, fieldNames: string[]) {
   return fmt
     .replace(/<hr\s+id\s*=\s*["']?answer["']?\s*\/?>/gi, "<hr>")
@@ -64,7 +53,6 @@ function structuralKind(notetype: AnkiNotetype): NotetypeKind {
   if (templates.length === 1 && fieldCount >= 2) {
     const [t] = templates;
     if (t.q === "{{f0}}" && t.a === "{{FS}}<hr>{{f1}}") return { kind: "basic", front: 0, back: 1 };
-    // Typing notetypes ask for the typed field on the front: `{{f0}}{{type:f1}}`.
     const typed = /^\{\{f0\}\}\{\{type:f(\d+)\}\}$/.exec(t.q);
     if (typed && Number(typed[1]) < fieldCount) {
       return { kind: "type_answer", front: 0, answer: Number(typed[1]) };
@@ -83,7 +71,6 @@ function structuralKind(notetype: AnkiNotetype): NotetypeKind {
   return { kind: "custom" };
 }
 
-/** Highest field position any template of the notetype refers to. */
 function highestFieldUsed(notetype: AnkiNotetype) {
   const names = notetype.fields.map((field) => field.name);
   const used = notetype.templates.flatMap((template) =>
@@ -94,7 +81,6 @@ function highestFieldUsed(notetype: AnkiNotetype) {
   return Math.max(-1, ...used);
 }
 
-/** Does the notetype still look like the stock one it was created from? */
 function stockMatchesShape(notetype: AnkiNotetype, stockKind: number) {
   const fields = notetype.fields.length;
   const templates = notetype.templates.length;
@@ -135,7 +121,6 @@ function clozeKind(notetype: AnkiNotetype, notes: AnkiNote[]): NotetypeKind {
       others: rest.filter((i) => i !== header && i !== extra),
     };
   }
-  // The text field is the one the template wraps in `{{cloze:…}}`.
   const referenced = /\{\{cloze:([^{}]+)\}\}/.exec(notetype.templates[0]?.qfmt ?? "")?.[1]?.trim();
   const textIndex = Math.max(0, referenced ? names.indexOf(referenced) : 0);
   const extra =
@@ -145,10 +130,6 @@ function clozeKind(notetype: AnkiNotetype, notes: AnkiNote[]): NotetypeKind {
   return { kind: "cloze", text: textIndex, extra };
 }
 
-/**
- * Two templates that mirror each other: each front asks for its own fields, and
- * each back shows both fronts plus the same shared fields (JLPT N5 style).
- */
 function mirroredTemplates(notetype: AnkiNotetype) {
   if (notetype.templates.length !== 2) return false;
   const names = new Set(notetype.fields.map((field) => field.name));
@@ -175,7 +156,6 @@ function mirroredTemplates(notetype: AnkiNotetype) {
   return shared(backForward) === shared(backReverse);
 }
 
-/** Classification depends only on the notetype and its notes, so a preview reuses it. */
 const classified = new WeakMap<AnkiNotetype, NotetypeKind>();
 
 export function classifyNotetype(notetype: AnkiNotetype, notes: AnkiNote[]): NotetypeKind {
@@ -200,7 +180,6 @@ function classify(notetype: AnkiNotetype, notes: AnkiNote[]): NotetypeKind {
 
   const structural = structuralKind(notetype);
   const stock = notetype.stockKind;
-  // A recorded stock kind wins as long as the notetype still has that shape.
   if (stock !== null && stockMatchesShape(notetype, stock)) {
     if (stock === 1) return { kind: "basic", front: 0, back: 1 };
     if (stock === 2) return { kind: "basic_reversed", front: 0, back: 1 };
@@ -216,14 +195,11 @@ function classify(notetype: AnkiNotetype, notes: AnkiNote[]): NotetypeKind {
     : structural;
 }
 
-/** A note type Armin can't map on its own, for the preview's field mapping. */
 export type CustomNotetypeSummary = {
   id: string;
   name: string;
   fields: string[];
-  /** Notes of this type in the selected decks. */
   noteCount: number;
-  /** One note's field values as plain text, so the user can tell the fields apart. */
   sample: string[];
 };
 
@@ -236,7 +212,6 @@ const plainSample = (html: string) =>
     .trim()
     .slice(0, 80);
 
-/** Custom note types with notes in the selected decks (every deck when `deckIds` is omitted). */
 export function customNotetypes(
   collection: AnkiCollection,
   deckIds?: readonly string[],

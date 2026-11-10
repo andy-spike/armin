@@ -24,15 +24,9 @@ function formatBytes(bytes: number | null) {
 
 type ActiveExport = {
   controller: AbortController;
-  /** Null while the server prepares the card data. */
   progress: ExportProgress | null;
 };
 
-/**
- * The server prepares the card data; the browser then adds every image and
- * audio file and saves one ZIP (`lib/library-export.ts`). Prepared exports
- * expire after an hour, and the tab must stay open until saving finishes.
- */
 export function ExportSettings() {
   const toast = useToast();
   const { online } = useConnection();
@@ -41,7 +35,6 @@ export function ExportSettings() {
   const [includeAudio, setIncludeAudio] = useState(true);
   const [active, setActive] = useState<ActiveExport | null>(null);
 
-  /** Start (or reuse a prepared) export, then add media and save the ZIP. */
   const run = async (exportId: string | null, fileName: string) => {
     const sink = await chooseExportSink(fileName);
     if (!sink) return;
@@ -70,7 +63,6 @@ export function ExportSettings() {
     }
   };
 
-  // Leaving the page would stop the download half-way.
   useEffect(() => {
     if (!active) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();

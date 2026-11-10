@@ -1,7 +1,3 @@
-// Serves a Node build of the web app (`pnpm build:node`) for self-hosting.
-// Static files come from dist/client; every other request goes to the
-// TanStack Start fetch handler in dist/server. Runs behind the Caddy reverse
-// proxy in selfhost/, which terminates HTTPS and sets X-Forwarded-Proto.
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -41,7 +37,6 @@ const contentTypes = {
   ".zip": "application/zip",
 };
 
-/** A file under dist/client for this URL path, or undefined. */
 async function staticFile(pathname) {
   let decoded;
   try {
@@ -65,7 +60,6 @@ async function serveStatic(req, res, { file, size }, pathname) {
   res.setHeader("Content-Type", contentTypes[extname(file)] ?? "application/octet-stream");
   res.setHeader("Content-Length", size);
   res.setHeader("X-Content-Type-Options", "nosniff");
-  // Vite fingerprints everything under /assets/; other files can change.
   res.setHeader(
     "Cache-Control",
     pathname.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "public, max-age=300",

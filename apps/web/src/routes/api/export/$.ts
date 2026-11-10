@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { proxyAuthenticated } from "@/lib/auth-server";
 
-/** Same-origin export download; ownership is checked in Convex. */
 export const Route = createFileRoute("/api/export/$")({
   server: {
     handlers: {

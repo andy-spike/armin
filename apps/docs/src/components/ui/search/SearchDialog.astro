@@ -1,0 +1,111 @@
+---
+import Icon from "@cloudflare/nimbus-docs/components/Icon.astro";
+import { Dialog, DialogClose } from "@/components/ui/dialog";
+
+const suggestions = ["Cloze", "Prerequisites", "Import from Anki", "Daily limits", "Equations"];
+
+const kbd =
+  "inline-flex h-5 min-w-5 items-center justify-center border border-border-strong bg-background px-1.5 font-mono text-[0.6875rem] font-medium text-muted-foreground shadow-[0_1px_0_var(--nb-border-strong)]";
+---
+
+<Dialog
+  data-slot="search-dialog"
+  aria-label="Search documentation"
+  data-search-dialog
+  class="backdrop:bg-[color-mix(in_oklab,var(--armin-bg)_90%,transparent)]"
+>
+  <div class="pointer-events-none flex h-full items-start justify-center px-3 pt-3 sm:px-4 sm:pt-[12vh]">
+    <div
+      data-search-panel
+      class="pointer-events-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden border border-border-strong bg-background shadow-[var(--armin-shadow-overlay)] sm:max-h-[min(40rem,76vh)]"
+    >
+      <div class="flex shrink-0 items-center gap-3 border-b border-border ps-4 pe-2">
+        <Icon name="ph:magnifying-glass" class="h-5 w-5 shrink-0 text-muted-foreground" />
+        <label for="search-input" class="sr-only">Search the docs</label>
+        <input
+          id="search-input"
+          data-search-input
+          type="search"
+          enterkeyhint="go"
+          role="combobox"
+          aria-expanded="false"
+          aria-haspopup="listbox"
+          aria-autocomplete="list"
+          aria-controls="search-listbox"
+          aria-describedby="search-status"
+          placeholder="Search the docs"
+          class="h-14 min-w-0 flex-1 border-0 bg-transparent text-base text-foreground placeholder:text-muted-foreground focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+          autocomplete="off"
+          spellcheck="false"
+          autocorrect="off"
+          autocapitalize="none"
+        />
+        <button
+          type="button"
+          data-search-clear
+          hidden
+          aria-label="Clear search"
+          class="flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          <Icon name="ph:x" class="h-4 w-4" />
+        </button>
+        <DialogClose
+          aria-label="Close search"
+          class="flex h-8 shrink-0 items-center px-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          <span class="hidden sm:inline" aria-hidden="true"><span class={kbd}>Esc</span></span>
+          <span class="sm:hidden" aria-hidden="true">Cancel</span>
+        </DialogClose>
+      </div>
+
+      <div data-search-body class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <p
+          id="search-status"
+          data-search-status
+          role="status"
+          aria-live="polite"
+          class="px-4 pt-6 pb-2 text-center text-sm text-muted-foreground data-[quiet]:sr-only"
+        >
+        </p>
+
+        <div data-search-results role="listbox" id="search-listbox" aria-label="Results" class="p-2" hidden></div>
+
+        <div data-search-suggestions class="px-4 pt-2 pb-6">
+          <p class="mb-2 text-center text-xs font-medium text-muted-foreground">Try searching for</p>
+          <div class="flex flex-wrap justify-center gap-2">
+            {
+              suggestions.map((term) => (
+                <button
+                  type="button"
+                  data-search-suggestion
+                  class="border border-border bg-card px-2.5 py-1 text-[0.8125rem] text-foreground transition-colors hover:border-border-strong hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                >
+                  {term}
+                </button>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+
+      <div
+        aria-hidden="true"
+        class="hidden shrink-0 items-center gap-4 border-t border-border bg-card px-4 py-2 text-xs text-muted-foreground sm:flex [@media(pointer:coarse)]:hidden"
+      >
+        <span class="inline-flex items-center gap-1.5"><span class={kbd}>↑</span><span class={kbd}>↓</span>to move</span>
+        <span class="inline-flex items-center gap-1.5"><span class={kbd}>↵</span>to open</span>
+        <span class="inline-flex items-center gap-1.5"><span class={kbd}>Esc</span>to close</span>
+        <span class="ms-auto inline-flex items-center gap-1.5">Open with <span class={kbd}>/</span></span>
+      </div>
+    </div>
+  </div>
+
+  <template data-search-icon="page"><Icon name="ph:file-text" class="h-4 w-4" /></template>
+  <template data-search-icon="heading"><Icon name="ph:hash" class="h-3.5 w-3.5" /></template>
+  <template data-search-icon="recent"><Icon name="ph:clock-counter-clockwise" class="h-4 w-4" /></template>
+  <template data-search-icon="enter"><Icon name="ph:arrow-elbow-down-left" class="h-3.5 w-3.5" /></template>
+</Dialog>
+
+<script>
+  import "./search.client";
+</script>

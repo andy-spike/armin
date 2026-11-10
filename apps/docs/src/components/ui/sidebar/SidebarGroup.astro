@@ -1,0 +1,86 @@
+---
+import type { HTMLAttributes } from "astro/types";
+import SidebarGroupHeader from "./SidebarGroupHeader.astro";
+import SidebarLink from "./SidebarLink.astro";
+import type { SidebarItem, SidebarBadge } from "@cloudflare/nimbus-docs/types";
+
+interface Props extends HTMLAttributes<"details"> {
+  label: string;
+  items: SidebarItem[];
+  collapsed?: boolean;
+  badge?: SidebarBadge;
+  indexHref?: string;
+  indexIsCurrent?: boolean;
+  indexIsExternal?: boolean;
+  icon?: string;
+}
+
+const {
+  label,
+  items,
+  collapsed,
+  badge,
+  indexHref,
+  indexIsCurrent,
+  indexIsExternal,
+  icon,
+  class: className,
+  ...attrs
+} = Astro.props;
+
+function hasActiveDescendant(items: SidebarItem[]): boolean {
+  return items.some((item) =>
+    item.type === "link"
+      ? Boolean(item.isCurrent)
+      : item.type === "group"
+        ? Boolean(item.indexIsCurrent) || hasActiveDescendant(item.children)
+        : false,
+  );
+}
+
+const hasActive = Boolean(indexIsCurrent) || hasActiveDescendant(items);
+const isOpen = Boolean(hasActive || collapsed === false || collapsed === undefined);
+---
+
+<details
+  data-slot="sidebar-group"
+  open={isOpen || undefined}
+  class={className}
+  {...attrs}
+>
+  <SidebarGroupHeader label={label} hasActive={hasActive} badge={badge} icon={icon} />
+
+  <ul>
+    {indexHref && (
+      <li>
+        <SidebarLink
+          label="Overview"
+          href={indexHref}
+          isCurrent={indexIsCurrent}
+          target={indexIsExternal ? "_blank" : undefined}
+          rel={indexIsExternal ? "noopener" : undefined}
+        />
+      </li>
+    )}
+    {items.map((item) => (
+      <li>
+        {item.type === "group" ? (
+          <Astro.self
+            label={item.label}
+            items={item.children}
+            collapsed={item.collapsed}
+            badge={item.badge}
+            icon={item.icon}
+            indexHref={item.indexHref}
+            indexIsCurrent={item.indexIsCurrent}
+            indexIsExternal={item.indexIsExternal}
+          />
+        ) : item.type === "external" ? (
+          <SidebarLink label={item.label} href={item.href} badge={item.badge} target="_blank" rel="noopener" />
+        ) : (
+          <SidebarLink label={item.label} href={item.href} isCurrent={item.isCurrent} badge={item.badge} />
+        )}
+      </li>
+    ))}
+  </ul>
+</details>

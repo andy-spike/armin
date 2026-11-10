@@ -46,15 +46,10 @@ import { armin } from "@/lib/armin-client";
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/frame.css";
 
-// SVG is intentionally not offered: uploaded images are served from an
-// authenticated route, and SVG can carry script. The server sniffs uploaded
-// bytes and rejects it too; keeping the picker honest avoids a pointless round
-// trip. Derive the rest from the shared media rules so the two stay in sync.
 const UPLOAD_MIME_TYPES = Object.values(IMAGE_MIME_BY_EXT).filter(
   (mime) => mime !== IMAGE_MIME_BY_EXT.svg,
 );
 const UPLOAD_ACCEPT = UPLOAD_MIME_TYPES.join(",");
-// Browsers report some audio types under other names (audio/mp3, audio/x-wav, audio/x-m4a).
 const AUDIO_ACCEPT = [
   ...Object.values(AUDIO_MIME_BY_EXT),
   ".mp3",
@@ -73,7 +68,6 @@ const AUDIO_REF_RE = new RegExp(
 );
 const NETWORK_ERROR_MESSAGE = "Couldn't reach the server. Check your connection and try again.";
 
-/** Turn an upload failure into the most specific message we can. */
 function uploadErrorMessage(error: unknown) {
   if (error instanceof Error) {
     if (/network|fetch|connection|aborted|EPIPE/i.test(error.message)) {
@@ -88,8 +82,6 @@ function megabytes(bytes: number) {
   return Math.max(1, Math.round(bytes / (1024 * 1024)));
 }
 
-// Preserve imported HTML and legacy equation delimiters literally. Dollar math
-// and GFM tables can be edited visually in Crepe.
 function needsSourceMode(value: string) {
   const prose = value.replace(/(`{3,}|~{3,})[^\n]*\n[\s\S]*?\1/g, "").replace(/`+[^`]*`+/g, "");
   if (
@@ -98,13 +90,10 @@ function needsSourceMode(value: string) {
     /(?:```|~~~)\s*latex\b/i.test(value)
   )
     return true;
-  // A dollar before a digit is currency, unless it opens an equation such as
-  // `$3x^2$`: test only the text outside the math `splitMath` recognizes.
   const outsideMath = splitMath(prose)
     .flatMap((part) => (part.kind === "text" ? [part.raw] : []))
     .join(" ");
   if (/\$\d/.test(outsideMath)) return true;
-  // Rich text can't show audio, superscript, subscript, or highlights; keep them as written.
   if (AUDIO_REF_RE.test(value) || hasInlineMarks(value)) return true;
   let offset = 0;
   return splitMath(value).some((part) => {
@@ -113,14 +102,12 @@ function needsSourceMode(value: string) {
     if (part.kind !== "math") return false;
     if (!part.raw.startsWith("$")) return true;
     if (!part.display) return false;
-    // A display block can only be expanded when it occupies its own lines.
     const before = value.slice(0, start).split("\n").at(-1) ?? "";
     const after = value.slice(offset).split("\n")[0];
     return before.trim().length > 0 || after.trim().length > 0;
   });
 }
 
-/** Source mode is also needed for clozes a chip can't show without changing them. */
 function needsSource(value: string, cloze: boolean) {
   return needsSourceMode(value) || (cloze && clozeNeedsSource(value));
 }
@@ -143,11 +130,8 @@ type MarkdownEditorProps = {
   autoFocus?: boolean;
   className?: string;
   "aria-label"?: string;
-  /** Cloze card text: `{{N::answer}}` deletions show as editable chips. */
   cloze?: boolean;
-  /** Text and equations only: no image or audio tools (concept card templates). */
   textOnly?: boolean;
-  /** A taller empty editor, for the full-page card editor's main fields. */
   tall?: boolean;
 };
 
@@ -179,12 +163,9 @@ export function MarkdownEditor({
   const [source, setSource] = useState(() => needsSource(value, cloze));
   const [chip, setChip] = useState<(ClozeChip & { from: number }) | null>(null);
   const [focusWithin, setFocusWithin] = useState(false);
-  // The last chip shown, kept through the popover's exit animation.
   const [shownChip, setShownChip] = useState<(ClozeChip & { from: number }) | null>(null);
   const chipOpen = Boolean(cloze && chip && focusWithin && !source);
   if (chipOpen && chip !== shownChip) setShownChip(chip);
-  // Switching between rich text and source keeps the box at least as tall as
-  // it was, so the page doesn't jump when the two modes wrap text differently.
   const bodyRef = useRef<HTMLDivElement>(null);
   const [switchHeight, setSwitchHeight] = useState<number | null>(null);
   const holdHeight = () => setSwitchHeight(bodyRef.current?.offsetHeight ?? null);
@@ -211,12 +192,10 @@ export function MarkdownEditor({
     setUploading((count) => count + 1);
     const noun = kind === "image" ? "image" : "audio file";
     try {
-      // The server checks the bytes; the picker only filters by what the browser reports.
       if (kind === "image" && !UPLOAD_MIME_TYPES.includes(file.type))
         throw new Error(UNSUPPORTED_IMAGE_MESSAGE);
       if (kind === "audio" && file.type && !file.type.startsWith("audio/"))
         throw new Error(UNSUPPORTED_AUDIO_MESSAGE);
-      // Files are shrunk on the device before upload, so they may start larger.
       if (file.size > MAX_DEVICE_MEDIA_BYTES)
         throw new Error(
           `That ${noun} is ${megabytes(file.size)} MB. Files must be ${megabytes(MAX_DEVICE_MEDIA_BYTES)} MB or smaller.`,
@@ -242,7 +221,6 @@ export function MarkdownEditor({
     uploadRef.current = upload;
   });
 
-  // The chip under the cursor, positioned for its settings popover.
   const chipAt = (view: EditorView) => {
     const { from, to } = view.state.selection;
     const range = clozeRangeAt(view.state, from);
@@ -268,7 +246,6 @@ export function MarkdownEditor({
     const crepe = new Crepe({
       root,
       defaultValue: editorMarkdown(latest.current.value),
-      // Armin draws its own fixed toolbar in place of Crepe's selection popup.
       features: {
         [Crepe.Feature.BlockEdit]: false,
         [Crepe.Feature.Toolbar]: false,
@@ -277,17 +254,13 @@ export function MarkdownEditor({
       },
       featureConfigs: {
         [Crepe.Feature.Placeholder]: { text: placeholder ?? "", mode: "doc" },
-        // The browser's own caret: the virtual cursor draws an L-shaped caret
-        // at the edges of inline code and cloze chips.
         [Crepe.Feature.Cursor]: { virtual: false },
         [Crepe.Feature.ImageBlock]: { onUpload: (file) => uploadRef.current(file) },
       },
     });
     if (cloze) crepe.editor.use(clozePlugins);
     crepe.editor.config((ctx) => {
-      // Text-only fields leave out the image block this configures.
       if (!textOnly) configureCardImages(ctx, setPreview);
-      // Empty paragraphs are layout only; Armin does not render raw HTML.
       ctx.update(paragraphSchema.key, (previous) => (context) => {
         const schema = previous(context);
         return {
@@ -380,7 +353,6 @@ export function MarkdownEditor({
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    // Escape closes an open link or equation popover, not the whole dialog.
     const closePopover = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (!root.querySelector('.milkdown [data-show="true"]')) return;
@@ -435,7 +407,6 @@ export function MarkdownEditor({
         } else {
           crepeRef.current?.editor.action((ctx) => {
             const view = ctx.get(editorViewCtx);
-            // Move past a selected image rather than replacing it on the next upload.
             view.dispatch(
               view.state.tr.setSelection(
                 TextSelection.near(view.state.doc.resolve(view.state.selection.to)),
@@ -449,13 +420,10 @@ export function MarkdownEditor({
             );
           });
         }
-      } catch {
-        /* Upload already reports a specific error. */
-      }
+      } catch {}
     }
   };
 
-  /** Audio goes in as source; the editor switches to source so the clip stays as written. */
   const insertAudio = async (files: File[]) => {
     for (const file of files) {
       try {
@@ -475,9 +443,7 @@ export function MarkdownEditor({
         }
         latest.current.value = next;
         latest.current.onChange(next);
-      } catch {
-        /* Upload already reports a specific error. */
-      }
+      } catch {}
     }
   };
 

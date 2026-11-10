@@ -16,11 +16,6 @@ const NAMED_HTML_ENTITIES: Record<string, string> = {
   rdquo: "”",
 };
 
-/**
- * Markdown sources store HTML-looking text as entities (the editor writes
- * `&lt;script&gt;` for a literal `<script>`), so tiles must decode one level
- * before showing the text. React still renders the result as text.
- */
 function decodeHtmlEntities(source: string) {
   return source.replace(
     /&(?:#(\d+)|#x([0-9a-f]+)|([a-z][a-z0-9]+));/gi,
@@ -39,11 +34,8 @@ const AUDIO_MARKDOWN_RE = new RegExp(
   "g",
 );
 
-/** Fast plain-text excerpt for card grid previews (avoids react-markdown per tile). */
 export function stripMarkdownForPreview(source: string): string {
   const text = source
-    // The serializer escapes markdown syntax with a backslash; keep the
-    // literal character so underscores and asterisks in the source survive.
     .replace(/\\([\\`*_[\]{}()#+\-.!>~^=])/g, "$1")
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/`([^`]+)`/g, "$1")

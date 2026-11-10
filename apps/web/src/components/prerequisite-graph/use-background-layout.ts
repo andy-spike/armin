@@ -16,10 +16,6 @@ function createLayoutWorker() {
   });
 }
 
-/**
- * Lay out the whole graph off the main thread (Tidy layout). The layout code
- * lives only in the worker, so the graph page never downloads it.
- */
 export function layoutInWorker(request: Omit<GraphLayoutWorkerRequest, "requestId">) {
   return new Promise<NodePlacement[]>((resolve, reject) => {
     const worker = createLayoutWorker();
@@ -35,12 +31,6 @@ export function layoutInWorker(request: Omit<GraphLayoutWorkerRequest, "requestI
   });
 }
 
-/**
- * Give cards without a saved or pending position a place on the canvas. Once
- * the graph is interactive, a Web Worker lays out the unplaced cards around
- * the placed ones while the browser is idle; the result is applied and saved.
- * Each card is laid out at most once per canvas.
- */
 export function useBackgroundLayout({
   graph,
   nodesRef,
@@ -50,7 +40,6 @@ export function useBackgroundLayout({
   onPersistLayout,
 }: {
   graph: UiDeckGraph;
-  /** Always-current canvas nodes, read when the layout starts. */
   nodesRef: RefObject<CardFlowNode[]>;
   nodePlacements?: Record<string, XYPosition>;
   interactive: boolean;
@@ -137,8 +126,6 @@ export function useBackgroundLayout({
       cancelled = true;
       cancelScheduled();
     };
-    // `nodesRef` is a ref passed in by the caller. The worker reads its
-    // latest value when the job runs, so it is deliberately not a dependency.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [graph.edges, graph.nodes, interactive, nodePlacements, onPersistLayout, setNodes]);
 }

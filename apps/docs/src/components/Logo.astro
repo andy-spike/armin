@@ -1,0 +1,31 @@
+---
+import {
+  markEdges,
+  markNodes,
+  markStroke,
+  wordmarkPath,
+  wordmarkViewBox,
+} from "../../../web/src/components/brand-paths";
+
+interface Props {
+  class?: string;
+  wordmark?: boolean;
+}
+const { class: cls = "h-6 w-6", wordmark = false } = Astro.props;
+---
+
+<svg viewBox="0 0 100 100" class:list={["shrink-0", cls]} aria-hidden="true">
+  <path d={markEdges} fill="none" stroke="currentColor" stroke-width={markStroke} stroke-linecap="round" />
+  {
+    markNodes.map((node) => (
+      <circle cx={node.cx} cy={node.cy} r={node.r} fill={node.goal ? "var(--armin-accent)" : "currentColor"} />
+    ))
+  }
+</svg>
+{
+  wordmark && (
+    <svg viewBox={wordmarkViewBox} class="h-[1.05rem] w-auto shrink-0" aria-hidden="true">
+      <path d={wordmarkPath} fill="currentColor" />
+    </svg>
+  )
+}

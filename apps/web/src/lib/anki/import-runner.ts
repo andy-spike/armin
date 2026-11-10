@@ -21,15 +21,6 @@ import {
 } from "@/lib/armin-client";
 import type { AnkiReader } from "./reader";
 
-/**
- * Runs an Anki import plan against the backend. Order matters: images and
- * audio upload first and cards are re-validated with the real media references
- * before `imports.start`, so the totals it declares are exact and a full image
- * or audio library stops the import before any deck exists. After `start`, any
- * failure or cancellation removes everything the import created.
- */
-
-// Backend per-call caps (packages/backend/convex/imports.ts).
 const MAX_CARDS_PER_CALL = 100;
 const MAX_UNITS_PER_CALL = 1500;
 const MAX_LOGS_PER_CALL = 1000;
@@ -49,17 +40,12 @@ export type ImportSummary = {
   decks: { id: string; name: string; cards: number }[];
   flashcards: number;
   reviewLogs: number;
-  /** Cards dropped because an image they depend on could not be imported. */
   skippedCards: number;
-  /** Distinct images and audio files left out (unsupported, too large, or missing from the file). */
   skippedImages: number;
-  /** Decks whose Anki options preset carried scheduling settings over. */
   decksWithSettings: number;
-  /** Cards the plan's remaining-room limit left out. */
   leftOut: number;
 };
 
-/** Thrown when the user cancels; everything created so far has been removed. */
 export class ImportCancelledError extends Error {
   constructor() {
     super("The import was cancelled.");
@@ -67,7 +53,6 @@ export class ImportCancelledError extends Error {
   }
 }
 
-/** A problem whose message is safe to show as-is. */
 export class ImportError extends Error {
   constructor(message: string) {
     super(message);
@@ -98,7 +83,6 @@ function sleep(ms: number, signal: AbortSignal) {
   });
 }
 
-/** Coded backend errors are deterministic; only unexpected failures are worth repeating. */
 function isTransient(error: unknown) {
   if (error instanceof ConvexError || error instanceof ImportCancelledError) return false;
   if (error instanceof MediaUploadError)
@@ -106,14 +90,12 @@ function isTransient(error: unknown) {
   return !(error instanceof DOMException && error.name === "AbortError");
 }
 
-/** Every call retried here carries a request id fixed by the caller, so a repeat is idempotent. */
 async function withRetry<T>(signal: AbortSignal, run: () => Promise<T>) {
   for (let attempt = 0; ; attempt++) {
     throwIfAborted(signal);
     try {
       return await run();
     } catch (error) {
-      // An aborted fetch rejects with AbortError; the user asked to stop, so say so.
       if (signal.aborted) throw new ImportCancelledError();
       if (attempt >= RETRIES || !isTransient(error)) throw error;
       await sleep(600 * 2 ** attempt, signal);
@@ -121,11 +103,6 @@ async function withRetry<T>(signal: AbortSignal, run: () => Promise<T>) {
   }
 }
 
-/**
- * Spread Anki's new-card positions over Armin's order keys. Imported cards keep
- * their relative order, and the even spread interleaves them with new cards
- * already in the library instead of putting every imported card first.
- */
 export function frontierKeys(cards: { key: string; newPosition?: number | null }[]) {
   const ordered = cards
     .filter((card) => card.newPosition != null)
@@ -138,7 +115,6 @@ export function frontierKeys(cards: { key: string; newPosition?: number | null }
   return keys;
 }
 
-/** Upload every referenced image and audio file a few at a time; returns Anki name -> Armin reference. */
 async function uploadMedia(
   reader: AnkiReader,
   names: string[],
@@ -153,12 +129,10 @@ async function uploadMedia(
   const uploadOne = async (name: string) => {
     let bytes = await reader.readMedia(name);
     if (!bytes || bytes.byteLength === 0) return;
-    // SVG can carry script, so it's never stored: the browser draws it to a PNG instead.
     if (/\.svg$/i.test(name) && !sniffImageExt(bytes)) bytes = await rasterizeSvg(bytes);
     if (!bytes || bytes.byteLength === 0) return;
     const ext = sniffMediaExt(bytes);
     if (!ext) return;
-    // Files shrink on the device before upload, so they may start larger.
     if (bytes.byteLength > MAX_DEVICE_MEDIA_BYTES) return;
     const file = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: MIME_BY_EXT[ext] });
     try {
@@ -234,7 +208,6 @@ export async function runImport({
   };
   const emit = (stage = progress.stage) => onProgress({ ...progress, stage });
 
-  // (a) Images. Nothing exists in the library yet if this stops.
   progress.images.total = mediaNames.length;
   emit();
   const refs = await uploadMedia(reader, mediaNames, signal, (done) => {
@@ -244,7 +217,6 @@ export async function runImport({
   progress.images.done = mediaNames.length;
   const skippedImages = mediaNames.length - refs.size;
 
-  // (b) Re-validate with the real references, then declare exact totals.
   const orderKeys = frontierKeys(plan.flashcards);
   const prepared: PreparedCard[] = [];
   let skippedCards = 0;
@@ -312,7 +284,6 @@ export async function runImport({
   const importId = started.importId;
 
   try {
-    // (c) Cards, in batches that respect both per-call caps.
     progress.stage = "cards";
     emit();
     const flashcardIds = new Map<string, Id<"flashcards">>();
@@ -356,7 +327,6 @@ export async function runImport({
       start = end;
     }
 
-    // (d) Review history, now that every card has an id.
     if (totals.reviewLogs > 0) {
       progress.stage = "history";
       emit();
@@ -399,12 +369,10 @@ export async function runImport({
       if (pending.length > 0) await flush();
     }
 
-    // (e) Close the import.
     throwIfAborted(signal);
     emit("finishing");
     await withRetry(signal, () => client.mutation(api.imports.finish, { importId }));
   } catch (error) {
-    // Best effort: the server also removes a stalled import after an hour.
     let removed = true;
     await client
       .mutation(api.imports.cancel, {

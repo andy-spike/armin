@@ -41,18 +41,10 @@ function readSavedViewport(storageKey: string): Viewport | undefined {
     ) {
       return { x: parsed.x, y: parsed.y, zoom: parsed.zoom };
     }
-  } catch {
-    // Ignore malformed or unavailable storage.
-  }
+  } catch {}
   return undefined;
 }
 
-/**
- * The card form dialog is either closed, creating a card (optionally at a
- * canvas placement and linked from another node), or editing a loaded card.
- * `open` stays true through the exit animation so the dialog keeps its content
- * until `onExitComplete` clears the whole state.
- */
 type CardDialogState =
   | { mode: "closed" }
   | {
@@ -74,7 +66,6 @@ function DeckGraphPage() {
   const { resolvedDeckId: deckId, deckSlug } = Route.useRouteContext();
   const navigate = useNavigate();
   const toast = useToast();
-  // A lazy initializer runs once, on the first render.
   useState(() => markGraphPerf("routeRender:start"));
 
   const viewportStorageKey = `armin:graph-viewport:${deckId}`;
@@ -85,16 +76,11 @@ function DeckGraphPage() {
   const persistViewport = (viewport: Viewport) => {
     try {
       localStorage.setItem(viewportStorageKey, JSON.stringify(viewport));
-    } catch {
-      // Ignore storage write failures (e.g. private mode quota).
-    }
+    } catch {}
   };
 
   const deckQuery = useQuery(deckQueryOptions(deckId, useStudyClock()));
 
-  // A deleted or malformed deck id resolves to no deck, so don't ask for a
-  // graph in that case: the graph query would come back empty and look like a
-  // real deck with no cards.
   const graphQuery = useQuery({ ...graphQueryOptions(deckId), enabled: Boolean(deckQuery.data) });
 
   const persistedGraph = useMemo(() => {
@@ -106,7 +92,6 @@ function DeckGraphPage() {
     return graph;
   }, [graphQuery.data, deckId]);
 
-  // Cards with saved positions, so the loading placeholders sit where they'll land.
   const skeletonNodes = useMemo(
     () =>
       persistedGraph?.nodes.flatMap((node) =>
@@ -124,7 +109,6 @@ function DeckGraphPage() {
   const [canvasMounted, setCanvasMounted] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
 
-  // Each new server graph replaces the local working copy.
   const [syncedGraph, setSyncedGraph] = useState<UiDeckGraph | null>(null);
   if (persistedGraph && persistedGraph !== syncedGraph) {
     setSyncedGraph(persistedGraph);
@@ -132,11 +116,6 @@ function DeckGraphPage() {
     setGraphReady(true);
   }
 
-  // Once the data is in, let the loading screen paint a frame before mounting
-  // the canvas. Building the graph (dagre layout + ReactFlow + every node) is a
-  // heavy synchronous burst that blocks the main thread, so deferring it keeps
-  // the loading state on screen the whole time instead of freezing the prior
-  // page.
   useEffect(() => {
     if (!graphReady || canvasMounted) return;
     return afterCanvasPaint(() => {
@@ -150,12 +129,10 @@ function DeckGraphPage() {
 
   const handleDialogExitComplete = () =>
     setCardDialog((current) =>
-      // A dialog opened again mid-exit must survive the old exit finishing.
       current.mode !== "closed" && current.open ? current : { mode: "closed" },
     );
 
   const openCreate = (placement?: XYPosition, connectFromNodeId?: string) => {
-    // A pending edit load must not open over the new form.
     cardDialogRequest.current += 1;
     setCardDialog({
       mode: "create",
@@ -169,11 +146,7 @@ function DeckGraphPage() {
     const node = graph.nodes.find((n) => n.id === nodeId);
     if (!node) return;
     const request = ++cardDialogRequest.current;
-    // Fetch the full flashcard content before opening: the form hydrates on the
-    // open transition, and graph nodes only carry display strings.
     const card = await armin.flashcards.get(nodeId);
-    // Only the latest open may win: an earlier fetch resolving late must not
-    // open the dialog with another card's content.
     if (cardDialogRequest.current !== request) return;
     setCardDialog({
       mode: "edit",
@@ -212,9 +185,7 @@ function DeckGraphPage() {
       if (await graphEdits.confirmGraphDelete(deleteConsequences.targetId)) {
         deleteConsequences.close();
       }
-    } catch {
-      // The mutation already reported the failure and reset the graph.
-    }
+    } catch {}
   };
 
   const graphError = deckQuery.isError || graphQuery.isError;
@@ -322,8 +293,6 @@ function DeckGraphPage() {
 export const Route = createFileRoute("/_app/deck/$deckId/graph")({
   staticData: { fullbleed: true },
   loader: ({ context }) => {
-    // Resolve the deck before asking for its graph, so an unknown id never
-    // looks like an empty deck or reaches graph writes.
     const deckOptions = deckQueryOptions(context.resolvedDeckId);
     void context.queryClient.prefetchQuery(deckOptions).then(() => {
       if (context.queryClient.getQueryData(deckOptions.queryKey)) {

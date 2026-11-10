@@ -41,7 +41,8 @@ generated API.
 - `convex/functions.ts` — the `mutation` and `internalMutation` builders every
   mutation uses (lint rejects the raw ones from `_generated/server`).
 - `convex/model/` — shared server logic: access checks, queue selection, lock
-  propagation, limits, error codes, and the derived Browse summaries.
+  propagation, limits, error codes, agent input validation, and the derived
+  Browse summaries.
 - `convex/model/flashcards.ts`, `decks.ts`, `prereqs.ts` — every study write
   (create, edit, archive, move, rename, link, unlink) and its cascade. The app's
   mutations, the assistant tools, and imports call these after their own
@@ -50,7 +51,7 @@ generated API.
   write that adds decks or flashcards calls; `adjustReviewUnitCount` enforces
   the review-unit cap as units are written.
 - `convex/model/agentWrites.ts` — `runAgentWrite`: request-ID replay and the
-  hourly write limit shared by the assistant authoring and import tools.
+  hourly read and write limits shared by the assistant authoring and import tools.
 
 Client entry points (see `package.json` `exports`):
 
@@ -66,11 +67,14 @@ Client entry points (see `package.json` `exports`):
   as "not found".
 - External MCP calls act through a grant verified by the MCP component and
   created from a verified Armin session at consent. Every read and write
-  re-reads the component grant, its resource audience, the active library, and
-  the app-side connection record in the same transaction, so a revocation that
-  commits first denies the operation. One approved connection can use all nine
-  tools on its user's whole library; there are no per-deck, read-only, or edit
-  permissions. Agent tokens never impersonate a user in first-party Convex
+  re-reads the component grant, its resource audience, its scopes, the active
+  library, and the app-side connection record in the same transaction, so a
+  revocation that commits first denies the operation. Tools are grouped into
+  `armin:read`, `armin:write`, `armin:import`, and `armin:study`; a connection
+  sees and can call only tools in its granted scopes, and each internal function
+  checks its tool's scope against the grant again. There are no per-deck
+  permissions. Connections with the retired `armin:author` scope see no tools,
+  get `insufficient_scope` from the component, and are marked for reconnection in Settings. Agent tokens never impersonate a user in first-party Convex
   functions. Account deletion invalidates grants immediately and schedules their
   bounded removal.
 - Writes require a verified email and an `active` library. Account deletion
@@ -86,6 +90,9 @@ Client entry points (see `package.json` `exports`):
   an answer to a card already admitted to a session is never discarded when a
   budget runs out mid-session. It runs FSRS at server time, and writes the
   schedule, the review log, and prerequisite lock changes in one mutation.
+  `model/review.ts` holds the shared rating path used by both the app's
+  `review.rate` mutation and the `armin:study` `rate_card` tool, so agent
+  ratings cannot diverge from app scheduling.
   Burying hides every review unit of a flashcard until the start of the next
   study day; units reappear automatically, and Undo restores the exact prior
   `buriedUntil` values. Undo restores the exact saved pre-review schedule only
@@ -176,7 +183,7 @@ Rules:
 
 ## Concept cards
 
-A concept card (`type: "concept"`, ADR 0023) holds a **template**: a brief and
+A concept card (`type: "concept"`) holds a **template**: a brief and
 one worked example, text and KaTeX only (`@armin/core/flashcard-types` rejects
 image and audio references). It is created through `insertFlashcard` like every
 card, so plan and deck capacity apply, and it generates one review unit with
@@ -338,6 +345,7 @@ plan limits that `model/usage.ts` (`checkCapacity`, `libraryLimits`) enforces:
 | Images and audio (shared pool)  | 1 GiB | 5 GiB   |
 | Assistant-created cards / month | 300   | 10,000  |
 | Assistant writes / hour         | 60    | 600     |
+| Assistant reads / hour          | 2,000 | 6,000   |
 | Concept card variants / month   | 0     | 2,000   |
 
 The monthly assistant allowance is per library and counts `save_cards`; staged
@@ -424,8 +432,9 @@ history cleanup. Deleting a deck removes the deck row atomically; Browse, queues
 exports, and card writes exclude rows whose deck is gone. Scheduled cleanup removes
 its units, cards, image links, settings, and edges in bounded batches, and removes
 history by deleted unit ID so moved cards retain their reviews. Quotas conservatively
-include pending cleanup rows until those batches reclaim them. Graph writes compare the displayed
-library revision, so another saved library change can require a graph reload.
+include pending cleanup rows until those batches reclaim them. Prerequisite link writes compare the
+deck's displayed graph revision, so another saved link change in that deck can require a graph
+reload. Studying and layout saves don't change that revision.
 
 ## Development
 

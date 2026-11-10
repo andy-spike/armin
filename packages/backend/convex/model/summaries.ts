@@ -19,20 +19,11 @@ import type { MutationCtx } from "../_generated/server";
 import { MAX_VARIANTS_PER_CONCEPT } from "./limits";
 import { parseFlashcard } from "./study";
 
-/*
- * Browse summaries and deck counters are derived data. Triggers note which
- * flashcards a mutation touched; when the mutation's handler succeeds, each
- * touched flashcard's summary is rebuilt once, in the same transaction, and
- * the summary's change moves the deck counters by its difference. Every
- * mutation gets this through `convex/functions.ts`.
- */
-
 type SummaryCtx = MutationCtx & {
   touchedFlashcards: Set<Id<"flashcards">>;
   activityBatch: ReturnType<typeof activityBatch>;
 };
 
-/** Lowercase, accent-free, single-spaced, and short enough for an index key. */
 export function sortKey(text: string) {
   return text
     .normalize("NFKD")
@@ -91,8 +82,6 @@ const VARIANT_FIELDS = [
   "flashcardId",
 ] as const satisfies (keyof Doc<"conceptVariants">)[];
 
-// A concept card's "low on variants" flag follows its variants: stored,
-// shown, set aside, restored by Undo, or deleted.
 triggers.register("conceptVariants", async (ctx, change) => {
   if (!changed(change.oldDoc, change.newDoc, VARIANT_FIELDS)) return;
   for (const variant of [change.oldDoc, change.newDoc]) {
@@ -130,7 +119,7 @@ triggers.register("media", async (ctx, change) => {
 });
 
 triggers.register("reviewLogs", async (ctx, change) => {
-  if (change.operation === "update") return; // Logs are immutable; only backfill markers change.
+  if (change.operation === "update") return;
   const raw = { ...ctx, db: ctx.innerDb };
   if (change.oldDoc)
     await recordActivity(raw, "reviewLogs", change.oldDoc, -1, ctx.activityBatch, true);
@@ -198,7 +187,6 @@ function zero(): Counts {
   };
 }
 
-/** What one flashcard adds to its deck's counters. */
 function contribution(summary: Doc<"flashcardSummaries">): Counts {
   const hasUnits = summary.units > 0;
   return {
@@ -206,14 +194,12 @@ function contribution(summary: Doc<"flashcardSummaries">): Counts {
     archivedFlashcards: summary.archived ? 1 : 0,
     active: !summary.archived && hasUnits ? 1 : 0,
     archived: summary.archived && hasUnits ? 1 : 0,
-    // Learned only when every unit is in Review: both directions, every gap.
     learned: !summary.archived && summary.stateMask === 1 << State.Review ? 1 : 0,
     newUnits: summary.archived ? 0 : summary.newUnits,
     learningUnits: summary.archived ? 0 : summary.learningUnits,
   };
 }
 
-/** Counters for a set of summaries, for repairs. */
 export function countSummaries(summaries: Doc<"flashcardSummaries">[]) {
   return summaries.reduce((total, summary) => combine(total, contribution(summary), 1), zero());
 }
@@ -235,7 +221,6 @@ async function adjustCounters(
     .withIndex("by_deck", (q) => q.eq("deckId", summary.deckId))
     .unique();
   if (!counters) {
-    // A deck deleted in this mutation already dropped its counters.
     if (!(await ctx.innerDb.get(summary.deckId))) return;
     await ctx.innerDb.insert("deckCounters", {
       libraryId: summary.libraryId,
@@ -255,7 +240,6 @@ function searchExtraText(type: string, content: unknown) {
   return (content as TypeAnswerContent).acceptedAnswers.join("\n");
 }
 
-/** The summary a flashcard and its units should have right now. */
 function summaryFor(
   flashcard: Doc<"flashcards">,
   units: Doc<"reviewUnits">[],
@@ -302,7 +286,6 @@ function summaryFor(
   };
 }
 
-/** Rebuild one flashcard's summary; `db` must fire the counter trigger. */
 export async function syncSummary(
   db: MutationCtx["db"],
   flashcardId: Id<"flashcards">,
@@ -342,10 +325,6 @@ export async function syncSummary(
   if (differs) await db.patch(existing._id, next);
 }
 
-/**
- * Wrap a mutation context so its writes are tracked, and return the step that
- * rebuilds the touched summaries once the handler has finished.
- */
 export function withSummaries<C extends MutationCtx>(ctx: C) {
   const touchedFlashcards = new Set<Id<"flashcards">>();
   const batch = activityBatch();
@@ -356,7 +335,6 @@ export function withSummaries<C extends MutationCtx>(ctx: C) {
     flush: async () => {
       await flushActivity({ ...ctx, db: ctx.db }, batch);
       const deckNames = new Map<Id<"decks">, string>();
-      // Rebuilding writes summaries only, so it never touches more flashcards.
       for (const flashcardId of touchedFlashcards) {
         await syncSummary(wrapped.db, flashcardId, deckNames);
       }

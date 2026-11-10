@@ -26,16 +26,6 @@ import {
   updateSettingsOptimistically,
 } from "@/lib/optimistic";
 
-/**
- * Imperative calls to the Convex backend: writes, plus a few reads a page
- * needs once rather than live (a form's starting values, a card loaded for
- * editing). Pages read everything else through the live subscriptions in
- * `queries.ts`. This layer turns the UI's string ids into Convex ids, gives
- * each create, rating, and undo a request id so retries apply once, and turns
- * an edit conflict into a `StaleError` the UI can offer to reload. Writes the
- * user should see at once carry a Convex optimistic update (`optimistic.ts`).
- */
-
 let client: ConvexReactClient | null = null;
 
 export function setConvexClient(next: ConvexReactClient) {
@@ -47,7 +37,6 @@ export function convexClient() {
   return client;
 }
 
-/** The server's message for a coded error, or a generic fallback. */
 export function errorMessage(error: unknown, fallback = "Something went wrong.") {
   if (error instanceof ConvexError) {
     const data = error.data as { message?: string } | string;
@@ -60,7 +49,6 @@ export function errorMessage(error: unknown, fallback = "Something went wrong.")
   return fallback;
 }
 
-/** A thrown conflict carries the latest version so the UI can offer a reload. */
 export class StaleError extends Error {
   constructor(message: string) {
     super(message);
@@ -86,7 +74,6 @@ function unwrapUpdate(result: UpdateResult) {
 export type SettingsUpdate = FunctionArgs<typeof api.settings.update>;
 export type DeckSettingsUpdate = Omit<FunctionArgs<typeof api.settings.updateDeck>, "deckId">;
 
-/** A failed image upload, with the HTTP status so callers can tell a full library from a hiccup. */
 export class MediaUploadError extends Error {
   constructor(
     message: string,
@@ -178,7 +165,6 @@ export const armin = {
         tags: input.tags,
         requestId: input.requestId ?? newRequestId(),
       }),
-    /** Save an edit made from `version`; throws StaleError on conflict. */
     update: async (input: {
       id: string;
       version: number;
@@ -209,12 +195,10 @@ export const armin = {
       }),
   },
   concepts: {
-    /** Generate a concept card's variants again after a failed job. */
     retryGeneration: (flashcardId: string) =>
       q().mutation(api.concepts.retryGeneration, {
         flashcardId: flashcardId as Id<"flashcards">,
       }),
-    /** Save a variant's exercise and solution; a stale `version` returns a conflict. */
     editVariant: (input: { id: string; version: number; exercise: string; solution: string }) =>
       q().mutation(api.concepts.editVariant, {
         variantId: input.id as Id<"conceptVariants">,
@@ -230,7 +214,6 @@ export const armin = {
       q().mutation(api.concepts.unflagVariant, {
         variantId: variantId as Id<"conceptVariants">,
       }),
-    /** Flag the exercise a review shows; the unit moves on to the next variant. */
     flagShownVariant: (input: { reviewUnitId: string; version: number }) =>
       q().mutation(api.concepts.flagShownVariant, {
         reviewUnitId: input.reviewUnitId as Id<"reviewUnits">,
@@ -282,7 +265,6 @@ export const armin = {
       }),
   },
   cram: {
-    /** Practice rating: appends a cram log and never changes the FSRS schedule. */
     rate: (input: {
       reviewUnitId: string;
       rating: Grade;
@@ -341,10 +323,6 @@ export const armin = {
     setTimeZone: (timeZone: string) => q().mutation(api.account.setTimeZone, { timeZone }),
   },
   media: {
-    /**
-     * Upload an image or audio file to private library storage and return its
-     * reference. Images and audio are shrunk on the device first (`shrinkMedia`).
-     */
     upload: async (input: {
       file: Blob;
       fileName?: string;

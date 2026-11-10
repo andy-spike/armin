@@ -2,7 +2,6 @@ import { ChevronRight } from "lucide-react";
 import type { ImportOmitted, ImportOmittedReason } from "@armin/core/anki";
 import { plural } from "./format";
 
-/** Why notes were left out, read after "3 notes of type “X”:". */
 const REASONS: Record<ImportOmittedReason, string> = {
   missing_notetype: "their note type is missing from the file.",
   empty_content: "they have no content Armin can use.",
@@ -14,7 +13,6 @@ const REASONS: Record<ImportOmittedReason, string> = {
   unsupported_occlusion: "this occlusion format isn't supported yet.",
 };
 
-/** The notes that won't become cards, grouped by note type and reason. */
 export function NotImported({ omitted, stale }: { omitted: ImportOmitted[]; stale: boolean }) {
   const groups = new Map<string, { name: string; reason: ImportOmittedReason; notes: number }>();
   for (const note of omitted) {

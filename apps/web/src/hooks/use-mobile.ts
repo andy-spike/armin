@@ -9,7 +9,6 @@ function subscribe(onChange: () => void) {
   return () => mql.removeEventListener("change", onChange);
 }
 
-// The server has no viewport, so it renders the desktop layout.
 export function useIsMobile() {
   return React.useSyncExternalStore(
     subscribe,

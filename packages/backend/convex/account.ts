@@ -9,10 +9,6 @@ import { isReviewer, reviewerResetHours } from "./model/reviewer";
 import { isSelfHosted } from "./model/selfHost";
 import { libraryPlan } from "./model/usage";
 
-/**
- * Which optional auth services this deployment has configured. Public so the
- * signed-out auth pages can hide actions that cannot work here.
- */
 export const authFeatures = query({
   args: {},
   handler: async () => {
@@ -21,13 +17,11 @@ export const authFeatures = query({
       email: Boolean(process.env.RESEND_API_KEY),
       google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
       selfHosted,
-      // A self-hosted instance's one account is created on its server.
       signUpOpen: !selfHosted,
     };
   },
 });
 
-/** Who is signed in, whether they may save, and their library state. */
 export const viewer = query({
   args: {},
   handler: async (ctx) => {
@@ -53,12 +47,6 @@ export const viewer = query({
   },
 });
 
-/**
- * Idempotently provision the signed-in user's single library. Every sign-in
- * method of a user resolves to the same Better Auth user id, so linked
- * Google and password sign-ins reach the same library. Convex serializes
- * concurrent calls, so two tabs can't create two libraries.
- */
 export const ensureLibrary = mutation({
   args: { timeZone: v.string() },
   handler: async (ctx, { timeZone }) => {
@@ -90,7 +78,6 @@ export const ensureLibrary = mutation({
   },
 });
 
-/** Change the account study-day time zone (IANA name). */
 export const setTimeZone = mutation({
   args: { timeZone: v.string() },
   handler: async (ctx, { timeZone }) => {

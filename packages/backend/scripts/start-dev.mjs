@@ -29,10 +29,6 @@ try {
   if (["all", "backend"].includes(mode)) await ensureSandboxRelay();
   const env = { ...process.env, ARMIN_WEB_PORT: String(state.webPort) };
   console.log(`Web: ${state.siteUrl}\nConvex: http://127.0.0.1:${state.convexPort} (local)`);
-  // `vp run` doesn't pass a signal it receives on to its tasks; it relies on
-  // the terminal signalling the whole process group. Running it in its own
-  // group lets a stop signal sent only to this launcher reach every task. The
-  // group gets no stdin, since a background group reading the terminal stops.
   const ownGroup = mode === "all";
   const child = spawn("pnpm", [...commands[mode], ...extra], {
     cwd: root,
@@ -44,9 +40,7 @@ try {
     try {
       if (ownGroup && child.pid !== undefined) process.kill(-child.pid, signal);
       else child.kill(signal);
-    } catch {
-      // The child already exited.
-    }
+    } catch {}
   };
   for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => stop(signal));
   child.on("error", (error) => {

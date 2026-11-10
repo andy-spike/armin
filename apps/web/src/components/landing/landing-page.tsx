@@ -1,55 +1,76 @@
-import { SOURCE_CODE_URL } from "@/lib/source-code";
+import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BookOpen } from "lucide-react";
+import { PLAN_LIMITS } from "@armin/core/plans";
 import { ArminMark, ArminWordmark } from "@/components/brand";
-import { SiteHeader } from "@/components/site-header";
+import { GitHubMark, SiteHeader } from "@/components/site-header";
 import { buttonVariants } from "@/components/ui/button";
+import { DOCS_URL, docsUrl } from "@/lib/docs-site";
+import { SOURCE_CODE_URL } from "@/lib/source-code";
 import { cn } from "@/lib/utils";
 import { LandingClip } from "./landing-clip";
+import type clips from "./clips.json";
 
-const GITHUB_URL = SOURCE_CODE_URL;
+const FREE_CARDS = new Intl.NumberFormat("en-US").format(PLAN_LIMITS.free.flashcards);
 
-/**
- * The steps of using Armin, each with a clip of the real app working through
- * one example deck, "Fundamentals of LLMs". The clips are recorded by
- * apps/web/scripts/record-landing-clips.mjs.
- */
-const STEPS = [
+const TEXT_LINK =
+  "underline decoration-ui-3 underline-offset-4 transition-colors hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+
+function DocLink({ path, children }: { path: string; children: ReactNode }) {
+  return (
+    <a href={docsUrl(path)} className={cn(TEXT_LINK, "text-ink")}>
+      {children}
+    </a>
+  );
+}
+
+const STEPS: {
+  clip: keyof typeof clips;
+  title: string;
+  body: ReactNode;
+  guide: { path: string; label: string };
+  label: string;
+}[] = [
   {
     clip: "write",
     title: "Write a card for one idea.",
-    body: "Front and back in Markdown, with code, images, and equations. Write cards yourself, import an Anki deck, or have an AI assistant draft them.",
+    body: (
+      <>
+        Each card has a front and a back in Markdown, with room for code, images, and equations.
+        Write cards yourself, <DocLink path="guides/import-from-anki/">import an Anki deck</DocLink>
+        , or <DocLink path="guides/ai-assistants/">have an AI assistant draft them</DocLink>.
+      </>
+    ),
+    guide: { path: "guides/cards-and-decks/", label: "Cards and decks guide" },
     label:
       "The Add card dialog: a card asking what self-attention lets each token do is typed and saved to the Fundamentals of LLMs deck.",
   },
   {
     clip: "link",
     title: "Link what it builds on.",
-    body: "In the deck's graph, drag a link to the new card from each card it depends on. It stays locked until those are learned, so it only comes up once you're ready for it.",
+    body: "Open the deck's graph and drag a link to the new card from each card it depends on. The new card stays locked, out of your reviews, until you've learned those first.",
+    guide: { path: "guides/prerequisites/", label: "Prerequisites guide" },
     label:
       "The deck's graph: links are dragged from Tokens and from Embeddings to the new Self-attention card, which becomes locked.",
   },
   {
     clip: "review",
     title: "Review what's due.",
-    body: "Recall the answer, show it with Space, then grade how well you knew it. FSRS turns each grade into the next due date.",
+    body: "Try to recall the answer, reveal it, then grade how well you knew it. The FSRS scheduler uses each grade to pick the card's next due date, so you see it again just before you'd forget it.",
+    guide: { path: "guides/reviewing/", label: "Reviewing guide" },
     label:
       "A review session: the Tokens card and then the Embeddings card are answered and graded Easy.",
   },
   {
     clip: "unlock",
     title: "Watch the next layer open.",
-    body: "Learning Tokens and Embeddings unlocked Self-attention and Context window, and they join your reviews. A card stays unlocked even if a foundation slips later; FSRS brings that foundation back for practice.",
+    body: "Once Tokens and Embeddings are learned, Self-attention and Context window unlock and join your reviews. An unlocked card stays unlocked even if you later forget a foundation; Armin just brings that foundation back for practice.",
+    guide: { path: "guides/prerequisites/#locked-cards", label: "How unlocking works" },
     label:
       "The deck's graph after review: Tokens and Embeddings are in review, Self-attention and Context window are unlocked, and the cards above them are still locked.",
   },
-] as const;
+];
 
-/**
- * A rule with a small label at its centre, between the page's sections. With
- * `headingId` the label is the section's heading; otherwise it only marks the
- * break and is hidden from assistive technology.
- */
 function SectionRule({ headingId, children }: { headingId?: string; children: string }) {
   const label = "font-mono text-xs tracking-[0.14em] text-muted uppercase";
   return (
@@ -69,7 +90,6 @@ function SectionRule({ headingId, children }: { headingId?: string; children: st
   );
 }
 
-/** Public landing page, shown at `/` to signed-out visitors. */
 export function LandingPage() {
   return (
     <div className="landing notebook-bg min-h-dvh overflow-x-clip">
@@ -90,7 +110,9 @@ export function LandingPage() {
             className="landing-rise mt-6 max-w-[34rem] text-xl leading-snug text-pretty text-muted"
             style={{ animationDelay: "80ms" }}
           >
-            Spaced-repetition flashcards that unlock as their foundations are learned.
+            Armin is an open-source spaced-repetition flashcard app. Link each card to the cards it
+            builds on, and it unlocks only once you've learned them, so the basics always come
+            first.
           </p>
           <div
             className="landing-rise mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 lg:mt-9"
@@ -110,6 +132,22 @@ export function LandingPage() {
               I already have an account
             </Link>
           </div>
+          <div
+            className="landing-rise mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted"
+            style={{ animationDelay: "240ms" }}
+          >
+            <Link to="/pricing" className={TEXT_LINK}>
+              Free for up to {FREE_CARDS} cards
+            </Link>
+            <a href={DOCS_URL} className={cn(TEXT_LINK, "inline-flex items-center gap-1.5")}>
+              <BookOpen className="size-3.5" aria-hidden />
+              Read the docs
+            </a>
+            <a href={SOURCE_CODE_URL} className={cn(TEXT_LINK, "inline-flex items-center gap-1.5")}>
+              <GitHubMark className="size-3.5" />
+              Source on GitHub
+            </a>
+          </div>
         </section>
 
         <SectionRule headingId="landing-steps">How it works</SectionRule>
@@ -121,7 +159,6 @@ export function LandingPage() {
               className="border-t border-border-strong py-14 first:border-t-0 first:pt-12 lg:py-20 lg:first:pt-16"
               aria-labelledby={`landing-step-${step.clip}`}
             >
-              {/* Text beside its clip on wide screens, so both stay in view. */}
               <div className="grid items-center gap-x-14 gap-y-8 lg:grid-cols-12">
                 <div className="lg:col-span-5">
                   <h3
@@ -136,6 +173,16 @@ export function LandingPage() {
                   <p className="mt-5 max-w-[34rem] text-base leading-relaxed text-pretty text-muted lg:text-lg">
                     {step.body}
                   </p>
+                  <a
+                    href={docsUrl(step.guide.path)}
+                    className={cn(
+                      TEXT_LINK,
+                      "mt-5 inline-flex items-center gap-1 text-sm font-medium text-ink",
+                    )}
+                  >
+                    {step.guide.label}
+                    <ArrowUpRight className="size-3.5" aria-hidden />
+                  </a>
                 </div>
                 <div className="lg:col-span-7">
                   <LandingClip name={step.clip} label={step.label} />
@@ -177,6 +224,13 @@ export function LandingPage() {
                 Sign in
               </Link>
             </div>
+            <p className="mt-6 text-sm text-muted">
+              New here? The{" "}
+              <a href={docsUrl("getting-started/")} className={cn(TEXT_LINK, "text-ink")}>
+                getting started guide
+              </a>{" "}
+              walks you through your first deck and review.
+            </p>
           </div>
         </section>
       </main>
@@ -187,41 +241,23 @@ export function LandingPage() {
             <ArminMark className="size-4.5" />
             <ArminWordmark />
           </span>
-          <span>Open source under the AGPL-3.0 license</span>
-          <a
-            href={GITHUB_URL}
-            className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
+          <span>Open source under the MIT license</span>
+          <a href={DOCS_URL} className={TEXT_LINK}>
+            Documentation
+          </a>
+          <a href={SOURCE_CODE_URL} className={TEXT_LINK}>
             Source on GitHub
           </a>
-          <a
-            href={`${GITHUB_URL}/issues`}
-            className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
+          <a href={`${SOURCE_CODE_URL}/issues`} className={TEXT_LINK}>
             Report an issue
           </a>
-          <Link
-            to="/docs/mcp"
-            className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            MCP documentation
-          </Link>
-          <Link
-            to="/pricing"
-            className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
+          <Link to="/pricing" className={TEXT_LINK}>
             Pricing
           </Link>
-          <Link
-            to="/privacy"
-            className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
+          <Link to="/privacy" className={TEXT_LINK}>
             Privacy
           </Link>
-          <Link
-            to="/terms"
-            className="underline decoration-ui-3 underline-offset-4 hover:text-ink hover:decoration-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
+          <Link to="/terms" className={TEXT_LINK}>
             Terms
           </Link>
         </div>

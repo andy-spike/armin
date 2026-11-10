@@ -5,8 +5,6 @@ function staticJwks() {
   try {
     return process.env.JWKS;
   } catch {
-    // The CLI also evaluates this module before deployment variables are
-    // available. That initial evaluation must keep the dynamic provider.
     return undefined;
   }
 }

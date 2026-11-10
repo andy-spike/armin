@@ -5,13 +5,7 @@ import { ImageOcclusionPreview } from "@/components/image-occlusion-review";
 import { MarkdownContent } from "@/components/ui/markdown-content";
 import { plural } from "@/lib/utils";
 
-/**
- * The editor's view of an image occlusion card. Masks can't be drawn or moved
- * here yet, so the card is shown read-only and saving keeps it unchanged.
- */
 export function ImageOcclusionFields({ content }: { content: ImageOcclusionContent | null }) {
-  // The dialog focuses its first input, the tags here, which would open it
-  // scrolled past the image. Take initial focus at the top instead.
   const focusOnMount = useCallback((node: HTMLDivElement | null) => {
     node?.focus({ preventScroll: true });
   }, []);

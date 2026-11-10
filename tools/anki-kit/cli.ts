@@ -1,13 +1,3 @@
-/**
- * Armin's portable Anki converter kit.
- *
- * Runs the exact converter and package reader the web app uses, but with Node's
- * filesystem instead of a browser File/Worker. The output is a deterministic
- * normalized plan the Armin MCP import tools can stage, plus extracted images
- * and a self-contained preview. It never talks to Armin and never executes
- * anything from the Anki package.
- */
-
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
@@ -254,7 +244,6 @@ async function main() {
       missing.add(name);
       continue;
     }
-    // SVG can carry script, so it's never stored: render it to a PNG instead.
     if (!sniffMediaExt(bytes) && /\.svg$/i.test(name)) {
       bytes = await rasterizeSvg(bytes);
       if (!bytes || bytes.byteLength === 0 || bytes.byteLength > MAX_MEDIA_FILE_BYTES) {
@@ -293,7 +282,6 @@ async function main() {
       if (media) refs.set(name, media.ref);
     }
     try {
-      // Missing audio is dropped like in the browser; a missing image leaves the card unresolved.
       if (card.media.some((name) => missing.has(name) && !isSupportedAudioName(name)))
         throw new Error("An image could not be preserved.");
       const content = resolveImportMedia(card.content, card.type, refs);

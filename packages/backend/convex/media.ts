@@ -19,10 +19,6 @@ export const uploaderLibrary = internalQuery({
   },
 });
 
-/**
- * Authenticated raw image or audio bytes, stored by this action. Clients
- * cannot name a blob; the type comes from the bytes, never the request.
- */
 export async function uploadMedia(ctx: ActionCtx, request: Request) {
   const upload = await ctx.runQuery(internal.media.uploaderLibrary, {});
   if (!upload) return new Response("Sign in with a verified account.", { status: 401 });
@@ -59,11 +55,6 @@ export async function uploadMedia(ctx: ActionCtx, request: Request) {
   }
 }
 
-/**
- * Every upload updates the library's one counter row, so parallel uploads (an
- * Anki import sends several at once) can exhaust Convex's own conflict retries.
- * The bytes are already stored, so retry just the bookkeeping, spread out.
- */
 async function recordWithRetry<T>(run: () => Promise<T>) {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -105,7 +96,6 @@ export const recordUpload = internalMutation({
       return { status: "quota" as const };
     const { reviewerResetAt: _resetAt, ...media } = args;
     await ctx.db.insert("media", { ...media, createdAt: Date.now() });
-    // A file that is never attached to a flashcard is removed later.
     await ctx.scheduler.runAfter(24 * 3_600_000, internal.media.collectUnreferenced, {
       libraryId: args.libraryId,
       fileNames: [args.fileName],
@@ -114,7 +104,6 @@ export const recordUpload = internalMutation({
   },
 });
 
-/** Delete library images no flashcard references any more. */
 export const collectUnreferenced = internalMutation({
   args: { libraryId: v.id("libraries"), fileNames: v.array(v.string()) },
   handler: async (ctx, { libraryId, fileNames }) => {
@@ -129,7 +118,6 @@ export const collectUnreferenced = internalMutation({
         .withIndex("by_library_file", (q) => q.eq("libraryId", libraryId).eq("fileName", fileName))
         .first();
       if (staging) {
-        // A staged import still owns this image; check again after it finishes or expires.
         await ctx.scheduler.runAfter(60 * 60_000, internal.media.collectUnreferenced, {
           libraryId,
           fileNames: [fileName],
@@ -141,7 +129,6 @@ export const collectUnreferenced = internalMutation({
         .withIndex("by_library_file", (q) => q.eq("libraryId", libraryId).eq("fileName", fileName))
         .unique();
       if (!media) continue;
-      // Keep recent uploads that an open editor may be about to save.
       if (Date.now() - media.createdAt < 60 * 60_000) {
         await ctx.scheduler.runAfter(60 * 60_000, internal.media.collectUnreferenced, {
           libraryId,
@@ -157,7 +144,6 @@ export const collectUnreferenced = internalMutation({
   },
 });
 
-/** How much of the shared image and audio storage the caller's library uses. */
 export const usage = query({
   args: {},
   handler: async (ctx) => {
@@ -166,7 +152,6 @@ export const usage = query({
   },
 });
 
-/** Resolve a media file for the current session; null unless it's theirs. */
 export const lookupForViewer = internalQuery({
   args: { fileName: v.string() },
   handler: async (ctx, { fileName }) => {
@@ -182,15 +167,9 @@ export const lookupForViewer = internalQuery({
   },
 });
 
-/**
- * Remove blobs that were uploaded but never finalized into a library (and
- * aren't exports). Runs from a cron; bounded per run.
- */
 export const sweepOrphanBlobs = internalMutation({
   args: {},
   handler: async (ctx) => {
-    // The cron runs every 6 hours, so a two-day window of uploads older than
-    // two hours covers every unfinalized blob without rescanning old images.
     const cutoff = Date.now() - 2 * 3_600_000;
     const windowStart = cutoff - 48 * 3_600_000;
     const blobs = await ctx.db.system
@@ -248,7 +227,6 @@ export const attachVariant = internalMutation({
   },
 });
 
-/** Bounded, session-scoped layout metadata; never exposes storage URLs. */
 export const dimensions = query({
   args: { fileName: v.string() },
   returns: v.union(

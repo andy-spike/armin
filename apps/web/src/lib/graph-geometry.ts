@@ -17,11 +17,6 @@ function nodeCenter(node: InternalNode): Point {
   };
 }
 
-/**
- * Point where the line from `node` center to `other` center crosses `node`'s
- * border. Lets edges meet the rectangle edge regardless of which side faces
- * the other card. Adapted from the React Flow floating-edges example.
- */
 function getNodeIntersection(node: InternalNode, other: InternalNode): Point {
   const { width, height } = nodeSize(node);
   const w = width / 2;
@@ -42,7 +37,6 @@ function getNodeIntersection(node: InternalNode, other: InternalNode): Point {
   };
 }
 
-/** Which border the intersection point lands on, so the arrow orients correctly. */
 function getEdgePosition(node: InternalNode, point: Point): Position {
   const { width, height } = nodeSize(node);
   const nx = Math.round(node.internals.positionAbsolute.x);

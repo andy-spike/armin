@@ -168,7 +168,6 @@ function Panel({
   );
 }
 
-/** A large figure with its unit, used for each panel's headline number. */
 function Figure({
   value,
   unit,
@@ -209,12 +208,6 @@ const BAR_TONES = {
   due: { opacity: 0.55, unit: "review unit" },
 } as const;
 
-/**
- * TanStack Charts bars over study-day buckets, under a headline total. Pointer
- * and keyboard focus name each bar's date and count in a tooltip; the chart's
- * accessible label carries the series total. The forecast's first bar is
- * today and includes overdue units.
- */
 function DayBarChart({
   series,
   tone,
@@ -241,7 +234,6 @@ function DayBarChart({
           fill: "var(--color-accent)",
           fillOpacity: opacity,
           radius: { end: 1 },
-          // The hovered day changes color instead of showing the default focus ring.
           states: [
             {
               when: { focus: "primary" },
@@ -263,7 +255,6 @@ function DayBarChart({
               line: false,
               padding: 10,
             },
-            // The end labels hang inward so they stay inside the plot.
             tickLabels: {
               anchor: ({ index }) => (index === 0 ? "start" : index === 2 ? "end" : "middle"),
             },
@@ -272,7 +263,6 @@ function DayBarChart({
         y: {
           scale: scaleLinear,
           nice: true,
-          // An empty series still draws a readable 0–1 frame.
           domain: series.max === 0 ? [0, 1] : undefined,
           grid: { stroke: "var(--color-border)", strokeDasharray: "2 3" },
           axis: {
@@ -281,7 +271,6 @@ function DayBarChart({
               count: 3,
               line: false,
               padding: 10,
-              // The baseline already marks zero; labeling it crowds the dates.
               format: (value) => (value !== 0 && Number.isInteger(value) ? String(value) : ""),
             },
           },
@@ -311,7 +300,6 @@ function DayBarChart({
   );
 }
 
-/** The line beside a series total: today's load for a forecast, the daily average otherwise. */
 function seriesDetail(
   series: StatsOverview["daily"],
   forecast: boolean | undefined,
@@ -411,12 +399,10 @@ const STATE_ITEMS = [
   { key: "archivedCount", label: "Archived", color: "bg-border-strong" },
 ] as const;
 
-/** States that split the studyable units without overlap. */
 const ACTIVE_STATE_ITEMS = STATE_ITEMS.slice(0, 4);
 
 function StateCounts({ states }: { states: StatsOverview["states"] }) {
   const active = ACTIVE_STATE_ITEMS.reduce((sum, item) => sum + states[item.key], 0);
-  // Locked and archived can overlap, so the bar shows them as one remainder.
   const setAside = states.total - active;
   return (
     <div className="space-y-5">

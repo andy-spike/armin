@@ -10,7 +10,6 @@ import { armin } from "@/lib/armin-client";
 import { notifySaveError } from "@/lib/notify";
 import type { UiDeck } from "@/types/view-models";
 
-/** Pin, rename, and delete, shared by a deck's dropdown and right-click menus. */
 export function DeckActionItems({
   pinned,
   onTogglePin,
@@ -45,10 +44,6 @@ export function DeckActionItems({
   );
 }
 
-/**
- * The rename and delete dialogs for decks. Call `rename` or `remove` from a
- * menu and render `dialogs` once. `onDeleted` runs after a deck is removed.
- */
 export function useDeckActions({ onDeleted }: { onDeleted?: (deck: UiDeck) => void } = {}) {
   const toast = useToast();
   const [renameOpen, setRenameOpen] = useState(false);
@@ -59,9 +54,6 @@ export function useDeckActions({ onDeleted }: { onDeleted?: (deck: UiDeck) => vo
   const [deletingDeck, setDeletingDeck] = useState<UiDeck | null>(null);
   const [closingAfterDelete, setClosingAfterDelete] = useState(false);
 
-  // Renames, deletes, and pins show at once through Convex optimistic updates
-  // (lib/optimistic.ts), so the dialogs close right away. A failure puts
-  // things back.
   const updateDeck = useMutation({
     mutationFn: (input: { id: string; version: number; name: string }) => armin.decks.update(input),
     onMutate: () => {

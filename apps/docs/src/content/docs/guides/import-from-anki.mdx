@@ -1,0 +1,57 @@
+---
+title: Import from Anki
+description: Bring Anki decks, collections, and text exports into Armin.
+sidebar:
+  order: 4
+---
+
+Open **Import from Anki** on the deck list, or **Settings → Data → Import**.
+Armin offers two ways in.
+
+<Tabs syncKey="anki-import">
+  <TabItem label="With an AI assistant">
+    Recommended for large or image-heavy decks. Give the Anki file to a
+    [connected assistant](/guides/ai-assistants/) with file access. It runs
+    Armin's converter, reports anything it couldn't convert, and can repair or
+    skip those cards on request. It shows you a final preview and saves only
+    after you approve.
+
+    Assistant imports always start fresh: no Anki due dates or review history.
+
+  </TabItem>
+  <TabItem label="In the browser">
+    Choose your file and Armin reads it in your browser. The preview lists
+    anything that won't come across before you import.
+
+    Supported files are Anki decks (`.apkg`), whole collections (`.colpkg`),
+    and plain-text exports (`.txt`, `.csv`, `.tsv`). You can optionally bring
+    your review progress along.
+
+  </TabItem>
+</Tabs>
+
+## What comes across
+
+- Each Anki deck becomes an Armin deck.
+- Basic, reversed, typed-answer, cloze, and image occlusion notes become the
+  matching Armin card types. Other note types are rendered from their
+  templates, or you choose which fields go on each side.
+- Notes from the older Image Occlusion Enhanced add-on become image occlusion
+  cards, one per image. Other occlusion formats, such as AnKing's "IO-one by
+  one", are listed as not imported.
+- Images (SVG becomes PNG), audio, formatting, flags (as `flag::<color>`
+  tags), and deck options such as desired retention and FSRS parameters.
+- Tags up to 200 characters and 100 per card, including hierarchical tags such
+  as `#AK_Step1_v12::Pharm`.
+
+Video, text-to-speech, card styling, and per-deck daily limits don't come
+across.
+
+## Large decks
+
+A deck holds up to 10,000 cards, so a bigger Anki deck imports as numbered
+decks such as `AnKing (1 of 4)`, keeping each note's cards together.
+
+If the file doesn't fit your plan, the preview offers to import the first cards
+that fit: reviewed cards by due date, then new cards in Anki's order. Upgrade
+later and import the file again for the rest.

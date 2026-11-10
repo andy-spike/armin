@@ -1,6 +1,6 @@
-// Explicit table roles preserve semantics when the mobile layout uses display: block.
 /* oxlint-disable jsx-a11y/no-redundant-roles, jsx-a11y/no-interactive-element-to-noninteractive-role */
 import { Children, cloneElement, createContext, isValidElement, useContext } from "react";
+import { DOCS_URL } from "@/lib/docs-site";
 import { SOURCE_CODE_URL } from "@/lib/source-code";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -46,7 +46,6 @@ const components: Components = {
     <pre className="mt-4 overflow-x-auto bg-surface-sunken p-4 text-sm leading-6">{children}</pre>
   ),
   a: ({ href = "", children }) =>
-    // App routes navigate in place; everything else (mail, the site root) is a plain link.
     href.startsWith("/") && !href.startsWith("//") && href !== "/" ? (
       <Link to={href} className={linkClass}>
         {children}
@@ -118,10 +117,6 @@ const components: Components = {
   ),
 };
 
-/**
- * Public page for a document written in Markdown. The `legal` class
- * lets the document scroll instead of the locked app frame (see `app.css`).
- */
 export function LegalPage({ source }: { source: string }) {
   return (
     <div className="legal notebook-bg flex min-h-dvh flex-col">
@@ -138,9 +133,9 @@ export function LegalPage({ source }: { source: string }) {
           aria-label="Documentation and policies"
           className="mx-auto flex max-w-3xl flex-wrap items-center gap-x-6 gap-y-2 px-5 py-6 text-sm text-muted sm:px-8"
         >
-          <Link to="/docs/mcp" className="hover:text-ink" activeProps={{ "aria-current": "page" }}>
-            MCP documentation
-          </Link>
+          <a href={DOCS_URL} className="hover:text-ink">
+            Documentation
+          </a>
           <Link to="/privacy" className="hover:text-ink" activeProps={{ "aria-current": "page" }}>
             Privacy Policy
           </Link>

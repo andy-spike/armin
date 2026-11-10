@@ -7,8 +7,6 @@ import { TruncatedLabel } from "@/components/ui/truncated-label";
 import { parseClozes } from "@armin/core/flashcard-rules";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 
-// Inputs used by the flashcard form dialog.
-
 export function ClozeField({
   value,
   onChange,

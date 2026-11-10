@@ -8,24 +8,17 @@ import type { UiDeckGraph } from "@/types/view-models";
 
 type GraphLinkOption = { id: string; label: string };
 
-/** Which picker is open, and for which card. */
 export type LinkPickerRequest = {
   kind: "add-prereq" | "add-dependent" | "remove-prereq";
   nodeId: string;
 };
 
-/** The link a picked card stands for. */
 type PickedLink = {
   action: "add" | "remove";
   prereqId: string;
   dependentId: string;
 };
 
-/**
- * The picker's text and choices for a request. Add pickers only list cards
- * that `linkProblem` allows; the remove picker lists the card's current
- * prerequisites. Returns null when the card no longer exists.
- */
 export function linkPickerContent(
   request: LinkPickerRequest,
   graph: UiDeckGraph,
@@ -61,8 +54,6 @@ export function linkPickerContent(
     };
   }
 
-  // The picked card is the prerequisite when adding a prerequisite, and the
-  // dependent when adding a dependent.
   const linkFor = (id: string): PickedLink =>
     request.kind === "add-prereq"
       ? { action: "add", prereqId: id, dependentId: request.nodeId }
@@ -94,11 +85,6 @@ export function linkPickerContent(
 
 const MAX_RESULTS = 100;
 
-/**
- * Searchable card picker used by the graph's keyboard path to add or remove a
- * prerequisite link without dragging on the canvas. Options are validated by
- * the caller (no self-loops, duplicates, or cycles).
- */
 export function GraphLinkPicker({
   open,
   title,
@@ -118,7 +104,6 @@ export function GraphLinkPicker({
 }) {
   const [query, setQuery] = useState("");
 
-  // Clear the filter each time the picker opens.
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);

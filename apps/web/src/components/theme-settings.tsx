@@ -61,10 +61,6 @@ const SEED_GROUPS: { label: string; keys: { key: ThemeSeedKey; label: string }[]
 
 const RATING_KEYS = ["again", "hard", "good", "easy"] as const;
 
-/**
- * A theme in miniature: its text on its background, an accent mark, and the
- * four rating colors along the bottom edge.
- */
 function ThemeChip({ seeds }: { seeds: ThemeSeeds }) {
   return (
     <span
@@ -147,7 +143,6 @@ function ThemeSelect({
   );
 }
 
-/** Account-wide theme choice, built-in themes, and the user's own themes. */
 export function ThemeSection() {
   const { appearance, resolved, setAppearance } = useTheme();
   const toast = useToast();
@@ -172,7 +167,6 @@ export function ThemeSection() {
     if (theme) {
       setEditing(theme);
     } else {
-      // A new theme starts as a copy of the one on screen.
       const current = findTheme(appearance, resolved.id) ?? BUILT_IN_THEMES[0];
       setEditing({
         id: `custom-${crypto.randomUUID()}`,
@@ -188,7 +182,6 @@ export function ThemeSection() {
     const customThemes = exists
       ? appearance.customThemes.map((t) => (t.id === theme.id ? theme : t))
       : [...appearance.customThemes, theme];
-    // A new theme takes over the slot for its scheme, so saving shows it.
     const slot = themeScheme(theme.seeds) === "light" ? "lightTheme" : "darkTheme";
     const next = {
       ...appearance,
@@ -360,7 +353,6 @@ export function ThemeSection() {
   );
 }
 
-/** A color swatch (opens the system picker) joined to its hex value. */
 function SeedField({
   label,
   value,
@@ -373,7 +365,6 @@ function SeedField({
   const id = useId();
   const [draft, setDraft] = useState(value);
   const [shown, setShown] = useState(value);
-  // Follow the color picker without overwriting a hex value mid-typing.
   if (value !== shown) {
     setShown(value);
     setDraft(value);
@@ -421,7 +412,6 @@ function SeedField({
   );
 }
 
-/** A small review screen drawn with the edited theme's own tokens. */
 function ThemePreview({ seeds }: { seeds: ThemeSeeds }) {
   const tokens = deriveThemeTokens({ seeds });
   const style = Object.fromEntries(

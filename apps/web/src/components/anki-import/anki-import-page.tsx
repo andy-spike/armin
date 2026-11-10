@@ -33,11 +33,6 @@ import { DoneStep } from "./done-step";
 
 type Step = "preview" | "importing" | "done" | "failed";
 
-/**
- * The Anki import page: pick decks and progress, then watch the import run.
- * It starts from the file the import dialog opened, or offers the picker when
- * there is none (a reload, or a direct visit).
- */
 export function AnkiImportPage() {
   const [source, setSource] = useState<OpenedAnkiFile | null>(getOpenedAnkiFile);
 
@@ -46,8 +41,6 @@ export function AnkiImportPage() {
     setSource(file);
   };
 
-  // One centered column for every single-panel step; the two-column deck
-  // picker (no `data-narrow`) uses the full content width.
   return (
     <div className="has-data-narrow:mx-auto has-data-narrow:max-w-2xl">
       {source ? (
@@ -103,9 +96,6 @@ function ImportFlow({
 
   const previewing = step === "preview";
 
-  // Converting 30,000 cards takes a moment, so it runs in the reader's worker. The
-  // last plan stays on screen, dimmed, until the one for the current choices arrives.
-  // Only finished mappings change the plan; a half-chosen one waits until it can produce cards.
   const activeMappings = useMemo(
     () =>
       Object.fromEntries(
@@ -126,7 +116,6 @@ function ImportFlow({
       reviewUnits: Math.max(0, limits.reviewUnits - usage.data.reviewUnits),
     };
   }, [usage.data]);
-  // Only a limited plan depends on the room, so usage changes don't reconvert otherwise.
   const limit = limited ? room : null;
   const limitKey = limit ? `${limit.flashcards}:${limit.reviewUnits}` : limited ? "waiting" : "";
   const planKey = `${mode}|${[...selected].sort().join(",")}|${limitKey}|${JSON.stringify(activeMappings)}`;
@@ -141,7 +130,6 @@ function ImportFlow({
   useEffect(() => {
     if (usesInitialPlan || (limited && !limit)) return;
     let current = true;
-    // A short pause lets several quick checkbox clicks share one conversion.
     const timer = setTimeout(() => {
       source.reader
         .convert({
@@ -183,7 +171,6 @@ function ImportFlow({
   });
 
   const problems = useMemo(() => {
-    // Until the limited plan arrives, the old plan's overflow isn't a problem.
     if (!usage.data || !room || (limited && !plan.limit)) return [];
     const { limits } = usage.data;
     const found: ImportProblem[] = [];
@@ -285,7 +272,6 @@ function ImportFlow({
     }
   };
 
-  // Leaving the page while cards are being added asks first, like closing the tab.
   const blocker = useBlocker({
     shouldBlockFn: () => step === "importing",
     enableBeforeUnload: () => step === "importing",

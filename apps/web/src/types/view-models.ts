@@ -1,8 +1,4 @@
 import type { ReviewQueueDescriptor } from "@armin/backend/types";
-/**
- * Study data types and view models as the web UI sees them. They come from the Convex
- * backend's public function return types, so client and server stay in sync.
- */
 import type { ReviewState } from "@/components/ui/badge";
 import type {
   BrowsePage,
@@ -56,14 +52,8 @@ export type UiFlashcard = {
   dueLabel: string;
   createdAt: string;
   tags: string[];
-  /** Version the UI loaded; edits name it so stale saves are rejected. */
   version: number;
-  /** A concept card whose active variants have all been shown, so reviews repeat them. */
   lowOnVariants: boolean;
-  /**
-   * An unlocked concept card with no exercise assigned yet: it stays out of
-   * review until its first variants are stored, so it isn't shown as New.
-   */
   awaitingExercises: boolean;
 };
 
@@ -81,7 +71,6 @@ export type UiReviewUnit = {
   back: string;
   deck?: string;
   deckId?: string;
-  /** Review-unit version shown; a rating names it so stale answers are rejected. */
   version: number;
   isNew: boolean;
   hydrated?: boolean;

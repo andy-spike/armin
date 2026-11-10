@@ -22,7 +22,6 @@ function CramPage() {
   const [seed] = useState(() => Math.floor(Math.random() * 4294967296));
   const queueQuery = useQuery(cramQueueQuery(deckId, filters, search.max, seed));
 
-  // The server already shuffled and capped the queue.
   const queue = useMemo(
     () => (queueQuery.data?.items ?? []).map(toUiReviewUnit),
     [queueQuery.data],
@@ -52,11 +51,9 @@ function CramPage() {
       loadPreview={(reviewUnitId) => armin.review.preview(reviewUnitId)}
       onRate={async (card, rating, requestId) => {
         const result = await armin.cram.rate({ reviewUnitId: card.id, rating, requestId });
-        // The session names the log id generically; cram's log is its own table.
         return result.status === "ok" ? { ...result, reviewLogId: result.cramLogId } : result;
       }}
       onUndo={async (entry, requestId) =>
-        // Cram has no bury action, so its history only holds ratings.
         entry.kind === "review"
           ? armin.cram.undo({ cramLogId: entry.reviewLogId, requestId })
           : { status: "stale", message: "Only answers can be undone while cramming." }

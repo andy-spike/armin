@@ -4,7 +4,6 @@ import { Tooltip } from "@/components/ui/tooltip";
 export type ClozeChip = {
   cluster: number | null;
   hint: string | null;
-  /** Position inside the editor frame, under the chip's first character. */
   top: number;
   left: number;
 };
@@ -12,11 +11,6 @@ export type ClozeChip = {
 const stepClass =
   "inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted transition-colors duration-150 hover:bg-surface-sunken hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-40";
 
-/**
- * Settings for the cloze chip under the cursor: which card it hides on (chips
- * sharing a number blank together) and an optional hint shown in the blank.
- * Changes apply as they're made; Escape returns to the text.
- */
 export function ClozeChipPopover({
   chip,
   onCluster,
@@ -27,7 +21,6 @@ export function ClozeChipPopover({
   onExited,
 }: {
   chip: ClozeChip;
-  /** Plays the exit animation, then calls `onExited`. */
   leaving?: boolean;
   onExited?: () => void;
   onCluster: (cluster: number) => void;
@@ -37,7 +30,6 @@ export function ClozeChipPopover({
 }) {
   const cluster = chip.cluster ?? 1;
   return (
-    // The group only catches keys and clicks that bubble from its own controls.
     // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       role="group"
@@ -50,7 +42,6 @@ export function ClozeChipPopover({
       }}
       className={`absolute z-20 flex ${leaving ? "pointer-events-none animate-fade-out-fast" : "animate-fade-in-fast"} items-center gap-2 border border-border bg-surface px-2 py-1.5 text-xs shadow-overlay`}
       onMouseDown={(event) => {
-        // Keep the editor's selection on the chip unless a field is clicked.
         if (!(event.target instanceof HTMLInputElement)) event.preventDefault();
       }}
       onKeyDown={(event) => {

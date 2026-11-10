@@ -114,7 +114,6 @@ function BrowsePage() {
 
   const updateCard = useUpdateFlashcard(closeDialog);
 
-  // Awaited, so the dialog shows its save as busy until the server answers.
   const saveCard = async (values: CardFormValues) => {
     if (!editing) return;
     await updateCard.mutateAsync({ id: editing.id, version: editing.version, ...values });
@@ -176,8 +175,6 @@ function BrowsePage() {
 
       {hasLibrary && (
         <>
-          {/* Search and sort on the first row, filters below: the filters don't
-              fit beside them once the type filter joins. */}
           <div className="mb-4 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative w-full sm:w-auto sm:min-w-56 sm:flex-1">
@@ -207,7 +204,6 @@ function BrowsePage() {
               </div>
             </div>
 
-            {/* Two even columns on phones; a single row from `sm` up. */}
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
               <Select
                 value={stateFilter}

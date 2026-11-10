@@ -1,6 +1,5 @@
 import type { CramFilters } from "@/lib/queries";
 
-/** FSRS states a cram setup can include, in the order the dialog lists them. */
 export const CRAM_STATE_OPTIONS = [
   { value: 0, label: "New" },
   { value: 1, label: "Learning" },
@@ -10,7 +9,6 @@ export const CRAM_STATE_OPTIONS = [
 
 export const ALL_CRAM_STATES: number[] = CRAM_STATE_OPTIONS.map((option) => option.value);
 
-/** Cram's route search: the setup is part of the URL, so reloads and back work. */
 export type CramSearch = {
   states?: string;
   tag?: string;
@@ -37,7 +35,6 @@ export function validateCramSearch(search: Record<string, unknown>): CramSearch 
   };
 }
 
-/** A malformed or missing states list falls back to every state. */
 export function cramStatesFromSearch(raw: string | undefined) {
   if (!raw) return [...ALL_CRAM_STATES];
   const states = raw
@@ -56,7 +53,6 @@ export function cramFiltersFromSearch(search: CramSearch): CramFilters {
   };
 }
 
-/** Changing any setup field starts a fresh session. */
 export function cramSessionKey(deckId: string, search: CramSearch) {
   return [
     deckId,

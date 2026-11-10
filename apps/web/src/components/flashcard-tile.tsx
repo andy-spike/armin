@@ -230,7 +230,6 @@ function DeferredCardActionsMenu({
   return <CardActionsMenu {...props} />;
 }
 
-/** Tags shown on a tile; the rest are summarized as "+N". */
 const MAX_TILE_TAGS = 2;
 
 function FlashcardTileBody({
@@ -334,11 +333,8 @@ function FlashcardTileBody({
           {!deckName && actionMenu}
         </div>
 
-        {/* Every tile is one size: text clamps and extra tags are cut off, so
-            the grid never grows a tall row for one long card. */}
         <div className="mt-3 flex min-h-0 flex-1 flex-col">
           {card.type === "image_occlusion" ? (
-            // The image beside the header, small enough to fit the tile whole.
             <div className="flex min-h-0 items-start gap-3">
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <CardPreviewText
@@ -426,18 +422,13 @@ export const FlashcardTile = memo(function FlashcardTile({
 }: {
   card: UiFlashcard;
   onOpen: () => void;
-  /** When set, adds a menu item to show the card's review state and history. */
   onInfo?: () => void;
   onDelete: () => void | Promise<void>;
-  /** When set (e.g. on Browse), adds a menu item to open the card's deck. */
   onGoToDeck?: () => void;
-  /** When set, adds a menu item to move the card into another deck. */
   onMove?: () => void;
-  /** Toggle archive state for this card. */
   onArchiveToggle?: () => void | Promise<void>;
   loadDeleteConsequences?: (flashcardId: string) => Promise<FlashcardDeleteConsequences>;
   onDeleteRequest: (request: FlashcardDeleteRequest) => void;
-  /** When set (e.g. on the Browse grid), shows the card's deck for context. */
   deckName?: string;
 }) {
   const tileRef = useRef<HTMLLIElement>(null);

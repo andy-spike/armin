@@ -31,26 +31,14 @@ import {
 
 type ThemeContextValue = {
   appearance: Appearance;
-  /** The theme on screen now. */
   resolved: ResolvedTheme;
-  /**
-   * Show a new choice at once and save it to the account when signed in. The
-   * promise rejects when the save fails; the choice stays on this device.
-   */
   setAppearance: (next: Appearance) => Promise<void>;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-/**
- * Applies the account's theme everywhere, signed-in app and public pages
- * alike. The account copy in Convex wins; this device keeps a cache so the
- * first paint, and signed-out pages, use the last theme seen here.
- */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [appearance, setLocal] = useState<Appearance>(() => readCachedAppearance());
-  // Read during the first render (not a server snapshot), so hydration never
-  // applies the wrong slot over the one theme-init.js already showed.
   const [systemScheme, setSystemScheme] = useState(getSystemScheme);
   useEffect(() => subscribeSystemScheme(() => setSystemScheme(getSystemScheme())), []);
   const slot = appearance.mode === "system" ? systemScheme : appearance.mode;
@@ -64,7 +52,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     appearanceRef.current = appearance;
   });
-  // While a save is in flight, the subscription still shows the older value.
   const pendingSaves = useRef(0);
 
   const save = useCallback(async (next: Appearance) => {
@@ -79,7 +66,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!ready || remote.data === undefined || pendingSaves.current > 0) return;
     if (remote.data === null) {
-      // Nothing saved yet: keep this device's choice from before syncing.
       const local = appearanceRef.current;
       if (!sameAppearance(local, DEFAULT_APPEARANCE)) save(local).catch(() => {});
       return;

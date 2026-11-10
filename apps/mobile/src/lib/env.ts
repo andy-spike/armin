@@ -1,4 +1,3 @@
-/** Public Convex dev deployment URLs from `.env.local` (see `.env.example`). */
 export const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL ?? "";
 export const convexSiteUrl = process.env.EXPO_PUBLIC_CONVEX_SITE_URL ?? "";
 

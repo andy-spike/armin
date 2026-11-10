@@ -1,13 +1,3 @@
-/**
- * Draw an SVG from an Anki package into a PNG for the converter kit.
- *
- * Same size rule as the browser (`svgRasterSize`): an SVG is never stored, and
- * the PNG is content-addressed like every other media file. resvg
- * renders locally: it never runs scripts or fetches images or fonts. System
- * fonts are disabled and the kit ships Inter, so text renders deterministically
- * instead of depending on the machine.
- */
-
 import { readFile } from "node:fs/promises";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import { svgRasterSize } from "../../packages/core/src/media";
@@ -41,7 +31,6 @@ function renderOptions(fontData: Uint8Array) {
   return { font };
 }
 
-/** XML declarations and doctypes can't appear inside the wrapper SVG. */
 function stripProlog(svg: string) {
   return svg
     .replace(/^\uFEFF?\s*<\?xml[^>]*\?>/i, "")
@@ -49,10 +38,6 @@ function stripProlog(svg: string) {
     .trim();
 }
 
-/**
- * Wrap the source in a viewport of exactly the size the browser would draw, so
- * fractional scaling rounds the same way instead of relying on resvg's fit.
- */
 function sizedSvg(
   svg: string,
   width: number,
@@ -83,7 +68,6 @@ export async function rasterizeSvg(bytes: Uint8Array): Promise<Uint8Array | null
     try {
       const image = renderer.render();
       try {
-        // The wrapper fixes the viewport; refuse anything that doesn't match it.
         return image.width === width && image.height === height ? image.asPng() : null;
       } finally {
         image.free();

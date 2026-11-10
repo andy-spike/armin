@@ -19,18 +19,13 @@ import { checkCapacity, libraryPlan, libraryUsage } from "./model/usage";
 import { checkRanges, checkSteps, checkWeights } from "./model/settingsChecks";
 import { emptyDeckOverrides, startOfNextStudyDayMs } from "@armin/core/study";
 
-// Per-call caps keep every mutation inside Convex's write and read limits even
-// when each card is a 60-deletion cloze.
 const MAX_CARDS_PER_CALL = 100;
 const MAX_UNITS_PER_CALL = 1500;
 const MAX_LOGS_PER_CALL = 1000;
-/** A running import that makes no progress for this long is treated as abandoned. */
 const ABANDON_AFTER_MS = 60 * 60_000;
-/** Finished, cancelled, and failed import records are kept this long. */
 const RECORD_RETENTION_MS = 30 * 24 * 3_600_000;
 const DAY_MS = 24 * 3_600_000;
 
-/** Scheduling settings an Anki deck's options preset carries; null keeps the library default. */
 const importDeckSettings = v.object({
   requestRetention: v.union(v.number(), v.null()),
   maximumInterval: v.union(v.number(), v.null()),
@@ -66,7 +61,6 @@ function wholeNumber(value: number, label: string) {
   return value;
 }
 
-/** A repeated request id returns the first outcome, but only for the same operation. */
 async function replay(
   ctx: MutationCtx,
   libraryId: Id<"libraries">,
@@ -116,19 +110,12 @@ function checkSchedule(schedule: FsrsFieldsMs, now: number, label: string) {
   if (schedule.lastReview !== null) {
     if (!Number.isFinite(schedule.lastReview) || schedule.lastReview < 0)
       bad("last review is out of range.");
-    // A little slack for a client clock that runs ahead of the server.
     if (schedule.lastReview > now + DAY_MS) bad("last review is in the future.");
   } else if (schedule.reps === 0 && schedule.due >= PENDING_DUE.getTime()) {
-    // The app reads this exact shape as "waiting on prerequisites".
     bad("a never-reviewed card cannot be due that far ahead.");
   }
 }
 
-/**
- * Begin an import: reject plans that cannot fit the beta limits, then create
- * one deck per plan deck. Cards and history follow in `addCards` and
- * `addReviewLogs`; `finish` closes the import and `cancel` removes what it made.
- */
 export const start = mutation({
   args: {
     requestId: v.string(),
@@ -215,11 +202,6 @@ export const start = mutation({
 
 type StartedDeck = { key: string; deckId: Id<"decks"> };
 
-/**
- * Add up to 100 flashcards (and 1,500 review items) to a running import. The
- * batch is all-or-nothing. A unit's `schedule` replaces its new-card state; a
- * `subKey` the card doesn't generate is ignored.
- */
 export const addCards = mutation({
   args: {
     importId: v.id("imports"),
@@ -232,13 +214,11 @@ export const addCards = mutation({
         content: v.any(),
         tags: v.array(v.string()),
         archived: v.boolean(),
-        /** Place in the new-card order, from the Anki deck's own order; omitted keeps the default. */
         frontierKey: v.optional(v.number()),
         units: v.array(
           v.object({
             subKey: v.string(),
             schedule: v.union(v.null(), fsrsSnapshot),
-            /** Buried in Anki: hidden until the next study day. */
             buried: v.optional(v.boolean()),
           }),
         ),
@@ -284,10 +264,8 @@ export const addCards = mutation({
     if (unitCount > MAX_UNITS_PER_CALL)
       fail("INVALID", `Send at most ${MAX_UNITS_PER_CALL} review items per call.`);
 
-    // Library limits can change while a long import runs, so check them again.
     await checkCapacity(ctx, library._id, { flashcards: parsed.length, reviewUnits: unitCount });
 
-    // A deck deleted mid-import (from another tab) would leave its cards with no deck.
     for (const deckId of new Set(parsed.map((item) => item.deckId))) {
       const deck = await ctx.db.get(deckId);
       if (!deck || deck.libraryId !== library._id)
@@ -299,7 +277,6 @@ export const addCards = mutation({
     const buriedUntil = startOfNextStudyDayMs(now, library.timeZone);
     const tagCache: TagCache = new Map();
     for (const { card, deckId, input } of parsed) {
-      // An accepted review proves access, so reviewed cards keep it for good.
       const studied = card.units.some(
         (unit) => unit.schedule && (unit.schedule.reps > 0 || unit.schedule.lastReview !== null),
       );
@@ -346,11 +323,6 @@ export const addCards = mutation({
   },
 });
 
-/**
- * Add up to 1,000 past reviews for cards this import created. They are history
- * only: they never change a unit's schedule, and `unitVersionAfter: 0` can never
- * match a unit (versions start at 1), so Undo refuses them.
- */
 export const addReviewLogs = mutation({
   args: {
     importId: v.id("imports"),
@@ -382,8 +354,6 @@ export const addReviewLogs = mutation({
     const cards = new Map<Id<"flashcards">, Map<string, QueueUnit>>();
     const bulk = args.logs.length > 128 && library.statsReady;
     if (bulk) {
-      // Active unit projections disappear atomically when a card is deleted.
-      // Read IDs/ownership once, rather than re-reading card text per log.
       const requested = new Set(args.logs.map((log) => log.flashcardId));
       const rows = [];
       for (const flashcardId of requested) {
@@ -427,8 +397,6 @@ export const addReviewLogs = mutation({
       checkSchedule(log.after, now, "Review after-state");
       if (!Number.isFinite(log.review) || log.review < 0 || log.review > now + DAY_MS)
         fail("INVALID", "A review time is out of range.");
-      // Same columns `review.rate` stores: the state the card was in going into
-      // the review, plus the elapsed days the review itself measured.
       await ctx.db.insert("reviewLogs", {
         libraryId: library._id,
         deckId: unit.deckId,
@@ -459,13 +427,11 @@ export const addReviewLogs = mutation({
   },
 });
 
-/** Close a running import once every declared card and review has arrived. */
 export const finish = mutation({
   args: { importId: v.id("imports") },
   handler: async (ctx, { importId }) => {
     const library = await writableLibrary(ctx);
     const row = await ownedImport(ctx, library, importId);
-    // Finishing twice is a no-op, so a retried call is safe.
     if (row.status === "finished") return view(row);
     await runningImport(ctx, library, importId);
     if (
@@ -476,7 +442,6 @@ export const finish = mutation({
         "INVALID",
         `The import is incomplete: ${row.counts.flashcards} of ${row.totals.flashcards} cards and ${row.counts.reviewLogs} of ${row.totals.reviewLogs} reviews arrived.`,
       );
-    // Imported cards have no prerequisites, so no lock needs refreshing.
     await ctx.db.patch(row._id, { status: "finished", updatedAt: Date.now() });
     await bumpRevision(ctx, library._id);
     return view({ ...row, status: "finished" });
@@ -489,10 +454,6 @@ async function ownedImport(ctx: MutationCtx, library: Doc<"libraries">, importId
   return row;
 }
 
-/**
- * Delete the first of an import's decks that still exists. Returns whether
- * another remains, so callers can schedule the next one.
- */
 async function removeNextDeck(ctx: MutationCtx, row: Doc<"imports">) {
   let removed = false;
   for (const { deckId } of row.decks) {
@@ -505,7 +466,6 @@ async function removeNextDeck(ctx: MutationCtx, row: Doc<"imports">) {
   return false;
 }
 
-/** Remove a cancelled or failed import's decks, one deck per transaction. */
 export const removeDecks = internalMutation({
   args: { importId: v.id("imports") },
   handler: async (ctx, { importId }) => {
@@ -517,12 +477,6 @@ export const removeDecks = internalMutation({
   },
 });
 
-/**
- * Stop a running import and delete every deck it created, with their cards,
- * review items, and history. The import stops accepting batches immediately;
- * decks are removed right after, one per transaction, so even a 200-deck
- * import stays within Convex limits.
- */
 export const cancel = mutation({
   args: { importId: v.id("imports"), reason: v.optional(v.string()) },
   handler: async (ctx, { importId, reason }) => {
@@ -536,8 +490,6 @@ export const cancel = mutation({
       updatedAt: Date.now(),
       ...(reason ? { error: reason.slice(0, 500) } : {}),
     };
-    // Decks are removed in their own transactions, so a large deck can't make
-    // the cancel itself fail and leave the import running.
     await ctx.db.patch(row._id, patch);
     await ctx.scheduler.runAfter(0, internal.imports.removeDecks, { importId });
     await bumpRevision(ctx, library._id);
@@ -557,7 +509,6 @@ export const get = query({
   },
 });
 
-/** What the library already holds, so an import preview can check the beta limits up front. */
 export const usage = query({
   args: {},
   handler: async (ctx) => {
@@ -576,7 +527,6 @@ export const usage = query({
   },
 });
 
-/** The import still running, if any, so a client can resume or cancel it. */
 export const current = query({
   args: {},
   handler: async (ctx) => {
@@ -590,10 +540,6 @@ export const current = query({
   },
 });
 
-/**
- * Cron: fail running imports that stopped making progress (a closed tab) and
- * remove their decks, and forget old import records. Bounded per run.
- */
 export const sweep = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -619,7 +565,6 @@ export const sweep = internalMutation({
           q.eq("status", status).lt("updatedAt", now - RECORD_RETENTION_MS),
         )
         .take(100);
-      // A failed import may still be removing decks; the record is long gone by then.
       for (const row of old) await ctx.db.delete(row._id);
     }
   },

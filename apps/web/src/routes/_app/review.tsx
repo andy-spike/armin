@@ -25,9 +25,6 @@ function ReviewsPage() {
 
   const decksQuery = useQuery(deckNamesQuery());
 
-  // A live Convex query, not a poll: the client keeps the session in sync when
-  // a rating unlocks a dependent that the server queue admits, and the study
-  // clock moves when a unit falls due.
   const queueQuery = useQuery(
     reviewQueueQuery(selectedDeckId === ALL_DECKS ? undefined : selectedDeckId, now),
   );

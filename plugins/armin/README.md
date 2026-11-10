@@ -11,7 +11,7 @@ in the conversation.
 ## Install
 
 For connection steps, access, tools, and troubleshooting, read the
-[MCP server documentation](https://armincards.app/docs/mcp).
+[MCP server documentation](https://docs.armincards.app/reference/mcp-server/).
 
 In Claude or ChatGPT, search for Armin in the plugin directory and add it.
 Coding agents can also install it from this repository:
@@ -35,7 +35,8 @@ codex plugin add armin@armin
    built on them, saves the deck, and replies with a link to start studying.
 
 You can also ask it to list your decks, read a deck back, edit or archive a
-card, move a card to another deck, or add and remove prerequisite links.
+card, move a card to another deck, add and remove prerequisite links, or quiz
+you on due cards and record your own ratings.
 
 ## Public test account
 
@@ -60,15 +61,17 @@ The plugin runs no programs on your computer and has no hooks.
 ## Access
 
 You approve every connection in Armin and can disconnect it at any time under
-Settings → AI assistants. One approval gives the assistant Armin authoring and import tools
-on your whole library, including decks and cards you add later. There are no
-per-deck, read-only, or edit/create access options.
+Settings → AI assistants. The connection asks for up to four permission groups:
+read, write, import, and study. Each group covers your whole library, including
+decks and cards you add later; a client that requests no scope receives all
+four. There are no per-deck choices.
 
-The assistant cannot permanently delete cards or decks, rate
-reviews or change scheduling, export your library, or change your account.
-Archiving a card is reversible and keeps its review history. Each connection
-allows up to 120 successful writes per hour, and an account can have up to 20
-active connections.
+The assistant cannot permanently delete cards or decks, reschedule cards on its
+own, export your library, or change your account. With the study group it shows
+due cards and records only the ratings you give; it must not reveal an answer
+before you answer. Archiving a card is reversible and keeps its review history.
+Each connection allows up to 60 successful writes per hour on Free (600 on Pro),
+and an account can have up to 20 active connections.
 
 ## Data
 
@@ -87,7 +90,7 @@ Armin's [privacy policy](https://armincards.app/privacy) and
 
 ## Anki import
 
-A capable assistant can call `get_anki_import_guide`, download and checksum the
+A capable assistant can call `get_guide` with topic `anki_import`, download and checksum the
 maintained kit, and run it with Node.js and file access. Conversion happens in
 its workspace. Images use a scoped upload endpoint; normalized cards stay in a
 resumable staging session until the user approves the final preview. Unsupported

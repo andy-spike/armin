@@ -13,7 +13,6 @@ import { settingsQuery } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import type { UiReviewUnit } from "@/types/view-models";
 
-/** Whether the card asks for a typed answer, and whether `typed` matches it. */
 export function typeAnswerCheck(card: UiReviewUnit | undefined, typed: string) {
   if (card?.type !== "type_answer") return { isTypeAnswer: false, isCorrect: false };
   return {
@@ -22,10 +21,6 @@ export function typeAnswerCheck(card: UiReviewUnit | undefined, typed: string) {
   };
 }
 
-/**
- * The prompt and revealed answer, shared by review and cram sessions so a
- * practice session renders cards exactly like the real reviewer.
- */
 export function ReviewCardPrompt({
   card,
   flipped,
@@ -42,8 +37,6 @@ export function ReviewCardPrompt({
   const { isTypeAnswer, isCorrect } = typeAnswerCheck(card, typed);
   const imageOcclusionContent =
     card.type === "image_occlusion" ? (card.content as ImageOcclusionContent) : null;
-  // The generated back joins the revealed text and the extra; show the extra
-  // apart from it, as secondary content.
   const clozeContent = card.type === "cloze" ? (card.content as ClozeContent) : null;
   const clozeExtra = clozeContent?.extra;
   const autoplay = useQuery(settingsQuery()).data?.autoplayAudio ?? true;

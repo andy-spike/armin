@@ -1,0 +1,44 @@
+{
+  "name": "@armin/docs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Armin user guide: a Nimbus (Astro) docs site.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "postinstall": "astro sync",
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "typecheck": "astro check",
+    "lint:docs": "nimbus-docs lint",
+    "lint:docs:fix": "nimbus-docs lint --fix",
+    "prepreview:cf": "astro build",
+    "preview:cf": "wrangler dev",
+    "predeploy": "astro check && astro build",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "~14.3.4",
+    "@cloudflare/nimbus-docs": "^0.19.3",
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@fontsource-variable/source-serif-4": "^5.2.9",
+    "@iconify-json/ph": "^1.2.0",
+    "@resvg/resvg-js": "^2.6.2",
+    "astro": "7.3.3",
+    "clsx": "^2.1.1",
+    "satori": "^0.26.0",
+    "sharp": "^0.35.4",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.8",
+    "@astrojs/language-server": "2.16.13",
+    "@tailwindcss/vite": "^4.3.0",
+    "pagefind": "^1.5.2",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.154.0"
+  }
+}

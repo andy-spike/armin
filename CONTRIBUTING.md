@@ -28,7 +28,7 @@ fastest way for it to land.
 
 ## Licensing of contributions
 
-Armin is licensed under the AGPL-3.0-only (see [LICENSE](LICENSE)), and the Armin
+Armin is licensed under the MIT (see [LICENSE](LICENSE)), and the Armin
 name and logo are covered by [TRADEMARKS.md](TRADEMARKS.md). When code pull
 requests open, each contributor will be asked to agree to a contributor license
 agreement first, granting the maintainer the right to relicense their
@@ -44,13 +44,10 @@ for the private reporting process.
 ## Project layout
 
 Armin is a monorepo with web and mobile clients and a Convex backend. The repository's
-conventions, domain language, and architectural decisions are documented in:
+conventions and domain language are documented in:
 
 - [`README.md`](README.md) — what Armin is and how to install it.
-- [`CONTEXT-MAP.md`](CONTEXT-MAP.md) — the contexts and where their language lives.
+- [`packages/core/CONTEXT.md`](packages/core/CONTEXT.md) — the study domain glossary.
 - [`packages/backend/README.md`](packages/backend/README.md) and the client READMEs cover development and validation.
-- [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md) and
-  [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md) — how issues are
-  tracked and triaged.
 
 [issues]: https://github.com/andy-spike/armin/issues

@@ -36,15 +36,10 @@ import { useConnection, useViewer } from "@/lib/session";
 import { installNoSpellcheck } from "@/lib/disable-spellcheck";
 import { api } from "@armin/backend/api";
 
-/**
- * The sidebar's saved open state, from the cookie its toggle writes. Read on the
- * server too, so a collapsed sidebar doesn't flash open during hydration.
- */
 const readSidebarOpen = createIsomorphicFn()
   .server(() => getCookie("sidebar_state") !== "false")
   .client(() => !document.cookie.split(";").includes("sidebar_state=false"));
 
-/** The sidebar's saved width in px, from the cookie its rail writes when dragged. */
 const readSidebarWidth = createIsomorphicFn()
   .server(() => clampSidebarWidth(Number(getCookie("sidebar_width") ?? Number.NaN)))
   .client(() => {
@@ -53,19 +48,12 @@ const readSidebarWidth = createIsomorphicFn()
   });
 
 export const Route = createFileRoute("/_app")({
-  // The frame (sidebar and the opened page's skeleton) renders on the server so
-  // it paints with the HTML; the pages inside it still render in the browser.
   ssr: true,
   beforeLoad: ({ context, location }) => {
-    // Signed-out visitors to the home URL get the public landing page in place
-    // of the decks list; every other signed-in page still asks them to sign in.
-    // A self-hosted personal instance has no public landing page.
     if (!context.isAuthenticated && location.pathname === "/" && !selfHosted) {
       return { landing: true, sidebarOpen: true, sidebarWidth: clampSidebarWidth(Number.NaN) };
     }
     if (!context.isAuthenticated) {
-      // Keep the page the user asked for, minus the origin, so sign-in can
-      // return to it. The sign-in route validates it again before using it.
       const redirectTo = `${location.pathname}${location.searchStr}${location.hash}`;
       throw redirect({
         to: "/sign-in",
@@ -100,10 +88,6 @@ function detectTimeZone() {
   }
 }
 
-/**
- * Signed-in frame. Provisions the account's single library on first visit
- * (idempotent on the server), then renders the study app.
- */
 function AppLayout() {
   const viewer = useViewer();
   const signingOut = useSigningOut();
@@ -126,8 +110,6 @@ function AppLayout() {
       });
   }, [data]);
 
-  // Signing out ends the session before the sign-in page loads, so show a
-  // steady "Signing out" page instead of the signed-out message.
   if (signingOut) return <FullPageMessage title="Signing out" />;
   if (viewer.isLoading) return <Shell loading="Loading your library" />;
   if (viewer.isError || data === null) {
@@ -226,17 +208,11 @@ function ConnectionBanner() {
   );
 }
 
-/**
- * The signed-in app frame. With `loading`, the account isn't ready yet, so the
- * sidebar renders without live counts and the page area shows the skeleton of
- * the page being opened; the real page then fills the same layout.
- */
 function Shell({ loading, reviewerResetHours }: { loading?: string; reviewerResetHours?: number }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [optimisticPathname, setOptimisticPathname] = useState<string | null>(null);
   const activePathname = optimisticPathname ?? pathname;
 
-  // Drop the optimistic highlight once the router catches up.
   if (optimisticPathname !== null && optimisticPathname === pathname) {
     setOptimisticPathname(null);
   }
@@ -248,10 +224,6 @@ function Shell({ loading, reviewerResetHours }: { loading?: string; reviewerRese
       : activePathname === path || activePathname.startsWith(`${path}/`);
 
   const { sidebarOpen, sidebarWidth } = Route.useRouteContext();
-  // A full-bleed route (the prerequisite graph) fills the frame instead of the
-  // centered page box. Read from the matched routes, which <Outlet/> renders,
-  // rather than `:has()` on these wrappers: Chrome re-checks `:has()` on every
-  // DOM change below them, which made panning the graph drop frames.
   const fullbleed =
     useMatches({
       select: (matches) => matches.some((match) => match.staticData.fullbleed),
@@ -314,14 +286,8 @@ function Shell({ loading, reviewerResetHours }: { loading?: string; reviewerRese
   );
 }
 
-/** Pages the sidebar always links to; their code and data load while idle. */
 const IDLE_PRELOAD_PATHS = ["/", "/review", "/browse", "/stats"] as const;
 
-/**
- * Hovering a link preloads its page, but a quick click or a keyboard shortcut
- * can beat it. Once the signed-in app is idle, load the main pages' code and
- * first data in the background, so their first visit doesn't wait.
- */
 function IdlePreload() {
   const router = useRouter();
   useEffect(() => {
@@ -349,7 +315,6 @@ const NAV_COMMANDS = {
 
 type NavTarget = (typeof NAV_COMMANDS)[keyof typeof NAV_COMMANDS];
 
-/** Global navigation and sidebar shortcuts; lives inside the SidebarProvider. */
 function ShellKeybindings({ activateNav }: { activateNav: (path: string) => void }) {
   const navigate = useNavigate();
   const router = useRouter();
@@ -360,9 +325,6 @@ function ShellKeybindings({ activateNav }: { activateNav: (path: string) => void
     void navigate({ to });
   };
 
-  // Keyboard counterpart of preloading on hover: once a chord's first key
-  // (`g`) is down, start loading every page it can still lead to, so the page
-  // is usually ready by the time the second key lands.
   useEffect(() => {
     if (pendingChord.length === 0) return;
     for (const [command, to] of Object.entries(NAV_COMMANDS)) {

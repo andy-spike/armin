@@ -26,11 +26,9 @@ const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH_COOKIE_NAME = "sidebar_width";
 const SIDEBAR_WIDTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
-// Desktop width in px; dragging the rail resizes within these bounds.
 const SIDEBAR_WIDTH_DEFAULT = 256;
 const SIDEBAR_WIDTH_MIN = 208;
 const SIDEBAR_WIDTH_MAX = 400;
-// Pointer travel that turns a rail press from a click (toggle) into a drag.
 const SIDEBAR_DRAG_THRESHOLD = 3;
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
@@ -43,7 +41,6 @@ type SidebarContextProps = {
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
   toggleSidebar: () => void;
-  /** Toggles without the width transition, for the keyboard shortcut. */
   toggleSidebarInstantly: () => void;
   width: number;
   setWidth: (width: number) => void;
@@ -84,8 +81,6 @@ function SidebarProvider({
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
 
-  // This is the internal state of the sidebar.
-  // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen);
   const open = openProp ?? _open;
   const setOpen = React.useCallback(
@@ -97,7 +92,6 @@ function SidebarProvider({
         _setOpen(openState);
       }
 
-      // This sets the cookie to keep the sidebar state.
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
     },
     [setOpenProp, open],
@@ -111,14 +105,10 @@ function SidebarProvider({
     document.cookie = `${SIDEBAR_WIDTH_COOKIE_NAME}=${next}; path=/; max-age=${SIDEBAR_WIDTH_COOKIE_MAX_AGE}`;
   }, []);
 
-  // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
     return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
   }, [isMobile, setOpen, setOpenMobile]);
 
-  // Keyboard toggles skip the transitions, reusing the resize switch: commit
-  // the new state with transitions off, force the browser to compute it, then
-  // turn transitions back on with nothing left to animate.
   const toggleSidebarInstantly = React.useCallback(() => {
     if (isMobile) return toggleSidebar();
     flushSync(() => {
@@ -129,12 +119,6 @@ function SidebarProvider({
     setResizing(false);
   }, [isMobile, toggleSidebar]);
 
-  // The toggle shortcut is the `sidebar.toggle` Command in the app's keybinding
-  // registry, not shadcn's window listener, so it stays rebindable and doesn't
-  // steal Mod+B (bold) from the card editor.
-
-  // We add a state so that we can do data-state="expanded" or "collapsed".
-  // This makes it easier to style the sidebar with Tailwind classes.
   const state = open ? "expanded" : "collapsed";
 
   const contextValue = React.useMemo<SidebarContextProps>(
@@ -177,9 +161,6 @@ function SidebarProvider({
             ...style,
           } as React.CSSProperties
         }
-        // shadcn's `has-data-[variant=inset]:bg-sidebar` is dropped: Armin has
-        // no inset sidebar, and a `:has()` on the app's outermost wrapper is
-        // re-checked on every DOM change inside it (graph panning dropped frames).
         className={cn("group/sidebar-wrapper flex min-h-svh w-full", className)}
         {...props}
       >
@@ -254,7 +235,6 @@ function Sidebar({
       data-side={side}
       data-slot="sidebar"
     >
-      {/* This is what handles the sidebar gap on desktop */}
       <div
         data-slot="sidebar-gap"
         className={cn(
@@ -271,7 +251,6 @@ function Sidebar({
         data-side={side}
         className={cn(
           "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-[240ms] ease-(--ease-out-quart) group-data-resizing/sidebar-wrapper:transition-none group-data-resizing/sidebar-wrapper:[&_*]:transition-none data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex",
-          // Adjust the padding for floating and inset variants.
           variant === "floating" || variant === "inset"
             ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
             : "border-sidebar-border group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
@@ -313,11 +292,6 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
   );
 }
 
-/**
- * The sidebar's edge. Dragging it resizes an expanded sidebar between
- * SIDEBAR_WIDTH_MIN and SIDEBAR_WIDTH_MAX; a plain click toggles it, and
- * double-clicking an expanded sidebar's edge restores the default width.
- */
 function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
   const { toggleSidebar, state, width, setWidth, setResizing } = useSidebar();
   const drag = React.useRef<{
@@ -326,7 +300,6 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
     side: "left" | "right";
     dragging: boolean;
   } | null>(null);
-  // Set when a drag ends, so the click that follows doesn't collapse the sidebar.
   const suppressClick = React.useRef(false);
 
   const endDrag = React.useCallback(() => {
@@ -336,7 +309,6 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
     document.body.style.removeProperty("user-select");
   }, [setResizing]);
 
-  // Never leave the page stuck in a resize cursor if the rail unmounts mid-drag.
   React.useEffect(() => endDrag, [endDrag]);
 
   return (
@@ -388,7 +360,6 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
         }}
         onPointerCancel={endDrag}
         onClick={(event) => {
-          // The second click of a double-click is handled by onDoubleClick.
           if (suppressClick.current || event.detail > 1) return;
           toggleSidebar();
         }}
@@ -606,7 +577,6 @@ function SidebarMenuButton({
 }: useRender.ComponentProps<"button"> &
   React.ComponentProps<"button"> & {
     isActive?: boolean;
-    /** Shown beside the button only while the sidebar is collapsed to icons. */
     tooltip?: React.ReactNode;
   } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const { isMobile, state } = useSidebar();
@@ -631,8 +601,6 @@ function SidebarMenuButton({
     return comp;
   }
 
-  // Always wrapped, and only enabled while the labels are hidden: adding the
-  // wrapper on collapse would remount the button and skip its size transition.
   return (
     <Tooltip
       content={tooltip}
@@ -696,8 +664,6 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean;
 }) {
-  // A width between 50 and 90% that varies per row. It's derived from the
-  // row's id rather than Math.random() so the server and the browser agree.
   const id = React.useId();
   const width = React.useMemo(() => {
     let hash = 0;

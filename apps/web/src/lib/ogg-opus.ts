@@ -1,7 +1,3 @@
-/**
- * Minimal Ogg Opus writer (RFC 7845) for mono Opus packets from WebCodecs'
- * `AudioEncoder`. Packets are grouped into pages of up to about one second.
- */
 const SAMPLE_RATE = 48_000;
 const MAX_SEGMENTS = 255;
 
@@ -37,7 +33,7 @@ function page(
   const bodySize = packets.reduce((sum, packet) => sum + packet.byteLength, 0);
   const out = new Uint8Array(27 + segments.length + bodySize);
   const view = new DataView(out.buffer);
-  out.set([0x4f, 0x67, 0x67, 0x53], 0); // "OggS"
+  out.set([0x4f, 0x67, 0x67, 0x53], 0);
   out[5] = flags;
   view.setBigInt64(6, BigInt(granule), true);
   view.setUint32(14, serial, true);
@@ -57,8 +53,8 @@ function opusHead(preSkip: number) {
   const out = new Uint8Array(19);
   const view = new DataView(out.buffer);
   out.set(new TextEncoder().encode("OpusHead"), 0);
-  out[8] = 1; // version
-  out[9] = 1; // mono
+  out[8] = 1;
+  out[9] = 1;
   view.setUint16(10, preSkip, true);
   view.setUint32(12, SAMPLE_RATE, true);
   return out;
@@ -74,7 +70,6 @@ function opusTags() {
   return out;
 }
 
-/** Pre-skip from an encoder-supplied OpusHead, when the browser provides one. */
 export function preSkipFrom(description: AllowSharedBufferSource | undefined) {
   if (!description) return null;
   const bytes = ArrayBuffer.isView(description)
@@ -85,11 +80,6 @@ export function preSkipFrom(description: AllowSharedBufferSource | undefined) {
   return bytes[10] | (bytes[11] << 8);
 }
 
-/**
- * Wrap encoded packets in an Ogg Opus file. `samples` is each packet's length
- * in 48 kHz samples; `totalSamples` is the real audio length, so players drop
- * the encoder's padding at the end.
- */
 export function oggOpus(
   packets: { data: Uint8Array; samples: number }[],
   preSkip: number,

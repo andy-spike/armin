@@ -1,15 +1,3 @@
-/**
- * Builds the downloadable Anki converter kit and verifies that it matches the
- * checksum in packages/core/src/anki/kit-manifest.json.
- *
- *   pnpm anki:kit                 build, verify, and publish into apps/web/public
- *   pnpm anki:kit:verify          build twice and prove the archive is reproducible
- *   node scripts/build-anki-kit.mjs --update-manifest
- *
- * The generated zip is not committed. `apps/web` runs this script before build
- * and dev, so the web deployment serves the exact artifact the MCP guide names.
- */
-
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
@@ -35,12 +23,9 @@ const distDir = join(root, "dist/anki-kit");
 const tempDir = join(root, ".anki-kit-build");
 const webRequire = createRequire(join(root, "apps/web/package.json"));
 const rootRequire = createRequire(join(root, "package.json"));
-// resvg-wasm's npm package declares MPL-2.0 but ships no LICENSE file.
 const LICENSE_OVERRIDES = new Map([
   ["@resvg/resvg-wasm", join(kitSource, "licenses/resvg-wasm-MPL-2.0.txt")],
 ]);
-// Local-time 1980-01-01 is the ZIP epoch and keeps archive bytes stable across
-// machines; fflate rejects UTC timestamps that land in 1979 in negative offsets.
 const FIXED_MTIME = new Date(1980, 0, 1).getTime();
 
 const args = new Set(process.argv.slice(2));
@@ -100,7 +85,6 @@ async function bundle() {
     if (licenses.length === 0 && override) licenses.push(readFileSync(override, "utf8"));
     notices.set(name, [name, ...licenses].join("\n\n"));
   }
-  // The bundled font is copied outside esbuild, so its package isn't in the metafile.
   const fontDirectory = dirname(webRequire.resolve("@fontsource-variable/inter/package.json"));
   const fontMetadata = readJson(join(fontDirectory, "package.json"));
   const fontName = `${fontMetadata.name}@${fontMetadata.version}`;
@@ -125,8 +109,6 @@ async function bundle() {
   copyFileSync(join(root, "LICENSE"), join(tempDir, "kit/LICENSE"));
 
   const files = readdirSync(join(tempDir, "kit")).sort();
-  // Fixed mtime, deterministic order, and maximum deflate make the archive
-  // byte-identical across machines and runs.
   const entries = {};
   for (const name of files) {
     entries[name] = [readFileSync(join(tempDir, "kit", name)), { mtime: FIXED_MTIME, level: 9 }];
@@ -147,7 +129,6 @@ async function bundle() {
   };
 }
 
-/** A package directory's LICENSE/COPYING files, in a stable order. */
 function readLicenses(directory) {
   return readdirSync(directory)
     .filter((file) => /^(license|copying)(\.|$)/i.test(file))

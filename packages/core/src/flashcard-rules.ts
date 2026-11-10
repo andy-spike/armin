@@ -10,31 +10,6 @@ import type {
   TypeAnswerContent,
 } from "./flashcard-types";
 
-/**
- * Flashcard rules that need no validation library: cloze parsing, review-unit
- * generation, display text, and typed-answer matching. They live apart from the
- * zod schemas in `flashcard-types` so a client screen that only applies these
- * rules (the review session, for one) doesn't load zod. `flashcard-types`
- * re-exports everything here.
- */
-
-// --- Cloze parsing ---
-//
-// Authoring syntax is a single `{{…}}` wrapper around the deleted span. The
-// canonical form carries an explicit cluster number (the editor inserts it):
-//   {{N::answer}}          — cluster N (reuse N to blank several deletions together)
-//   {{N::answer::hint}}    — cluster N with a hint shown inside the blank
-// A leading run of digits before the first `::` is read as the cluster number.
-// Bare forms are still accepted as a fallback (e.g. hand-typed or agent-authored
-// flashcards) and are auto-numbered in document order, starting one above the
-// highest explicit cluster:
-//   {{answer}}             — bare; cluster auto-assigned by position
-//   {{answer::hint}}       — bare with a hint
-//
-// Explicit numbers are what keep a deletion's identity (and its generated review
-// unit's FSRS history) stable across edits, so the editor never emits a bare form.
-
-/** Balance TeX groups inside deletions; ordinary math groups are not clozes. */
 function clozeMatches(text: string) {
   const matches: { start: number; end: number; body: string }[] = [];
   let offset = 0;
@@ -82,13 +57,11 @@ export type ClozeDeletion = {
 };
 
 type RawCloze = {
-  /** Cluster pinned by the author, or null when it should be auto-assigned. */
   explicitCluster: number | null;
   answer: string;
   hint?: string;
 };
 
-/** Parse the inside of a `{{…}}` wrapper into its parts. */
 function parseClozeBody(body: string): RawCloze {
   const sep = body.indexOf("::");
   if (sep === -1) {
@@ -111,7 +84,6 @@ function parseClozeBody(body: string): RawCloze {
   return { explicitCluster: null, answer: head, hint: rest || undefined };
 }
 
-/** Extract every cloze deletion in document order, resolving cluster numbers. */
 export function parseClozes(text: string): ClozeDeletion[] {
   const raws = clozeMatches(text).map((match) => parseClozeBody(match.body));
   const maxExplicitCluster = raws.reduce(
@@ -129,13 +101,11 @@ export function parseClozes(text: string): ClozeDeletion[] {
   }));
 }
 
-/** Distinct cluster numbers present in the text, sorted ascending. */
 export function clozeClusters(text: string): number[] {
   const clusters = new Set(parseClozes(text).map((deletion) => deletion.cluster));
   return [...clusters].sort((a, b) => a - b);
 }
 
-/** True when any `{{…}}` wrapper has no answer text to hide. */
 export function hasEmptyClozeDeletion(text: string): boolean {
   return parseClozes(text).some((deletion) => deletion.answer.trim().length === 0);
 }
@@ -146,7 +116,6 @@ function formatClozeDeletion(deletion: ClozeDeletion) {
     : `{{${deletion.cluster}::${deletion.answer}}}`;
 }
 
-/** Rewrite bare cloze deletions to explicit cluster numbers. */
 export function normalizeClozeText(text: string): string {
   const deletions = parseClozes(text);
   let i = 0;
@@ -157,25 +126,18 @@ function clozeBlank(hint?: string): string {
   return hint ? `[${hint}]` : "[…]";
 }
 
-/** Replace each `{{…}}` in document order, feeding `fn` the resolved deletion. */
 function replaceClozes(text: string, fn: (deletion: ClozeDeletion) => string): string {
   const deletions = parseClozes(text);
   let deletionIndex = 0;
   return mapClozeMatches(text, () => fn(deletions[deletionIndex++]));
 }
 
-/**
- * Render cloze text. When `blankCluster` is set, deletions in that cluster are
- * replaced with a blank and all other deletions are revealed as their answer;
- * when it is null, every deletion is revealed.
- */
 export function renderClozeText(text: string, blankCluster: number | null): string {
   return replaceClozes(text, (d) =>
     blankCluster != null && d.cluster === blankCluster ? clozeBlank(d.hint) : d.answer,
   );
 }
 
-/** The revealed cloze text, followed by its optional answer-side extra. */
 function renderClozeBack(cloze: ClozeContent): string {
   const revealed = renderClozeText(cloze.text, null);
   return cloze.extra ? `${revealed}\n\n${cloze.extra}` : revealed;
@@ -185,15 +147,12 @@ function renderAllClozesBlanked(text: string): string {
   return replaceClozes(text, (d) => clozeBlank(d.hint));
 }
 
-// --- Review-unit generation ---
-
 export type ReviewUnitSpec = {
   subKey: string;
   front: string;
   back: string;
 };
 
-/** Generate the review units (cached display strings) a flashcard produces. */
 export function generateReviewUnits(
   type: FlashcardType,
   content: FlashcardContent,
@@ -234,14 +193,10 @@ export function generateReviewUnits(
       }));
     }
     case "concept":
-      // One unit whatever the template says. Its front and back show the
-      // assigned variant, not the template, so they start empty and the
-      // template never overwrites them.
       return [{ subKey: CONCEPT_SUBKEY, front: "", back: "" }];
   }
 }
 
-/** Representative front/back for list tiles and graph nodes. */
 export function flashcardDisplay(
   type: FlashcardType,
   content: FlashcardContent,
@@ -271,7 +226,6 @@ export function flashcardDisplay(
         .map((mask) => mask.label)
         .filter(Boolean)
         .join(" · ");
-      // The header says what the image asks about, so it names the card.
       const header = imageOcclusion.header?.trim();
       return {
         front: header || `Image occlusion · ${masks}`,
@@ -285,13 +239,10 @@ export function flashcardDisplay(
   }
 }
 
-// --- type_answer matching ---
-
 export function normalizeAnswer(value: string): string {
   return value.trim().toLocaleLowerCase().replace(/\s+/g, " ");
 }
 
-/** Does a typed answer match the expected answer or an accepted alternative? */
 export function matchesTypeAnswer(input: string, content: TypeAnswerContent): boolean {
   const normalized = normalizeAnswer(input);
   if (!normalized) return false;

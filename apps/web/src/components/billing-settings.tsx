@@ -32,16 +32,10 @@ function formatAmount(cents: number, currency: string) {
   return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(cents / 100);
 }
 
-/** Whether this deployment sells plans to the signed-in user. */
 export function useBillingStatus() {
   return useQuery(convexQuery(api.billing.status, {}));
 }
 
-/**
- * The account's plan and Pro subscription. Checkout and the customer portal
- * are Polar's hosted pages; the portal handles cancelling, switching between
- * monthly and yearly, cards, and invoices.
- */
 export function BillingSettings() {
   const toast = useToast();
   const { online } = useConnection();
@@ -56,9 +50,6 @@ export function BillingSettings() {
       toast({ tone: "error", title: "Couldn't check your plan", description: errorMessage(error) }),
   });
 
-  // Polar's checkout returns here with `checkout=success`. That marker is
-  // not proof of payment: the page waits until the synced plan is Pro before
-  // announcing it, and offers Retry if confirmation doesn't arrive.
   const [awaitingPro] = useState(() => search.checkout === "success");
   const [slow, setSlow] = useState(false);
   const startedReturn = useRef(false);
@@ -89,7 +80,6 @@ export function BillingSettings() {
   const checkout = useMutation({
     mutationFn: async (selected: Interval) => {
       const { url } = await armin.billing.createCheckout(selected);
-      // Polar's hosted checkout returns to Billing with `checkout=success`.
       window.location.assign(url);
     },
     onError: (error) =>

@@ -23,11 +23,6 @@ type GraphNode = UiDeckGraph["nodes"][number];
 type SetNodes = Dispatch<SetStateAction<CardFlowNode[]>>;
 type SetEdges = Dispatch<SetStateAction<Edge[]>>;
 
-/**
- * Keep the canvas in step with the deck after the initial build: add and
- * remove nodes, mirror the persisted edges, and refresh node content. Each
- * effect stays dormant until `initialFlowLoaded` so it doesn't fight the build.
- */
 export function useGraphElementSync({
   graph,
   nodeById,
@@ -40,20 +35,16 @@ export function useGraphElementSync({
   graph: UiDeckGraph;
   nodeById: Map<string, GraphNode>;
   nodePlacements?: Record<string, XYPosition>;
-  /** Set by the initial build; the effects stay dormant until then. */
   initialFlowLoaded: RefObject<boolean>;
   screenToFlowPosition: (position: XYPosition) => XYPosition;
   setNodes: SetNodes;
   setEdges: SetEdges;
 }) {
   const knownNodeIds = useRef(new Set<string>());
-  /** The initial build's nodes, so later syncs add and remove only the difference. */
   const seedKnownNodes = useCallback((nodeIds: string[]) => {
     knownNodeIds.current = new Set(nodeIds);
   }, []);
 
-  // Incrementally add/remove nodes as the underlying deck changes, preserving
-  // the positions of cards that are already on the canvas.
   useEffect(() => {
     if (!initialFlowLoaded.current) return;
     const currentIds = new Set(graph.nodes.map((n) => n.id));
@@ -103,8 +94,6 @@ export function useGraphElementSync({
     setNodes,
   ]);
 
-  // Keep the rendered edges in sync with the persisted prerequisite edges so
-  // arrows survive a reload of the graph.
   useEffect(() => {
     if (!initialFlowLoaded.current) return;
     setEdges((current) => {
@@ -163,11 +152,6 @@ export function useGraphElementSync({
   return { seedKnownNodes };
 }
 
-/**
- * Re-derive selection and search emphasis for every node and edge. The selected
- * card, its incident edges, and its direct neighbors light up; out-of-scope
- * elements dim.
- */
 export function useGraphEmphasis({
   graph,
   nodeById,

@@ -6,14 +6,9 @@ import { bumpRevision } from "./model/study";
 import { settleVariants } from "./model/variantAllowance";
 import type { Id, TableNames } from "./_generated/dataModel";
 
-/** Rows deleted per cleanup transaction; the job reschedules until done. */
 const BATCH = 400;
-// A review unit repeats up to MAX_CONTENT_CHARS (20,000) in front and back.
-// Twenty units leave ample room below 16 MiB even for multi-byte text and
-// formatting expansion. Cards carry the same bounded authored content.
 const CONTENT_BATCH = 20;
 
-/** Remove a deleted deck's review and cram history in bounded batches. */
 export const cleanupUnitLogs = internalMutation({
   args: { reviewUnitId: v.id("reviewUnits") },
   handler: async (ctx, { reviewUnitId }) => {
@@ -37,15 +32,8 @@ export const cleanupUnitLogs = internalMutation({
   },
 });
 
-// A variant holds up to two 5,000-character fields; a hundred stay far below
-// a transaction's read limit.
 const VARIANT_BATCH = 100;
 
-/**
- * Remove a deleted concept card's variant pool in bounded batches (ADR 0023).
- * Card and deck deletion schedule it once the card row is gone, so no review,
- * Browse summary, or generation job can reach these variants meanwhile.
- */
 export const cleanupConceptVariants = internalMutation({
   args: { flashcardId: v.id("flashcards") },
   handler: async (ctx, { flashcardId }) => {
@@ -61,7 +49,6 @@ export const cleanupConceptVariants = internalMutation({
   },
 });
 
-/** Deck deletion supplies the removed unit IDs, including units moved in. */
 export const cleanupRemovedUnits = internalMutation({
   args: { unitIds: v.array(v.id("reviewUnits")) },
   handler: async (ctx, { unitIds }) => {
@@ -75,7 +62,6 @@ export const cleanupRemovedUnits = internalMutation({
         .take(budget);
       for (const log of logs) await ctx.db.delete(log._id);
       budget -= logs.length;
-      // If we filled the batch, revisit this unit to catch any remaining logs.
       if (budget === 0) break;
       const cramLogs = await ctx.db
         .query("cramLogs")
@@ -93,16 +79,10 @@ export const cleanupRemovedUnits = internalMutation({
   },
 });
 
-/**
- * Clean rows belonging to an already removed deck. Never follow log.deckId:
- * reviews retain that original ID when a card moves to another deck. Removed
- * unit IDs identify exactly the history that should disappear.
- */
 export const cleanupDeck = internalMutation({
   args: { libraryId: v.id("libraries"), deckId: v.id("decks") },
   handler: async (ctx, args) => {
     const library = await ctx.db.get(args.libraryId);
-    // Account deletion owns cleanup once the library is no longer active.
     if (!library || library.status !== "active" || (await ctx.db.get(args.deckId))) return;
     const again = () => ctx.scheduler.runAfter(0, internal.deletion.cleanupDeck, args);
     const units = await ctx.db
@@ -114,9 +94,6 @@ export const cleanupDeck = internalMutation({
         .query("libraryCounters")
         .withIndex("by_library", (q) => q.eq("libraryId", args.libraryId))
         .unique();
-      // Older libraries have no stored unit count. Leave it uninitialized so
-      // its eventual fallback counts the surviving rows, without scanning all
-      // text-heavy units in this cleanup transaction.
       if (counters?.reviewUnits !== undefined) {
         await ctx.db.patch(counters._id, {
           reviewUnits: Math.max(0, counters.reviewUnits - units.length),
@@ -130,8 +107,6 @@ export const cleanupDeck = internalMutation({
       await again();
       return;
     }
-    // Bound both the number of cards and their image links. A card with many
-    // links stays until a later batch has removed all of its links.
     const cards = await ctx.db
       .query("flashcards")
       .withIndex("by_deck", (q) => q.eq("deckId", args.deckId))
@@ -150,8 +125,6 @@ export const cleanupDeck = internalMutation({
         }
         budget -= links.length;
         if (!budget) break;
-        // As card deletion does: a job still generating for this card can no
-        // longer settle its reservation once the card row is gone.
         if (card.conceptPool?.status === "generating")
           await settleVariants(ctx, card.conceptPool.reserved, 0);
         await ctx.db.delete(card._id);
@@ -187,7 +160,6 @@ export const cleanupDeck = internalMutation({
   },
 });
 
-/** Each table with the index whose first field is `libraryId`. */
 const LIBRARY_TABLES: [TableNames, string][] = [
   ["agentConnections", "by_library"],
   ["agentCreatedDecks", "by_library"],
@@ -198,7 +170,6 @@ const LIBRARY_TABLES: [TableNames, string][] = [
   ["agentImportCards", "by_library"],
   ["agentImportMedia", "by_library"],
   ["agentImports", "by_library"],
-  // Before units and flashcards, so deleting those finds no summary to rebuild.
   ["flashcardSummaries", "by_library_created"],
   ["deckCounters", "by_library"],
   ["cardActivity", "by_library"],
@@ -214,7 +185,6 @@ const LIBRARY_TABLES: [TableNames, string][] = [
   ["flashcards", "by_library"],
   ["deckSettings", "by_library"],
   ["decks", "by_library"],
-  // After decks, so unit and card deletions above never recount a deck.
   ["deckUnitCounts", "by_library"],
   ["tags", "by_library_key"],
   ["requests", "by_library_request"],
@@ -223,11 +193,6 @@ const LIBRARY_TABLES: [TableNames, string][] = [
   ["libraryCounters", "by_library"],
 ];
 
-/**
- * Bounded, resumable deletion of everything a library owns. Each run deletes
- * one batch and schedules itself again, so large libraries never exceed a
- * transaction's limits. Files are removed with their metadata rows.
- */
 export const cleanupLibrary = internalMutation({
   args: { libraryId: v.id("libraries") },
   handler: async (ctx, { libraryId }) => {
@@ -242,8 +207,6 @@ export const cleanupLibrary = internalMutation({
       });
       return;
     }
-    // Library status already denies assistant access. Revoke the component
-    // grants one at a time so their token rows never exceed a transaction.
     await ctx.scheduler.runAfter(0, internal.agents.revokeAccountGrants, {
       userId: library.ownerId,
     });
@@ -251,9 +214,6 @@ export const cleanupLibrary = internalMutation({
   },
 });
 
-// Keep assistant connections, their rate limits, the month's variant
-// allowance, and the monotonic revision
-// while replacing a reviewer's study content.
 const RESET_PRESERVED_TABLES = new Set<TableNames>([
   "agentConnections",
   "agentRateLimits",
@@ -261,7 +221,6 @@ const RESET_PRESERVED_TABLES = new Set<TableNames>([
   "libraryCounters",
 ]);
 
-/** Return false when another bounded cleanup transaction is needed. */
 export async function cleanupLibraryData(
   ctx: MutationCtx,
   libraryId: Id<"libraries">,
@@ -269,8 +228,6 @@ export async function cleanupLibraryData(
 ) {
   let budget = BATCH;
 
-  // A reset keeps the allowance rows but removes every card, so no running
-  // job can settle its batch afterwards: release all reservations up front.
   if (reset) {
     const usage = await ctx.db
       .query("conceptVariantUsage")

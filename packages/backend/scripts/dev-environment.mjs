@@ -31,7 +31,6 @@ export function run(command, args, options = {}) {
     encoding: "utf8",
   });
   if (result.error || result.status !== 0) {
-    // Captured stdout can contain deploy keys, env values, or auth records.
     throw new Error(
       `${command} ${args.slice(0, 2).join(" ")} failed. ${result.error?.message ?? "Check the preceding diagnostic or your Convex login."}`,
     );
@@ -43,8 +42,6 @@ export function convex(args, options) {
   return run("pnpm", ["exec", "convex", ...args], options);
 }
 
-// The local backend runs "use node" actions with the Node on PATH, and only
-// accepts these majors. The repository pins 24 in .nvmrc.
 export function assertNode() {
   const major = Number(process.versions.node.split(".")[0]);
   if (![20, 22, 24].includes(major))
@@ -53,11 +50,6 @@ export function assertNode() {
     );
 }
 
-// Temporary files go under .convex/tmp, on the same filesystem as local storage,
-// so installing external Node packages never needs a cross-filesystem rename.
-// The Node executor listens on a Unix socket inside a subdirectory, and socket
-// paths are limited to about 100 bytes; a deep checkout uses a short symlink
-// in the system temp directory that points back at .convex/tmp.
 export function convexTempDir() {
   const tempDir = join(backend, ".convex", "tmp");
   mkdirSync(tempDir, { recursive: true });
@@ -84,8 +76,6 @@ export function convexPortArgs(state) {
   ];
 }
 
-// Expo Go runs on another device, so mobile URLs need an address it can reach.
-// The local backend listens on all interfaces. Override with ARMIN_DEV_HOST.
 export function lanHost() {
   if (process.env.ARMIN_DEV_HOST) return process.env.ARMIN_DEV_HOST;
   for (const entries of Object.values(networkInterfaces()))
@@ -183,7 +173,6 @@ function portFree(port) {
   });
 }
 
-// The main checkout keeps the conventional ports.
 export function mainState() {
   return {
     version: 2,
@@ -198,18 +187,12 @@ export function mainState() {
 }
 
 const slug = (value) => value.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-// A DNS label holds at most 63 characters.
 const label = (value, length = 63) => slug(value.slice(0, length));
 
 function branchLabel(branch, path) {
   return label(slug((branch.replace(/^t3\//, "") || basename(path)).toLowerCase())) || "worktree";
 }
 
-// Worktree web origins are named after the current branch, such as
-// `http://concept-card-review.armin.localhost:4110` for `t3/concept-card-review`.
-// T3 renames a worktree's branch after setup, so the launchers refresh it.
-// Cookies ignore ports, so when another worktree's branch maps to the same
-// label (`foo_bar` and `foo-bar`), the checkout ID is appended to keep them apart.
 export function hostLabel(id) {
   const own = branchLabel(
     run("git", ["branch", "--show-current"], { cwd: root, stdio: "pipe" }),
@@ -221,7 +204,6 @@ export function hostLabel(id) {
       path: block.match(/^worktree (.+)$/m)?.[1] ?? "",
       branch: block.match(/^branch refs\/heads\/(.+)$/m)?.[1] ?? "",
     }))
-    // The first entry is the main checkout, which uses localhost.
     .slice(1)
     .filter(({ path }) => resolve(path) !== resolve(root))
     .map(({ branch, path }) => branchLabel(branch, path));
@@ -234,7 +216,6 @@ function worktreeSiteUrl(id, webPort) {
   return `http://${hostLabel(id)}.armin.localhost:${webPort}`;
 }
 
-// Keeps the saved origin in step with the branch name. Returns the current state.
 export function refreshSiteUrl(state) {
   if (state.id === "main") return state;
   const siteUrl = worktreeSiteUrl(state.id, state.webPort);
@@ -247,9 +228,6 @@ export function refreshSiteUrl(state) {
   return next;
 }
 
-// The local backend serves `/version` once it accepts requests. Sets the
-// deployment's SITE_URL (auth callbacks, email links) when the origin changed.
-// `signal` aborts the wait and any running command when the backend exits.
 export async function syncConvexSiteUrl(state, signal) {
   const deadline = Date.now() + 300_000;
   for (;;) {
@@ -282,10 +260,6 @@ export async function syncConvexSiteUrl(state, signal) {
   console.log(`Set the local deployment's SITE_URL to ${state.siteUrl}`);
 }
 
-// Worktrees take the lowest free slot: web 4100, 4110, 4120, and so on, with
-// Expo, Convex API, and Convex HTTP on the next three ports. Ports stay below
-// 10000, and slots overlapping the main checkout's ports or the shared Polar
-// relay port are skipped (the relay may be stopped during setup).
 const SLOT_BASE = 4100;
 const SLOT_STEP = 10;
 const SLOT_COUNT = 590;
@@ -323,7 +297,6 @@ export async function allocate() {
       main.mobilePort,
       main.convexPort,
       main.convexSitePort,
-      // Matches polar-sandbox.mjs, which imports this module.
       Number(readEnv(join(homedir(), ".config/armin/polar-sandbox.env")).POLAR_RELAY_PORT ?? 3219),
       ...Object.entries(registry)
         .filter(([path]) => path !== root)
@@ -334,7 +307,6 @@ export async function allocate() {
           entry.convexSitePort,
         ]),
     ]);
-    // Each checkout gets a block of four: web, Expo, Convex API, Convex HTTP.
     for (let slot = 0; slot < SLOT_COUNT; slot++) {
       const webPort = SLOT_BASE + slot * SLOT_STEP;
       const ports = [webPort, webPort + 1, webPort + 2, webPort + 3];

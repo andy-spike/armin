@@ -14,6 +14,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { requestGeneration } from "./concepts";
 import { fail } from "./errors";
 import { MAX_CONTENT_CHARS, MAX_TAG_CHARS, MAX_TAGS_PER_FLASHCARD } from "./limits";
+import { bumpGraphRevision } from "./prereqs";
 import { settleVariants } from "./variantAllowance";
 import {
   adjustReviewUnitCount,
@@ -28,11 +29,6 @@ import {
   type TagCache,
 } from "./study";
 
-/**
- * Validate type + content with the shared core rules; coded errors for clients.
- * Concept cards come only from the card editor (ADR 0023): assistants and
- * imports can't create them, so a caller opts in with `concept`.
- */
 export function validateFlashcardInput(
   type: string,
   content: unknown,
@@ -83,20 +79,6 @@ export async function prepareTags(
 
 export type ValidatedFlashcard = ReturnType<typeof validateFlashcardInput>;
 
-/*
- * Flashcard writes. The app's mutations, the assistant tools, and imports all
- * change flashcards through these functions, so each write's cascade (review
- * units, image links, tags, and lock state) lives in one place. Callers check
- * ownership, versions, and their own policy first, and bump the library
- * revision once per mutation.
- */
-
-/**
- * The one place a flashcard is created: tags, row, review units, image links,
- * remembered tag names, and a concept card's first generation job. Callers validate first (so they can add their own
- * rules, such as the agent's text-only check) and check capacity with
- * `checkCapacity` once for the whole batch they write.
- */
 export async function insertFlashcard(
   ctx: MutationCtx,
   args: {
@@ -107,9 +89,7 @@ export async function insertFlashcard(
     now: number;
     agentConnectionId?: Id<"agentConnections">;
     archived?: boolean;
-    /** True when the card was already studied elsewhere, as an accepted review proves access. */
     prerequisiteAccessGranted?: boolean;
-    /** Shared across a batch so each distinct tag is read once. */
     tagCache?: TagCache;
   },
 ) {
@@ -139,11 +119,6 @@ export async function insertFlashcard(
   return id;
 }
 
-/**
- * Save new content and/or tags. Content changes reconcile review units (kept
- * by subKey, so history survives) and image links, then refresh dependents,
- * because adding or removing units can change whether they are secured.
- */
 export async function editFlashcard(
   ctx: MutationCtx,
   flashcard: Doc<"flashcards">,
@@ -171,7 +146,6 @@ export async function editFlashcard(
   return version;
 }
 
-/** Archived flashcards and their units leave queues and stop gating dependents. */
 export async function setFlashcardArchived(
   ctx: MutationCtx,
   flashcard: Doc<"flashcards">,
@@ -189,26 +163,21 @@ export async function setFlashcardArchived(
   return version;
 }
 
-/** Delete every prerequisite link into or out of a flashcard; returns its former dependents. */
-async function deletePrereqEdges(ctx: MutationCtx, flashcardId: Id<"flashcards">) {
+async function deletePrereqEdges(ctx: MutationCtx, flashcard: Doc<"flashcards">) {
   const outgoing = await ctx.db
     .query("prereqs")
-    .withIndex("by_prereq", (q) => q.eq("prereqId", flashcardId))
+    .withIndex("by_prereq", (q) => q.eq("prereqId", flashcard._id))
     .collect();
   const incoming = await ctx.db
     .query("prereqs")
-    .withIndex("by_dependent", (q) => q.eq("dependentId", flashcardId))
+    .withIndex("by_dependent", (q) => q.eq("dependentId", flashcard._id))
     .collect();
-  for (const edge of [...outgoing, ...incoming]) await ctx.db.delete(edge._id);
+  const edges = [...outgoing, ...incoming];
+  for (const edge of edges) await ctx.db.delete(edge._id);
+  if (edges.length > 0) await bumpGraphRevision(ctx, flashcard.deckId);
   return outgoing.map((edge) => edge.dependentId);
 }
 
-/**
- * Move a flashcard to another deck of the same library. Prerequisite links
- * cannot cross decks, so its links are removed, its units follow it, its
- * canvas position is cleared, and locks are recomputed for it and its former
- * dependents.
- */
 export async function moveFlashcard(
   ctx: MutationCtx,
   flashcard: Doc<"flashcards">,
@@ -216,7 +185,7 @@ export async function moveFlashcard(
   now: number,
 ) {
   if (flashcard.deckId === targetDeckId) return flashcard.version;
-  const dependents = await deletePrereqEdges(ctx, flashcard._id);
+  const dependents = await deletePrereqEdges(ctx, flashcard);
   const version = flashcard.version + 1;
   await ctx.db.patch(flashcard._id, {
     deckId: targetDeckId,
@@ -244,11 +213,6 @@ function unitsOf(ctx: QueryCtx, flashcardId: Id<"flashcards">) {
     .collect();
 }
 
-/**
- * Attach the images a flashcard references. Every reference must name an
- * image already uploaded to this library; nothing from another account (or
- * an unguessable id from one) can be attached.
- */
 export async function syncFlashcardMedia(
   ctx: MutationCtx,
   flashcard: { _id: Id<"flashcards">; libraryId: Id<"libraries"> },
@@ -285,7 +249,6 @@ export async function syncFlashcardMedia(
     });
   }
   if (removed.length > 0) {
-    // Give an in-progress edit a grace period before unreferenced files go.
     await ctx.scheduler.runAfter(60 * 60_000, internal.media.collectUnreferenced, {
       libraryId: flashcard.libraryId,
       fileNames: removed,
@@ -293,13 +256,12 @@ export async function syncFlashcardMedia(
   }
 }
 
-/** Remove a flashcard and everything it owns; optionally refresh dependents. */
 export async function deleteFlashcardCascade(
   ctx: MutationCtx,
   flashcard: Doc<"flashcards">,
   opts: { refreshDependents: boolean },
 ) {
-  const dependents = await deletePrereqEdges(ctx, flashcard._id);
+  const dependents = await deletePrereqEdges(ctx, flashcard);
 
   const units = await ctx.db
     .query("reviewUnits")
@@ -308,12 +270,9 @@ export async function deleteFlashcardCascade(
   await adjustReviewUnitCount(ctx, flashcard.libraryId, -units.length);
   for (const unit of units) await deleteReviewUnit(ctx, unit._id);
   await syncFlashcardMedia(ctx, flashcard, []);
-  // Settle while the current job is still identifiable. A late action or its
-  // watchdog must not release this reservation a second time after deletion.
   if (flashcard.conceptPool?.status === "generating")
     await settleVariants(ctx, flashcard.conceptPool.reserved, 0);
   await ctx.db.delete(flashcard._id);
-  // A concept card's variants go in bounded batches once the card is gone.
   if (flashcard.type === "concept")
     await ctx.scheduler.runAfter(0, internal.deletion.cleanupConceptVariants, {
       flashcardId: flashcard._id,
@@ -325,7 +284,6 @@ export async function deleteFlashcardCascade(
   }
 }
 
-/** Aggregate a flashcard's units into one tile value (least-learned, soonest). */
 function aggregate(units: Doc<"reviewUnits">[]) {
   if (units.length === 0) return { state: 0, due: Date.now() };
   let state = units[0].state;
@@ -349,7 +307,6 @@ export async function hydrateFlashcard(
   return hydrateFromUnits(flashcard, units, deckName);
 }
 
-/** Tile view of a flashcard from review units the caller already loaded. */
 export function hydrateFromUnits(
   flashcard: Doc<"flashcards">,
   units: Doc<"reviewUnits">[],
@@ -358,7 +315,6 @@ export function hydrateFromUnits(
   return hydrateTile(flashcard, aggregate(units), deckName);
 }
 
-/** Tile view of a flashcard whose unit aggregate is already known. */
 export function hydrateTile(
   flashcard: Doc<"flashcards">,
   { state, due, lowOnVariants }: { state: number; due: number; lowOnVariants?: boolean },
@@ -384,7 +340,6 @@ export function hydrateTile(
     back: display.back,
     state,
     due,
-    /** A concept card whose active variants have all been shown, as its Browse summary records. */
     lowOnVariants: lowOnVariants ?? false,
   };
 }

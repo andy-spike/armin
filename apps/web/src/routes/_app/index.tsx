@@ -55,7 +55,6 @@ function DecksPage() {
   const [description, setDescription] = useState("");
   const [closingAfterCreate, setClosingAfterCreate] = useState(false);
   const [sort, setSort] = useState<DeckSortKey>("name-asc");
-  // One request id per create dialog, so a retried submit can't add two decks.
   const createRequestId = useRef(newRequestId());
 
   const now = useStudyClock();
@@ -72,8 +71,6 @@ function DecksPage() {
     [decksQuery.data, sort],
   );
 
-  // The new deck shows as a placeholder at once (a Convex optimistic update)
-  // and the dialog closes; the real deck replaces it once the list includes it.
   const createDeck = useMutation({
     mutationFn: (input: { name: string; description: string | null }) =>
       armin.decks.create({ ...input, requestId: createRequestId.current }),
@@ -162,7 +159,6 @@ function DecksPage() {
       {!decksQuery.isLoading && !decksQuery.isError && decks.length > 0 && (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sortedDecks.map((deck) => (
-            // A deck still being created can't be opened or edited yet.
             <li
               key={deck.id}
               inert={isPendingDeck(deck)}
@@ -332,9 +328,6 @@ function DeckTile({
         />
         <div className="pointer-events-none relative z-20 flex flex-1 flex-col">
           <div className="flex items-start justify-between gap-2">
-            {/* Two lines at most, so every tile is the same size; the full name
-                is in a tooltip. The link lets the hoverable title still open
-                the deck, while the tile-wide link above stays the one in tab order. */}
             <h2 className="min-w-0 flex-1 font-serif text-lg font-semibold text-ink">
               <Link
                 to="/deck/$deckId"
@@ -436,7 +429,6 @@ function Stat({ color, label, emphatic }: { color: string; label: string; emphat
 }
 
 export const Route = createFileRoute("/_app/")({
-  // The signed-out landing page renders from the `_app` frame instead.
   loader: ({ context }) => (context.landing ? undefined : prefetchDecksPage(context.queryClient)),
   head: ({ match }) => (match.context.landing ? {} : { meta: [{ title: "Decks · Armin" }] }),
   component: DecksPage,

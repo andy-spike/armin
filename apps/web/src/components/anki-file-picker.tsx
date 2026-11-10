@@ -7,9 +7,7 @@ import { openAnkiImport, type OpenedAnkiFile } from "@/lib/anki/opened-file";
 
 const ACCEPT = ".apkg,.colpkg,.txt,.csv,.tsv";
 
-/** The two import routes: an AI assistant, or a file read in this browser. */
 export function AnkiFilePicker({ onOpened }: { onOpened: (file: OpenedAnkiFile) => void }) {
-  /** Name of the file being read, or null. */
   const [opening, setOpening] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);

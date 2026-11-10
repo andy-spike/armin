@@ -6,19 +6,6 @@ import { internal } from "./_generated/api";
 import { variantReservation } from "./schema";
 import { GenerationError, generateVariants, selectProvider } from "./model/generator";
 
-/**
- * One generation job for a concept card (ADR 0023): read the template and the
- * exercises to avoid, ask the generator module for a batch, and store what it
- * returns. Every failure ends in the pool's failed state with a reason, so the
- * card can offer Retry. A job that is no longer the card's latest does nothing.
- *
- * `count` is the batch `requestGeneration` reserved from the monthly variant
- * allowance (`reserved`) before scheduling this job. Storing or failing
- * settles that reservation, charging only the variants stored.
- *
- * A Node action: the gateway provider's streamed model response needs Node's
- * fetch and streams (see `model/generator.ts`).
- */
 export const generate = internalAction({
   args: {
     flashcardId: v.id("flashcards"),
@@ -35,7 +22,6 @@ export const generate = internalAction({
       job: args.job,
     });
     if (!input) {
-      // Deletion or supersession already settled the reservation.
       await fail("This job is no longer current.");
       return null;
     }

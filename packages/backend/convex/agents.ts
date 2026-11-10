@@ -8,32 +8,34 @@ import {
   activeComponentGrant,
   agentSiteUrl,
   agentUser,
+  AGENT_SCOPES,
   DAY,
   hashSecret,
+  isAgentScope,
   MAX_CONNECTIONS,
   newSecret,
 } from "./model/agentAuth";
 import { fail } from "./model/errors";
+import { countRead } from "./model/agentWrites";
 
 const CODE_TTL_MS = 60_000;
 
-/**
- * One entry per approved connection. App records carry the connection's
- * provenance, activity, and the app-side revocation flag; the component grant
- * is the credential that can actually act. A grant that has not been used yet
- * has no app record, so its component id is returned directly.
- */
-function connectionView(row: Doc<"agentConnections">, live: Set<string>) {
-  const usable = row.componentConnectionId !== undefined && live.has(row.componentConnectionId);
+function connectionView(
+  row: Doc<"agentConnections">,
+  grants: Map<string, { lastUsedAt?: number; scopes: string[] }>,
+) {
+  const id = row.componentConnectionId;
+  const grant = id === undefined ? undefined : grants.get(id);
+  const usable = grant !== undefined;
+  const scopes = grant?.scopes ?? [];
   return {
     _id: row._id,
     name: row.name,
     createdAt: row.createdAt,
-    lastUsedAt: row.lastUsedAt,
-    // A row whose grant is gone (revoked by the client or a pre-migration
-    // connection) is shown as ended. The bounded migration records exact times
-    // for legacy rows; until then their last use is the closest honest marker.
+    lastUsedAt: id === undefined ? undefined : grant?.lastUsedAt,
     revokedAt: row.revokedAt ?? (usable ? undefined : (row.lastUsedAt ?? row.createdAt)),
+    scopes,
+    needsReconnect: usable && !scopes.some(isAgentScope),
   };
 }
 
@@ -45,18 +47,16 @@ export const connections = query({
     const grants = await ctx.runQuery(components.mcp.grants.list, {
       userId: library.ownerId,
     });
-    const live = new Set(grants.map((grant) => grant._id));
+    const byId = new Map(grants.map((grant) => [grant._id, grant]));
     const recent = await ctx.db
       .query("agentConnections")
       .withIndex("by_library", (q) => q.eq("libraryId", library._id))
       .order("desc")
       .take(50);
-    const views = recent.map((row) => connectionView(row, live));
+    const views = recent.map((row) => connectionView(row, byId));
     const linked = new Set(
       recent.map((row) => row.componentConnectionId).filter((id): id is string => id !== undefined),
     );
-    // Approved but not used yet: the component grant exists, the app record
-    // is created on first use.
     const unused = grants
       .filter((grant) => !linked.has(grant._id))
       .map((grant) => ({
@@ -65,6 +65,8 @@ export const connections = query({
         createdAt: grant._creationTime,
         lastUsedAt: grant.lastUsedAt,
         revokedAt: undefined,
+        scopes: grant.scopes,
+        needsReconnect: !grant.scopes.some(isAgentScope),
       }));
     const activity = await ctx.db
       .query("agentActivity")
@@ -82,7 +84,6 @@ export const connections = query({
   },
 });
 
-/** Details of a pending consent request, for the web app's consent page. */
 export const authorization = query({
   args: { requestId: v.string() },
   handler: async (ctx, { requestId }) => {
@@ -98,15 +99,14 @@ export const authorization = query({
     return {
       clientName: request.clientName?.trim() || "AI assistant",
       redirectOrigin: new URL(request.redirectUri).origin,
+      scopes: request.scopes.map((name) => ({
+        name,
+        description: isAgentScope(name) ? AGENT_SCOPES[name] : name,
+      })),
     };
   },
 });
 
-/**
- * Approve a consent request. The authorization code is generated here and only
- * its hash reaches the component; the code itself goes to the client in the
- * redirect URL.
- */
 export const approve = action({
   args: { requestId: v.string() },
   handler: async (ctx, { requestId }): Promise<{ redirectUrl: string }> => {
@@ -124,7 +124,6 @@ export const approve = action({
   },
 });
 
-/** Deny a consent request and return the client to its redirect URI. */
 export const deny = mutation({
   args: { requestId: v.string() },
   handler: async (ctx, { requestId }): Promise<{ redirectUrl: string }> => {
@@ -141,10 +140,6 @@ export const deny = mutation({
   },
 });
 
-/**
- * Settle a consent request inside one transaction: the signed-in library, the
- * connection cap, and the component decision commit together or not at all.
- */
 export const decide = internalMutation({
   args: {
     requestId: v.string(),
@@ -178,14 +173,9 @@ export const decide = internalMutation({
   },
 });
 
-/**
- * Resolve the component grant to the user's library and record the app-side
- * connection on first use. Runs before every tool so reads see an app record
- * and the connection cap is enforced even if approval raced another consent.
- */
 export const touchConnection = internalMutation({
-  args: { user: agentUser },
-  handler: async (ctx, { user }) => {
+  args: { user: agentUser, read: v.boolean() },
+  handler: async (ctx, { user, read }) => {
     const grant = await activeComponentGrant(ctx, user);
     const library = await ctx.db
       .query("libraries")
@@ -215,25 +205,23 @@ export const touchConnection = internalMutation({
           "QUOTA",
           "Disconnect an assistant before adding another. Up to 20 connections are supported.",
         );
-      await ctx.db.insert("agentConnections", {
+      const connectionId = await ctx.db.insert("agentConnections", {
         libraryId: library._id,
         componentConnectionId: user.connectionId,
         name: grant.name,
         resource: grant.resource,
         createdAt: now,
-        lastUsedAt: now,
       });
+      if (read) await countRead(ctx, { _id: connectionId, libraryId: library._id });
       return null;
     }
     if (existing.revokedAt || existing.libraryId !== library._id)
       fail("UNAUTHENTICATED", "Reconnect your assistant in Armin.");
-    if (!existing.lastUsedAt || existing.lastUsedAt < now - 60_000)
-      await ctx.db.patch(existing._id, { lastUsedAt: now });
+    if (read) await countRead(ctx, existing);
     return null;
   },
 });
 
-/** Disconnect an assistant: revoke the app record and the component grant. */
 export const revoke = mutation({
   args: { connectionId: v.string() },
   handler: async (ctx, { connectionId }) => {
@@ -257,7 +245,6 @@ export const revoke = mutation({
         });
       return null;
     }
-    // An approved connection that has not been used has only a component id.
     const revoked = await ctx.runMutation(components.mcp.grants.revoke, {
       userId: library.ownerId,
       grantId: connectionId,
@@ -267,11 +254,6 @@ export const revoke = mutation({
   },
 });
 
-/**
- * Revoke a deleted account's component grants one at a time. Each grant can own
- * thousands of token rows, so this reschedules instead of revoking them all in
- * one transaction. Library access is already denied by the library status.
- */
 export const revokeAccountGrants = internalMutation({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {
@@ -287,7 +269,6 @@ export const revokeAccountGrants = internalMutation({
   },
 });
 
-/** Bounded cleanup of expired rate limits and old assistant activity and retry records. */
 export const prune = internalMutation({
   args: {},
   handler: async (ctx) => {

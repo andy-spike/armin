@@ -1,0 +1,10 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "armin-docs",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "routes": [{ "pattern": "docs.armincards.app", "custom_domain": true }],
+  "assets": {
+    "not_found_handling": "none",
+  },
+}

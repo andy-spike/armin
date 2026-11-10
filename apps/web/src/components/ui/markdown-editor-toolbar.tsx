@@ -39,7 +39,6 @@ import { formatBinding } from "@/lib/keybindings/keys";
 import { clozeRangeAt } from "@/components/ui/markdown-cloze";
 import { Tooltip } from "@/components/ui/tooltip";
 
-// Crepe registers its equation command by name only.
 const TOGGLE_MATH = "ToggleLatex";
 const MATH_PLACEHOLDER = "x";
 
@@ -73,7 +72,6 @@ function hasMark(state: EditorState, type: MarkType) {
   return state.doc.rangeHasMark(from, to, type);
 }
 
-/** The innermost list around the cursor, with its document position. */
 function nearestList(state: EditorState, types: NodeType[]) {
   const { $from } = state.selection;
   for (let depth = $from.depth; depth > 0; depth--) {
@@ -102,8 +100,6 @@ export function readFormats(ctx: Ctx, state: EditorState): ActiveFormats {
     math: selection instanceof NodeSelection && selection.node.type.name === "math_inline",
     bulletList: list?.node.type === bullet,
     orderedList: list?.node.type === ordered,
-    // The same test as the chip popover: a cursor touching either edge of a
-    // chip counts as in it.
     cloze: inCloze(state),
   };
 }
@@ -112,7 +108,6 @@ export function sameFormats(a: ActiveFormats, b: ActiveFormats) {
   return (Object.keys(a) as (keyof ActiveFormats)[]).every((key) => a[key] === b[key]);
 }
 
-/** Removes the list when it already has this type, converts the other type, and wraps otherwise. */
 function toggleList(ctx: Ctx, type: NodeType) {
   const view = ctx.get(editorViewCtx);
   const list = nearestList(view.state, [bulletListSchema.type(ctx), orderedListSchema.type(ctx)]);
@@ -125,11 +120,6 @@ function toggleList(ctx: Ctx, type: NodeType) {
   }
 }
 
-/**
- * Turns the selection into an equation. Crepe's equation popover cannot open on
- * an empty equation, so with no selection a placeholder is inserted and then
- * selected inside the popover, ready to be typed over.
- */
 function toggleMath(ctx: Ctx) {
   const view = ctx.get(editorViewCtx);
   const empty = view.state.selection.empty;
@@ -255,7 +245,6 @@ function ToolTip({
   );
 }
 
-// Keep the editor's selection while a tool is clicked.
 const keepSelection = (event: MouseEvent) => event.preventDefault();
 
 export function MarkdownEditorToolbar({
@@ -276,20 +265,15 @@ export function MarkdownEditorToolbar({
   source: boolean;
   disabled: boolean;
   uploading: boolean;
-  /** Absent for text-only fields, which hide the image and audio tools. */
   onAddImage?: () => void;
-  /** Audio can't be shown in rich text, so adding it switches to the source. */
   onAddAudio?: () => void;
   onEditSource: () => void;
   onRichText: () => void;
-  /** Source that the rich editor would change, such as HTML or legacy equations. */
   richTextBlocked: boolean;
-  /** Shows the Cloze tool first, for cloze card text. */
   onCloze?: () => void;
 }) {
   const run = (action: Action) =>
     onCommand((ctx) => {
-      // Focus first: Crepe's link and equation popovers only open in a focused editor.
       ctx.get(editorViewCtx).focus();
       action.run(ctx);
     });

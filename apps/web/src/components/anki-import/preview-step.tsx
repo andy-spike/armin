@@ -13,13 +13,11 @@ import { NotImported } from "./not-imported";
 
 export type ImportProblem = { kind: "decks" | "room"; message: string };
 
-/** The plan has room for some of the selection: offer to import the first cards that fit. */
 export type FirstNAction = {
   room: { flashcards: number; reviewUnits: number };
   deckLabel: string;
 };
 
-/** The parent path every deck name shares, such as "French › ", so rows show only what differs. */
 function sharedDeckPrefix(names: string[]) {
   if (names.length < 2) return "";
   const paths = names.map((name) => name.split(" › "));
@@ -61,7 +59,6 @@ export function PreviewStep({
   onSelectAll: (all: boolean) => void;
   problems: ImportProblem[];
   firstNAction: FirstNAction | null;
-  /** Offer the upgrade link only where billing sells Pro and the library is Free. */
   showUpgrade: boolean;
   onLimit: () => void;
   onImportAll: () => void;
@@ -91,7 +88,6 @@ export function PreviewStep({
   const decksWithSettings = plan.decks.filter((deck) => deck.settings).length;
   const limits = plan.decks.find((deck) => deck.ankiLimits)?.ankiLimits;
   const deckCountProblem = problems.some((problem) => problem.kind === "decks");
-  // Only review items are over the room, so a card count can't name the cut.
   const unitBound =
     firstNAction !== null &&
     firstNAction.room.flashcards >= plan.totals.flashcards &&
@@ -101,7 +97,6 @@ export function PreviewStep({
       plan.decks.filter((deck) => deck.split).map((deck) => [deck.split!.key, deck]),
     ).values(),
   ];
-  // The "Not imported" list names each skipped note and why.
   const changes = plan.omitted?.length
     ? plan.warnings.filter((warning) => warning.code !== "empty_note_skipped")
     : plan.warnings;
@@ -391,7 +386,6 @@ export function PreviewStep({
   );
 }
 
-/** Short labels read after the count of notes. */
 const CHANGE_LABELS: Record<ImportWarningCode, string> = {
   custom_notetype_rendered: "were rendered from custom note type templates",
   scripts_removed: "had scripts and styles removed",

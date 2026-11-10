@@ -2,11 +2,6 @@ import { ArrowLeft, LayoutGrid, Search, X } from "lucide-react";
 import { TruncatedLabel } from "@/components/ui/truncated-label";
 import type { useGraphSearch } from "./use-graph-search";
 
-/**
- * Back button, card search, and Tidy layout across the top of the canvas.
- * Rendered before the canvas so keyboard users reach these controls before
- * tabbing through every card.
- */
 export function GraphToolbar({
   deckName,
   onBack,

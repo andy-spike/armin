@@ -23,7 +23,6 @@ const KIND_ITEMS: { value: Kind; label: string }[] = [
 const plural = (value: number, noun: string) =>
   `${value.toLocaleString()} ${noun}${value === 1 ? "" : "s"}`;
 
-/** Which side each field is on, read back from a mapping. */
 function sidesOf(mapping: NotetypeMapping, fieldCount: number): Side[] {
   return Array.from({ length: fieldCount }, (_, index) => {
     if (mapping.kind === "template") return "skip";
@@ -40,25 +39,18 @@ function mappingFrom(kind: Kind, sides: Side[]): NotetypeMapping {
   return { kind, front: at("front"), back: at("back") };
 }
 
-/** A first guess for a new mapping: the first field asks, the second answers. */
 function defaultSides(fieldCount: number): Side[] {
   return Array.from({ length: fieldCount }, (_, index) =>
     index === 0 ? "front" : index === 1 ? "back" : "skip",
   );
 }
 
-/** Whether a mapping can produce cards; the preview disables Import until it can. */
 export function mappingComplete(mapping: NotetypeMapping | undefined) {
   if (!mapping || mapping.kind === "template") return true;
   if (mapping.front.length === 0) return false;
   return mapping.kind === "type_answer" ? mapping.answer >= 0 : mapping.back.length > 0;
 }
 
-/**
- * Note types Armin doesn't recognize. By default each Anki card's template is
- * rendered into a basic card; here the user can instead say which fields go on
- * each side of one Armin card type, which keeps the content clean.
- */
 export function NotetypeMappingSection({
   notetypes,
   mappings,
@@ -110,7 +102,6 @@ function NotetypeRow({
   const setKind = (kind: Kind) => {
     if (kind === mapping.kind) return;
     const current = mapping.kind === "template" ? defaultSides(fieldCount) : sides;
-    // Type the answer takes one answer field: keep the first back field.
     const firstBack = current.indexOf("back");
     const next =
       kind === "type_answer"
@@ -122,7 +113,6 @@ function NotetypeRow({
   const setSide = (index: number, side: Side) => {
     const next = sides.map((value, i) => {
       if (i === index) return side;
-      // Only one field can be the typed answer.
       if (mapping.kind === "type_answer" && side === "back" && value === "back") return "skip";
       return value;
     });

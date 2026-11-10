@@ -25,22 +25,6 @@ import { isReviewer } from "./model/reviewer";
 import { isSelfHosted } from "./model/selfHost";
 import { libraryPlan } from "./model/usage";
 
-/*
- * Pro subscriptions through Polar, the merchant of record, using the Polar
- * SDK directly (API version 2026-10). Every Polar customer carries the Armin
- * user ID as its external ID, so Polar's customer state answers "does this
- * user have Pro" in one call.
- *
- * Webhooks only say "this customer changed": they request a sync
- * (`model/billing.ts`), and one runner per user (`runSync`) reads Polar's
- * current state and applies it, deriving `libraries.plan` in the same
- * transaction. The runner reads again while newer requests arrived, so the
- * stored state comes from a read that began after the last webhook. For a
- * deleted account the runner revokes every subscription, retrying with
- * backoff until Polar shows none. Ending Pro never deletes anything; the
- * library just stops growing past the free limits.
- */
-
 const intervalValidator = v.union(v.literal("month"), v.literal("year"));
 
 const subscriptionValidator = v.object({
@@ -54,7 +38,6 @@ const subscriptionValidator = v.object({
   cancelAtPeriodEnd: v.boolean(),
 });
 
-/** Sync passes in one action before handing off to a new one. */
 const MAX_PASSES_PER_RUN = 5;
 
 function polarClient() {
@@ -77,14 +60,12 @@ function statusCode(error: unknown) {
     : null;
 }
 
-/** A 422 from Polar that rejects the prefilled customer email. */
 function isInvalidEmail(error: unknown) {
   return (
     statusCode(error) === 422 && error instanceof Error && error.message.includes("customer_email")
   );
 }
 
-/** Polar's customer state for an Armin user, or null if they were never a customer. */
 async function customerState(userId: string) {
   try {
     return await polarClient().customers.getStateExternal(userId);
@@ -94,11 +75,6 @@ async function customerState(userId: string) {
   }
 }
 
-/**
- * The user's Pro subscription in Polar. Polar lists only active and trialing
- * subscriptions in the customer state; past-due ones stay there while Polar
- * retries the payment, and cancelled ones until the paid period ends.
- */
 async function fetchProSubscription(userId: string) {
   const products = productIds();
   const state = await customerState(userId);
@@ -118,20 +94,17 @@ async function fetchProSubscription(userId: string) {
   };
 }
 
-/** Revoke every active subscription of a deleted account. */
 async function revokeAll(userId: string) {
   const state = await customerState(userId);
   for (const subscription of state?.active_subscriptions ?? []) {
     try {
       await polarClient().subscriptions.revoke(subscription.id);
     } catch (error) {
-      // Revoked meanwhile, by another pass or by Polar.
       if (!(error instanceof errors.AlreadyCanceledSubscription)) throw error;
     }
   }
 }
 
-/** The signed-in user who may manage billing, for actions. */
 export const billingUser = internalQuery({
   args: {},
   handler: async (ctx) => {
@@ -168,7 +141,6 @@ async function requireBillingUser(ctx: ActionCtx) {
   return checkBillingUser(await ctx.runQuery(internal.billing.billingUser, {}));
 }
 
-/** The caller's plan and Pro subscription, for Billing settings. */
 export const status = query({
   args: {},
   handler: async (ctx) => {
@@ -187,11 +159,8 @@ export const status = query({
       enabled,
       selfHosted: isSelfHosted(),
       plan,
-      /** Pro granted by an operator, with nothing to pay or manage. */
       complimentary: viewer.library?.complimentaryPro === true,
-      /** A requested read of Polar hasn't been applied yet. */
       syncing: billing ? billing.applied < billing.requested : false,
-      /** The last read failed and is waiting to retry. */
       syncFailed: Boolean(billing?.failures),
       subscription: subscription && {
         interval: subscription.interval,
@@ -205,18 +174,11 @@ export const status = query({
   },
 });
 
-/**
- * Start a Polar checkout for Pro, billed monthly or yearly, and return the
- * URL of Polar's hosted checkout page. Polar returns the buyer to Billing
- * settings; the plan changes when the sync applies Polar's subscription.
- */
 export const createCheckout = action({
   args: { interval: intervalValidator },
   handler: async (ctx, { interval }): Promise<{ url: string }> => {
     const user = await requireBillingUser(ctx);
     if (user.complimentary) fail("CONFLICT", "This account already has complimentary Pro.");
-    // Check Polar itself, not only the stored copy, so a delayed webhook
-    // can't let someone pay twice.
     if (await fetchProSubscription(user.userId)) {
       await ctx.runMutation(internal.billing.requestSync, { userId: user.userId });
       fail("CONFLICT", "You already have Pro. Manage it from Billing.");
@@ -234,15 +196,12 @@ export const createCheckout = action({
     try {
       return { url: (await create(user.email)).url };
     } catch (error) {
-      // Polar rejects some addresses it can't deliver to (for example,
-      // reserved domains). The buyer then types an email in checkout.
       if (!isInvalidEmail(error)) throw error;
       return { url: (await create(null)).url };
     }
   },
 });
 
-/** A signed-in link to Polar's customer portal: cancel, switch interval, cards, invoices. */
 export const createPortalSession = action({
   args: {},
   handler: async (ctx): Promise<{ url: string }> => {
@@ -260,10 +219,6 @@ export const createPortalSession = action({
   },
 });
 
-/**
- * Ask for the caller's subscription to be read from Polar again, after
- * checkout or from Retry. The result arrives through `status`.
- */
 export const refresh = mutation({
   args: {},
   handler: async (ctx) => {
@@ -280,13 +235,6 @@ export const refresh = mutation({
   },
 });
 
-/**
- * Operator only: grant or remove complimentary Pro for the account with this
- * email, with no subscription. Run with
- * `convex run billing:setComplimentaryPro '{"email":"…","enabled":true}'`.
- * An existing Polar subscription is untouched; removing the grant falls back
- * to the synced `plan`.
- */
 export const setComplimentaryPro = internalMutation({
   args: { email: v.string(), enabled: v.boolean() },
   handler: async (ctx, { email, enabled }) => {
@@ -312,7 +260,6 @@ export const setComplimentaryPro = internalMutation({
   },
 });
 
-/** Request a sync for a user (webhooks, checkout). */
 export const requestSync = internalMutation({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {
@@ -320,7 +267,6 @@ export const requestSync = internalMutation({
   },
 });
 
-/** Start a pass of the sync job, if this runner still holds its lease. */
 export const beginSync = internalMutation({
   args: { userId: v.string(), leaseId: v.string() },
   handler: async (ctx, { userId, leaseId }) => {
@@ -334,11 +280,6 @@ export const beginSync = internalMutation({
   },
 });
 
-/**
- * Apply a read of Polar made for request number `read`, deriving the
- * library's plan in the same transaction. Returns whether newer requests
- * arrived during the read, so the runner reads again.
- */
 export const finishSync = internalMutation({
   args: {
     userId: v.string(),
@@ -374,7 +315,6 @@ export const finishSync = internalMutation({
   },
 });
 
-/** Record a failed pass and retry it with backoff, keeping the lease meanwhile. */
 export const failSync = internalMutation({
   args: { userId: v.string(), leaseId: v.string(), error: v.string() },
   handler: async (ctx, { userId, leaseId, error }) => {
@@ -394,11 +334,6 @@ export const failSync = internalMutation({
   },
 });
 
-/**
- * The sync job runner. Reads Polar (revoking first for a deleted account),
- * applies the read, and repeats while newer requests arrived. Polar errors
- * are retried with backoff indefinitely; `lastError` on the row says why.
- */
 export const runSync = internalAction({
   args: { userId: v.string(), leaseId: v.string() },
   handler: async (ctx, { userId, leaseId }) => {
@@ -430,12 +365,10 @@ export const runSync = internalAction({
       });
       if (!again) return;
     }
-    // Keep each action short; a busy customer continues in a new one.
     await ctx.scheduler.runAfter(0, internal.billing.runSync, { userId, leaseId });
   },
 });
 
-/** The Armin user ID a webhook is about, from the customer's external ID. */
 function webhookUserId(event: webhooks.WebhookPayload): string | null {
   const data = event.data as {
     external_id?: string | null;
@@ -450,11 +383,6 @@ function webhookUserId(event: webhooks.WebhookPayload): string | null {
   return candidates.find((id): id is string => typeof id === "string" && id !== "") ?? null;
 }
 
-/**
- * Polar webhooks at `/polar/events`. Verifies the signature, then requests a
- * sync for the customer the event is about. Event types this SDK version
- * doesn't know are acknowledged and ignored, so Polar never retries them.
- */
 export function registerBillingRoutes(http: HttpRouter) {
   http.route({
     path: "/polar/events",

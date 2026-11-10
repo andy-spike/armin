@@ -3,13 +3,6 @@ import { createScheduler, fromFsrsCard, fsrsFieldsToMs, newReviewUnitFields } fr
 import { PRESET_VALUES } from "../scheduling-presets";
 import type { AnkiCard, AnkiReview, ImportReviewLog, ImportReviewUnit } from "./types";
 
-/**
- * Anki scheduling → Armin FSRS state. Review history is replayed through FSRS
- * (default "balanced" preset, no fuzz so the result is deterministic); Anki's
- * own due date, state, and FSRS memory state (when present) then override the
- * replayed result, so the imported card is due exactly when Anki says.
- */
-
 const DAY_MS = 86_400_000;
 
 const scheduler = createScheduler({
@@ -20,7 +13,6 @@ const scheduler = createScheduler({
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-/** Anki ease (permille) → FSRS difficulty 1–10, with the default 250% at 5. */
 function difficultyFromEase(factor: number) {
   if (!factor) return 5;
   const ease = clamp(factor, 1300, 3500);
@@ -34,18 +26,11 @@ function memoryState(data: string) {
     if (typeof parsed.s === "number" && typeof parsed.d === "number" && parsed.s > 0) {
       return { stability: parsed.s, difficulty: clamp(parsed.d, 1, 10) };
     }
-  } catch {
-    // `cards.data` is optional and sometimes not JSON.
-  }
+  } catch {}
   return null;
 }
 
-/** When Anki says the card is due, epoch ms. */
 export function ankiDueMs(card: AnkiCard, createdAt: number) {
-  // The queue decides the unit: (re)learning and preview cards due in minutes
-  // (queues 1 and 4) carry epoch seconds; day-learning (queue 3) and review
-  // cards carry days since the collection was created. Suspended and buried
-  // cards keep the due of the queue they left, so fall back to its magnitude.
   const inSeconds =
     card.queue === 1 ||
     card.queue === 4 ||
@@ -78,19 +63,16 @@ function replay(reviews: AnkiReview[]): Replay | null {
     }
     return { state: fromFsrsCard(card), logs };
   } catch {
-    // Out-of-order or malformed history: fall back to Anki's own numbers.
     return null;
   }
 }
 
-/** The Armin schedule and review log for one Anki card. */
 export function scheduleCard(
   card: AnkiCard,
   reviews: AnkiReview[],
   createdAt: number,
 ): Pick<ImportReviewUnit, "schedule" | "logs"> {
   if (card.type === 0 || card.type > 3) return { schedule: null, logs: [] };
-  // A due date we can't read would fail the whole import; start the card fresh instead.
   if (!Number.isFinite(new Date(ankiDueMs(card, createdAt)).getTime()))
     return { schedule: null, logs: [] };
 

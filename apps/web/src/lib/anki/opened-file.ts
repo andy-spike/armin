@@ -1,21 +1,15 @@
 import { armDeckName, uniqueDeckNames, type ImportDeck, type ImportPlan } from "@armin/core/anki";
 import { AnkiImportError, openAnkiFile, type AnkiReader } from "./reader";
 
-/** An Anki file read in the browser, ready for the import page. */
 export type OpenedAnkiFile = {
   reader: AnkiReader;
   fileName: string;
   fileSize: number;
   openedAt: number;
-  /** Every Anki deck the file offers, keyed by its Anki id, for the checklist. */
   decks: ImportDeck[];
   initialPlan: ImportPlan;
 };
 
-/**
- * The checklist's decks, not the plan's: an oversized Anki deck arrives split
- * into parts, but the user still picks the one source deck.
- */
 function sourceDecks(plan: ImportPlan) {
   const decks = new Map<string, ImportDeck>();
   for (const { split, ...deck } of plan.decks) {
@@ -30,7 +24,6 @@ function sourceDecks(plan: ImportPlan) {
   return list;
 }
 
-/** Reads and converts a file. Throws an `AnkiImportError` with a user-facing message. */
 export async function openAnkiImport(file: File): Promise<OpenedAnkiFile> {
   let reader: AnkiReader | null = null;
   try {
@@ -64,8 +57,6 @@ export async function openAnkiImport(file: File): Promise<OpenedAnkiFile> {
   }
 }
 
-// The open file holds a Worker, which can't travel through the URL, so the
-// dialog hands it to the import page here. Leaving the page releases it.
 let current: OpenedAnkiFile | null = null;
 
 export function setOpenedAnkiFile(file: OpenedAnkiFile | null) {

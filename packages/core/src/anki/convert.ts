@@ -44,19 +44,15 @@ import type {
   ImportWarningCode,
 } from "./types";
 
-/** Length an `armin-media:` reference will have once a placeholder is swapped for it. */
 const MEDIA_REF_LENGTH = "armin-media:".length + 64 + ".webp".length;
 
 const PLACEHOLDER_RE = /anki-media:([^)\s"\\]+)/g;
 
-/** Cut text to a length without splitting a surrogate pair. */
 function cut(text: string, length: number) {
   const end = length > 0 && /[\ud800-\udbff]/.test(text[length - 1] ?? "") ? length - 1 : length;
   return text.slice(0, Math.max(0, end));
 }
 
-/** The Armin deck name for an Anki deck path. */
-/** Deck names must be unique within one import: "Spanish", "Spanish (2)". */
 export function uniqueDeckNames(decks: readonly { name: string }[]) {
   const used = new Set<string>();
   return decks.map((deck) => {
@@ -79,8 +75,6 @@ export function armDeckName(ankiPath: string) {
     .filter(Boolean);
   return cut(parts.join(" › ") || "Untitled", MAX_NAME_CHARS).trim() || "Untitled";
 }
-
-// --- Warnings ---
 
 const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
 
@@ -126,11 +120,8 @@ const WARNING_MESSAGES: Record<ImportWarningCode, (count: number) => string> = {
     `Flags on ${plural(n, "note")} became tags such as flag::red, so you can still filter by them.`,
 };
 
-// --- Flags ---
-
 const FLAG_NAMES = ["", "red", "orange", "green", "blue", "pink", "turquoise", "purple"];
 
-/** Anki flags are per card; a note gets one `flag::<color>` tag per color its cards carry. */
 function flagTags(cards: AnkiCard[]) {
   const names = new Set<string>();
   for (const card of cards) {
@@ -140,13 +131,6 @@ function flagTags(cards: AnkiCard[]) {
   return [...names];
 }
 
-// --- Deck options ---
-
-/**
- * Anki steps are minutes; Armin writes them as `10m`, `1h`, `1d`. An explicit
- * empty list stays empty (`""`, no steps); unknown or unusable steps return
- * null, which keeps the library default.
- */
 function formatSteps(minutes: number[] | null) {
   if (minutes === null) return null;
   if (minutes.length === 0) return "";
@@ -164,14 +148,7 @@ function formatSteps(minutes: number[] | null) {
     .join(", ");
 }
 
-/**
- * The parts of an Anki options preset that have an Armin deck setting. Daily
- * limits stay out: Armin has one library-wide limit, which the preview names.
- * Values outside Armin's accepted ranges are left to the library default.
- */
 export function deckSettingsFromConfig(config: AnkiDeckConfig): ImportDeckSettings | undefined {
-  // Modern presets store retention as float32 (70% reads as 0.699999988), so
-  // round before checking Armin's accepted range.
   const retention =
     config.desiredRetention === null ? null : Math.round(config.desiredRetention * 100) / 100;
   const params = config.fsrsParams.map((value) => Math.round(value * 10_000) / 10_000);
@@ -194,8 +171,6 @@ export function deckSettingsFromConfig(config: AnkiDeckConfig): ImportDeckSettin
   return Object.values(settings).some((value) => value !== null) ? settings : undefined;
 }
 
-// --- Content ---
-
 type Content = { type: FlashcardType; content: FlashcardContent };
 
 function mediaIn(content: FlashcardContent) {
@@ -215,11 +190,9 @@ const SHRINKABLE: Record<FlashcardType, string[]> = {
   cloze: ["extra", "text"],
   type_answer: ["prompt"],
   image_occlusion: ["extra", "header"],
-  // Never produced by the converter (ADR 0023).
   concept: [],
 };
 
-/** Remove a dangling cloze or image marker left at the end of cut text. */
 function closeCut(text: string) {
   let out = text;
   const brace = out.lastIndexOf("{{");
@@ -229,14 +202,12 @@ function closeCut(text: string) {
   return `${out.replace(/[\\\s]+$/, "")}…`;
 }
 
-/** Shorten text fields until the serialized content fits the backend limit. */
 function fitContent(type: FlashcardType, content: FlashcardContent) {
   let current = { ...content } as Record<string, unknown>;
   let truncated = false;
   for (let attempt = 0; attempt < 20; attempt++) {
     const excess = contentSize(current as FlashcardContent) - MAX_CONTENT_CHARS;
     if (excess <= 0) return { content: current as FlashcardContent, truncated };
-    // Shorten the extra/secondary field first; otherwise the longest one.
     const fields = SHRINKABLE[type].filter(
       (key) => typeof current[key] === "string" && (current[key] as string).length > 1,
     );
@@ -258,9 +229,7 @@ type NoteContext = {
   fieldNames: string[];
   mediaNames: ReadonlySet<string>;
   warnings: Set<ImportWarningCode>;
-  /** Markdown for a field; `plain` for fields Armin shows without Markdown. */
   md: (html: string, plain?: boolean, templateFields?: readonly string[]) => string;
-  /** SVG images are kept for the client to convert. */
   svg: boolean;
 };
 
@@ -270,7 +239,6 @@ type Prepared =
 
 const EMPTY: Prepared = { ok: false };
 
-/** Build the Armin content for a note whose notetype maps to a fixed type. */
 function prepareStandard(note: AnkiNote, kind: NotetypeKind, ctx: NoteContext): Prepared {
   const field = (index: number | null) => (index === null ? "" : (note.fields[index] ?? ""));
   switch (kind.kind) {
@@ -314,7 +282,6 @@ function prepareStandard(note: AnkiNote, kind: NotetypeKind, ctx: NoteContext): 
       return prepareCloze(note, kind, ctx);
     case "image_occlusion":
       return prepareOcclusion(note, kind, ctx);
-    // Grouped across notes or left out by convertAnkiCollection.
     case "image_occlusion_enhanced":
     case "unsupported_occlusion":
     case "custom":
@@ -388,7 +355,6 @@ function prepareOcclusion(
   const markdown = (index: number | null) =>
     index === null ? "" : ctx.md(note.fields[index] ?? "").trim();
   const header = markdown(kind.header);
-  // Fields Anki keeps off the card (Comments) still hold the user's notes.
   const extra = [
     markdown(kind.extra),
     ...kind.others.map((index) => {
@@ -423,8 +389,6 @@ function prepareOcclusion(
   };
 }
 
-// --- Tags ---
-
 function convertTags(tags: string[]) {
   let trimmed = false;
   const shortened = normalizeTags(tags).map((tag) => {
@@ -437,8 +401,6 @@ function convertTags(tags: string[]) {
   return { tags: unique.slice(0, MAX_TAGS_PER_FLASHCARD), trimmed };
 }
 
-// --- Card ↔ review unit mapping ---
-
 function ordForSubKey(type: FlashcardType, subKey: string, templateOrd: number | null) {
   if (type === "cloze" || type === "image_occlusion") {
     const number = Number(subKey.slice(1));
@@ -447,8 +409,6 @@ function ordForSubKey(type: FlashcardType, subKey: string, templateOrd: number |
   if (type === "basic_reversed" && subKey === "rev") return 1;
   return templateOrd ?? 0;
 }
-
-// --- Conversion ---
 
 type Draft = ImportFlashcard;
 
@@ -496,7 +456,6 @@ export function convertAnkiCollection(
     }
   >();
 
-  /** Markdown for a note's HTML; `templateFields` strips custom-template chrome. */
   const markdownFor =
     (warnings: Set<ImportWarningCode>) =>
     (html: string, plain = false, templateFields?: readonly string[]) =>
@@ -600,7 +559,6 @@ export function convertAnkiCollection(
       produced++;
     }
     if (produced === 0) {
-      // Only the image problems explain why the note was skipped.
       const reasons = (["missing_media", "unsupported_image_removed"] as const).filter((code) =>
         warnings.has(code),
       );
@@ -613,7 +571,6 @@ export function convertAnkiCollection(
     countWarnings(warnings);
   }
 
-  // Image Occlusion Enhanced: the notes of one occlusion become one card.
   for (const { notetype, kind, members } of ioeGroups.values()) {
     const notes = sortIoeNotes(
       members.map((member) => member.note),
@@ -631,7 +588,6 @@ export function convertAnkiCollection(
     for (const code of prepared.warnings) warnings.add(code);
     let draft: Draft | null = null;
     if (prepared.ok) {
-      // Each note's card becomes the review unit of its mask (`c<position>`).
       const cards = notes.map((note, index) => ({ ...cardsOf.get(note.id)![0]!, ord: index }));
       const flags = flagTags(cards);
       if (flags.length > 0) warnings.add("flags_as_tags");
@@ -678,10 +634,8 @@ function groupBy<Item>(items: readonly Item[], keyOf: (item: Item) => string) {
   return groups;
 }
 
-/** One Armin flashcard a note will become, with the Anki cards it replaces. */
 type Candidate = { content: Content; cards: AnkiCard[]; key: string; templateOrd: number | null };
 
-/** A custom note type the user mapped onto an Armin type in the preview. */
 function mappedContent(
   note: AnkiNote,
   mapping: Exclude<NotetypeMapping, { kind: "template" }>,
@@ -704,7 +658,6 @@ function mappedContent(
   return back ? { type: mapping.kind, content: { front, back } } : null;
 }
 
-/** A note type Armin doesn't recognize: render each card's template into an Armin card. */
 function renderCustomNotetypeCards(
   note: AnkiNote,
   notetype: AnkiNotetype,
@@ -753,7 +706,6 @@ function renderCustomNotetypeCards(
     if (back) candidates.push({ ...base, content: { type: "basic", content: { front, back } } });
   }
 
-  // Mirrored templates become one reversed card whose units keep each card's schedule.
   if (
     mirrored &&
     candidates.length === 2 &&
@@ -773,7 +725,6 @@ function renderCustomNotetypeCards(
   return candidates;
 }
 
-/** Why a note produced no flashcard, from the most specific warning it raised. */
 function omissionReason(warnings: Set<ImportWarningCode>, isCustom: boolean): ImportOmittedReason {
   if (warnings.has("missing_media")) return "missing_image";
   if (warnings.has("unsupported_image_removed")) return "unsupported_image";
@@ -820,7 +771,6 @@ function finishFlashcard(
     const buried = card.queue === -2 || card.queue === -3;
     return { subKey: spec.subKey, schedule, logs, ...(buried ? { buried } : {}) };
   });
-  // New Anki cards carry their queue position in `due`.
   const positions = candidate.cards.filter((card) => card.type === 0).map((card) => card.due);
 
   return {
@@ -836,23 +786,16 @@ function finishFlashcard(
   };
 }
 
-/** Flashcards of one Anki note, so a limit or deck split never separates them. */
 type DraftGroup = {
   drafts: Draft[];
   reviewUnits: number;
-  /** Earliest due date among kept schedules, epoch ms; Infinity for new notes. */
   due: number;
-  /** Earliest Anki new-card position; Infinity when none. */
   newPosition: number;
 };
 
 const unitCount = (drafts: readonly Draft[]) =>
   drafts.reduce((total, draft) => total + draft.units.length, 0);
 
-/**
- * Whole notes in order (cards with progress by due date, then new cards in
- * Anki's new-card order), packed into consecutive parts under both caps.
- */
 function packNotes(drafts: readonly Draft[], cardCap: number, unitCap: number) {
   const groups = new Map<string, DraftGroup>();
   for (const draft of drafts) {
@@ -869,7 +812,6 @@ function packNotes(drafts: readonly Draft[], cardCap: number, unitCap: number) {
     if (draft.newPosition != null)
       group.newPosition = Math.min(group.newPosition, draft.newPosition);
   }
-  // Infinity-safe comparison; a stable sort keeps conversion order for ties.
   const compare = (x: number, y: number) => (x < y ? -1 : x > y ? 1 : 0);
   const ordered = [...groups.values()].sort(
     (a, b) => compare(a.due, b.due) || compare(a.newPosition, b.newPosition),
@@ -893,19 +835,15 @@ function packNotes(drafts: readonly Draft[], cardCap: number, unitCap: number) {
   return parts;
 }
 
-/** Take whole notes in order until the next one would exceed either room. */
 function limitDrafts(drafts: Draft[], limit: NonNullable<ImportOptions["limit"]>) {
   const first = packNotes(drafts, limit.flashcards, limit.reviewUnits)[0] ?? [];
-  // A first note larger than the room still lands alone in the first part.
   const fits = first.length <= limit.flashcards && unitCount(first) <= limit.reviewUnits;
   return fits ? first : [];
 }
 
-/** Keep the newest reviews globally; every card keeps the schedule Anki gave it. */
 function trimReviewLogs(drafts: Draft[], max: number) {
   const logs = drafts.flatMap((draft) => draft.units.flatMap((unit) => unit.logs));
   if (logs.length <= max) return 0;
-  // A stable sort keeps traversal order for reviews with the same timestamp.
   const keep = new Set(logs.sort((a, b) => b.review - a.review).slice(0, max));
   for (const draft of drafts)
     for (const unit of draft.units) unit.logs = unit.logs.filter((log) => keep.has(log));
@@ -971,10 +909,8 @@ function buildPlan(
     });
   };
   for (const deck of collection.decks) add(deck.id, deck.name);
-  // Cards can point at a deck the package doesn't list; file them under "Default".
   for (const id of draftsByDeck.keys()) add(id, decks.get(id)?.name ?? "Default");
 
-  // Parts must also stay unique against every other deck after name truncation.
   const uniqueNames = uniqueDeckNames(importDecks);
   importDecks.forEach((deck, index) => (deck.name = uniqueNames[index]!));
 

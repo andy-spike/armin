@@ -23,11 +23,6 @@ type MovableFlashcard = {
   front?: string;
 };
 
-/**
- * Moves a flashcard into another deck. Because the prerequisite graph is bound
- * to a deck, moving a connected card severs its prerequisite and dependent
- * edges; the dialog warns about that before the move is committed.
- */
 export function MoveFlashcardDialog({
   flashcard,
   open,
@@ -48,11 +43,8 @@ export function MoveFlashcardDialog({
   );
 
   const otherDecks = (decksQuery.data ?? []).filter((deck) => deck.id !== flashcard?.deckId);
-  // Reuse Browse's numbering so duplicate deck names stay distinguishable.
   const deckOptions = buildDeckFilterOptions(otherDecks).filter((option) => option.value !== "");
 
-  // Clear the picked deck each time the dialog closes. Until the user picks
-  // one, the target defaults to the first available deck once decks load.
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);

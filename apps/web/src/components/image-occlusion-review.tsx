@@ -6,11 +6,6 @@ import { MarkdownContent } from "@/components/ui/markdown-content";
 import { mediaDisplayUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
 
-/**
- * How a mask is drawn: `question` is the one being asked about, `hidden`
- * covers context, `revealed` outlines the answer, `outline` marks a mask in
- * the editor, and `none` draws nothing.
- */
 type MaskLook = "question" | "hidden" | "revealed" | "outline" | "none";
 
 const MASK_CLASSES: Record<Exclude<MaskLook, "none">, string> = {
@@ -24,15 +19,8 @@ const MASK_CLASSES: Record<Exclude<MaskLook, "none">, string> = {
 
 const percent = (value: number) => `${value * 100}%`;
 
-/** The boxes that draw one mask: its parts, or its bounding box. */
 const boxesOf = (mask: ImageOcclusionMask) => mask.parts ?? [mask.geometry];
 
-/**
- * An image with masks drawn in fractions of its size. The frame takes the
- * image's own aspect ratio (once known) and is never wider than its container
- * or taller than `maxHeight`, so the masks sit exactly on the image at any
- * size, zoom, or pixel density: there is no letterboxing to drift into.
- */
 export function OcclusionImage({
   src,
   masks,
@@ -45,16 +33,13 @@ export function OcclusionImage({
   src: string;
   masks: ImageOcclusionMask[];
   lookOf: (mask: ImageOcclusionMask) => MaskLook;
-  /** CSS length the image may not exceed in height. */
   maxHeight: string;
-  /** Text centered in a mask's first box, such as "?" or its number. */
   labelOf?: (mask: ImageOcclusionMask) => string | null;
   className?: string;
   alt?: string;
 }) {
   const [ratio, setRatio] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
-  // A cached image can finish before React attaches onLoad.
   const measure = useCallback((image: HTMLImageElement | null) => {
     if (image?.complete && image.naturalWidth > 0) {
       setRatio(image.naturalWidth / image.naturalHeight);
@@ -114,8 +99,6 @@ export function OcclusionImage({
               {label &&
                 index === 0 &&
                 (look === "outline" ? (
-                  // A tab on the mask's edge, outside it, so the number never covers
-                  // what the mask hides; below the mask when it touches the top.
                   <span
                     className={cn(
                       "absolute left-0 bg-accent px-1 py-0.5 text-[0.625rem] text-on-accent tabular-nums",
@@ -134,7 +117,6 @@ export function OcclusionImage({
   );
 }
 
-/** One review unit of an image occlusion card, question or answer side. */
 export function ImageOcclusionReview({
   content,
   targetId,
@@ -147,8 +129,6 @@ export function ImageOcclusionReview({
   const [showContext, setShowContext] = useState(true);
   const target = content.masks.find((mask) => mask.id === targetId);
   const hideAll = content.revealMode === "hide_all";
-  // Like Anki: in "hide all" the other masks stay on the answer, so the
-  // answer shows exactly what was asked; the toggle lifts them for context.
   const lookOf = (mask: ImageOcclusionMask): MaskLook => {
     if (mask.id === targetId) return flipped ? "revealed" : "question";
     return hideAll && (!flipped || showContext) ? "hidden" : "none";
@@ -168,8 +148,6 @@ export function ImageOcclusionReview({
         masks={content.masks}
         lookOf={lookOf}
         labelOf={(mask) => (mask.id === targetId && !flipped ? "?" : null)}
-        // Leaves room for the page header, answer bar, and prompt, so the whole
-        // image and its question fit the card without scrolling.
         maxHeight="max(12rem, min(100dvh - 27rem, 44rem))"
         alt={content.header ? "Occlusion image" : "Occlusion image with hidden labels"}
       />
@@ -200,7 +178,6 @@ export function ImageOcclusionReview({
   );
 }
 
-/** Every mask numbered in order, for the editor and Browse. */
 export function ImageOcclusionPreview({
   content,
   maxHeight,

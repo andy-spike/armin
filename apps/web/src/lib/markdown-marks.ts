@@ -1,15 +1,7 @@
 import type { MarkdownExtension } from "@tanstack/markdown";
 
-/**
- * Armin's inline marks beyond GFM, in Pandoc's spelling: `^sup^`, `~sub~`, and
- * `==highlight==`. Superscript and subscript can't contain a bare space (write
- * `\ `), so prose such as "~5 minutes ~10 minutes" stays text. A double tilde
- * is still GFM strikethrough.
- */
-
 const WHITESPACE = /\s/;
 
-/** Find the closing marker for `^…^` or `~…~`; -1 when this isn't one. */
 function scriptEnd(source: string, start: number, marker: string) {
   for (let i = start; i < source.length; i++) {
     const ch = source[i]!;
@@ -23,7 +15,6 @@ function scriptEnd(source: string, start: number, marker: string) {
   return -1;
 }
 
-/** Find the closing `==`; -1 when this isn't a highlight. */
 function highlightEnd(source: string, start: number) {
   if (start >= source.length || WHITESPACE.test(source[start]!)) return -1;
   for (let i = start; i < source.length - 1; i++) {
@@ -63,7 +54,6 @@ export const inlineMarks: MarkdownExtension = {
         };
       }
       if (ch !== "^" && ch !== "~") return undefined;
-      // `~~` belongs to strikethrough.
       if (ch === "~" && (source[index + 1] === "~" || source[index - 1] === "~")) return undefined;
       const end = scriptEnd(source, index + 1, ch);
       if (end === -1 || (ch === "~" && source[end + 1] === "~")) return undefined;
@@ -83,7 +73,6 @@ export const inlineMarks: MarkdownExtension = {
   },
 };
 
-/** Whether Markdown uses these marks, so the rich editor (which can't show them) opens as source. */
 export function hasInlineMarks(markdown: string) {
   const prose = markdown
     .replace(/(`{3,}|~{3,})[^\n]*\n[\s\S]*?\1/g, "")

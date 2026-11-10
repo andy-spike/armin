@@ -3,7 +3,6 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { selfHosted } from "@/lib/self-host";
 import { cn } from "@/lib/utils";
 
-/** Marks a self-hosted personal instance; renders nothing on armincards.app. */
 export function SelfHostedBadge({ className }: { className?: string }) {
   if (!selfHosted) return null;
   return (

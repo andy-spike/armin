@@ -1,16 +1,8 @@
 import { decodeEntities } from "./html";
 import { boundsOf, type OcclusionBox } from "./occlusion";
 
-/**
- * A tolerant reader for the small SVG files Image Occlusion Enhanced stores as
- * masks. The SVG is data: tags and attributes are read with regular
- * expressions into a tree, and only shape geometry is interpreted. Nothing is
- * rendered, fetched, or executed.
- */
-
 export type SvgNode = { name: string; attrs: Record<string, string>; children: SvgNode[] };
 
-/** Bounds that keep a hostile file from costing more than a normal mask. */
 const MAX_NODES = 20_000;
 const MAX_DEPTH = 64;
 
@@ -33,7 +25,6 @@ function parseAttrs(source: string) {
   return attrs;
 }
 
-/** The document's `<svg>` element, or null when the text holds none. */
 export function parseSvg(text: string): SvgNode | null {
   const root: SvgNode = { name: "#document", attrs: {}, children: [] };
   const stack = [root];
@@ -65,9 +56,6 @@ export function parseSvg(text: string): SvgNode | null {
   return find(root);
 }
 
-// --- Geometry ---
-
-/** An affine transform `[a, b, c, d, e, f]`, as in SVG's `matrix()`. */
 export type Matrix = [number, number, number, number, number, number];
 
 const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0];
@@ -91,7 +79,6 @@ const apply = (m: Matrix, [x, y]: readonly number[]) => [
 const NUMBER_RE = /[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi;
 const numbersIn = (text: string | undefined) => [...(text ?? "").matchAll(NUMBER_RE)].map(Number);
 
-/** The `transform` attribute as one matrix; unknown functions are ignored. */
 function parseTransform(text: string | undefined): Matrix {
   let result = IDENTITY;
   for (const [, name, args] of (text ?? "").matchAll(/([a-zA-Z]+)\s*\(([^)]*)\)/g)) {
@@ -141,7 +128,6 @@ function ellipsePoints(cx: number, cy: number, rx: number, ry: number) {
   });
 }
 
-/** Every point a path passes through or bends toward: a slight overestimate of its bounds. */
 function pathPoints(d: string) {
   const points: number[][] = [];
   let [x, y, startX, startY] = [0, 0, 0, 0];
@@ -169,7 +155,6 @@ function pathPoints(d: string) {
       const group = v.slice(i, i + size);
       if (upper === "A") {
         const end = at(group[5], group[6]);
-        // An arc stays within its radii of both endpoints.
         const [rx, ry] = [Math.abs(group[0]), Math.abs(group[1])];
         const midX = (x + end[0]) / 2;
         const midY = (y + end[1]) / 2;
@@ -185,7 +170,6 @@ function pathPoints(d: string) {
   return points;
 }
 
-/** The outline points of one drawable element, before its transform. */
 function localPoints(node: SvgNode) {
   switch (node.name) {
     case "rect": {
@@ -229,13 +213,10 @@ function localPoints(node: SvgNode) {
 const NON_DRAWING = new Set(["title", "desc", "defs", "metadata", "style", "script", "text"]);
 
 export type SvgShape = {
-  /** Box of each drawn shape, in the SVG's user units. */
   boxes: OcclusionBox[];
-  /** True when a box stands in for a non-rectangular or rotated shape. */
   approximated: boolean;
 };
 
-/** The boxes an element draws (several for a group), under the transform it inherits. */
 export function shapeOf(node: SvgNode, inherited: Matrix = IDENTITY): SvgShape {
   const matrix = withTransform(inherited, node);
   if (node.name === "g" || node.name === "a" || node.name === "switch") {
@@ -257,17 +238,12 @@ export function shapeOf(node: SvgNode, inherited: Matrix = IDENTITY): SvgShape {
   };
 }
 
-/** A length attribute in user units; percentages and other relative units give null. */
 function length(value: string | undefined) {
   const match = /^\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*(px)?\s*$/i.exec(value ?? "");
   const number = match ? Number(match[1]) : NaN;
   return Number.isFinite(number) && number > 0 ? number : null;
 }
 
-/**
- * How an SVG's user units map to fractions of its canvas (the occluded image),
- * from its `viewBox` or else its `width` and `height`.
- */
 export function canvasMatrix(svg: SvgNode): Matrix | null {
   const box = numbersIn(svg.attrs.viewbox);
   if (box.length === 4 && box[2] > 0 && box[3] > 0) {
@@ -278,7 +254,6 @@ export function canvasMatrix(svg: SvgNode): Matrix | null {
   return width && height ? [1 / width, 0, 0, 1 / height, 0, 0] : null;
 }
 
-/** The transform of an element's own `transform` attribute, after the one it inherits. */
 export function withTransform(inherited: Matrix, node: SvgNode) {
   return multiply(inherited, parseTransform(node.attrs.transform));
 }

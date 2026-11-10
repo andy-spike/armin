@@ -2,11 +2,11 @@ import { v } from "convex/values";
 import { flashcardDisplay } from "@armin/core/flashcard-types";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
-import type { Id } from "./_generated/dataModel";
+import type { Doc } from "./_generated/dataModel";
 import { ownedOrFail, readableDeck, readableLibrary, writableLibrary } from "./model/access";
 import { fail } from "./model/errors";
-import { linkPrerequisites, unlinkPrerequisite } from "./model/prereqs";
-import { bumpRevision, libraryRevision, parseFlashcard } from "./model/study";
+import { graphRevision, linkPrerequisites, unlinkPrerequisite } from "./model/prereqs";
+import { bumpRevision, parseFlashcard } from "./model/study";
 
 export const getDeck = query({
   args: { deckId: v.string() },
@@ -35,7 +35,7 @@ export const getDeck = query({
       .withIndex("by_deck", (q) => q.eq("deckId", deck._id))
       .collect();
     return {
-      version: await libraryRevision(ctx, library._id),
+      version: graphRevision(deck),
       nodes: flashcards.map((flashcard) => {
         const { type, content } = parseFlashcard(flashcard);
         const display = flashcardDisplay(type, content);
@@ -59,20 +59,12 @@ export const getDeck = query({
   },
 });
 
-async function checkVersion(
-  ctx: Parameters<typeof writableLibrary>[0],
-  libraryId: Id<"libraries">,
-  expectedVersion: number,
-) {
-  if ((await libraryRevision(ctx, libraryId)) !== expectedVersion) {
+function checkVersion(deck: Doc<"decks">, expectedVersion: number) {
+  if (graphRevision(deck) !== expectedVersion) {
     fail("CONFLICT", "This graph changed elsewhere. Reload it and retry your change.");
   }
 }
 
-/**
- * Add a prerequisite edge. Rejected when the cards are in different decks or
- * the edge would close a cycle. Every write checks the displayed graph revision.
- */
 export const addPrereq = mutation({
   args: {
     prereqId: v.id("flashcards"),
@@ -81,13 +73,13 @@ export const addPrereq = mutation({
   },
   handler: async (ctx, { prereqId, dependentId, expectedVersion }) => {
     const library = await writableLibrary(ctx);
-    await checkVersion(ctx, library._id, expectedVersion);
     const prereq = await ownedOrFail(ctx, library, prereqId, "Flashcard");
     const dependent = await ownedOrFail(ctx, library, dependentId, "Flashcard");
     if (prereq.deckId !== dependent.deckId) {
       fail("INVALID", "Prerequisites can only connect flashcards in the same deck.");
     }
     const deck = await ownedOrFail(ctx, library, prereq.deckId, "Deck");
+    checkVersion(deck, expectedVersion);
     const added = await linkPrerequisites(ctx, deck, [{ prereqId, dependentId }], Date.now());
     if (added.length === 0) return { ok: true as const, version: expectedVersion };
     await bumpRevision(ctx, library._id);
@@ -103,33 +95,28 @@ export const removePrereq = mutation({
   },
   handler: async (ctx, { prereqId, dependentId, expectedVersion }) => {
     const library = await writableLibrary(ctx);
-    await checkVersion(ctx, library._id, expectedVersion);
     const edge = await ctx.db
       .query("prereqs")
       .withIndex("by_pair", (q) => q.eq("prereqId", prereqId).eq("dependentId", dependentId))
       .unique();
     if (!edge || edge.libraryId !== library._id)
       return { ok: true as const, version: expectedVersion };
-    await ownedOrFail(ctx, library, edge.deckId, "Deck");
+    const deck = await ownedOrFail(ctx, library, edge.deckId, "Deck");
+    checkVersion(deck, expectedVersion);
     await unlinkPrerequisite(ctx, edge, Date.now());
     await bumpRevision(ctx, library._id);
     return { ok: true as const, version: expectedVersion + 1 };
   },
 });
 
-/** Persist canvas positions for the supplied flashcards of one deck. */
 export const saveLayout = mutation({
   args: {
     deckId: v.id("decks"),
     expectedVersion: v.number(),
     placements: v.array(v.object({ flashcardId: v.string(), x: v.number(), y: v.number() })),
   },
-  // Positions are last-write-wins and can't break graph rules, so a layout
-  // save never conflicts. When the library changed elsewhere, return the
-  // caller's version unchanged so its next link edit still detects that.
   handler: async (ctx, { deckId, placements, expectedVersion }) => {
     const library = await writableLibrary(ctx);
-    const current = (await libraryRevision(ctx, library._id)) === expectedVersion;
     const deck = await ownedOrFail(ctx, library, deckId, "Deck");
     if (placements.length > 2000) fail("INVALID", "Too many placements.");
     for (const placement of placements) {
@@ -140,6 +127,6 @@ export const saveLayout = mutation({
       await ctx.db.patch(flashcard._id, { posX: placement.x, posY: placement.y });
     }
     await bumpRevision(ctx, library._id);
-    return { ok: true as const, version: current ? expectedVersion + 1 : expectedVersion };
+    return { ok: true as const, version: expectedVersion };
   },
 });

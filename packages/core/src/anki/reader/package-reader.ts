@@ -1,18 +1,3 @@
-/**
- * Reads `.apkg` / `.colpkg` Anki packages into an {@link AnkiCollection}.
- *
- * Three layouts exist, tried newest first:
- * - `collection.anki21b`: zstd-compressed SQLite, schema 18 (Anki ≥ 2.1.50),
- *   with a zstd protobuf `media` list and zstd-compressed media members.
- * - `collection.anki21`: SQLite schema 11 with notetypes and decks as JSON.
- * - `collection.anki2`: the same, from older Anki versions. Newer exports also
- *   include a placeholder `collection.anki2` telling the user to update Anki;
- *   it is only read when nothing newer is present.
- *
- * This module has no browser-only imports so Node can drive it directly; the
- * worker supplies the SQLite engine and the `Blob` source.
- */
-
 import type {
   AnkiCard,
   AnkiCollection,
@@ -31,15 +16,12 @@ import { AnkiImportError } from "./errors";
 import { protoFloats, protoString, readProtoFields } from "./protobuf";
 import { readZipDirectory, readZipEntry, type ByteSource, type ZipEntry } from "./zip";
 
-/** Highest `col.ver` schema this reader understands (Anki 2.1.50+ through 25.x). */
 const MAX_SCHEMA_VERSION = 18;
-/** Highest `meta` PackageMetadata.Version (VERSION_LATEST). */
 const MAX_PACKAGE_VERSION = 3;
 const NAME_SEPARATOR = "\x1f";
 
 export type OpenedAnkiPackage = {
   collection: AnkiCollection;
-  /** Decompressed bytes for one media file, or null when the package lacks it. */
   readMedia(name: string): Promise<Uint8Array | null>;
 };
 
@@ -93,11 +75,9 @@ export async function openAnkiPackage(
   return { collection, readMedia };
 }
 
-/** Mask files are a few kilobytes; these bounds only stop a hostile package. */
 const MAX_MASK_BYTES = 1024 * 1024;
 const MAX_MASKS_TOTAL_BYTES = 64 * 1024 * 1024;
 
-/** Text of the Image Occlusion Enhanced mask SVGs the notes refer to. */
 async function readOcclusionMasks(
   collection: AnkiCollection,
   mediaEntries: Map<string, ZipEntry>,
@@ -115,9 +95,7 @@ async function readOcclusionMasks(
         continue;
       total += bytes.length;
       masks[name] = decoder.decode(bytes);
-    } catch {
-      // An unreadable mask leaves its occlusion out with a reason, like a missing one.
-    }
+    } catch {}
   }
   return masks;
 }
@@ -137,9 +115,7 @@ function packageVersion(bytes: Uint8Array) {
     for (const field of readProtoFields(bytes)) {
       if (field.number === 1 && field.varint !== undefined) return field.varint;
     }
-  } catch {
-    // An unreadable meta file is treated like a legacy package.
-  }
+  } catch {}
   return 0;
 }
 
@@ -153,9 +129,6 @@ function decompressZstd(bytes: Uint8Array) {
   }
 }
 
-// --- Media ---
-
-/** Maps media file name → ZIP member name. */
 async function readMediaMap(
   source: ByteSource,
   entries: Map<string, ZipEntry>,
@@ -181,8 +154,6 @@ async function readMediaMap(
     return map;
   }
 
-  // MediaEntries { repeated MediaEntry entries = 1 }
-  // MediaEntry { string name = 1; uint32 size = 2; bytes sha1 = 3; optional uint32 legacy_zip_filename = 255 }
   try {
     let index = 0;
     for (const entry of readProtoFields(decompressZstd(raw))) {
@@ -202,8 +173,6 @@ async function readMediaMap(
   }
   return map;
 }
-
-// --- Collection database ---
 
 function readCollection(
   SQL: SqlJsStatic,
@@ -277,13 +246,6 @@ function rows(db: Database, sql: string) {
   return [...stepRows(db, sql)];
 }
 
-/**
- * Schema 18 declares its name columns `COLLATE unicase`, a collation only Anki
- * registers, so sql.js can't plan queries over `fields` or `templates`. The
- * collation only orders name lookups, which we never run: drop those indexes,
- * strip the clause from the stored schema, and reopen so SQLite reparses it
- * (`export()` does that in sql.js).
- */
 function withReadableCollations(db: Database) {
   const [count] = rows(db, "SELECT COUNT(*) FROM sqlite_master WHERE sql LIKE '%COLLATE unicase%'");
   if (Number(count?.[0]) === 0) return;
@@ -300,8 +262,6 @@ function withReadableCollations(db: Database) {
   db.run("PRAGMA writable_schema = OFF");
   db.export();
 }
-
-// --- Schema 18 (current) ---
 
 function readModernNotetypes(db: Database): AnkiNotetype[] {
   const fields = new Map<string, { ord: number; name: string }[]>();
@@ -332,7 +292,6 @@ function readModernNotetypes(db: Database): AnkiNotetype[] {
 
   return rows(db, "SELECT CAST(id AS TEXT), name, config FROM notetypes").map(
     ([id, name, config]) => {
-      // Notetype.Config { Kind kind = 1; ...; OriginalStockKind original_stock_kind = 9 }
       let kind = 0;
       let stockKind = 0;
       for (const field of readProtoFields(config as Uint8Array)) {
@@ -354,13 +313,10 @@ function readModernNotetypes(db: Database): AnkiNotetype[] {
 function readModernDecks(db: Database): AnkiDeck[] {
   const decks: AnkiDeck[] = [];
   for (const [id, name, kind] of stepRows(db, "SELECT CAST(id AS TEXT), name, kind FROM decks")) {
-    // Deck.kind oneof { Normal normal = 1; Filtered filtered = 2 }. Filtered
-    // decks only borrow cards; the cards are attributed to their home deck.
     let filtered = false;
     let configId: string | null = null;
     for (const field of readProtoFields(kind as Uint8Array)) {
       if (field.number === 2) filtered = true;
-      // Normal { int64 config_id = 1; … }
       if (field.number === 1 && field.bytes) {
         for (const inner of readProtoFields(field.bytes)) {
           if (inner.number === 1 && inner.varint !== undefined) configId = String(inner.varint);
@@ -378,12 +334,6 @@ function readModernDecks(db: Database): AnkiDeck[] {
   return decks;
 }
 
-/**
- * DeckConfig.Config (proto/anki/deck_config.proto): learn_steps 1,
- * relearn_steps 2, fsrs_params_4 3, fsrs_params_5 5, fsrs_params_6 6,
- * new_per_day 9, reviews_per_day 10, maximum_review_interval 16,
- * desired_retention 37.
- */
 function readModernDeckConfigs(db: Database): AnkiDeckConfig[] {
   const configs: AnkiDeckConfig[] = [];
   for (const [id, name, config] of stepRows(
@@ -391,8 +341,6 @@ function readModernDeckConfigs(db: Database): AnkiDeckConfig[] {
     "SELECT CAST(id AS TEXT), name, config FROM deck_config",
   )) {
     const params: Record<number, number[]> = { 3: [], 5: [], 6: [] };
-    // A readable modern preset always states its steps; protobuf simply
-    // leaves an empty list out, so "no field" means "no steps" here.
     const learnSteps: number[] = [];
     const relearnSteps: number[] = [];
     const parsed: AnkiDeckConfig = {
@@ -417,7 +365,6 @@ function readModernDeckConfigs(db: Database): AnkiDeckConfig[] {
         else if (field.number === 37) parsed.desiredRetention = field.float ?? null;
       }
     } catch {
-      // A preset we can't read leaves its decks on the library defaults.
       continue;
     }
     parsed.fsrsParams = [params[6], params[5], params[3]].find((set) => set.length > 0) ?? [];
@@ -425,8 +372,6 @@ function readModernDeckConfigs(db: Database): AnkiDeckConfig[] {
   }
   return configs;
 }
-
-// --- Schema 11 (legacy) ---
 
 type LegacyModel = {
   name?: string;
@@ -465,7 +410,6 @@ function parseJsonColumn<T>(text: unknown): Record<string, T> {
 
 function readLegacyModels(db: Database) {
   const [col] = rows(db, "SELECT models, decks, dconf FROM col LIMIT 1");
-  // Object keys are the exact id strings; the inner `id` numbers can lose precision.
   const models = parseJsonColumn<LegacyModel>(col?.[0]);
   const deckMap = parseJsonColumn<LegacyDeck>(col?.[1]);
 
@@ -513,8 +457,6 @@ function readLegacyModels(db: Database) {
   return { notetypes, decks, deckConfigs };
 }
 
-// --- Shared tables ---
-
 function readNotes(db: Database): AnkiNote[] {
   const notes: AnkiNote[] = [];
   for (const [id, mid, tags, flds] of stepRows(
@@ -531,7 +473,6 @@ function readNotes(db: Database): AnkiNote[] {
   return notes;
 }
 
-/** Cards parked in a filtered deck report their home deck and original due. */
 function readCards(db: Database): AnkiCard[] {
   const cards: AnkiCard[] = [];
   for (const row of stepRows(

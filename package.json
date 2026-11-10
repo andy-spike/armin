@@ -7,7 +7,7 @@
   "bugs": {
     "url": "https://github.com/andy-spike/armin/issues"
   },
-  "license": "AGPL-3.0-only",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/andy-spike/armin.git"
@@ -18,6 +18,7 @@
     "dev:setup": "pnpm --filter @armin/backend dev:setup",
     "dev:web": "node packages/backend/scripts/start-dev.mjs web",
     "dev:backend": "node packages/backend/scripts/start-dev.mjs backend",
+    "dev:docs": "pnpm --filter @armin/docs dev",
     "dev:mobile": "node packages/backend/scripts/start-dev.mjs mobile",
     "dev:android": "node packages/backend/scripts/start-dev.mjs android",
     "dev:ios": "node packages/backend/scripts/start-dev.mjs ios",

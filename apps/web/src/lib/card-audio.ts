@@ -1,19 +1,7 @@
 import { createContext, useContext } from "react";
 
-/**
- * Card audio playback. Clips load through the same-origin `/media/<file>`
- * route (session-checked) into blob URLs, which every browser plays without
- * HTTP range support. One clip plays at a time across the app.
- *
- * A card side that plays audio is an {@link AudioGroup}: its clips in document
- * order. Review sides autoplay their group when they appear, and the replay
- * shortcut plays the group of the side shown last.
- */
-
-/** Loaded clips, least recently played first; the oldest are released past the cap. */
 const blobUrls = new Map<string, Promise<string>>();
 const MAX_CACHED_CLIPS = 32;
-/** The run playing now and what started it; starting another stops it. */
 let current: { stop: () => void; owner: object | null } | null = null;
 const listeners = new Set<() => void>();
 let playingSrc: string | null = null;
@@ -34,7 +22,6 @@ export function playingClip() {
 function blobUrl(src: string) {
   let url = blobUrls.get(src);
   if (url) {
-    // Most recently used goes last.
     blobUrls.delete(src);
     blobUrls.set(src, url);
   } else {
@@ -42,7 +29,6 @@ function blobUrl(src: string) {
       if (!response.ok) throw new Error(`Audio unavailable (${response.status}).`);
       return URL.createObjectURL(await response.blob());
     });
-    // A failed load can be retried on the next press.
     url.catch(() => blobUrls.delete(src));
     blobUrls.set(src, url);
     for (const [oldSrc, oldUrl] of blobUrls) {
@@ -62,15 +48,10 @@ export function stopAudio() {
   current?.stop();
 }
 
-/** Stop playback that `owner` started, such as a card side that is going away. */
 export function stopAudioOf(owner: object) {
   if (current?.owner === owner) current.stop();
 }
 
-/**
- * Play clips one after another; resolves when they finish or something else
- * starts. `owner` (a card side or clip button) can stop its own run later.
- */
 export async function playClips(sources: string[], owner: object | null = null) {
   stopAudio();
   let stopped = false;
@@ -109,7 +90,6 @@ export async function playClips(sources: string[], owner: object | null = null) 
         clip.onerror = finishClip;
         playingSrc = src;
         notify();
-        // Autoplay can be blocked until the page has had a user gesture.
         clip.play().catch(() => finishClip?.());
       });
       if (stopped) return;
@@ -119,10 +99,8 @@ export async function playClips(sources: string[], owner: object | null = null) 
   }
 }
 
-/** Sides waiting to autoplay until their first clip registers. */
 const pendingAutoplay = new WeakSet<AudioGroup>();
 
-/** The clips of one rendered card side. */
 export class AudioGroup {
   readonly sources: string[] = [];
 
@@ -130,7 +108,6 @@ export class AudioGroup {
     if (!this.sources.includes(src)) this.sources.push(src);
     if (pendingAutoplay.has(this)) {
       pendingAutoplay.delete(this);
-      // Wait for the rest of the side's clips, which register in the same pass.
       queueMicrotask(() => void playClips([...this.sources], this));
     }
     return () => {
@@ -140,10 +117,8 @@ export class AudioGroup {
   }
 }
 
-/** Shown card sides, with when each last appeared; replay picks the latest. */
 const groups = new Map<AudioGroup, number>();
 
-/** Call each time a side appears (including a new card in the same place). */
 export function trackGroup(group: AudioGroup) {
   groups.set(group, performance.now());
   return () => {
@@ -151,10 +126,6 @@ export function trackGroup(group: AudioGroup) {
   };
 }
 
-/**
- * Play a side's clips as it appears. Clip buttons can register after the side
- * itself mounts, so a side with none yet plays when its first one arrives.
- */
 export function autoplayGroup(group: AudioGroup) {
   if (group.sources.length > 0) {
     void playClips([...group.sources], group);
@@ -166,7 +137,6 @@ export function autoplayGroup(group: AudioGroup) {
   };
 }
 
-/** Replay the audio of the card side that appeared last. */
 export function replayCardAudio() {
   const latest = [...groups]
     .filter(([group]) => group.sources.length > 0)

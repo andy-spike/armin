@@ -4,18 +4,6 @@ import { clozeClusters, hasEmptyClozeDeletion, normalizeClozeText } from "./flas
 
 export * from "./flashcard-rules";
 
-/**
- * Flashcard-type domain module.
- *
- * A "flashcard" is the authored unit; it carries a `type` and a type-specific
- * `content` object. Each flashcard generates one or more review units (rows in
- * the `review_units` table), keyed by a stable `subKey` so edits preserve FSRS
- * history for the parts that did not change.
- *
- * The content schemas depend on `zod`; the rules that don't need them live in
- * `flashcard-rules` and are re-exported here.
- */
-
 export const FLASHCARD_TYPES = [
   "basic",
   "basic_reversed",
@@ -31,14 +19,11 @@ export function isFlashcardType(value: string): value is FlashcardType {
   return (FLASHCARD_TYPES as readonly string[]).includes(value);
 }
 
-// --- Per-type content schemas ---
-
 export const basicContentSchema = z.object({
   front: z.string().min(1),
   back: z.string().min(1),
 });
 
-/** Empty or whitespace-only text is the same as no text, so it is dropped. */
 const optionalMarkdownSchema = z
   .string()
   .optional()
@@ -70,12 +55,7 @@ const imageOcclusionGeometrySchema = z.object({
 
 const imageOcclusionMaskSchema = z.object({
   id: z.string().min(1),
-  /** The mask's bounding box: everything a renderer without `parts` covers. */
   geometry: imageOcclusionGeometrySchema,
-  /**
-   * Separate boxes, inside `geometry`, that together form one mask, such as
-   * an Anki occlusion drawn as several shapes. Absent for a single box.
-   */
   parts: z.array(imageOcclusionGeometrySchema).min(2).max(32).optional(),
   label: z.string().min(1).optional(),
   hint: z.string().optional(),
@@ -89,7 +69,6 @@ const imageOcclusionContentSchema = z.object({
   revealMode: z.enum(["hide_all", "hide_one"]).default("hide_all"),
 });
 
-/** Required Markdown with KaTeX and no images or audio (ADR 0023). */
 function conceptText(label: string, max?: number) {
   const text = z
     .string()
@@ -112,26 +91,17 @@ const conceptContentSchema = z.object({
   }),
 });
 
-/**
- * One exercise of a concept card's variant pool with its worked solution.
- * Generator output and learner edits are both validated against it.
- */
 export const conceptVariantSchema = z.object({
   exercise: conceptText("A variant's exercise", MAX_VARIANT_FIELD_CHARS),
   solution: conceptText("A variant's solution", MAX_VARIANT_FIELD_CHARS),
 });
 
 export type BasicContent = z.infer<typeof basicContentSchema>;
-/** `extra` is Markdown shown only on the answer side; it is absent when empty. */
 export type ClozeContent = { text: string; extra?: string };
 export type TypeAnswerContent = z.infer<typeof typeAnswerContentSchema>;
 export type ImageOcclusionGeometry = z.infer<typeof imageOcclusionGeometrySchema>;
 export type ImageOcclusionMask = z.infer<typeof imageOcclusionMaskSchema>;
 export type ImageOcclusionContent = z.infer<typeof imageOcclusionContentSchema>;
-/**
- * A concept card's template: the brief (the concept, what to vary, the
- * difficulty, and what to avoid) and one worked example.
- */
 export type ConceptContent = z.infer<typeof conceptContentSchema>;
 export type ConceptVariant = z.infer<typeof conceptVariantSchema>;
 
@@ -155,11 +125,6 @@ const contentSchemaByType = {
   concept: conceptContentSchema,
 } as const;
 
-/**
- * Stored rows are read with the rules they were written under. Empty cloze
- * deletions created before validation existed must stay readable so the owner
- * can open and repair them; new writes still go through the strict schema.
- */
 const storedContentSchemaByType = {
   ...contentSchemaByType,
   cloze: z
@@ -170,7 +135,6 @@ const storedContentSchemaByType = {
     }),
 } as const;
 
-/** Canonical cloze text, with an absent `extra` left out entirely. */
 function normalizeClozeContent({ text, extra }: ClozeContent): ClozeContent {
   return { text: normalizeClozeText(text), ...(extra ? { extra } : {}) };
 }
@@ -183,7 +147,6 @@ function normalizeContent<T extends FlashcardType>(
   return normalizeClozeContent(content as ClozeContent) as FlashcardContentByType[T];
 }
 
-/** Validate and normalize a content object for the given type. */
 export function validateContent<T extends FlashcardType>(
   type: T,
   content: unknown,
@@ -194,7 +157,6 @@ export function validateContent<T extends FlashcardType>(
   );
 }
 
-/** Parse a stored JSON content string into a validated content object. */
 export function parseStoredContent(
   type: string,
   raw: string,

@@ -10,5 +10,4 @@ export type AnkiWorkerResponse =
   | { type: "media"; requestId: number; bytes: ArrayBuffer | null }
   | { type: "media-error"; requestId: number; message: string }
   | { type: "converted"; requestId: number; plan: ImportPlan }
-  /** A problem with the file itself; `message` is user-facing. */
   | { type: "error"; message: string };

@@ -12,7 +12,6 @@ import { registerBillingRoutes } from "./billing";
 const http = httpRouter();
 registerAgentRoutes(http);
 
-// Kept at its original path: deployed clients upload images here, and audio uses the same route.
 http.route({ path: "/upload-image", method: "POST", handler: httpAction(uploadMedia) });
 http.route({
   pathPrefix: "/agent-imports/",
@@ -21,7 +20,6 @@ http.route({
 });
 
 authComponent.registerRoutes(http, createAuth);
-// Polar subscription webhooks (`/polar/events`), signature-verified in billing.ts.
 registerBillingRoutes(http);
 
 function denied(status: number) {
@@ -31,12 +29,6 @@ function denied(status: number) {
   });
 }
 
-/**
- * Private image and audio bytes. Requires the caller's Convex auth token (Authorization
- * header) and serves only images in the caller's own library. The web app
- * reaches this through its same-origin `/media/*` proxy; mobile calls it
- * directly with its session token. No reusable public URL is ever issued.
- */
 http.route({
   pathPrefix: "/media/",
   method: "GET",
@@ -54,8 +46,6 @@ http.route({
       headers: {
         "Content-Type": media.mime,
         "Content-Length": String(media.size),
-        // Per-user content: never cache in shared caches.
-        // Files are named by a hash of their bytes and never change.
         "Cache-Control": "private, max-age=31536000, immutable",
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
@@ -64,7 +54,6 @@ http.route({
   }),
 });
 
-/** Download a finished export of the caller's own library. */
 http.route({
   pathPrefix: "/export/",
   method: "GET",

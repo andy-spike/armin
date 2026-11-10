@@ -22,11 +22,6 @@ import { useState } from "react";
 
 const invalidInputClass = "border-again focus-visible:border-again focus-visible:ring-again/30";
 
-/**
- * A text draft of a committed number. The draft resets whenever the committed
- * value changes from outside, adjusted during render rather than in an effect
- * so the stale draft never reaches the screen.
- */
 function useSyncedDraft<T>(value: T, format: (value: T) => string) {
   const [draft, setDraft] = useState(format(value));
   const [invalid, setInvalid] = useState(false);
@@ -51,11 +46,6 @@ type SettingInputProps<T> = {
   "aria-labelledby"?: string;
 };
 
-/**
- * A number typed as text and committed on blur. `parse` returns the value to
- * commit, or `undefined` when the draft is invalid; an invalid draft resets to
- * the committed value and marks the field.
- */
 function NumberSettingInput<T>({
   value,
   onChange,
@@ -70,7 +60,6 @@ function NumberSettingInput<T>({
 }: SettingInputProps<T> & {
   format: (value: T) => string;
   parse: (draft: string) => T | undefined;
-  /** Characters removed as the user types. */
   disallowed: RegExp;
   inputMode?: "numeric" | "decimal";
   width: string;
@@ -111,7 +100,6 @@ function NumberSettingInput<T>({
   );
 }
 
-/** `parsed` when it is a number that passes `isValid`, otherwise `undefined`. */
 function validNumber(parsed: number | null, isValid: (value: number) => boolean) {
   return parsed !== null && isValid(parsed) ? parsed : undefined;
 }
@@ -276,7 +264,6 @@ export function NewCardsPerDayInput(props: SettingInputProps<number>) {
 
 const formatReviewsPerDay = (value: number | null) => (value == null ? "" : String(value));
 
-/** `null` means no daily limit; an empty field commits it. */
 export function ReviewsPerDayInput(props: SettingInputProps<number | null>) {
   return (
     <NumberSettingInput

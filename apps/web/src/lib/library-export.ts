@@ -3,20 +3,8 @@ import { api } from "@armin/backend/api";
 import { convexClient } from "@/lib/armin-client";
 import { ZipWriter } from "@/lib/zip-writer";
 
-/**
- * Library exports are assembled in the browser. The server prepares a small
- * ZIP with the manifest and JSON data; the browser downloads it, fetches each
- * image and audio file through the authenticated media route, checks it
- * against the manifest checksum, and writes one finished ZIP. Nothing on the
- * server has to hold the whole library, so exports have no size ceiling.
- *
- * Chrome and Edge stream the ZIP straight to the file the user picked. Other
- * browsers build it in memory and then download it.
- */
-
 export type ExportProgress = { done: number; total: number };
 
-/** An export failure whose message is written for the user. */
 export class ExportError extends Error {}
 
 export type ExportSink = {
@@ -36,7 +24,6 @@ type SaveFilePicker = (options: {
   }>;
 }>;
 
-/** Media fetched ahead of the one being written, to keep the network busy. */
 const PREFETCH = 4;
 
 function memorySink(fileName: string): ExportSink {
@@ -60,10 +47,6 @@ function memorySink(fileName: string): ExportSink {
   };
 }
 
-/**
- * Ask where to save the export. Call it directly from a click: the save
- * picker needs the user's gesture. Returns null when the user cancels.
- */
 export async function chooseExportSink(fileName: string): Promise<ExportSink | null> {
   const picker = (window as unknown as { showSaveFilePicker?: SaveFilePicker }).showSaveFilePicker;
   if (!picker) return memorySink(fileName);
@@ -94,7 +77,6 @@ async function fetchMedia(path: string, checksum: string, signal: AbortSignal) {
     signal.throwIfAborted();
     try {
       const response = await fetch(`/${path}`, { signal, credentials: "same-origin" });
-      // Deleted since the export was prepared.
       if (response.status === 404) return null;
       if (!response.ok)
         throw new ExportError(
@@ -112,7 +94,6 @@ async function fetchMedia(path: string, checksum: string, signal: AbortSignal) {
   throw lastError;
 }
 
-/** Wait until the server has prepared an export's data; throws if it failed. */
 export function waitForExport(exportId: string, signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     const watch = convexClient().watchQuery(api.exports.list, {});
@@ -135,7 +116,6 @@ export function waitForExport(exportId: string, signal: AbortSignal) {
   });
 }
 
-/** Download the prepared export and write the finished ZIP to `sink`. */
 export async function assembleExport({
   exportId,
   sink,
@@ -155,26 +135,22 @@ export async function assembleExport({
       counts: Record<string, number>;
       checksums: Record<string, string>;
     };
-    // An older backend already packed the media; only fetch what's missing.
     const mediaPaths = Object.keys(manifest.checksums).filter(
       (path) => path.startsWith("media/") && !entries[path],
     );
 
     const zip = new ZipWriter(sink.write);
-    // Same order as the server-built ZIP: manifest first, then data.
     await zip.add("manifest.json", entries["manifest.json"], true);
     for (const [path, bytes] of Object.entries(entries))
       if (path !== "manifest.json") await zip.add(path, bytes, true);
 
     onProgress({ done: 0, total: mediaPaths.length });
-    // A bounded window of downloads; each is dropped once written, so memory
-    // stays at a few files however large the library is.
     const fetches = new Map<number, Promise<Uint8Array | null>>();
     const startFetch = (index: number) => {
       if (index >= mediaPaths.length) return;
       const path = mediaPaths[index];
       const pending = fetchMedia(path, manifest.checksums[path], signal);
-      pending.catch(() => {}); // awaited in order below
+      pending.catch(() => {});
       fetches.set(index, pending);
     };
     for (let index = 0; index < PREFETCH; index++) startFetch(index);
@@ -182,13 +158,10 @@ export async function assembleExport({
       const bytes = await fetches.get(index)!;
       fetches.delete(index);
       startFetch(index + PREFETCH);
-      // The exported cards still reference the file, so a gap would be a
-      // silently incomplete backup.
       if (!bytes)
         throw new ExportError(
           "An image or audio file was deleted while exporting. Export again for a complete copy.",
         );
-      // Images and audio are already compressed, so they're stored as-is.
       await zip.add(mediaPaths[index], bytes, false);
       onProgress({ done: index + 1, total: mediaPaths.length });
     }

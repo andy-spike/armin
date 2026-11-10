@@ -9,10 +9,6 @@ import { RATINGS, RATING_COMMANDS, ShortcutLabel } from "./parts";
 
 const onAccentKbd = "border-on-accent/25 bg-ink/10 text-on-accent shadow-none max-sm:hidden";
 
-/**
- * The controls pinned under the card: previous and next, and between them
- * Show answer or, once revealed, the four ratings with their intervals.
- */
 export function AnswerBar({
   keymap,
   flipped,
@@ -31,7 +27,6 @@ export function AnswerBar({
 }: {
   keymap: Record<string, string | undefined>;
   flipped: boolean;
-  /** The card on screen was already answered in this session. */
   reviewed: boolean;
   isTypeAnswer: boolean;
   isCorrect: boolean;
@@ -54,8 +49,6 @@ export function AnswerBar({
           Already reviewed. Use Undo to change your last answer.
         </p>
       )}
-      {/* One height for both states, sized to the two-line rating buttons,
-          so revealing the answer doesn't move anything. */}
       <div className="flex h-12 items-stretch gap-2">
         <Tooltip content={<ShortcutLabel label="Previous card" binding={keymap["review.prev"]} />}>
           <Button
@@ -95,7 +88,6 @@ export function AnswerBar({
                 >
                   <span className="flex items-center gap-1.5">
                     {r.label}
-                    {/* Shortcut hints only where there's room, and a keyboard. */}
                     <Kbd className={onAccentKbd}>{keyLabel(RATING_COMMANDS[r.grade])}</Kbd>
                   </span>
                   {showIntervals && (
