@@ -14,6 +14,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { requestGeneration } from "./concepts";
 import { fail } from "./errors";
 import { MAX_CONTENT_CHARS, MAX_TAG_CHARS, MAX_TAGS_PER_FLASHCARD } from "./limits";
+import { bumpGraphRevision } from "./prereqs";
 import { settleVariants } from "./variantAllowance";
 import {
   adjustReviewUnitCount,
@@ -162,16 +163,18 @@ export async function setFlashcardArchived(
   return version;
 }
 
-async function deletePrereqEdges(ctx: MutationCtx, flashcardId: Id<"flashcards">) {
+async function deletePrereqEdges(ctx: MutationCtx, flashcard: Doc<"flashcards">) {
   const outgoing = await ctx.db
     .query("prereqs")
-    .withIndex("by_prereq", (q) => q.eq("prereqId", flashcardId))
+    .withIndex("by_prereq", (q) => q.eq("prereqId", flashcard._id))
     .collect();
   const incoming = await ctx.db
     .query("prereqs")
-    .withIndex("by_dependent", (q) => q.eq("dependentId", flashcardId))
+    .withIndex("by_dependent", (q) => q.eq("dependentId", flashcard._id))
     .collect();
-  for (const edge of [...outgoing, ...incoming]) await ctx.db.delete(edge._id);
+  const edges = [...outgoing, ...incoming];
+  for (const edge of edges) await ctx.db.delete(edge._id);
+  if (edges.length > 0) await bumpGraphRevision(ctx, flashcard.deckId);
   return outgoing.map((edge) => edge.dependentId);
 }
 
@@ -182,7 +185,7 @@ export async function moveFlashcard(
   now: number,
 ) {
   if (flashcard.deckId === targetDeckId) return flashcard.version;
-  const dependents = await deletePrereqEdges(ctx, flashcard._id);
+  const dependents = await deletePrereqEdges(ctx, flashcard);
   const version = flashcard.version + 1;
   await ctx.db.patch(flashcard._id, {
     deckId: targetDeckId,
@@ -258,7 +261,7 @@ export async function deleteFlashcardCascade(
   flashcard: Doc<"flashcards">,
   opts: { refreshDependents: boolean },
 ) {
-  const dependents = await deletePrereqEdges(ctx, flashcard._id);
+  const dependents = await deletePrereqEdges(ctx, flashcard);
 
   const units = await ctx.db
     .query("reviewUnits")

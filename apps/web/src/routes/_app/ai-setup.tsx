@@ -20,7 +20,7 @@ function AiSetupPage() {
       <header className="mb-10">
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-balance">AI setup</h1>
         <p className="mt-1.5 text-sm text-muted">
-          Connect your AI assistant so it can make cards for you.
+          Connect your AI assistant to make cards, organize decks, and quiz you.
         </p>
       </header>
       <AiSetupGuide

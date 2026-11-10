@@ -88,6 +88,21 @@ function RowsSkeleton({ rows }: { rows: number }) {
   );
 }
 
+const SCOPE_LABELS: Record<string, string> = {
+  "armin:read": "read",
+  "armin:write": "write",
+  "armin:import": "import",
+  "armin:study": "study",
+};
+
+function permissionLine(connection: Connection) {
+  if (connection.needsReconnect) return "Whole library · reconnect to continue";
+  const labels = connection.scopes
+    .map((scope) => SCOPE_LABELS[scope])
+    .filter((label): label is string => Boolean(label));
+  return labels.length ? `Whole library · ${labels.join(", ")}` : "Whole library";
+}
+
 function ConnectionRow({
   connection,
   onDisconnect,
@@ -111,10 +126,17 @@ function ConnectionRow({
               Disconnected
             </span>
           )}
+          {!ended && connection.needsReconnect && (
+            <span className="shrink-0 rounded-sm bg-again/10 px-1.5 py-0.5 text-xs font-medium text-again">
+              Reconnect needed
+            </span>
+          )}
         </p>
-        <p className="mt-0.5 text-[0.8125rem] text-muted">Whole library · all nine tools</p>
+        <p className="mt-0.5 text-[0.8125rem] text-muted">{permissionLine(connection)}</p>
         <p className="mt-0.5 text-xs text-muted">
-          {ended && connection.revokedAt !== undefined ? (
+          {connection.needsReconnect ? (
+            "Its permissions changed. Reconnect it from your assistant to continue."
+          ) : ended && connection.revokedAt !== undefined ? (
             <>
               Access ended <When timestamp={connection.revokedAt} />
             </>
@@ -125,9 +147,13 @@ function ConnectionRow({
           ) : (
             "Not used yet"
           )}
-          <span aria-hidden> · </span>
-          <span className="sr-only">, </span>
-          Connected <When timestamp={connection.createdAt} />
+          {!connection.needsReconnect && (
+            <>
+              <span aria-hidden> · </span>
+              <span className="sr-only">, </span>
+              Connected <When timestamp={connection.createdAt} />
+            </>
+          )}
         </p>
       </div>
       {!ended && (
@@ -161,7 +187,7 @@ function ConnectionsSection() {
   return (
     <Section
       title="Connected assistants"
-      description="Every approved assistant can use all nine tools on your whole library. Disconnecting ends access immediately; saved cards and decks stay."
+      description="Each approved assistant can use the permissions you granted on your whole library. Disconnecting ends access immediately; saved cards and decks stay."
     >
       {connections.isLoading ? (
         <RowsSkeleton rows={2} />

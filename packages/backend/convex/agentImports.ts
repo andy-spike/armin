@@ -6,8 +6,14 @@ import { internalQuery, type MutationCtx, type QueryCtx } from "./_generated/ser
 import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { agentAccess, agentUser, AGENT_SCOPE, hashSecret } from "./model/agentAuth";
-import { agentImportToolSchemas } from "./model/agentImportTools";
+import { agentAccess, agentUser, hashSecret } from "./model/agentAuth";
+import {
+  agentImportToolSchemas,
+  agentImportToolScopes,
+  type AgentImportToolName,
+} from "./model/agentImportTools";
+import { agentAuthoringGuide } from "./model/agentTools";
+import { parseAgentInput } from "./model/agentInput";
 import { deleteDeckCascade } from "./model/deletion";
 import { fail } from "./model/errors";
 import { insertFlashcard, validateFlashcardInput } from "./model/flashcards";
@@ -26,7 +32,6 @@ const MATERIALIZE_CARDS = 20;
 const CLEANUP_BATCH = 200;
 
 type ActiveStatus = "staging" | "materializing";
-type ToolName = keyof typeof agentImportToolSchemas;
 
 function isActive(status: Doc<"agentImports">["status"]): status is ActiveStatus {
   return status === "staging" || status === "materializing";
@@ -43,11 +48,15 @@ async function activeImportConnection(
 ) {
   if (!connection.componentConnectionId) return false;
   try {
-    const access = await agentAccess(ctx, {
-      userId: library.ownerId,
-      connectionId: connection.componentConnectionId,
-      scopes: [AGENT_SCOPE],
-    });
+    const access = await agentAccess(
+      ctx,
+      {
+        userId: library.ownerId,
+        connectionId: connection.componentConnectionId,
+        scopes: ["armin:import"],
+      },
+      "armin:import",
+    );
     return access.connection._id === connection._id;
   } catch {
     return false;
@@ -140,14 +149,18 @@ async function previewChecksum(ctx: Pick<QueryCtx, "db">, row: Doc<"agentImports
 }
 
 export const read = internalQuery({
-  args: { user: agentUser, tool: v.string(), input: v.any() },
-  handler: async (ctx, { user, tool, input }) => {
-    const { connection } = await agentAccess(ctx, user);
-    const key = tool as ToolName;
+  args: { user: agentUser, scope: v.string(), tool: v.string(), input: v.any() },
+  handler: async (ctx, { user, scope, tool, input }) => {
+    const key = tool as AgentImportToolName;
     const schema = agentImportToolSchemas[key];
-    if (!schema) fail("INVALID", "Unknown Anki import tool.");
-    const parsed = schema.parse(input) as Record<string, unknown>;
-    if (tool === "get_anki_import_guide") {
+    const required = agentImportToolScopes[key];
+    if (!schema || !required) fail("INVALID", "Unknown Anki import tool.");
+    if (scope !== required) fail("INVALID", "This tool's permission check does not match.");
+    const { connection } = await agentAccess(ctx, user, required);
+    const parsed = parseAgentInput(schema, input) as Record<string, unknown>;
+    if (tool === "get_guide") {
+      const { topic } = parseAgentInput(agentImportToolSchemas.get_guide, input);
+      if (topic === "authoring") return { guide: agentAuthoringGuide };
       const limits = await libraryLimits(ctx, connection.libraryId);
       const siteUrl = (process.env.SITE_URL ?? "").replace(/\/$/, "");
       const site = (process.env.CONVEX_SITE_URL ?? "").replace(/\/$/, "");
@@ -188,7 +201,7 @@ export const read = internalQuery({
           "Call anki_import_start with the plan's decks, planKeys, totals, warnings, and unresolved notes.",
           "Upload every media/ file with the uploadToken, then call anki_import_add_batch in batches of at most 100 cards and 1,500 review items.",
           "Repair unresolved notes only on request; otherwise include each one in `skipped` with a reason.",
-          "Call anki_import_preview, show the user its counts, images, warnings, skips, and repairs, then finalize with its previewChecksum only after approval.",
+          "Call anki_import_status with includePreview: true, show the user its counts, images, warnings, skips, and repairs, then finalize with its previewChecksum only after approval.",
           "Poll anki_import_status until finalized, then show the returned deck links.",
         ],
         limits: {
@@ -217,19 +230,20 @@ export const read = internalQuery({
           )[0] ?? null;
       }
       if (!row) return { import: null };
-      return { import: await summary(ctx, row, true) };
-    }
-    if (tool === "anki_import_preview") {
-      const row = await ownedImport(ctx, connection, parsed.importId as string);
+      const result = { import: await summary(ctx, row, true) };
+      if (parsed.includePreview !== true) return result;
       if (!isActive(row.status)) fail("CONFLICT", "This import is no longer accepting changes.");
       const { summary: value, checksum } = await previewChecksum(ctx, row);
       return {
-        ...value,
-        previewChecksum: checksum,
-        approval:
-          value.missing.length > 0
-            ? "Every converter card and unresolved note must be staged or explicitly skipped before finalization."
-            : "Show these counts and every skipped or repaired card to the user. Call anki_import_finalize with this checksum only after explicit approval.",
+        ...result,
+        preview: {
+          ...value,
+          previewChecksum: checksum,
+          approval:
+            value.missing.length > 0
+              ? "Every converter card and unresolved note must be staged or explicitly skipped before finalization."
+              : "Show these counts and every skipped or repaired card to the user. Call anki_import_finalize with this checksum only after explicit approval.",
+        },
       };
     }
     fail("INVALID", "Unknown Anki import read tool.");
@@ -242,7 +256,7 @@ async function start(
   input: Record<string, unknown>,
   uploadTokenHash: string | undefined,
 ) {
-  const parsed = agentImportToolSchemas.anki_import_start.parse(input);
+  const parsed = parseAgentInput(agentImportToolSchemas.anki_import_start, input);
   const existing = await Promise.all(
     (["staging", "materializing"] as const).map((status) =>
       ctx.db
@@ -337,7 +351,7 @@ async function addBatch(
   connection: Doc<"agentConnections">,
   input: Record<string, unknown>,
 ) {
-  const parsed = agentImportToolSchemas.anki_import_add_batch.parse(input);
+  const parsed = parseAgentInput(agentImportToolSchemas.anki_import_add_batch, input);
   const row = await ownedImport(ctx, connection, parsed.importId);
   if (row.status !== "staging" || expired(row))
     fail("CONFLICT", "This Anki import is no longer accepting batches.");
@@ -467,7 +481,7 @@ async function finalize(
   connection: Doc<"agentConnections">,
   input: Record<string, unknown>,
 ) {
-  const parsed = agentImportToolSchemas.anki_import_finalize.parse(input);
+  const parsed = parseAgentInput(agentImportToolSchemas.anki_import_finalize, input);
   const row = await ownedImport(ctx, connection, parsed.importId);
   if (row.status === "finalized") return { status: "finalized" as const, importId: row._id };
   if (row.status !== "staging") fail("CONFLICT", "This Anki import is not ready to finalize.");
@@ -521,7 +535,7 @@ async function cancel(
   connection: Doc<"agentConnections">,
   input: Record<string, unknown>,
 ) {
-  const parsed = agentImportToolSchemas.anki_import_cancel.parse(input);
+  const parsed = parseAgentInput(agentImportToolSchemas.anki_import_cancel, input);
   const row = await ownedImport(ctx, connection, parsed.importId);
   if (row.status === "finalized")
     fail("CONFLICT", "This import already finished. Delete its decks instead.");
@@ -541,17 +555,20 @@ async function cancel(
 export const write = internalMutation({
   args: {
     user: agentUser,
+    scope: v.string(),
     tool: v.string(),
     input: v.any(),
     fingerprint: v.string(),
     uploadTokenHash: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { connection } = await agentAccess(ctx, args.user);
-    const key = args.tool as ToolName;
+    const key = args.tool as AgentImportToolName;
     const schema = agentImportToolSchemas[key];
-    if (!schema) fail("INVALID", "Unknown Anki import tool.");
-    const parsed = schema.parse(args.input) as Record<string, unknown>;
+    const required = agentImportToolScopes[key];
+    if (!schema || !required) fail("INVALID", "Unknown Anki import tool.");
+    if (args.scope !== required) fail("INVALID", "This tool's permission check does not match.");
+    const { connection } = await agentAccess(ctx, args.user, required);
+    const parsed = parseAgentInput(schema, args.input) as Record<string, unknown>;
     const writes = [
       "anki_import_start",
       "anki_import_add_batch",

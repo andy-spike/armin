@@ -73,6 +73,36 @@ async function countWrite(ctx: MutationCtx, connection: Doc<"agentConnections">)
   }
 }
 
+export async function countRead(
+  ctx: MutationCtx,
+  connection: Pick<Doc<"agentConnections">, "_id" | "libraryId">,
+) {
+  const key = `read:${connection._id}`;
+  const now = Date.now();
+  const { agentReadsPerHour } = await libraryLimits(ctx, connection.libraryId);
+  const bucket = await ctx.db
+    .query("agentRateLimits")
+    .withIndex("by_key", (q) => q.eq("key", key))
+    .unique();
+  if (bucket && bucket.expiresAt > now) {
+    if (bucket.count >= agentReadsPerHour)
+      fail(
+        "QUOTA",
+        `This connection reached its hourly limit of ${agentReadsPerHour} reads. Wait a few minutes, then continue with fewer read calls.`,
+      );
+    await ctx.db.patch(bucket._id, { count: bucket.count + 1 });
+  } else if (bucket) {
+    await ctx.db.patch(bucket._id, { count: 1, expiresAt: now + HOUR_MS });
+  } else {
+    await ctx.db.insert("agentRateLimits", {
+      key,
+      libraryId: connection.libraryId,
+      count: 1,
+      expiresAt: now + HOUR_MS,
+    });
+  }
+}
+
 export async function countAgentCards(
   ctx: MutationCtx,
   libraryId: Doc<"libraries">["_id"],

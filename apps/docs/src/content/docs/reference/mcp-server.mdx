@@ -17,7 +17,7 @@ You need an [Armin account](https://armincards.app/sign-up) with a verified emai
 
 - **Transport:** Streamable HTTP over HTTPS.
 - **Authentication:** OAuth authorization code flow with S256 PKCE and dynamic client registration. Choose OAuth in your client; no personal API key or manually supplied client secret is needed.
-- **Authorization scope:** `armin:author`. Library access is not a separate OAuth scope; approving the connection gives its assistant the authoring and import tools on the whole library.
+- **Authorization scopes:** `armin:read`, `armin:write`, `armin:import`, and `armin:study`. A client that asks for no scope receives all four. Each connection only sees and can use tools in the groups you approved.
 
 The server URL is an integration endpoint, not a webpage. Opening it directly in a browser is not a connection test.
 
@@ -84,16 +84,28 @@ Approve the connection in the Armin page that opens. Use a current client versio
 
 ## Choose what your assistant can access
 
-Every new connection asks for your approval. There is one access option: after
-you approve it, the assistant can use all nine Armin tools on your whole library,
-including every existing deck and any decks and cards you add later. Approval
-covers reading, creating, editing, and archiving cards, creating and renaming
-decks, moving cards, and linking prerequisites; there are no per-deck, read-only,
-or edit/create choices.
+Every new connection asks for your approval and lists the permissions it
+requested. There are four permission groups, and each covers your whole library,
+including every existing deck and any decks and cards you add later:
+
+- **Read** (`armin:read`): find and read decks, cards, prerequisite links, study
+  stats, and card details, and read the authoring and Anki guides.
+- **Write** (`armin:write`): create and edit cards and decks, archive cards, move
+  cards, and change prerequisite links.
+- **Import** (`armin:import`): convert and stage Anki files, upload their images,
+  and publish the new decks after you approve the preview.
+- **Study** (`armin:study`): show the cards that are due and record your own
+  ratings.
+
+There are no per-deck choices. A client that asks for no scope receives all four.
+A connection approved before these groups existed has the old `armin:author`
+scope; it cannot call tools and is marked as needing reconnection in Settings.
+Reconnect it from the assistant to approve the new groups.
 
 Armin limits the tools themselves. The assistant cannot permanently delete cards
-or decks, upload images, rate reviews or change scheduling, export your library,
-or manage your account.
+or decks, reschedule cards on its own, upload images outside an approved Anki
+import, export your library, or manage your account. Ratings are recorded only
+when you give them, one card at a time.
 
 Client names are supplied by the connecting app and are not verified by Armin. Check the client name and callback origin on the consent screen before approving.
 
@@ -111,37 +123,73 @@ You can also remove the connector or plugin in the assistant's own settings. Dis
 
 - “Make an Armin deck from these lecture notes, with prerequisites.”
 - “Which Armin decks can you see?”
+- “Find the card about photosynthesis and fix its answer.”
 - “Show me the cards in this deck and how they depend on each other.”
 - “Update this card's answer to include the example below.”
 - “Archive this card.”
+- “How is my Armin retention and which decks are weakest?”
+- “Quiz me on my due cards one at a time.”
+- “Here is my answer—rate that card Good.”
 
 Open the returned deck link to inspect the result and study in Armin. Review generated cards for accuracy before relying on them.
 
 ## Available tools
 
-| Tool                 | What it does                                                                                             |
-| -------------------- | -------------------------------------------------------------------------------------------------------- |
-| `list_decks`         | Lists the decks in your library.                                                                         |
-| `read_deck`          | Reads a deck's cards and versions, up to 20 cards per page.                                              |
-| `read_prerequisites` | Reads a deck's prerequisite links.                                                                       |
-| `save_cards`         | Saves 1–50 text cards and up to 100 prerequisite links in one atomic batch, in a new or existing deck.   |
-| `update_card`        | Edits one card, checking its version and preserving existing review items.                               |
-| `set_card_archived`  | Archives or unarchives one card without deleting its review history.                                     |
-| `update_deck`        | Changes a deck's name or description.                                                                    |
-| `set_prerequisite`   | Adds or removes a same-deck prerequisite link, rejecting cycles.                                         |
-| `move_card`          | Moves a card between decks while preserving study state; refuses to silently discard prerequisite links. |
+There are twenty tools across the four permission groups.
 
-Supported card types are basic, reversed, cloze, and typed-answer. The assistant cannot permanently delete cards or decks, rate reviews, change scheduling, export your library, or administer your account. Edits that would remove existing review items or change image content must be performed in Armin.
+### Read (`armin:read`)
 
-Each connection can make up to 120 successful authoring writes per hour. An account can have up to 20 active connections. Normal library quotas also apply. Large card sets need multiple batches; each batch succeeds or fails as a unit. Stale edits are rejected instead of overwriting a newer change.
+| Tool                 | What it does                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `list_decks`         | Lists the decks in your library, 200 per page, with card counts and how many cards are due now.                                |
+| `search_cards`       | Finds cards by text, deck, or tag and returns their IDs, versions, and deck links.                                             |
+| `read_deck`          | Reads a deck's cards in pages, with full content or compact previews, plus its prerequisite links and revision.                |
+| `get_study_overview` | Summarizes due now, scheduled reviews due today, new cards available, streak, 30-day retention, and the five weakest decks.    |
+| `get_card_details`   | Shows one card's full content and each review unit's state, due time, stability, difficulty, reps, lapses, and recent reviews. |
+| `get_guide`          | Returns Armin's card-writing guidance or the Anki converter kit, limits, and import workflow.                                  |
+| `anki_import_status` | Reads a staged Anki import's progress, counts, unresolved notes, and final deck links.                                         |
+
+### Write (`armin:write`)
+
+| Tool                | What it does                                                                                             |
+| ------------------- | -------------------------------------------------------------------------------------------------------- |
+| `save_cards`        | Saves 1–50 text cards and up to 100 prerequisite links in one atomic batch, in a new or existing deck.   |
+| `update_card`       | Edits one card, checking its version and preserving existing review items.                               |
+| `set_card_archived` | Archives or unarchives one card without deleting its review history.                                     |
+| `update_deck`       | Changes a deck's name or description.                                                                    |
+| `set_prerequisite`  | Adds or removes a same-deck prerequisite link, rejecting cycles.                                         |
+| `move_card`         | Moves a card between decks while preserving study state; refuses to silently discard prerequisite links. |
+
+### Import (`armin:import`)
+
+| Tool                       | What it does                                                                            |
+| -------------------------- | --------------------------------------------------------------------------------------- |
+| `anki_import_start`        | Starts a staged import from the converter plan and returns a scoped image upload token. |
+| `anki_import_add_batch`    | Stages up to 100 cards and 1,500 review items, with explicit skip reasons.              |
+| `anki_import_upload_token` | Issues a fresh scoped upload token if the first was lost.                               |
+| `anki_import_finalize`     | Publishes a complete, user-approved import after checking its preview checksum.         |
+| `anki_import_cancel`       | Cancels an import and removes its staged cards, decks, and unshared uploads.            |
+
+### Study (`armin:study`)
+
+| Tool            | What it does                                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `get_due_cards` | Returns the next due review units in the app's queue order, with prompts and a state token. Answers are separate and must not be revealed early. |
+| `rate_card`     | Records the user's own rating for one review unit. The assistant must never choose the rating, and stale state tokens are rejected.              |
+
+Supported card types are basic, reversed, cloze, and typed-answer. Call `get_guide` with topic `authoring` before writing cards; it returns Armin's card-writing rules, from learning goals and card types to prerequisite links. The assistant cannot permanently delete cards or decks, reschedule cards on its own, upload images outside an approved Anki import, export your library, or administer your account. Edits that would remove existing review items or change image content must be performed in Armin.
+
+Each connection can make up to 60 writes per hour on Free (600 on Pro) and 2,000 reads per hour on Free (6,000 on Pro). Ratings count as writes. An account can have up to 20 active connections. Normal library quotas also apply. Large card sets need multiple batches; each batch succeeds or fails as a unit. Stale edits are rejected instead of overwriting a newer change.
 
 ## Troubleshooting
 
-**The assistant cannot see a deck.** Confirm you signed into the intended Armin account and that the connection is still listed under **Settings → AI assistants**. An approved connection can use every deck in the active library; there is no per-deck sharing step.
+**The assistant cannot see a deck.** Confirm you signed into the intended Armin account and that the connection is still listed under **Settings → AI assistants**. An approved connection can use every deck in the active library, subject to its permission groups; there is no per-deck sharing step. If it only has the read group, editing tools stay hidden.
+
+**The assistant shows no Armin tools or reports missing permissions.** The connection may have been approved with the old single `armin:author` scope. Reconnect it from the assistant and approve the current permission groups. Settings marks it as needing reconnection until you do.
 
 **Sign-in or approval expired.** Start the connection again from your assistant. Consent requests expire after ten minutes. If a previously working connection reports an authentication error, reconnect and approve it again.
 
-**A write is refused.** Check that the connection is still approved. For a version conflict, ask the assistant to read the latest card or graph and retry. A quota error may require waiting for the hourly limit or reducing the batch size.
+**A write is refused.** Check that the connection is still approved. For a version conflict, ask the assistant to read the latest card or graph and retry. A quota error may require waiting for the hourly limit or reducing the batch size. If a tool rejects its input, the error names the field and the rule that failed, such as a length limit or allowed format; ask the assistant to correct that argument.
 
 **The custom connector option is missing.** Check your provider's plan and workspace policy with its administrator. Armin cannot enable a feature blocked by the provider.
 
@@ -163,9 +211,10 @@ For permanent study content and private data, create your own account.
 
 ## Anki imports
 
-Call `get_anki_import_guide` for the maintained converter kit and staged import
+Call `get_guide` with topic `anki_import` for the maintained converter kit and staged import
 protocol. Your assistant needs attachment/file access and Node.js execution.
 Conversion runs in the assistant workspace, with supported images preserved.
 Resolve unsupported cards by requested repair or explicit skip, review the final
-preview, and approve before publishing new decks. MCP imports start fresh;
-browser import can preserve study progress. See [the import guide](https://github.com/andy-spike/armin/blob/master/docs/anki-assistant-import.md).
+preview from `anki_import_status` with `includePreview: true`, and approve before
+publishing new decks. MCP imports start fresh; browser import can preserve study
+progress. See [the import guide](https://github.com/andy-spike/armin/blob/master/docs/anki-assistant-import.md).

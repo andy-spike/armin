@@ -171,7 +171,7 @@ export async function loadBrowsePage(
   return { ...result, page: await hydrateSummaries(ctx, result.page) };
 }
 
-function searchSummaries(
+export function searchSummaries(
   ctx: QueryCtx,
   libraryId: Id<"libraries">,
   deckId: Id<"decks"> | null,

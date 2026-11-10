@@ -1,0 +1,47 @@
+diff --git a/dist/client/index.d.ts b/dist/client/index.d.ts
+index 6313f048233604302ebb73d47993e3b08f81c1b7..cf42649bce4c825ed33840b4d13523d15852ed3b 100644
+--- a/dist/client/index.d.ts
++++ b/dist/client/index.d.ts
+@@ -94,6 +94,12 @@ export type ToolDefinition<Args extends PropertyValidators = PropertyValidators,
+     description: string;
+     /** Convex validators for the arguments; exposed as `inputSchema`. */
+     args?: Args;
++    /**
++     * Optional JSON Schema published as `inputSchema`, with descriptions and
++     * constraints that Convex validators cannot express. Runtime validation
++     * still uses `args`; defaults to the schema generated from `args`.
++     */
++    inputSchema?: JSONSchema;
+     /** Optional validator for the result; exposed as `outputSchema`. */
+     returns?: Returns;
+     annotations?: ToolAnnotations;
+diff --git a/dist/client/index.js b/dist/client/index.js
+index da75e52e69fd0f6e3b0c6ef78aa461261d24323b..45dc71f2aa064bc5f125e1075daad742f587f07c 100644
+--- a/dist/client/index.js
++++ b/dist/client/index.js
+@@ -103,7 +103,7 @@ export class McpServer {
+                     name,
+                     ...(definition.title ? { title: definition.title } : {}),
+                     description: definition.description,
+-                    inputSchema: toJsonSchema(args),
++                    inputSchema: definition.inputSchema ?? toJsonSchema(args),
+                     ...(outputSchema?.type === "object" ? { outputSchema } : {}),
+                     ...(definition.annotations
+                         ? { annotations: definition.annotations }
+diff --git a/src/client/index.ts b/src/client/index.ts
+index 33f8274b4e976070cc7b3129fb382b4ce461cd7c..23cdca8e803250e03d0d407fca36de849d212acb 100644
+--- a/src/client/index.ts
++++ b/src/client/index.ts
+@@ -119,6 +119,12 @@ export type ToolDefinition<
+   description: string;
+   /** Convex validators for the arguments; exposed as `inputSchema`. */
+   args?: Args;
++  /**
++   * Optional JSON Schema published as `inputSchema`, with descriptions and
++   * constraints that Convex validators cannot express. Runtime validation
++   * still uses `args`; defaults to the schema generated from `args`.
++   */
++  inputSchema?: JSONSchema;
+   /** Optional validator for the result; exposed as `outputSchema`. */
+   returns?: Returns;
+   annotations?: ToolAnnotations;
