@@ -2,10 +2,11 @@
 
 Armin's MCP import tools use this kit to convert an Anki export with the same
 deterministic converter the browser uses. It needs **Node.js 20, 22, or 24** and
-no package install. The archive includes its SQLite WASM runtime.
+no package install. The archive includes its SQLite WASM runtime, SVG renderer,
+and default font.
 
-Tested with Node.js 24 on Linux x64. The code is platform-independent, but other
-Node versions and operating systems have not been verified.
+Tested with Node.js 20, 22, and 24 on Linux x64. The code is platform-independent,
+but other operating systems have not been verified.
 
 ## Run
 
@@ -32,8 +33,9 @@ history; use the browser importer when progress must come along.
 - `manifest.json` — source SHA-256, kit version, output checksum, and counts.
 - `preview.html` — an offline preview; open it from the output folder so its
   `media/` files resolve.
-- `media/` — supported images and audio, named by their SHA-256. The content-addressed
-  name is also the reference Armin stores after upload.
+- `media/` — supported images and audio, named by their SHA-256. SVG images are
+  stored as their rendered PNG. The content-addressed name is also the reference
+  Armin stores after upload.
 
 The output is deterministic for the same input and options. `plan.json` never
 contains an absolute source path.
@@ -43,9 +45,12 @@ contains an absolute source path.
 Basic, reversed, typed-answer, cloze, and image-occlusion cards use the existing
 Armin converter. Images are extracted only when the bytes are PNG, JPEG, GIF,
 WebP, BMP, or AVIF, and audio only when it is MP3, OGG, M4A, WAV, FLAC, or AAC;
-each file must fit Armin's 10 MiB per-file limit. Video, SVG, unsupported audio,
-text-to-speech, and missing files are reported in the warnings; cards whose required content cannot
-be represented appear under `unresolved`.
+each file must fit Armin's 10 MiB per-file limit. SVG images are rendered to PNG
+locally with the same size rules as browser import, never running scripts or
+fetching external images or fonts. Video, SVG that cannot be rendered,
+unsupported audio, text-to-speech, and missing files are reported in the
+warnings; cards whose required content cannot be represented appear under
+`unresolved`.
 
 No prerequisites are inferred. Polishing and prerequisite writing are separate,
 explicit decisions in the Armin card-writing skill, never part of conversion.

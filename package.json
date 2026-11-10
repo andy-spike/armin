@@ -33,6 +33,7 @@
     "worktree:seed": "pnpm --filter @armin/backend worktree:seed"
   },
   "devDependencies": {
+    "@resvg/resvg-wasm": "2.6.2",
     "esbuild": "^0.28.2",
     "fflate": "^0.8.3",
     "typescript": "^5.9.3",

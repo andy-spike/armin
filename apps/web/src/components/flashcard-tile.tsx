@@ -30,6 +30,7 @@ import {
 import { StateBadge, Badge } from "@/components/ui/badge";
 import { FlashcardTypeBadge } from "@/components/flashcard-type-badge";
 import { Tooltip } from "@/components/ui/tooltip";
+import { TruncatedLabel } from "@/components/ui/truncated-label";
 import { useConceptCardsAllowed } from "@/components/concept-pro";
 import type { FlashcardDeleteConsequences, UiFlashcard } from "@/types/view-models";
 import {
@@ -42,6 +43,8 @@ import { stripMarkdownForPreview } from "@/lib/markdown-preview";
 import { hasMath } from "@armin/core/math";
 import { MarkdownContent } from "@/components/ui/markdown-content";
 import { DeleteFlashcardDialog } from "@/components/delete-consequences-list";
+import { ImageOcclusionPreview } from "@/components/image-occlusion-review";
+import type { ImageOcclusionContent } from "@armin/core/flashcard-types";
 import { cn } from "@/lib/utils";
 
 export type FlashcardDeleteRequest = {
@@ -227,6 +230,8 @@ function DeferredCardActionsMenu({
   return <CardActionsMenu {...props} />;
 }
 
+const MAX_TILE_TAGS = 2;
+
 function FlashcardTileBody({
   card,
   deckName,
@@ -329,16 +334,37 @@ function FlashcardTileBody({
         </div>
 
         <div className="mt-3 flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden [mask-image:linear-gradient(to_bottom,black_calc(100%-1rem),transparent)]">
-            <CardPreviewText
-              content={card.front}
-              className="line-clamp-2 text-sm font-medium text-ink"
-            />
-            <CardPreviewText
-              content={card.back}
-              className="line-clamp-3 text-[0.8125rem] leading-relaxed text-muted"
-            />
-          </div>
+          {card.type === "image_occlusion" ? (
+            <div className="flex min-h-0 items-start gap-3">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <CardPreviewText
+                  content={card.front}
+                  className="line-clamp-3 text-sm font-medium text-ink"
+                />
+                <CardPreviewText
+                  content={card.back}
+                  className="line-clamp-2 text-[0.8125rem] leading-relaxed text-muted"
+                />
+              </div>
+              <ImageOcclusionPreview
+                content={card.content as ImageOcclusionContent}
+                numbered={false}
+                maxHeight="4.75rem"
+                className="max-w-[48%] shrink-0"
+              />
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden [mask-image:linear-gradient(to_bottom,black_calc(100%-1rem),transparent)]">
+              <CardPreviewText
+                content={card.front}
+                className="line-clamp-2 text-sm font-medium text-ink"
+              />
+              <CardPreviewText
+                content={card.back}
+                className="line-clamp-3 text-[0.8125rem] leading-relaxed text-muted"
+              />
+            </div>
+          )}
 
           {(card.tags?.length > 0 || showDueLabel(card)) && (
             <div
@@ -349,14 +375,19 @@ function FlashcardTileBody({
             >
               {card.tags?.length > 0 && (
                 <ul className="flex min-w-0 gap-1 overflow-hidden">
-                  {card.tags.map((tag) => (
+                  {card.tags.slice(0, MAX_TILE_TAGS).map((tag) => (
                     <li
                       key={tag}
-                      className="shrink-0 rounded-sm bg-surface-sunken px-1.5 py-0.5 text-[0.6875rem] font-medium whitespace-nowrap text-muted"
+                      className="min-w-0 max-w-40 shrink rounded-sm bg-surface-sunken text-[0.6875rem] font-medium text-muted"
                     >
-                      {tag}
+                      <TruncatedLabel label={tag} className="px-1.5 py-0.5" />
                     </li>
                   ))}
+                  {card.tags.length > MAX_TILE_TAGS && (
+                    <li className="shrink-0 rounded-sm px-1 py-0.5 text-[0.6875rem] font-medium whitespace-nowrap text-muted">
+                      +{card.tags.length - MAX_TILE_TAGS}
+                    </li>
+                  )}
                 </ul>
               )}
               {showDueLabel(card) && (

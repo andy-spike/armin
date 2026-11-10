@@ -13,6 +13,7 @@ import {
 } from "@armin/core/anki";
 import { mappingComplete, NotetypeMappingSection } from "@/components/anki-notetype-mapping";
 import { AnkiFilePicker } from "@/components/anki-file-picker";
+import { useBillingStatus } from "@/components/billing-settings";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
@@ -26,7 +27,7 @@ import {
   type ImportSummary,
 } from "@/lib/anki/import-runner";
 import { n, plural, type ProgressMode } from "./format";
-import { PreviewStep } from "./preview-step";
+import { PreviewStep, type ImportProblem } from "./preview-step";
 import { ImportingStep } from "./importing-step";
 import { DoneStep } from "./done-step";
 
@@ -104,8 +105,22 @@ function ImportFlow({
       ),
     [mappings],
   );
-  const planKey = `${mode}|${[...selected].sort().join(",")}|${JSON.stringify(activeMappings)}`;
+  const [limited, setLimited] = useState(false);
+  const usage = useQuery({ ...convexQuery(api.imports.usage, {}), enabled: previewing });
+  const running = useQuery({ ...convexQuery(api.imports.current, {}), enabled: previewing });
+  const room = useMemo(() => {
+    if (!usage.data) return null;
+    const { limits } = usage.data;
+    return {
+      flashcards: Math.max(0, limits.flashcards - usage.data.flashcards),
+      reviewUnits: Math.max(0, limits.reviewUnits - usage.data.reviewUnits),
+    };
+  }, [usage.data]);
+  const limit = limited ? room : null;
+  const limitKey = limit ? `${limit.flashcards}:${limit.reviewUnits}` : limited ? "waiting" : "";
+  const planKey = `${mode}|${[...selected].sort().join(",")}|${limitKey}|${JSON.stringify(activeMappings)}`;
   const usesInitialPlan =
+    !limited &&
     selected.size === source.decks.length &&
     mode === "keep" &&
     Object.keys(activeMappings).length === 0;
@@ -113,7 +128,7 @@ function ImportFlow({
   const plan = usesInitialPlan ? source.initialPlan : (converted?.plan ?? source.initialPlan);
   const planStale = !usesInitialPlan && converted?.key !== planKey;
   useEffect(() => {
-    if (usesInitialPlan) return;
+    if (usesInitialPlan || (limited && !limit)) return;
     let current = true;
     const timer = setTimeout(() => {
       source.reader
@@ -123,6 +138,7 @@ function ImportFlow({
           now: source.openedAt,
           rasterizeSvg: true,
           notetypeMappings: activeMappings,
+          ...(limit ? { limit } : {}),
         })
         .then(
           (next) => current && setConverted({ key: planKey, plan: next }),
@@ -133,16 +149,13 @@ function ImportFlow({
       current = false;
       clearTimeout(timer);
     };
-  }, [source, usesInitialPlan, selected, mode, planKey, activeMappings]);
+  }, [source, usesInitialPlan, selected, mode, planKey, activeMappings, limited, limit]);
 
   const notetypes = useMemo(
     () => customNotetypes(source.reader.collection, [...selected]),
     [source, selected],
   );
   const mappingsReady = notetypes.every((notetype) => mappingComplete(mappings[notetype.id]));
-
-  const usage = useQuery({ ...convexQuery(api.imports.usage, {}), enabled: previewing });
-  const running = useQuery({ ...convexQuery(api.imports.current, {}), enabled: previewing });
   const cancelOther = useMutation({
     mutationFn: (importId: Id<"imports">) =>
       convexClient().mutation(api.imports.cancel, {
@@ -158,36 +171,58 @@ function ImportFlow({
   });
 
   const problems = useMemo(() => {
-    if (!usage.data) return [];
+    if (!usage.data || !room || (limited && !plan.limit)) return [];
     const { limits } = usage.data;
-    const found: string[] = [];
+    const found: ImportProblem[] = [];
     const hasMultiUnit = plan.totals.reviewUnits > plan.totals.flashcards;
-    const room = (limit: number, used: number) => Math.max(0, limit - used);
     if (usage.data.decks + plan.decks.length > limits.decks)
-      found.push(
-        `${plural(plan.decks.length, "deck")}, room for ${n(room(limits.decks, usage.data.decks))}`,
-      );
-    if (usage.data.flashcards + plan.totals.flashcards > limits.flashcards)
-      found.push(
-        `${plural(plan.totals.flashcards, "card")}, room for ${n(room(limits.flashcards, usage.data.flashcards))}`,
-      );
-    if (usage.data.reviewUnits + plan.totals.reviewUnits > limits.reviewUnits)
-      found.push(
-        `${plural(plan.totals.reviewUnits, "review item")}, room for ${n(room(limits.reviewUnits, usage.data.reviewUnits))}${hasMultiUnit ? " (cloze and reversed cards count once per blank or side)" : ""}`,
-      );
-    if (plan.totals.reviewLogs > limits.reviewLogs)
-      found.push(
-        `${plural(plan.totals.reviewLogs, "past review")}, limit ${n(limits.reviewLogs)}; start cards as new instead`,
-      );
+      found.push({
+        kind: "decks",
+        message: `${plural(plan.decks.length, "deck")}, room for ${n(Math.max(0, limits.decks - usage.data.decks))}`,
+      });
+    if (room.flashcards === 0 || room.reviewUnits === 0)
+      found.push({ kind: "room", message: "Your library has no room left on your plan." });
+    else if (plan.totals.flashcards > room.flashcards)
+      found.push({
+        kind: "room",
+        message: `${plural(plan.totals.flashcards, "card")}, room for ${n(room.flashcards)}`,
+      });
+    if (room.flashcards > 0 && room.reviewUnits > 0 && plan.totals.reviewUnits > room.reviewUnits)
+      found.push({
+        kind: "room",
+        message: `${plural(plan.totals.reviewUnits, "review item")}, room for ${n(room.reviewUnits)}${hasMultiUnit ? " (cloze and reversed cards count once per blank or side)" : ""}`,
+      });
+    if (plan.limit && plan.totals.flashcards === 0)
+      found.push({
+        kind: "room",
+        message: `Not enough room for the first note (${plural(plan.limit.leftOut, "card")})`,
+      });
     return found;
-  }, [plan, usage.data]);
+  }, [plan, usage.data, room, limited]);
 
+  const billing = useBillingStatus();
   const names = useMemo(() => {
     const map = new Map<string, string>();
     const unique = uniqueDeckNames(plan.decks);
     plan.decks.forEach((deck, index) => map.set(deck.key, unique[index]));
     return map;
   }, [plan]);
+
+  const selectedKey = selected.size === 1 ? [...selected][0] : null;
+  const firstNAction =
+    !limited &&
+    problems.length > 0 &&
+    problems.every((problem) => problem.kind === "room") &&
+    room &&
+    room.flashcards > 0 &&
+    room.reviewUnits > 0
+      ? {
+          room,
+          deckLabel:
+            (selectedKey && source.decks.find((deck) => deck.key === selectedKey)?.name) ||
+            source.fileName,
+        }
+      : null;
 
   const toggleDeck = (key: string, checked: boolean) => {
     setSelected((current) => {
@@ -352,6 +387,10 @@ function ImportFlow({
           setSelected(all ? new Set(source.decks.map((deck) => deck.key)) : new Set())
         }
         problems={problems}
+        firstNAction={firstNAction}
+        showUpgrade={Boolean(billing.data?.enabled && billing.data.plan === "free")}
+        onLimit={() => setLimited(true)}
+        onImportAll={() => setLimited(false)}
         notetypeSection={
           <NotetypeMappingSection
             notetypes={notetypes}

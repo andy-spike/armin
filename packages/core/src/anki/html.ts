@@ -206,6 +206,8 @@ export type HtmlOptions = {
   warn: HtmlWarningSink;
   plain?: boolean;
   svg?: boolean;
+  template?: boolean;
+  fieldValues?: readonly string[];
 };
 
 const SOUND_RE = /\[sound:([^\]]*)\]/g;
@@ -240,6 +242,140 @@ function textOf(nodes: HtmlNode[]): string {
   return nodes
     .map((node) => ("text" in node ? decodeEntities(node.text) : textOf(node.children)))
     .join("");
+}
+
+function isTemplateAsset(rawSrc: string) {
+  const name = packageFile(rawSrc)?.name.split(/[\\/]/).pop() ?? "";
+  return name.startsWith("_");
+}
+
+function inlineHidden(el: HtmlElement) {
+  return /(?:^|;)\s*display\s*:\s*none\b/i.test(el.attrs.style ?? "");
+}
+
+function unhide(el: HtmlElement) {
+  const attrs = { ...el.attrs };
+  const style = (attrs.style ?? "")
+    .replace(/(?:^|;)\s*display\s*:\s*none\b[^;]*/gi, "")
+    .replace(/^\s*;\s*/, "")
+    .trim();
+  if (style) attrs.style = style;
+  else delete attrs.style;
+  return { ...el, attrs };
+}
+
+function isChromeAnchor(el: HtmlElement) {
+  const href = (el.attrs.href ?? "").trim().toLowerCase();
+  return (
+    href === "" ||
+    href.startsWith("#") ||
+    href.startsWith("javascript:") ||
+    el.attrs.onclick !== undefined
+  );
+}
+
+function imageSources(nodes: HtmlNode[], out: string[] = []) {
+  for (const node of nodes) {
+    if (!("tag" in node)) continue;
+    if (node.tag === "img" && node.attrs.src) out.push(node.attrs.src.trim());
+    imageSources(node.children, out);
+  }
+  return out;
+}
+
+type FieldContent = { text: string; sources: string[] };
+
+function fieldContents(fields: readonly string[]): FieldContent[] {
+  return fields.filter(Boolean).map((field) => {
+    const children = parseHtml(field).children;
+    return { text: textOf(children).replace(/\s+/g, ""), sources: imageSources(children) };
+  });
+}
+
+function containsFieldContent(el: HtmlElement, fields: readonly FieldContent[]) {
+  const text = textOf(el.children).replace(/\s+/g, "");
+  const sources = imageSources(el.children);
+  return fields.some(
+    (field) =>
+      (text && field.text && text.includes(field.text)) ||
+      field.sources.some((src) => sources.includes(src)),
+  );
+}
+
+function hintBlock(el: HtmlElement) {
+  const button = el.children.find(
+    (child): child is HtmlElement => "tag" in child && child.tag === "button",
+  );
+  const hintAnchor = el.children.find(
+    (child): child is HtmlElement =>
+      "tag" in child && child.tag === "a" && /(?:^|\s)hint(?:\s|$)/.test(child.attrs.class ?? ""),
+  );
+  const hidden = el.children.filter(
+    (child): child is HtmlElement => "tag" in child && inlineHidden(child),
+  );
+  if (hidden.length === 0 || (!button && !hintAnchor)) return null;
+  const label = [
+    button ? textOf(button.children) : "",
+    el.attrs["data-name"],
+    button?.attrs["aria-label"],
+    button?.attrs.title,
+    hintAnchor?.attrs["aria-label"],
+  ]
+    .map((text) => text?.replace(/\s+/g, " ").trim())
+    .find(Boolean);
+  return { label: label ?? "", hidden };
+}
+
+function hasVisibleContent(nodes: HtmlNode[]) {
+  for (const node of nodes) {
+    if ("text" in node) {
+      if (decodeEntities(node.text).trim()) return true;
+      continue;
+    }
+    if (node.tag === "img") {
+      if (node.attrs.src && !isTemplateAsset(node.attrs.src)) return true;
+      continue;
+    }
+    if (node.tag === "audio" || node.tag === "video" || node.tag === AUDIO_TAG) return true;
+    if (hasVisibleContent(node.children)) return true;
+  }
+  return false;
+}
+
+function cleanTemplateNodes(nodes: HtmlNode[], fields: readonly FieldContent[]): HtmlNode[] {
+  const out: HtmlNode[] = [];
+  for (const node of nodes) {
+    if ("text" in node) {
+      out.push(node);
+      continue;
+    }
+    if (node.tag === "button") continue;
+    if (node.tag === "a" && isChromeAnchor(node)) {
+      if (containsFieldContent(node, fields))
+        out.push(...cleanTemplateNodes(node.children, fields));
+      continue;
+    }
+    const hint = hintBlock(node);
+    if (hint) {
+      const contents = hint.hidden
+        .map((hidden) =>
+          unhide({ ...hidden, children: cleanTemplateNodes(hidden.children, fields) }),
+        )
+        .filter((hidden) => hasVisibleContent(hidden.children));
+      if (contents.length === 0) continue;
+      if (hint.label) out.push({ tag: "h3", attrs: {}, children: [{ text: hint.label }] });
+      out.push(...contents);
+      continue;
+    }
+    const el = { ...node, children: cleanTemplateNodes(node.children, fields) };
+    if (inlineHidden(el)) {
+      if (!containsFieldContent(el, fields)) continue;
+      out.push(unhide(el));
+      continue;
+    }
+    out.push(el);
+  }
+  return out;
 }
 
 function fileExtension(name: string) {
@@ -371,6 +507,7 @@ function highlighted(el: HtmlElement) {
 }
 
 function imagePlaceholder(rawSrc: string, state: RenderState) {
+  if (state.options.template && isTemplateAsset(rawSrc)) return null;
   const image = inspectImage(rawSrc, state.options.mediaNames, state.options.svg);
   if (!image.ok) {
     state.options.warn(image.reason);
@@ -739,7 +876,10 @@ export function htmlToMarkdown(html: string, options: HtmlOptions): HtmlConversi
     .join("");
 
   const tree = parseHtml(source);
-  const markdown = tidy(renderBlocks(tree.children, state).join("\n\n")).replace(
+  const nodes = options.template
+    ? cleanTemplateNodes(tree.children, fieldContents(options.fieldValues ?? []))
+    : tree.children;
+  const markdown = tidy(renderBlocks(nodes, state).join("\n\n")).replace(
     new RegExp(`${marker}(\\d+)\uE001`, "g"),
     (_, index: string) => math[Number(index)]!,
   );

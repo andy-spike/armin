@@ -23,10 +23,9 @@ Node.js; a chat that can read an attachment but cannot run code cannot use this
 route. Those clients should use browser import. Armin does not claim universal
 chat-client support.
 
-The kit itself was tested with **Node.js 24 on Linux x64**. Node.js 20 and 22 are
-the supported language target but have not been exercised on this machine. The
-kit is platform-independent JavaScript plus WebAssembly; macOS and Windows were
-not tested.
+The kit itself was tested with **Node.js 20, 22, and 24 on Linux x64**. The kit
+is platform-independent JavaScript plus WebAssembly; macOS and Windows were not
+tested.
 
 ## Converter kit
 
@@ -38,8 +37,8 @@ ${SITE_URL}/anki-kit/armin-anki-kit-<version>.zip
 
 `get_guide` with topic `anki_import` returns the exact current URL, SHA-256, size, runtime,
 and command. The archive contains `armin-anki-kit.mjs`, `sql-wasm.wasm`,
-`README.md`, `LICENSE`, and third-party notices. It needs no `pnpm install`, repository checkout, or
-Armin source code.
+`resvg-wasm.wasm`, `resvg-font.woff2`, `README.md`, `LICENSE`, and third-party
+notices. It needs no `pnpm install`, repository checkout, or Armin source code.
 
 Build and verify it from this repository:
 
@@ -71,17 +70,20 @@ node armin-anki-kit.mjs path/to/deck.apkg --out ./armin-import
   content, warnings, unresolved notes, and media references.
 - `manifest.json` — source and plan checksums plus counts.
 - `preview.html` — offline preview. Open it beside `media/`.
-- `media/` — supported images and audio named by SHA-256.
+- `media/` — supported images and audio named by SHA-256. SVG is stored as its
+  rendered PNG.
 
 The kit applies **fresh** progress only. MCP imports do not carry Anki due dates
 or review history; use browser import when progress must come along. No
 prerequisites are inferred.
 
-Supported image types are PNG, JPEG, GIF, WebP, BMP, and AVIF up to 10 MiB each.
-Video, SVG, unsupported audio formats, text-to-speech, and missing files are
-reported; missing audio is dropped without failing the card. A card whose required content
-cannot be represented is listed under `unresolved`; it is never silently replaced
-by text.
+Supported image types are PNG, JPEG, GIF, WebP, BMP, AVIF, and SVG up to 10 MiB
+each. SVG is rendered to PNG locally with the browser's size rules, without
+running scripts or fetching external images or fonts; an SVG that cannot render
+leaves its card `unresolved`. Video, unsupported audio formats, text-to-speech,
+and missing files are reported; missing audio is dropped without failing the
+card. A card whose required content cannot be represented is listed under
+`unresolved`; it is never silently replaced by text.
 
 ## Staged MCP flow
 

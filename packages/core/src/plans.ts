@@ -28,6 +28,7 @@ export const PLAN_PRICES = {
 };
 
 export const MAX_FLASHCARDS_PER_DECK = 10_000;
+export const MAX_REVIEW_UNITS_PER_DECK = 15_000;
 
 export const MEDIA_STORAGE_FULL_MESSAGE = "Your storage for images and audio is full.";
 

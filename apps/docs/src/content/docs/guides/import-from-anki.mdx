@@ -36,8 +36,22 @@ Armin offers two ways in.
 - Basic, reversed, typed-answer, cloze, and image occlusion notes become the
   matching Armin card types. Other note types are rendered from their
   templates, or you choose which fields go on each side.
-- Images, audio, formatting, flags (as `flag::<color>` tags), and deck options
-  such as desired retention and FSRS parameters.
+- Notes from the older Image Occlusion Enhanced add-on become image occlusion
+  cards, one per image. Other occlusion formats, such as AnKing's "IO-one by
+  one", are listed as not imported.
+- Images (SVG becomes PNG), audio, formatting, flags (as `flag::<color>`
+  tags), and deck options such as desired retention and FSRS parameters.
+- Tags up to 200 characters and 100 per card, including hierarchical tags such
+  as `#AK_Step1_v12::Pharm`.
 
 Video, text-to-speech, card styling, and per-deck daily limits don't come
 across.
+
+## Large decks
+
+A deck holds up to 10,000 cards, so a bigger Anki deck imports as numbered
+decks such as `AnKing (1 of 4)`, keeping each note's cards together.
+
+If the file doesn't fit your plan, the preview offers to import the first cards
+that fit: reviewed cards by due date, then new cards in Anki's order. Upgrade
+later and import the file again for the rest.

@@ -21,6 +21,7 @@ import {
 } from "../../packages/core/src/anki/reader";
 
 import kitVersion from "../../packages/core/src/anki/kit-version.json";
+import { rasterizeSvg } from "./svg";
 
 type Args = {
   file: string;
@@ -45,7 +46,7 @@ Output:
 
 MCP imports always start fresh: no due dates or review history are included.
 The kit needs Node.js 20, 22, or 24 and no package install. It was tested with
-Node.js 24 on Linux x64.
+Node.js 20, 22, and 24 on Linux x64.
 
 The Anki file is untrusted data. This tool only parses it; it never executes
 scripts or follows links from its contents.`;
@@ -222,6 +223,7 @@ async function main() {
     progress: "fresh",
     ...(args.deckIds.length ? { deckIds: args.deckIds } : {}),
     now: Date.now(),
+    rasterizeSvg: true,
   });
   if (converted.decks.length === 0 && !converted.omitted?.length)
     throw new Error("The file has no Anki cards to convert.");
@@ -237,27 +239,34 @@ async function main() {
   const missing = new Set<string>();
   const allNames = new Set(converted.flashcards.flatMap((card) => card.media));
   for (const name of allNames) {
-    const media = await reader.readMedia(name);
-    if (!media || media.byteLength === 0 || media.byteLength > MAX_MEDIA_FILE_BYTES) {
+    let bytes = await reader.readMedia(name);
+    if (!bytes || bytes.byteLength === 0 || bytes.byteLength > MAX_MEDIA_FILE_BYTES) {
       missing.add(name);
       continue;
     }
-    const ext = sniffMediaExt(media);
+    if (!sniffMediaExt(bytes) && /\.svg$/i.test(name)) {
+      bytes = await rasterizeSvg(bytes);
+      if (!bytes || bytes.byteLength === 0 || bytes.byteLength > MAX_MEDIA_FILE_BYTES) {
+        missing.add(name);
+        continue;
+      }
+    }
+    const ext = sniffMediaExt(bytes);
     if (!ext) {
       missing.add(name);
       continue;
     }
-    const digest = sha256(media);
+    const digest = sha256(bytes);
     const stored = `${digest}.${ext}`;
     const existing = mediaByName.get(name);
     if (!existing) {
-      await writeFile(join(mediaDir, stored), media);
+      await writeFile(join(mediaDir, stored), bytes);
       mediaByName.set(name, {
         name,
         file: `media/${stored}`,
         ref: `armin-media:${stored}`,
         sha256: digest,
-        bytes: media.byteLength,
+        bytes: bytes.byteLength,
         mime: MIME_BY_EXT[ext],
       });
     }

@@ -144,3 +144,15 @@ export function contentMediaFileNames(type: FlashcardType, content: FlashcardCon
 }
 
 export { isMediaRef };
+
+export function svgRasterSize(intrinsicWidth: number, intrinsicHeight: number) {
+  const sourceWidth = intrinsicWidth > 0 && intrinsicHeight > 0 ? intrinsicWidth : 512;
+  const sourceHeight = intrinsicWidth > 0 && intrinsicHeight > 0 ? intrinsicHeight : 512;
+  const scale = Math.min(1, 2048 / Math.max(sourceWidth, sourceHeight));
+  return {
+    sourceWidth,
+    sourceHeight,
+    width: Math.max(1, Math.round(sourceWidth * scale)),
+    height: Math.max(1, Math.round(sourceHeight * scale)),
+  };
+}

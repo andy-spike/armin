@@ -140,7 +140,7 @@ checks `libraryId`; imported cards have no prerequisites and are never locked.
 
 | Function                         | Does                                                                                                                                                                                                                                                |
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `imports.start`                  | Rejects imports over the plan limits (`QUOTA`, with counts in the message), then creates one deck per Anki deck, with any deck settings from its Anki preset. One running import per library.                                                       |
+| `imports.start`                  | Rejects imports over the plan limits (`QUOTA`, with counts in the message), then creates one deck per imported deck part, with any deck settings from its Anki preset. One running import per library.                                              |
 | `imports.addCards`               | Up to 100 cards and 1,500 review units per call, all-or-nothing. A unit's `schedule` replaces its new-card state and `buried` hides it until the next study day; a card's `frontierKey` keeps Anki's new-card order. Unknown `subKey`s are ignored. |
 | `imports.addReviewLogs`          | Up to 1,000 past reviews per call, for cards this import created. History only: it never changes a unit's schedule.                                                                                                                                 |
 | `imports.finish`                 | Needs every declared card and review to have arrived, then closes the import.                                                                                                                                                                       |
@@ -164,7 +164,9 @@ Rules:
 
 - `start` declares `totals`; `addCards` and `addReviewLogs` may not exceed them,
   and the library limits are checked again on every batch because they can change
-  while a long import runs. An import carries at most 300,000 past reviews.
+  while a long import runs. An import carries at most 300,000 past reviews; the
+  browser converter keeps the newest and leaves older ones out. Deck parts use
+  their own unique keys, so a split Anki deck arrives as ordinary separate decks.
 - Cards are created through `insertFlashcard` (`model/flashcards.ts`), the same
   chokepoint as `flashcards.create` and agent `save_cards`. A card whose imported
   schedule shows a review gets `prerequisiteAccessGranted`, like an accepted rating.
@@ -416,7 +418,9 @@ new-card order, `frontierKey`) plus per-deck counters (`deckUnitCounts`,
 `model/deckSizes.ts`), and exports page each deck. Deck-wide work (the graph,
 lock refresh, cram) reads a whole deck, so every deck holds at most 10,000
 flashcards and 15,000 review units on any plan; the deck-size triggers enforce
-this for every create, import, and move. A change to the library-wide
+this for every create, import, and move, and the converter splits an oversized
+Anki deck into parts before import. A flashcard holds at most 100 tags of 200
+characters. A change to the library-wide
 prerequisite floor refreshes locks one deck per scheduled transaction. Other
 bounds: 2,000 prerequisite links per deck, 10 MiB per uploaded file, and 95 MiB
 of card data in the server-built part of an export. Review

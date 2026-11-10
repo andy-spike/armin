@@ -22,6 +22,10 @@ const outputDir = join(root, "apps/web/public/anki-kit");
 const distDir = join(root, "dist/anki-kit");
 const tempDir = join(root, ".anki-kit-build");
 const webRequire = createRequire(join(root, "apps/web/package.json"));
+const rootRequire = createRequire(join(root, "package.json"));
+const LICENSE_OVERRIDES = new Map([
+  ["@resvg/resvg-wasm", join(kitSource, "licenses/resvg-wasm-MPL-2.0.txt")],
+]);
 const FIXED_MTIME = new Date(1980, 0, 1).getTime();
 
 const args = new Set(process.argv.slice(2));
@@ -76,14 +80,15 @@ async function bundle() {
     const metadata = readJson(join(directory, "package.json"));
     const name = `${metadata.name}@${metadata.version}`;
     if (notices.has(name)) continue;
-    const licenses = readdirSync(directory)
-      .filter((file) => /^(license|copying)(\.|$)/i.test(file))
-      .sort();
-    notices.set(
-      name,
-      [name, ...licenses.map((file) => readFileSync(join(directory, file), "utf8"))].join("\n\n"),
-    );
+    const licenses = readLicenses(directory);
+    const override = LICENSE_OVERRIDES.get(metadata.name);
+    if (licenses.length === 0 && override) licenses.push(readFileSync(override, "utf8"));
+    notices.set(name, [name, ...licenses].join("\n\n"));
   }
+  const fontDirectory = dirname(webRequire.resolve("@fontsource-variable/inter/package.json"));
+  const fontMetadata = readJson(join(fontDirectory, "package.json"));
+  const fontName = `${fontMetadata.name}@${fontMetadata.version}`;
+  notices.set(fontName, [fontName, ...readLicenses(fontDirectory)].join("\n\n"));
   writeFileSync(
     join(tempDir, "kit/THIRD-PARTY-NOTICES.txt"),
     [...notices]
@@ -92,6 +97,14 @@ async function bundle() {
       .join("\n\n---\n\n"),
   );
   copyFileSync(webRequire.resolve("sql.js/dist/sql-wasm.wasm"), join(tempDir, "kit/sql-wasm.wasm"));
+  copyFileSync(
+    rootRequire.resolve("@resvg/resvg-wasm/index_bg.wasm"),
+    join(tempDir, "kit/resvg-wasm.wasm"),
+  );
+  copyFileSync(
+    webRequire.resolve("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2"),
+    join(tempDir, "kit/resvg-font.woff2"),
+  );
   copyFileSync(join(kitSource, "README.md"), join(tempDir, "kit/README.md"));
   copyFileSync(join(root, "LICENSE"), join(tempDir, "kit/LICENSE"));
 
@@ -114,6 +127,13 @@ async function bundle() {
     },
     files,
   };
+}
+
+function readLicenses(directory) {
+  return readdirSync(directory)
+    .filter((file) => /^(license|copying)(\.|$)/i.test(file))
+    .sort()
+    .map((file) => readFileSync(join(directory, file), "utf8"));
 }
 
 function publish(result) {

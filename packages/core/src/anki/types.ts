@@ -82,6 +82,7 @@ export type AnkiCollection = {
   cards: AnkiCard[];
   revlog: AnkiReview[];
   mediaNames: string[];
+  occlusionMasks?: Record<string, string>;
 };
 
 export const ANKI_MEDIA_PREFIX = "anki-media:";
@@ -91,6 +92,7 @@ export type ImportProgressMode = "keep" | "fresh";
 export type ImportOptions = {
   progress: ImportProgressMode;
   deckIds?: string[];
+  limit?: { flashcards: number; reviewUnits: number };
   now: number;
   rasterizeSvg?: boolean;
   notetypeMappings?: Record<string, NotetypeMapping>;
@@ -116,6 +118,12 @@ export type ImportDeck = {
   cardCount: number;
   settings?: ImportDeckSettings;
   ankiLimits?: { newPerDay: number | null; reviewsPerDay: number | null; preset: string };
+  split?: {
+    key: string;
+    parts: number;
+    cards: number;
+    cap: "flashcards" | "reviewUnits";
+  };
 };
 
 export type ImportReviewLog = {
@@ -155,7 +163,9 @@ export type ImportOmittedReason =
   | "missing_image"
   | "unsupported_image"
   | "audio_only"
-  | "unusable_template";
+  | "unusable_template"
+  | "unreadable_masks"
+  | "unsupported_occlusion";
 
 export type ImportOmitted = {
   noteId: string;
@@ -177,6 +187,7 @@ export type ImportWarningCode =
   | "nested_cloze_flattened"
   | "shared_cloze_narrowed"
   | "occlusion_shape_approximated"
+  | "occlusion_labels_removed"
   | "custom_notetype_rendered"
   | "audio_only_card_skipped"
   | "required_content_card_skipped"
@@ -199,6 +210,8 @@ export type ImportPlan = {
   flashcards: ImportFlashcard[];
   warnings: ImportWarning[];
   omitted?: ImportOmitted[];
+  limit?: { leftOut: number };
+  reviewLogsDropped?: number;
   totals: {
     flashcards: number;
     reviewUnits: number;

@@ -282,7 +282,7 @@ function BrowsePage() {
 
           <p className="mb-3 text-xs text-muted">
             {hasMore
-              ? `Showing ${displayed.length} of ${filteredTotal}${filteredCapped ? "+" : ""} matching cards · ${countSummary}`
+              ? `Showing ${displayed.length} of ${filteredTotal.toLocaleString()}${filteredCapped ? "+" : ""} matching cards · ${countSummary}`
               : countSummary}
           </p>
 

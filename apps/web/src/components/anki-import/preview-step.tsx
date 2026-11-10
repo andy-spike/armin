@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, LoaderCircle, TriangleAlert } from "lucide-react";
 import { type ImportPlan, type ImportWarning, type ImportWarningCode } from "@armin/core/anki";
+import { MAX_FLASHCARDS_PER_DECK, MAX_REVIEW_UNITS_PER_DECK } from "@armin/core/plans";
 import { isAudioFile } from "@armin/core/media";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -8,6 +9,14 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { TruncatedLabel } from "@/components/ui/truncated-label";
 import { type OpenedAnkiFile } from "@/lib/anki/opened-file";
 import { n, plural, formatBytes, type ProgressMode } from "./format";
+import { NotImported } from "./not-imported";
+
+export type ImportProblem = { kind: "decks" | "room"; message: string };
+
+export type FirstNAction = {
+  room: { flashcards: number; reviewUnits: number };
+  deckLabel: string;
+};
 
 function sharedDeckPrefix(names: string[]) {
   if (names.length < 2) return "";
@@ -28,6 +37,10 @@ export function PreviewStep({
   onToggle,
   onSelectAll,
   problems,
+  firstNAction,
+  showUpgrade,
+  onLimit,
+  onImportAll,
   notetypeSection,
   otherImport,
   cancellingOther,
@@ -44,7 +57,11 @@ export function PreviewStep({
   onMode: (mode: ProgressMode) => void;
   onToggle: (key: string, checked: boolean) => void;
   onSelectAll: (all: boolean) => void;
-  problems: string[];
+  problems: ImportProblem[];
+  firstNAction: FirstNAction | null;
+  showUpgrade: boolean;
+  onLimit: () => void;
+  onImportAll: () => void;
   notetypeSection: React.ReactNode;
   otherImport: { fileName: string } | null;
   cancellingOther: boolean;
@@ -53,7 +70,8 @@ export function PreviewStep({
   onChooseAnother: () => void;
 }) {
   const allSelected = selected.size === source.decks.length;
-  const historyCount = source.initialPlan.totals.reviewLogs;
+  const historyCount =
+    source.initialPlan.totals.reviewLogs + (source.initialPlan.reviewLogsDropped ?? 0);
   const shared = sharedDeckPrefix(source.decks.map((deck) => names.get(deck.key) ?? deck.name));
   const media = new Set(plan.flashcards.flatMap((card) => card.media));
   const audioFiles = [...media].filter((name) => isAudioFile(name)).length;
@@ -69,6 +87,19 @@ export function PreviewStep({
   );
   const decksWithSettings = plan.decks.filter((deck) => deck.settings).length;
   const limits = plan.decks.find((deck) => deck.ankiLimits)?.ankiLimits;
+  const deckCountProblem = problems.some((problem) => problem.kind === "decks");
+  const unitBound =
+    firstNAction !== null &&
+    firstNAction.room.flashcards >= plan.totals.flashcards &&
+    plan.totals.reviewUnits > firstNAction.room.reviewUnits;
+  const splitDecks = [
+    ...new Map(
+      plan.decks.filter((deck) => deck.split).map((deck) => [deck.split!.key, deck]),
+    ).values(),
+  ];
+  const changes = plan.omitted?.length
+    ? plan.warnings.filter((warning) => warning.code !== "empty_note_skipped")
+    : plan.warnings;
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
@@ -122,7 +153,8 @@ export function PreviewStep({
             })}
           </ul>
         </div>
-        {plan.warnings.length > 0 && <ImportChanges warnings={plan.warnings} stale={stale} />}
+        {changes.length > 0 && <ImportChanges warnings={changes} stale={stale} />}
+        {plan.omitted?.length ? <NotImported omitted={plan.omitted} stale={stale} /> : null}
         {notetypeSection}
       </section>
 
@@ -153,6 +185,52 @@ export function PreviewStep({
             </>
           )}
         </section>
+
+        {plan.limit && plan.limit.leftOut > 0 && (
+          <section
+            aria-label="Import limit"
+            className="space-y-1.5 border border-border bg-bg-2 p-3 text-[0.8125rem]"
+          >
+            <p className="font-medium text-ink">
+              Importing the first {n(plan.totals.flashcards)} of{" "}
+              {n(plan.totals.flashcards + plan.limit.leftOut)} cards
+            </p>
+            <p className="text-muted">Your plan's remaining room sets the limit.</p>
+            <button
+              type="button"
+              onClick={onImportAll}
+              className="font-medium text-accent hover:text-accent-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              Import all
+            </button>
+          </section>
+        )}
+
+        {splitDecks.length > 0 && (
+          <section aria-label="Deck splitting" className="space-y-1.5 text-[0.8125rem] text-muted">
+            {splitDecks.map((deck) => {
+              const split = deck.split!;
+              const cap =
+                split.cap === "flashcards"
+                  ? `${n(MAX_FLASHCARDS_PER_DECK)} cards`
+                  : `${n(MAX_REVIEW_UNITS_PER_DECK)} review items`;
+              return (
+                <p key={split.key}>
+                  <span className="font-medium text-ink">{deck.ankiName}</span> has{" "}
+                  {plural(split.cards, "card")}. It will be imported as{" "}
+                  {plural(split.parts, "deck")}, because a deck holds up to {cap}.
+                </p>
+              );
+            })}
+          </section>
+        )}
+
+        {(plan.reviewLogsDropped ?? 0) > 0 && (
+          <p className="text-xs text-muted">
+            {plural(plan.reviewLogsDropped!, "older review")} won&apos;t come along. Every card
+            keeps its schedule.
+          </p>
+        )}
 
         {(decksWithSettings > 0 || limits) && plan.decks.length > 0 && (
           <section aria-label="Deck options" className="space-y-1.5 text-[0.8125rem] text-muted">
@@ -209,26 +287,73 @@ export function PreviewStep({
         )}
 
         <section aria-label="Library limits" className="space-y-2 empty:hidden">
-          {problems.length > 0 && (
-            <div
-              role="alert"
-              className="border border-border bg-surface-sunken p-3 text-[0.8125rem]"
-            >
-              <p className="flex items-center gap-2 font-medium text-ink">
-                <TriangleAlert className="h-4 w-4 shrink-0 text-again" aria-hidden />
-                Too large to import
+          {firstNAction ? (
+            <div className="border border-border bg-surface-sunken p-3 text-[0.8125rem]">
+              <p className="text-muted">
+                <span className="font-medium text-ink">{firstNAction.deckLabel}</span> has{" "}
+                {plural(plan.totals.flashcards, "card")}
+                {unitBound ? (
+                  <>
+                    , needing {plural(plan.totals.reviewUnits, "review item")}. Your plan has room
+                    for {n(firstNAction.room.reviewUnits)}.
+                  </>
+                ) : (
+                  <>. Your plan has room for {n(firstNAction.room.flashcards)}.</>
+                )}
               </p>
-              <ul className="mt-1.5 space-y-0.5 text-muted">
-                {problems.map((problem) => (
-                  <li key={problem}>{problem}</li>
-                ))}
-              </ul>
-              <p className="mt-1.5 text-muted">
-                {source.decks.length > 1
-                  ? "Deselect some decks to fit."
-                  : "Split this deck in Anki and import the parts one at a time."}
-              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <Button size="sm" onClick={onLimit}>
+                  {unitBound
+                    ? "Import the first cards that fit"
+                    : `Import the first ${n(firstNAction.room.flashcards)} cards`}
+                </Button>
+                {showUpgrade && (
+                  <Link
+                    to="/settings"
+                    search={{ tab: "billing" }}
+                    className="font-medium text-accent hover:text-accent-deep"
+                  >
+                    Upgrade to import all
+                  </Link>
+                )}
+              </div>
             </div>
+          ) : (
+            problems.length > 0 && (
+              <div
+                role="alert"
+                className="border border-border bg-surface-sunken p-3 text-[0.8125rem]"
+              >
+                <p className="flex items-center gap-2 font-medium text-ink">
+                  <TriangleAlert className="h-4 w-4 shrink-0 text-again" aria-hidden />
+                  Doesn&apos;t fit your library
+                </p>
+                <ul className="mt-1.5 space-y-0.5 text-muted">
+                  {problems.map((problem) => (
+                    <li key={`${problem.kind}:${problem.message}`}>{problem.message}</li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-muted">
+                  {deckCountProblem || selected.size > 1 ? (
+                    "Deselect some decks to fit."
+                  ) : showUpgrade ? (
+                    <>
+                      Delete some cards to make room, or{" "}
+                      <Link
+                        to="/settings"
+                        search={{ tab: "billing" }}
+                        className="font-medium text-accent hover:text-accent-deep"
+                      >
+                        upgrade to Pro
+                      </Link>
+                      .
+                    </>
+                  ) : (
+                    "Delete some cards to make room."
+                  )}
+                </p>
+              </div>
+            )
           )}
           {otherImport && (
             <div
@@ -261,8 +386,8 @@ export function PreviewStep({
   );
 }
 
-const CHANGE_LABELS: Partial<Record<ImportWarningCode, string>> = {
-  custom_notetype_rendered: "became basic cards from custom note types",
+const CHANGE_LABELS: Record<ImportWarningCode, string> = {
+  custom_notetype_rendered: "were rendered from custom note type templates",
   scripts_removed: "had scripts and styles removed",
   empty_note_skipped: "skipped for empty or unusable content",
   audio_removed: "had audio in an unsupported format removed",
@@ -272,7 +397,17 @@ const CHANGE_LABELS: Partial<Record<ImportWarningCode, string>> = {
   unsupported_image_removed: "had unsupported images removed",
   flags_as_tags: "had flags turned into tags, such as flag::red",
   content_truncated: "shortened to fit size limits",
-  tags_trimmed: "had tags trimmed",
+  tags_trimmed: "had tags shortened or capped",
+  occlusion_shape_approximated: "had round or slanted occlusion shapes drawn as rectangles",
+  occlusion_labels_removed: "had text labels on their occlusion image left out",
+  additional_fields_added: "had extra cloze fields added to the answer",
+  additional_fields_omitted: "had extra cloze fields left out",
+  nested_cloze_flattened: "had nested clozes split into separate ones",
+  shared_cloze_narrowed: "had clozes shared by several cards kept on the first card only",
+  audio_only_card_skipped: "had cards that only play audio skipped",
+  required_content_card_skipped: "had cards skipped for front content that couldn't be imported",
+  math_unsupported: "kept equations with unsupported syntax as source",
+  math_as_text: "kept legacy [latex] content as source",
 };
 
 function ImportChanges({ warnings, stale }: { warnings: ImportWarning[]; stale: boolean }) {
@@ -291,7 +426,7 @@ function ImportChanges({ warnings, stale }: { warnings: ImportWarning[]; stale: 
         {warnings.map((warning) => (
           <div key={warning.code} className="contents">
             <dt className="text-right font-medium text-ink tabular-nums">{n(warning.count)}</dt>
-            <dd className="text-muted">{CHANGE_LABELS[warning.code] ?? warning.message}</dd>
+            <dd className="text-muted">{CHANGE_LABELS[warning.code]}</dd>
           </div>
         ))}
       </dl>

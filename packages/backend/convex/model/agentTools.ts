@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { z } from "zod";
 import type { AgentScope } from "./agentAuth";
+import { MAX_TAG_CHARS, MAX_TAGS_PER_FLASHCARD } from "./limits";
 
 const id = z.string().min(1).max(100);
 const requestId = z
@@ -12,9 +13,11 @@ const requestId = z
   );
 const version = z.number().int().positive();
 const tags = z
-  .array(z.string().max(60))
-  .max(20)
-  .describe("Up to 20 tags, each at most 60 characters.");
+  .array(z.string().max(MAX_TAG_CHARS))
+  .max(MAX_TAGS_PER_FLASHCARD)
+  .describe(
+    `Up to ${MAX_TAGS_PER_FLASHCARD} tags, each at most ${MAX_TAG_CHARS} characters. Hierarchical tags use ::, such as biology::cells.`,
+  );
 const content = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("basic"),
@@ -81,7 +84,13 @@ export const agentToolSchemas = {
         .max(200)
         .describe("Words to find in card text, tags, or typed answers."),
       deckId: id.optional().describe("Search only this deck; omit to search the whole library."),
-      tag: z.string().trim().min(1).max(60).optional().describe("Only cards with this tag."),
+      tag: z
+        .string()
+        .trim()
+        .min(1)
+        .max(MAX_TAG_CHARS)
+        .optional()
+        .describe("Only cards with this tag."),
       includeArchived: z
         .boolean()
         .optional()

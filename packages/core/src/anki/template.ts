@@ -69,7 +69,6 @@ function furigana(html: string, mode: "furigana" | "kana" | "kanji") {
 
 export type TemplateContext = {
   fields: ReadonlyMap<string, string>;
-  tags: string;
   deck: string;
   subdeck: string;
   notetype: string;
@@ -85,7 +84,10 @@ type RenderResult = {
   usedField: boolean;
   unusableField: boolean;
   tts: boolean;
+  hints: string[];
 };
+
+const filterName = (filter: string) => filter.split(/\s/)[0].toLowerCase();
 
 function applyFilters(
   value: string,
@@ -95,7 +97,7 @@ function applyFilters(
 ) {
   let out = value;
   for (const filter of filters) {
-    const name = filter.split(/\s/)[0].toLowerCase();
+    const name = filterName(filter);
     if (name === "tts") {
       if (!isFieldEmpty(value)) result.tts = true;
       return "";
@@ -122,12 +124,22 @@ function renderNodes(nodes: Node[], ctx: TemplateContext, result: RenderResult):
     } else {
       const raw = lookup(node.name, ctx);
       if (raw === undefined) continue;
-      const value = applyFilters(raw, node.filters, ctx, result);
+      const filters = node.filters.filter((filter) => filterName(filter) !== "hint");
+      const hint = filters.length !== node.filters.length;
+      const value = applyFilters(raw, filters, ctx, result);
       if (ctx.fields.has(node.name) && !isFieldEmpty(value)) {
         if (ctx.fieldIsUsable && !ctx.fieldIsUsable(value)) result.unusableField = true;
         else result.usedField = true;
       }
-      out += value;
+      if (hint) {
+        if (!isFieldEmpty(value)) {
+          const section = `<h3>${escapeHtml(node.name)}</h3>${value}`;
+          if (ctx.side === "back") out += section;
+          else result.hints.push(section);
+        }
+      } else {
+        out += value;
+      }
     }
   }
   return out;
@@ -140,7 +152,7 @@ function lookup(name: string, ctx: TemplateContext) {
     case "FrontSide":
       return ctx.frontSide;
     case "Tags":
-      return escapeHtml(ctx.tags);
+      return "";
     case "Deck":
       return escapeHtml(ctx.deck);
     case "Subdeck":
@@ -160,9 +172,28 @@ export function renderTemplate(source: string, ctx: TemplateContext): RenderResu
     usedField: false,
     unusableField: false,
     tts: false,
+    hints: [],
   };
   result.html = renderNodes(parseTemplate(source), ctx, result);
   return result;
+}
+
+export function templateRefs(source: string) {
+  const fields = new Set<string>();
+  let frontSide = false;
+  let typeField: string | null = null;
+  const walk = (nodes: Node[]) => {
+    for (const node of nodes) {
+      if (node.kind === "text") continue;
+      if (node.name === "FrontSide") frontSide = true;
+      else fields.add(node.name);
+      if (node.kind === "section") walk(node.children);
+      else if (!typeField && node.filters.some((filter) => filterName(filter) === "type"))
+        typeField = node.name;
+    }
+  };
+  walk(parseTemplate(source));
+  return { fields, frontSide, typeField: typeField as string | null };
 }
 
 const FRONT_MARK = "\u{F8FF}FRONT\u{F8FF}";
@@ -193,5 +224,32 @@ export function renderCard(
     .split(FRONT_MARK)
     .join("");
   if (isFieldEmpty(backHtml)) backHtml = front.html;
-  return { front: front.html, back: backHtml, tts: front.tts || back.tts };
+  const hints = front.hints.filter((hint) => !backHtml.includes(hint));
+  if (hints.length) backHtml += hints.join("");
+  return {
+    front: front.html,
+    back: backHtml,
+    tts: front.tts || back.tts,
+    answerRule: rule !== null,
+  };
+}
+
+export function stripRepeatedFront(front: string, back: string) {
+  const normalize = (block: string) => block.replace(/\s+/g, " ").trim();
+  const frontBlocks = front
+    .split(/\n{2,}/)
+    .map(normalize)
+    .filter(Boolean);
+  if (frontBlocks.length === 0) return back;
+  const backBlocks = back.split(/\n{2,}/);
+  let index = 0;
+  while (index + frontBlocks.length <= backBlocks.length) {
+    const repeated = frontBlocks.every(
+      (block, offset) => normalize(backBlocks[index + offset] ?? "") === block,
+    );
+    if (!repeated) break;
+    index += frontBlocks.length;
+  }
+  if (index === 0) return back;
+  return backBlocks.slice(index).join("\n\n").trim() || front;
 }

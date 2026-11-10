@@ -157,7 +157,7 @@ const questions = [
   },
   {
     q: "What does fair use mean?",
-    a: `Pro fits libraries of up to ${n(pro.flashcards)} cards, more than the biggest medical school decks. Any single deck holds up to ${n(MAX_FLASHCARDS_PER_DECK)} cards on every plan, so very large Anki decks import as several decks.`,
+    a: `Pro fits libraries of up to ${n(pro.flashcards)} cards, more than the biggest medical school decks. Any single deck holds up to ${n(MAX_FLASHCARDS_PER_DECK)} cards on every plan, so very large Anki decks import as several decks. When the whole import doesn't fit, you can bring in the first cards that fit and upgrade later for the rest.`,
   },
 ];
 

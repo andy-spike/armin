@@ -211,9 +211,8 @@ deterministic and does not run anything from the source package.
 This is not a server-side archive converter. Armin never receives the original
 archive, and the backend does not parse it. The assistant must be able to access
 the file and execute code; chat clients without attachment access or a code
-sandbox are told to use browser import. The tested kit runtime is Node.js 24 on
-Linux x64; Node.js 20 and 22 are the supported code target but have not been
-verified here.
+sandbox are told to use browser import. The tested kit runtime is Node.js 20,
+22, and 24 on Linux x64.
 
 The guide and import tools are (`get_guide` and `anki_import_status` use
 `armin:read`; the others use `armin:import`):

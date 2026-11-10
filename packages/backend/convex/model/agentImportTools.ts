@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { z } from "zod";
 import type { AgentScope } from "./agentAuth";
+import { MAX_TAG_CHARS, MAX_TAGS_PER_FLASHCARD } from "./limits";
 
 const id = z.string().min(1).max(100);
 const key = z.string().min(1).max(120);
@@ -12,9 +13,11 @@ const requestId = z
     "A unique operation ID. Reuse it only when retrying the identical request, within seven days.",
   );
 const tags = z
-  .array(z.string().max(60))
-  .max(20)
-  .describe("Up to 20 tags, each at most 60 characters.");
+  .array(z.string().max(MAX_TAG_CHARS))
+  .max(MAX_TAGS_PER_FLASHCARD)
+  .describe(
+    `Up to ${MAX_TAGS_PER_FLASHCARD} tags, each at most ${MAX_TAG_CHARS} characters. Hierarchical tags use ::, such as biology::cells.`,
+  );
 
 const deck = z
   .object({

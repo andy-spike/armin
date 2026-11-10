@@ -43,6 +43,7 @@ export type ImportSummary = {
   skippedCards: number;
   skippedImages: number;
   decksWithSettings: number;
+  leftOut: number;
 };
 
 export class ImportCancelledError extends Error {
@@ -397,5 +398,6 @@ export async function runImport({
     skippedCards,
     skippedImages,
     decksWithSettings: decks.filter((deck) => deck.settings).length,
+    leftOut: plan.limit?.leftOut ?? 0,
   };
 }
