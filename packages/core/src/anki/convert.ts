@@ -713,6 +713,13 @@ function renderCustomNotetypeCards(
     candidates.every((candidate) => candidate.content.type === "basic")
   ) {
     const [forward, reverse] = candidates.sort((a, b) => a.templateOrd! - b.templateOrd!);
+    const sides = (candidate: Candidate) => {
+      const { front, back } = candidate.content.content as { front: string; back: string };
+      return [front, back].map((side) => side.replace(/\s+/g, " ").trim());
+    };
+    const [forwardFront, forwardBack] = sides(forward!);
+    const [reverseFront, reverseBack] = sides(reverse!);
+    if (forwardFront !== reverseBack || forwardBack !== reverseFront) return candidates;
     return [
       {
         content: { type: "basic_reversed" as const, content: forward!.content.content },

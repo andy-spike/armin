@@ -84,6 +84,7 @@ type RenderResult = {
   usedField: boolean;
   unusableField: boolean;
   tts: boolean;
+  hints: string[];
 };
 
 const filterName = (filter: string) => filter.split(/\s/)[0].toLowerCase();
@@ -131,8 +132,11 @@ function renderNodes(nodes: Node[], ctx: TemplateContext, result: RenderResult):
         else result.usedField = true;
       }
       if (hint) {
-        if (ctx.side === "back" && !isFieldEmpty(value))
-          out += `<h3>${escapeHtml(node.name)}</h3>${value}`;
+        if (!isFieldEmpty(value)) {
+          const section = `<h3>${escapeHtml(node.name)}</h3>${value}`;
+          if (ctx.side === "back") out += section;
+          else result.hints.push(section);
+        }
       } else {
         out += value;
       }
@@ -168,6 +172,7 @@ export function renderTemplate(source: string, ctx: TemplateContext): RenderResu
     usedField: false,
     unusableField: false,
     tts: false,
+    hints: [],
   };
   result.html = renderNodes(parseTemplate(source), ctx, result);
   return result;
@@ -219,6 +224,8 @@ export function renderCard(
     .split(FRONT_MARK)
     .join("");
   if (isFieldEmpty(backHtml)) backHtml = front.html;
+  const hints = front.hints.filter((hint) => !backHtml.includes(hint));
+  if (hints.length) backHtml += hints.join("");
   return {
     front: front.html,
     back: backHtml,
