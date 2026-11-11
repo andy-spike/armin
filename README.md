@@ -1,50 +1,42 @@
 # Armin
 
 Armin is a spaced-repetition flashcard app for web and mobile. Cards form a
-prerequisite graph, and FSRS schedules reviews based on recall performance.
+prerequisite graph, and FSRS schedules reviews based on recall.
 
-## Why it exists
+A card stays **locked** until everything it depends on is learned. Once unlocked,
+it stays available even if you later forget a prerequisite; FSRS keeps scheduling
+that prerequisite for practice.
 
-Most flashcard apps treat every card as an independent atom of knowledge, meaning all cards always live in the same level of abstraction. In practice,
-knowledge is a graph: some things are prerequisites for others. Armin makes that
-structure explicit. A card stays **locked** until everything it depends on has been
-learned, so you build foundations before tackling what sits on top of them. Once
-unlocked, a card stays accessible even if a prerequisite is later forgotten;
-FSRS continues scheduling that prerequisite for practice.
+Use it at [armincards.app](https://armincards.app). The [user guide](https://docs.armincards.app)
+covers reviewing, cards, prerequisites, equations, Anki import, and AI assistants.
+Armin is in beta.
 
-## Applications and shared code
+## Roadmap
+
+- **Mobile app:** release the Expo client in the App Store and Google Play.
+- **Desktop app:** a native app for macOS, Windows, and Linux.
+- **Plugin support:** list the [Armin plugin](plugins/armin/README.md) in the
+  Claude and ChatGPT plugin directories, and support more assistants.
+
+## Repository
 
 - [`apps/web`](apps/web/README.md): TanStack Start web client.
-- [`apps/mobile`](apps/mobile/README.md): Expo mobile client for the same backend.
-- [`apps/docs`](apps/docs/README.md): the user guide, a [Nimbus](https://nimbus-docs.com) docs site on Cloudflare Workers.
-- [`packages/backend`](packages/backend/README.md): Convex backend and Better Auth,
-  with account-owned libraries, server-side scheduling, images, and ZIP export.
-- [`packages/core`](packages/core): portable study types and rules.
-
-The web app deploys to [armincards.app](https://armincards.app) on Cloudflare
-Workers, with its backend on Convex cloud. The Electron
-desktop app, its local MCP server, and the old sync service have been retired.
-Their source and release tooling remain available in Git history.
-
-## Self-hosting
-
-You can run your own private instance with Docker; see
-[self-hosting Armin](docs/self-hosting.md). Self-hosting is for individuals
-running an instance for their own use. It comes as-is, with no warranty or
-support guarantee, and you are responsible for your own server and data. Only
-[armincards.app](https://armincards.app) is operated by the project.
+- [`apps/mobile`](apps/mobile/README.md): Expo mobile client.
+- [`apps/docs`](apps/docs/README.md): the user guide, a [Nimbus](https://nimbus-docs.com) site.
+- [`packages/backend`](packages/backend/README.md): Convex backend and Better Auth.
+- [`packages/core`](packages/core): shared study types and rules.
+- [`plugins/armin`](plugins/armin/README.md): the Armin plugin for Claude and ChatGPT.
 
 ## Development
 
-The toolchain is [Vite+](https://viteplus.dev) (`vp`). Install its global CLI
-once; it selects the Node version pinned in `.node-version` and the pnpm version
-pinned in `package.json`:
+Install the [Vite+](https://viteplus.dev) CLI once. It selects the Node and pnpm
+versions the repo pins:
 
 ```bash
 curl -fsSL https://vite.plus | bash   # Windows: irm https://vite.plus/ps1 | iex
 ```
 
-Quick start from the repository root:
+Then, from the repository root:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -52,190 +44,62 @@ pnpm dev:setup  # create a local Convex deployment, push, seed, write client URL
 pnpm dev        # web at http://localhost:3000 + local Convex backend
 ```
 
-Development runs a **local Convex deployment** on this machine (Convex's
-open-source backend, started by `convex dev`); no Convex login or cloud dev
-deployment is needed. Production stays on Convex cloud. Setup sets `SITE_URL`,
-the Expo trusted origins, and a session secret, and seeds a sample account
-(`test@example.com` / `armin1234`). For real email or Google sign-in, set the
-variables in [the backend README](packages/backend/README.md#deployment-environment-variables)
-on the local deployment. Data lives in `packages/backend/.convex/local/`.
+Development uses a local Convex deployment, so you need no Convex login. Setup
+seeds a sample account, `test@example.com` / `armin1234`. For real email or Google
+sign-in, set the [backend variables](packages/backend/README.md#deployment-environment-variables).
 
-Coding agents get Convex and Cloudflare skills from `.agents/skills/` in this
-repository (installed with the `skills` CLI and recorded in `skills-lock.json`).
-Refresh them with `npx skills update -p`.
+Run these from the root, each in its own terminal:
 
-`dev:setup` refreshes only the Convex URL entries in the web and mobile
-`.env.local` files, preserving other settings. To refresh those URLs without
-pushing backend code, run `pnpm --filter @armin/backend dev:clients`.
+| Command            | Starts                                    |
+| ------------------ | ----------------------------------------- |
+| `pnpm dev:mobile`  | Expo Go with a LAN QR code on port 8081   |
+| `pnpm dev:android` | Expo Go on the Android emulator or device |
+| `pnpm dev:ios`     | Expo Go on the iOS simulator (macOS only) |
+| `pnpm dev:web`     | Web client only, port 3000                |
+| `pnpm dev:backend` | Local Convex backend only                 |
+| `pnpm dev:docs`    | User guide only, port 4321                |
 
-Additional commands, each run from the root in its own terminal:
+Mobile needs `pnpm dev` running. See [mobile setup](apps/mobile/README.md).
 
-| Command            | Starts                                              |
-| ------------------ | --------------------------------------------------- |
-| `pnpm dev:mobile`  | Expo Go with a LAN QR code on port 8081             |
-| `pnpm dev:android` | Expo Go and opens the Android emulator/device       |
-| `pnpm dev:ios`     | Expo Go and opens the iOS simulator, requires macOS |
-| `pnpm dev:web`     | Web client only, port 3000                          |
-| `pnpm dev:backend` | Local Convex backend and watcher only               |
-| `pnpm dev:docs`    | User guide (docs site) only, port 4321              |
+Run `pnpm check` before finishing (format, lint, and type checks for every
+workspace; `pnpm format` fixes formatting). Also run `pnpm --filter @armin/web build`
+and `pnpm --filter @armin/mobile check:bundle`, and for the docs site
+`pnpm --filter @armin/docs typecheck` and `pnpm --filter @armin/docs build`.
+There are no automated test suites.
 
-Keep `pnpm dev` running when using mobile; the local backend only runs while it
-does. Mobile URLs use this machine's LAN address, so a phone on the same network
-can connect; a phone that cannot reach this machine needs a cloud deployment.
-Sign into mobile with the sample account or one created in the web app.
-See [mobile setup](apps/mobile/README.md) for Expo Go, emulator, and networking
-requirements. Stop each command with Ctrl+C; it stops both watchers started by
-`pnpm dev`.
+Work on a task branch and open a PR against `master`; the `Verify` check must
+pass. Merging doesn't deploy. Agents have skills for
+[worktree setup](.agents/skills/setting-up-worktrees/SKILL.md) and
+[production deploys](.agents/skills/deploying-to-cloudflare/SKILL.md).
 
-Make every repository change on a task branch in a T3 Code worktree, then open a
-PR against `master`. GitHub requires the PR's `Verify` check to pass with the branch
-up to date before merging, including for administrators. Direct pushes, force
-pushes, and deletion of `master` are blocked. See
-[agent worktree setup](docs/dev-worktrees.md) for isolated development environments.
+## Self-hosting
 
-`master` is the release source. Merging a PR does not deploy; deploy the
-backend and web app from `master` as described in
-[production deployment](docs/deploy-cloudflare.md).
+You can run a private instance with Docker, as-is with no warranty or support.
+See the [self-hosting guide](https://docs.armincards.app/guides/self-hosting/).
 
-## Importing from Anki
-
-Settings → Data → Import, or **Import from Anki** on the deck list, offers two
-routes.
-
-**Recommended: import with an AI assistant.** A connected assistant receives
-the Anki file, downloads Armin's versioned converter kit, and runs it in its own
-sandbox. The kit uses the same deterministic converter and file reader as the
-browser, extracts supported images (SVG is rendered to PNG), and reports
-warnings and unresolved notes.
-The assistant stages the result, shows a final preview, and saves only after you
-approve it. Large or image-heavy decks benefit most: unsupported cards can be
-repaired on request, or explicitly skipped with a reason. MCP imports always
-start fresh, with no Anki due dates or review history. The route needs an
-assistant with file access and a sandbox that can run Node.js 20, 22, or 24; chat
-clients without those capabilities should use browser import.
-
-**Browser import** remains directly available and unchanged. It brings in Anki
-decks (`.apkg`), whole collections (`.colpkg`, from Anki 2.1 through current
-releases), and plain-text exports (`.txt`, `.csv`, `.tsv`). Each Anki deck
-becomes an Armin deck; Basic, reversed, typed-answer, Cloze, and Image Occlusion
-notes map to the matching Armin card types. Notes from the older Image
-Occlusion Enhanced add-on become one image occlusion card per image, a mask per
-note, each keeping its own review progress. Other note types are rendered from
-their templates, or the preview lets you choose which fields go on each side.
-Template chrome (shared `_` assets, hint buttons, tag containers) stays out;
-typing templates become typed-answer cards, and mirrored two-template types
-become one Basic and reversed card. Other occlusion formats, such as AnKing's
-"IO-one by one", are left out and listed.
-Images (SVG is converted to PNG), audio, superscript, subscript, highlights,
-flags (as `flag::<color>` tags), and deck options (desired retention, steps,
-maximum interval, FSRS parameters) come along, and optionally review progress,
-including buried cards and Anki's new-card order. A deck over Armin's per-deck
-cap imports as consecutive numbered decks such as `AnKing (1 of 4)`, keeping
-each note's cards together. If the whole selection doesn't fit the library,
-the preview can import the first cards that fit: reviewed cards by due date,
-then new cards in Anki's order. The newest 300,000 past reviews come along;
-older ones are left out while every card keeps its Anki schedule. Tags up to
-200 characters and 100 per card are kept whole, including hierarchical tag
-paths. Video, text-to-speech, card styling, and per-deck daily limits don't.
-The file is read in the browser and the preview lists anything left out before
-importing. See
-[AI assistant Anki import](docs/agent-connections.md#anki-import).
-
-## Equations
-
-Cards support KaTeX mathematics: `\(x^2\)` or `$x^2$` inline, and
-`\[\frac{a}{b}\]` or `$$\frac{a}{b}$$` for display equations. Chemistry uses
-`\ce{H2O}` inside math delimiters. Use **Edit source** in the card editor to
-write equations. The Milkdown Crepe editor supports inline dollar math and
-standalone display equations visually. Legacy equation delimiters, display math
-inside tables/lists/prose, fenced LaTeX samples, and currency text open as source
-to preserve their structure. Source fields with equations include a rendered preview. Code spans and fenced code
-stay literal. Unsupported commands retain their source with a warning.
-
-Anki MathJax delimiters and the legacy `[$]` / `[$$]` math wrappers are converted
-without Markdown escaping. Legacy `[latex]` documents remain source with a
-preview warning; arbitrary LaTeX packages and document compilation are not
-supported. The web app renders equations with KaTeX and bundled fonts.
-
-## AI assistant connections
+## AI assistants
 
 Armin works with ChatGPT, Claude, Gemini, Claude Code, Codex, and other MCP
-clients through Armin sign-in.
-Chat app users install the [Armin plugin](plugins/armin/README.md) from Claude's
-or ChatGPT's plugin directory; coding agents connect to Armin's hosted MCP
-server directly. **AI setup** in the sidebar shows step-by-step instructions for
-each, including a prompt that lets a coding agent set itself up; Settings → AI
-assistants lists connections. After you
-approve a connection, its assistant can use the permission groups you granted on
-your whole library: reading, creating, editing, archiving, moving, and linking
-cards, creating and renaming decks, importing Anki files, and showing due cards
-with your own ratings, across every deck, including decks you add later.
-Connections can be limited to read, write, import, or study tools.
-Ordinary authoring is text-only; Anki imports have a scoped image-upload route.
-It cannot permanently delete content, reschedule cards on its own, export your
-library, or manage your account. Ratings are recorded only when you give them.
-You can disconnect any assistant at any time.
+clients. See [publishing the plugin](plugins/PUBLISHING.md) and the
+[MCP server reference](https://docs.armincards.app/reference/mcp-server/).
 
-See [AI assistant connections](docs/agent-connections.md) for the access model,
-OAuth/MCP endpoints, operation limits, and deployment verification needs, and
-[publishing the plugin](plugins/PUBLISHING.md) for directory submission.
-Provider account restrictions apply.
-
-## Card-writing skill
-
-Agents need guidance on how to structure flashcard content — how to chunk a topic, what belongs in a single card, or how cards
-should depend on each other. The `writing-study-cards` skill provides those
-guidelines, distilled from Andy Matuschak's
-[How to write good prompts](https://andymatuschak.org/prompts/). Install it so your
-agent applies them automatically whenever it generates cards.
-
-The skill lives in [`.agents/skills/writing-study-cards`](.agents/skills/writing-study-cards)
-and installs with the [`skills` CLI](https://www.skills.sh/docs):
+The `writing-study-cards` skill teaches agents how to write good cards, distilled
+from Andy Matuschak's [How to write good prompts](https://andymatuschak.org/prompts/).
+Install it with:
 
 ```bash
-# Install into the current project (auto-detects your agent)
 npx skills add andy-spike/armin --skill writing-study-cards
-
-# Or install globally so it's available across all projects
-npx skills add andy-spike/armin --skill writing-study-cards --global
 ```
 
-You can target a specific agent (for example Cursor, Claude Code, or Codex) with
-`-a`, and preview what's available without installing using `--list`:
+The [Armin plugin](plugins/armin/README.md) bundles the same skill. Keep the two
+copies identical; `pnpm plugin:package` fails if they differ.
 
-```bash
-npx skills add andy-spike/armin --list
-npx skills add andy-spike/armin --skill writing-study-cards -a cursor
-```
-
-The `skills` CLI discovers skills under `.agents/skills/`, so it picks up
-`writing-study-cards` directly from this repository.
-
-The [Armin plugin](plugins/armin/README.md) bundles the same skill, so chat app
-and plugin users already have it. Keep the two copies identical;
-`pnpm plugin:package` fails if they differ.
-
-## Validation
-
-Run `pnpm check`, `pnpm --filter @armin/web build`, and
-`pnpm --filter @armin/mobile check:bundle`. For the docs site, also run
-`pnpm --filter @armin/docs typecheck` and `pnpm --filter @armin/docs build`. `pnpm check` runs `vp check`, which
-checks formatting (Oxfmt), lints (Oxlint), and type checks every workspace in one
-pass; `pnpm format` fixes formatting. Lint and format settings live in the root
-`vite.config.ts`. Check web, backend, and mobile changes in the running app;
-there are no automated test suites.
-
-## License
+## License and contributing
 
 Copyright © 2026 Andy Spike. Armin is free software under the
-[MIT License](LICENSE). The
-`writing-study-cards` skill is licensed separately under
-[CC BY 4.0](.agents/skills/writing-study-cards/LICENSE.md). The Armin name and
-logo are not covered by either license; see [TRADEMARKS.md](TRADEMARKS.md).
+[MIT License](LICENSE). The Armin name and logo are not covered by it; see
+[TRADEMARKS.md](TRADEMARKS.md).
 
-## Contributions
-
-Report bugs and feature requests in [GitHub Issues](https://github.com/andy-spike/armin/issues).
-Code pull requests are not being accepted while the domain contracts stabilize.
-See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
-[the code of conduct](CODE_OF_CONDUCT.md).
+Armin accepts issues only, not pull requests. Report bugs and feature requests in
+[GitHub Issues](https://github.com/andy-spike/armin/issues). See
+[CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).

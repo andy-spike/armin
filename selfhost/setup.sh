@@ -106,7 +106,7 @@ cat <<EOF
 
   1. Open $site and sign in with the owner account.
   2. Copy selfhost/.env somewhere safe. Your backups need it.
-  3. Schedule daily backups: see "Schedule backups" in docs/self-hosting.md.
+  3. Schedule daily backups: see "Schedule backups" at https://docs.armincards.app/guides/self-hosting/.
 
   HTTPS certificates can take a minute after DNS resolves.
   If the page doesn't load: docker compose -f selfhost/docker-compose.yml logs caddy

@@ -18,7 +18,7 @@ compose() { docker compose --project-directory "$SELFHOST_DIR" "$@"; }
 convex() { compose run --rm -T tools convex "$@"; }
 
 require_docker() {
-  command -v docker >/dev/null || die "Docker is not installed. See docs/self-hosting.md."
+  command -v docker >/dev/null || die "Docker is not installed. See https://docs.armincards.app/guides/self-hosting/."
   docker info >/dev/null 2>&1 ||
     die "Docker is installed but not reachable. Start it, or add your user to the docker group."
   docker compose version >/dev/null 2>&1 || die "Docker Compose v2 ('docker compose') is required."

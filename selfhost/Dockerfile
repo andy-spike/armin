@@ -1,5 +1,5 @@
 # Images for a self-hosted Armin instance. Built by selfhost/docker-compose.yml
-# with the repository root as the build context. See docs/self-hosting.md.
+# with the repository root as the build context. See https://docs.armincards.app/guides/self-hosting/.
 ARG NODE_IMAGE=node:24.22.1-bookworm-slim
 
 # The pnpm workspace with web and backend dependencies installed.

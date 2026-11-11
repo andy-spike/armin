@@ -5,20 +5,13 @@ sidebar:
   order: 2
 ---
 
-Knowledge builds on itself. Armin lets you say so: a card can have
-**prerequisites**, other cards in the same deck that you should know first.
-Together, these links form the deck's **prerequisite graph**.
+A card can have **prerequisites**: other cards in the same deck you should know first. These links form the deck's **prerequisite graph**.
 
 ## Locked cards
 
-A card stays **locked** while any of its prerequisites isn't yet secured.
-Locked cards don't appear in reviews. A prerequisite is **secured** once every
-one of its review units has graduated to review and reached the
-**Prerequisite stability** set under **Settings → Learning path**.
+A card stays **locked**, and out of reviews, while any prerequisite isn't **secured**. A prerequisite is secured once every one of its review units has graduated to review and reached the **Prerequisite stability** set under **Settings → Learning path**.
 
-Once a card unlocks, it stays unlocked. If you later forget a prerequisite,
-Armin keeps scheduling that prerequisite for practice, but the cards that
-depend on it remain available.
+Once unlocked, a card stays unlocked. If you later forget a prerequisite, Armin keeps scheduling it for practice, but the cards that depend on it remain available.
 
 <Aside type="note">
   Imported cards have no prerequisites, so they are never locked. Add links after importing if you
@@ -27,12 +20,6 @@ depend on it remain available.
 
 ## Linking cards
 
-Open a deck's **Graph** to see its cards and links, and to add or remove
-prerequisites. Armin rejects links that would form a cycle, because a card
-can't depend on itself.
+Open a deck's **Graph** to see its cards and links and to add or remove prerequisites. Armin rejects links that would form a cycle.
 
-## Tips
-
-- Keep prerequisites small and specific. A card that depends on one clear fact
-  unlocks sooner than one that depends on a whole topic.
-- Not every card needs prerequisites. Use them where order really matters.
+Keep prerequisites small and specific, and use them only where order matters.

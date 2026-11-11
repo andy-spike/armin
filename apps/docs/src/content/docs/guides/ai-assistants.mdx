@@ -5,38 +5,21 @@ sidebar:
   order: 6
 ---
 
-Armin works with ChatGPT, Claude, Gemini, Claude Code, Codex, and other MCP
-clients. Open **AI setup** in the sidebar for step-by-step instructions for each
-one.
+Armin works with ChatGPT, Claude, Gemini, Claude Code, Codex, and other MCP clients. Open **AI setup** in the sidebar for steps for each.
 
 ## What an assistant can do
 
-Each connection asks for one or more permission groups, and each group covers
-your whole library:
+Each connection asks for permission groups, and each group covers your whole library:
 
-- **Read**: find and read decks, cards, prerequisite links, study stats, and card
-  details.
-- **Write**: create and edit cards and decks, archive cards, move cards, and link
-  prerequisites.
-- **Import**: [convert Anki files](/guides/import-from-anki/) into new decks with
-  a preview you approve.
-- **Study**: show cards that are due and record your own ratings.
+- **Read**: find and read decks, cards, prerequisite links, and study stats.
+- **Write**: create and edit cards and decks, archive and move cards, and link prerequisites.
+- **Import**: [convert Anki files](/guides/import-from-anki/) into new decks, with a preview you approve.
+- **Study**: show due cards one at a time, hide the answer until you reply, and record only the rating you give.
 
-A client that asks for no permission receives all four. An assistant with the
-study group shows one prompt at a time, hides the answer until you answer, and
-records only the rating you give; it never picks a rating for you.
-
-It **can't** permanently delete anything, reschedule cards on its own, export
-your library, or manage your account.
+An assistant can't permanently delete anything, reschedule cards, export your library, or manage your account.
 
 ## Manage connections
 
-**Settings → AI assistants** lists every connection and the permission groups it
-has. Disconnect one at any time and its access ends immediately.
+**Settings → AI assistants** lists each connection and its permission groups. Disconnect one and its access ends immediately.
 
-Connections approved before the permission groups existed are marked as needing
-reconnection. Reconnect from your assistant and approve the current groups to
-continue.
-
-For technical details, see the [MCP server
-documentation](/reference/mcp-server/).
+See the [MCP server reference](/reference/mcp-server/) for details.

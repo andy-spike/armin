@@ -5,8 +5,7 @@ sidebar:
   order: 3
 ---
 
-A review shows you one card at a time. Try to recall the answer, reveal it,
-then rate how well you remembered.
+A review shows one card at a time. Recall the answer, reveal it, then rate how well you remembered.
 
 ## Ratings
 
@@ -17,49 +16,27 @@ then rate how well you remembered.
 | Good   | You remembered with normal effort.             |
 | Easy   | You remembered instantly.                      |
 
-Armin schedules the next review with [FSRS](https://github.com/open-spaced-repetition/fsrs4anki/wiki),
-which models how quickly you forget each card. Each rating button shows when
-you would see the card next.
-
-Made a mistake? **Undo** restores the card to exactly how it was before your
-last rating.
+Armin schedules the next review with [FSRS](https://github.com/open-spaced-repetition/fsrs4anki/wiki), and each button shows when you'd see the card next. **Undo** restores the card to how it was before your last rating.
 
 ## What each day contains
 
-Each day's queue holds cards that are due, oldest first, followed by new cards.
-Two settings under **Settings → Learning path** limit it, across all your
-decks:
+Each day's queue holds due cards, oldest first, then new cards. Two settings under **Settings → Learning path** limit it across all your decks:
 
-- **New review units per day** caps how much new material enters study each
-  day.
-- **Reviews per day** caps the total, new and due together. It's empty, meaning
-  no limit, by default.
+- **New review units per day** caps new material.
+- **Reviews per day** caps new and due cards together. It's empty (no limit) by default.
 
-A card that's already on screen can always be answered, even if a limit is
-reached mid-session.
+A card already on screen can always be answered, even if a limit is reached mid-session.
 
 ## Cards you unlock while reviewing
 
-When a rating secures a [prerequisite](/guides/prerequisites/), Armin tells you
-how many cards it unlocked. Those cards don't join the session you're in, so
-its count stays the same. When you finish, choose **Study _n_ unlocked cards** to
-review them as a new round, or leave them for later. They still count toward
-**New review units per day**, so once that limit is reached, the rest arrive on
-a later day.
+When a rating secures a [prerequisite](/guides/prerequisites/), Armin tells you how many cards it unlocked. They don't join the current session. When you finish, choose **Study _n_ unlocked cards** to review them as a new round, or leave them for later. They count toward **New review units per day**, so once that limit is reached the rest arrive on a later day.
 
-Other cards can still join a session in progress, for example when a card
-becomes due while you study or you add one in another tab. Armin tells you
-when this happens, and a **+** count next to the session total shows how many
-joined.
+Other cards can still join a session in progress, such as one that becomes due or one you add in another tab. A **+** count next to the session total shows how many joined.
 
 ## Bury
 
-**Bury until tomorrow** hides every review unit of a card until the start of your next study
-day. Its schedule doesn't change, and the card returns on its own. Undo
-reverses a bury.
+**Bury until tomorrow** hides every review unit of a card until your next study day without changing its schedule. Undo reverses it.
 
 ## Cram
 
-**Cram** lets you practise a deck outside the schedule, for example before an
-exam. Cram ratings don't change any schedule or review history. They do count
-toward your daily activity and streak on **Stats**, but not toward retention.
+**Cram** lets you practice a deck outside the schedule, for example before an exam. Cram ratings don't change any schedule or review history. They count toward your daily activity and streak on **Stats**, but not toward retention.
