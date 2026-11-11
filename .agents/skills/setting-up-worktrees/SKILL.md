@@ -1,6 +1,6 @@
 ---
 name: setting-up-worktrees
-description: Set up, run, reset, and clean up an isolated Armin dev environment in the main checkout or a T3 Code worktree. Use when starting work in a new worktree, when `pnpm worktree:setup` or `pnpm dev` fails, when ports, origins, or sign-in break between checkouts, when mobile can't reach the backend, or after merging a branch.
+description: "Set up, run, reset, and clean up an isolated Armin dev environment in the main checkout or a T3 Code worktree. Use when starting work in a new worktree, when `pnpm worktree:setup` or `pnpm dev` fails, when ports, origins, or sign-in break between checkouts, when mobile can't reach the backend, or after merging a branch."
 ---
 
 # Setting up Armin worktrees

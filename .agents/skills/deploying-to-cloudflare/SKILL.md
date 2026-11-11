@@ -1,6 +1,6 @@
 ---
 name: deploying-to-cloudflare
-description: Deploy Armin to production: the Convex backend, the web app (Worker `armin-web`), and the docs site (Worker `armin-docs`). Use only when the user asks to deploy, release, or ship, or to set up production Polar billing, PostHog analytics, or Cloudflare DNS and domains.
+description: "Deploy Armin to production: the Convex backend, the web app (Worker `armin-web`), and the docs site (Worker `armin-docs`). Use only when the user asks to deploy, release, or ship, or to set up production Polar billing, PostHog analytics, or Cloudflare DNS and domains."
 ---
 
 # Deploying Armin to production
