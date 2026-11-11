@@ -20,6 +20,7 @@ export type RateResult =
       reviewUnitId: Id<"reviewUnits">;
       deckId: Id<"decks">;
       version: number;
+      unlockedFlashcardIds: Id<"flashcards">[];
     }
   | { status: "stale"; message: string }
   | { status: "ineligible"; message: string };
@@ -89,9 +90,10 @@ export async function rateReviewUnit(
     unitVersionAfter: version,
   });
   const floor = deckSettings.prereqStabilityFloor;
-  if (isPrereqSecured(unit, floor) !== isPrereqSecured(fields, floor)) {
-    await refreshAfterPrereqChange(ctx, unit.flashcardId, settings, now);
-  }
+  const unlockedFlashcardIds =
+    isPrereqSecured(unit, floor) !== isPrereqSecured(fields, floor)
+      ? await refreshAfterPrereqChange(ctx, unit.flashcardId, settings, now)
+      : [];
 
   return {
     status: "ok",
@@ -99,5 +101,6 @@ export async function rateReviewUnit(
     reviewUnitId: unit._id,
     deckId: unit.deckId,
     version,
+    unlockedFlashcardIds,
   } satisfies RateResult;
 }

@@ -345,6 +345,7 @@ async function applyLockState(
   now: number,
   loadedUnits?: Doc<"reviewUnits">[],
 ) {
+  const unlocked = flashcard.locked && !locked;
   if (flashcard.locked !== locked || flashcard.prerequisiteAccessGranted !== !locked) {
     await ctx.db.patch(flashcard._id, {
       locked,
@@ -368,6 +369,7 @@ async function applyLockState(
       });
     }
   }
+  return unlocked;
 }
 
 export async function refreshLockState(
@@ -376,12 +378,14 @@ export async function refreshLockState(
   settings: SettingsCache,
   now: number,
 ) {
+  const unlocked: Id<"flashcards">[] = [];
   for (const id of new Set(flashcardIds)) {
     const flashcard = await ctx.db.get(id);
     if (!flashcard) continue;
     const locked = await computeLocked(ctx, flashcard, settings);
-    await applyLockState(ctx, flashcard, locked, now);
+    if (await applyLockState(ctx, flashcard, locked, now)) unlocked.push(id);
   }
+  return unlocked;
 }
 
 export async function refreshDependentSubgraph(
@@ -401,7 +405,7 @@ export async function refreshAfterPrereqChange(
   now: number,
 ) {
   const downstream = await collectTransitiveDependents(ctx, [prereqId]);
-  await refreshLockState(ctx, downstream, settings, now);
+  return refreshLockState(ctx, downstream, settings, now);
 }
 
 export async function refreshAllLocks(
