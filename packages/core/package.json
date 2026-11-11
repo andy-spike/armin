@@ -29,7 +29,7 @@
     "fflate": "^0.8.3",
     "fzstd": "^0.1.1",
     "katex": "^0.19.1",
-    "ts-fsrs": "^5.4.1",
+    "ts-fsrs": "^5.4.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
