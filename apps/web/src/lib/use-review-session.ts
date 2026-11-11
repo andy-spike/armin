@@ -39,6 +39,7 @@ export function useReviewSession({
   onRate,
   onUndo,
   onBury,
+  onUnlocked,
 }: {
   queue: UiReviewUnit[];
   ready: boolean;
@@ -50,6 +51,7 @@ export function useReviewSession({
   onRate: (card: UiReviewUnit, rating: Grade, requestId: string) => Promise<SessionRateResult>;
   onUndo?: (entry: HistoryEntry, requestId: string) => Promise<SessionUndoResult>;
   onBury?: (flashcardId: string, requestId: string) => Promise<BuryOutcome>;
+  onUnlocked?: (count: number) => void;
 }) {
   const [state, setState] = useState(initialReviewSession<UiReviewUnit>);
   const stateRef = useRef(state);
@@ -77,10 +79,12 @@ export function useReviewSession({
   const removingRef = useRef(new Set<string>());
   const onRateRef = useRef(onRate);
   const loadPreviewRef = useRef(loadPreview);
+  const onUnlockedRef = useRef(onUnlocked);
   useLayoutEffect(() => {
     stateRef.current = state;
     onRateRef.current = onRate;
     loadPreviewRef.current = loadPreview;
+    onUnlockedRef.current = onUnlocked;
   });
 
   const cards = ready ? state.cards : [];
@@ -94,18 +98,23 @@ export function useReviewSession({
     retryDelay: (failures) => RETRY_DELAYS_MS[Math.min(failures, RETRY_DELAYS_MS.length) - 1]!,
     mutationFn: (submission: Submission) =>
       onRateRef.current(submission.card, submission.rating, submission.requestId),
-    onSuccess: (result, submission) =>
-      dispatch(
-        result.status === "ok"
-          ? {
-              type: "saved",
-              turnId: submission.turnId,
-              reviewUnitId: submission.card.id,
-              reviewLogId: result.reviewLogId,
-              version: result.version,
-            }
-          : { type: "rejected", reviewUnitId: submission.card.id, message: result.message },
-      ),
+    onSuccess: (result, submission) => {
+      if (result.status !== "ok") {
+        dispatch({ type: "rejected", reviewUnitId: submission.card.id, message: result.message });
+        return;
+      }
+      dispatch({
+        type: "saved",
+        turnId: submission.turnId,
+        reviewUnitId: submission.card.id,
+        reviewLogId: result.reviewLogId,
+        version: result.version,
+      });
+      const unlocked = result.unlockedFlashcardIds ?? [];
+      if (unlocked.length === 0) return;
+      dispatch({ type: "unlocked", flashcardIds: unlocked });
+      onUnlockedRef.current?.(unlocked.length);
+    },
     onSettled: (_result, _error, submission) => {
       unsavedRef.current.delete(submission.turnId);
       setSaving(unsavedRef.current.size);
@@ -238,6 +247,16 @@ export function useReviewSession({
     cards,
     card,
     index: state.index,
+    roundStart: ready ? state.roundStart : 0,
+    waiting: ready ? state.waiting : [],
+    joined: ready ? state.joined : 0,
+    unlockedLater:
+      ready &&
+      state.unlocked.filter((id) => !state.seen.includes(id)).length >
+        new Set(state.waiting.map((c) => c.flashcardId)).size,
+    continueRound: () => {
+      if (operationRef.current === "idle") dispatch({ type: "continue" });
+    },
     history: state.history,
     stale: state.stale,
     notice: state.notice,

@@ -6,8 +6,10 @@ import type {
   SessionUndoResult,
 } from "@armin/core/review-session";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { LockOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip } from "@/components/ui/tooltip";
 import { ReviewCardSkeleton } from "@/components/page-skeletons";
 import { CardInfoDialog } from "@/components/card-info-dialog";
 import { FlashcardFormDialog } from "@/components/flashcard-form-dialog-lazy";
@@ -112,8 +114,26 @@ export function ReviewSession({
     onRate,
     onUndo,
     onBury,
+    onUnlocked: (count) =>
+      toast({
+        tone: "success",
+        title: `Unlocked ${cardCount(count)}`,
+        description: `${count === 1 ? "It waits" : "They wait"} until this session ends.`,
+      }),
   });
-  const { cards, index, history, stale: staleCard, notice, saving, saveFailing } = session;
+  const {
+    cards,
+    index,
+    roundStart,
+    waiting,
+    joined,
+    unlockedLater,
+    history,
+    stale: staleCard,
+    notice,
+    saving,
+    saveFailing,
+  } = session;
   const {
     descriptor,
     card,
@@ -131,6 +151,17 @@ export function ReviewSession({
   const [infoCardId, setInfoCardId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const cardBodyRef = useRef<HTMLDivElement>(null);
+
+  const announcedJoinedRef = useRef(0);
+  useEffect(() => {
+    const added = joined - announcedJoinedRef.current;
+    announcedJoinedRef.current = joined;
+    if (added <= 0) return;
+    toast({
+      title: `${cardCount(added)} joined this session`,
+      description: `${added === 1 ? "It" : "They"} became due or ${added === 1 ? "was" : "were"} added elsewhere while you studied.`,
+    });
+  }, [joined, toast]);
 
   const remaining = cards.filter((c) => !c.reviewed).length;
   const subtitleContent = typeof subtitle === "function" ? subtitle(remaining) : subtitle;
@@ -346,7 +377,10 @@ export function ReviewSession({
     return () => window.removeEventListener("keydown", onKey);
   }, [reviewActive, flipped, card]);
 
-  const reviewedCount = cards.filter((c) => c.reviewed).length;
+  const round = cards.slice(roundStart);
+  const reviewedCount = round.filter((c) => c.reviewed).length;
+  const unlockedRound = roundStart > 0;
+  const offerUnlocked = done && waiting.length > 0;
 
   return (
     <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-4 pt-3 sm:px-6 sm:pt-5">
@@ -388,10 +422,21 @@ export function ReviewSession({
       {(empty || done) && (
         <SessionEndPanel
           done={done}
-          title={done ? doneTitle : emptyTitle}
-          description={done ? doneDescription : emptyDescription}
+          title={offerUnlocked ? "Session complete" : done ? doneTitle : emptyTitle}
+          description={
+            offerUnlocked
+              ? `You unlocked ${cardCount(waiting.length)} along the way. Study ${waiting.length === 1 ? "it" : "them"} now or save ${waiting.length === 1 ? "it" : "them"} for later.${unlockedLater ? " More unlocked cards arrive as your daily limit for new cards allows." : ""}`
+              : done && unlockedLater
+                ? "You unlocked cards along the way. They arrive as your daily limit for new cards allows."
+                : done
+                  ? doneDescription
+                  : emptyDescription
+          }
           notice={notice}
           action={doneAction}
+          unlocked={
+            offerUnlocked ? { count: waiting.length, onStudy: session.continueRound } : undefined
+          }
           undo={
             onUndo && (history.length > 0 || saving > 0)
               ? {
@@ -408,16 +453,34 @@ export function ReviewSession({
       {card && (
         <>
           <div className="mt-2 flex h-8 shrink-0 items-center gap-3">
+            {unlockedRound && (
+              <Tooltip content="Cards you unlocked earlier in this session.">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-sm bg-new-bg px-1.5 py-0.5 text-xs font-medium text-new">
+                  <LockOpen className="h-3 w-3" aria-hidden />
+                  Unlocked
+                </span>
+              </Tooltip>
+            )}
             <Progress
               value={reviewedCount}
-              max={cards.length}
-              label="Session progress"
+              max={round.length}
+              label={unlockedRound ? "Unlocked cards progress" : "Session progress"}
               className="flex-1"
             />
             <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
               <span className="sr-only">Card </span>
-              {index + 1} / {cards.length}
+              {index - roundStart + 1} / {round.length}
             </span>
+            {joined > 0 && (
+              <Tooltip
+                content={`${cardCount(joined)} joined after the session started: due now, or added elsewhere.`}
+              >
+                <span className="shrink-0 rounded-sm bg-surface-sunken px-1.5 py-0.5 font-mono text-xs tabular-nums text-muted">
+                  +{joined}
+                  <span className="sr-only"> joined this session</span>
+                </span>
+              </Tooltip>
+            )}
             {onUndo && (
               <UndoButton
                 binding={keymap["review.undo"]}
@@ -513,7 +576,7 @@ export function ReviewSession({
             reviewed={card.reviewed}
             isTypeAnswer={isTypeAnswer}
             isCorrect={isCorrect}
-            canGoBack={index > 0 && !undoing}
+            canGoBack={index > roundStart && !undoing}
             canGoForward={index < cards.length - 1 && !undoing}
             rateDisabled={card.reviewed || undoing || Boolean(staleCard) || !online}
             showIntervals={showIntervals}
@@ -560,4 +623,8 @@ export function ReviewSession({
       />
     </div>
   );
+}
+
+function cardCount(count: number) {
+  return `${count} ${count === 1 ? "card" : "cards"}`;
 }

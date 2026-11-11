@@ -16,7 +16,7 @@ export type HistoryEntry =
   | { kind: "bury"; turnId: string; flashcardId: string; units: BuriedUnit[] };
 
 export type SessionRateResult =
-  | { status: "ok"; reviewLogId: string; version: number }
+  | { status: "ok"; reviewLogId: string; version: number; unlockedFlashcardIds?: string[] }
   | { status: "stale" | "ineligible"; message: string };
 
 export type SessionUndoResult =
@@ -30,6 +30,11 @@ export type ReviewSessionState<Unit extends ReviewSessionUnit> = {
   history: HistoryEntry[];
   stale: { next: Unit | null; message: string } | null;
   notice: string | null;
+  roundStart: number;
+  unlocked: string[];
+  waiting: Unit[];
+  seen: string[];
+  joined: number;
 };
 
 export type ReviewSessionEvent<Unit extends ReviewSessionUnit> =
@@ -45,10 +50,23 @@ export type ReviewSessionEvent<Unit extends ReviewSessionUnit> =
   | { type: "replaced"; turnId: string; version: number }
   | { type: "step"; delta: -1 | 1 }
   | { type: "notice"; message: string | null }
+  | { type: "unlocked"; flashcardIds: string[] }
+  | { type: "continue" }
   | { type: "reset" };
 
 export function initialReviewSession<Unit extends ReviewSessionUnit>(): ReviewSessionState<Unit> {
-  return { cards: [], index: 0, history: [], stale: null, notice: null };
+  return {
+    cards: [],
+    index: 0,
+    history: [],
+    stale: null,
+    notice: null,
+    roundStart: 0,
+    unlocked: [],
+    waiting: [],
+    seen: [],
+    joined: 0,
+  };
 }
 
 export function reduceReviewSession<Unit extends ReviewSessionUnit>(
@@ -73,10 +91,15 @@ function apply<Unit extends ReviewSessionUnit>(
         event.incoming,
         active?.turnId,
         event.allowNewCards || state.cards.length === 0,
+        new Set(state.unlocked),
+        new Set(state.seen),
       );
       return {
         ...state,
         cards: merged.cards,
+        waiting: merged.waiting,
+        seen: [...new Set([...state.seen, ...merged.cards.map((c) => c.flashcardId)])],
+        joined: state.joined + merged.joined,
         stale: merged.staleActive
           ? { next: merged.staleActive, message: "This card was changed in another tab or device." }
           : state.stale,
@@ -151,12 +174,14 @@ function apply<Unit extends ReviewSessionUnit>(
           .map((c) =>
             c.turnId === entry.turnId ? { ...c, version: result.version, reviewed: false } : c,
           );
-        const index = cards.findIndex((c) => c.turnId === entry.turnId);
+        const found = cards.findIndex((c) => c.turnId === entry.turnId);
+        const index = found >= 0 ? found : state.index;
         return {
           ...state,
           cards,
           history,
-          index: index >= 0 ? index : state.index,
+          index,
+          roundStart: Math.min(state.roundStart, index),
           stale: null,
         };
       }
@@ -184,10 +209,26 @@ function apply<Unit extends ReviewSessionUnit>(
     }
     case "step": {
       const index = state.index + event.delta;
-      return index >= 0 && index < state.cards.length ? { ...state, index } : state;
+      return index >= state.roundStart && index < state.cards.length ? { ...state, index } : state;
     }
     case "notice":
       return { ...state, notice: event.message };
+    case "unlocked":
+      return { ...state, unlocked: [...new Set([...state.unlocked, ...event.flashcardIds])] };
+    case "continue": {
+      if (state.waiting.length === 0) return state;
+      const roundStart = state.cards.length;
+      return {
+        ...state,
+        cards: [...state.cards, ...state.waiting.map(sessionCard)],
+        waiting: [],
+        seen: [...new Set([...state.seen, ...state.waiting.map((c) => c.flashcardId)])],
+        joined: 0,
+        roundStart,
+        index: roundStart,
+        notice: null,
+      };
+    }
     case "reset":
       return initialReviewSession();
   }
@@ -220,6 +261,8 @@ function reconcileSessionCards<Unit extends ReviewSessionUnit>(
   incoming: Unit[],
   activeTurnId: string | undefined,
   allowNewCards: boolean,
+  unlocked: Set<string>,
+  seen: Set<string>,
 ) {
   const incomingById = new Map(incoming.map((c) => [c.id, c]));
   const pendingIds = new Set(current.filter((c) => !c.reviewed).map((c) => c.id));
@@ -240,12 +283,20 @@ function reconcileSessionCards<Unit extends ReviewSessionUnit>(
     }
     return { ...c, ...next };
   });
-  const appended = allowNewCards
-    ? incoming
-        .filter((c) => !pendingIds.has(c.id) && c.version >= (reviewedVersions.get(c.id) ?? 0))
-        .map(sessionCard)
+  const arrivals = allowNewCards
+    ? incoming.filter(
+        (c) => !pendingIds.has(c.id) && c.version >= (reviewedVersions.get(c.id) ?? 0),
+      )
     : [];
-  return { cards: [...updated, ...appended], staleActive: staleActive as Unit | null };
+  const isUnlock = (c: Unit) => unlocked.has(c.flashcardId) && !seen.has(c.flashcardId);
+  const added = arrivals.filter((c) => !isUnlock(c));
+  const joined = current.length === 0 ? 0 : added.filter((c) => !seen.has(c.flashcardId)).length;
+  return {
+    cards: [...updated, ...added.map(sessionCard)],
+    waiting: arrivals.filter(isUnlock),
+    joined,
+    staleActive: staleActive as Unit | null,
+  };
 }
 
 function removeUnits<Unit extends ReviewSessionUnit>(
@@ -273,5 +324,7 @@ function removeWhere<Unit extends ReviewSessionUnit>(
     const firstPending = cards.findIndex((c) => !c.reviewed);
     index = firstPending >= 0 ? firstPending : cards.length;
   }
-  return { ...state, cards, index };
+  const roundStart =
+    state.roundStart - state.cards.slice(0, state.roundStart).filter(matches).length;
+  return { ...state, cards, index, roundStart: Math.min(roundStart, index) };
 }
