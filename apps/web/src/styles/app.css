@@ -80,10 +80,6 @@
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
-:root {
-  --consent-inset: 0px;
-}
-
 @layer base {
   html,
   body,
@@ -676,15 +672,6 @@ html[data-scroll="document"],
 html[data-scroll="document"] body {
   height: auto;
   overflow: visible;
-}
-
-html[data-scroll="document"] body {
-  padding-bottom: var(--consent-inset);
-}
-
-[data-slot="sidebar-container"] {
-  height: auto;
-  bottom: var(--consent-inset);
 }
 
 @keyframes landing-rise {
