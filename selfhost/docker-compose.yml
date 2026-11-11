@@ -1,6 +1,6 @@
 # A self-hosted personal Armin instance: the Convex backend, the web app, and
 # Caddy for HTTPS. Run the scripts in this folder rather than editing values
-# here; settings live in selfhost/.env. See docs/self-hosting.md.
+# here; settings live in selfhost/.env. See https://docs.armincards.app/guides/self-hosting/.
 name: armin
 
 x-tools: &tools

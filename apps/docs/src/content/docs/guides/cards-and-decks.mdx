@@ -5,12 +5,9 @@ sidebar:
   order: 1
 ---
 
-A **deck** is a named set of cards. Prerequisite links connect cards within
-one deck, so keep cards that build on each other together.
+A **deck** is a named set of cards. Prerequisite links connect cards within one deck, so keep cards that build on each other together.
 
-A **card** is what you write. When you study, Armin shows you its **review
-units**: a Basic card has one, a reversed card has two (one per direction), and
-a cloze card has one per deletion. Each review unit is scheduled on its own.
+A **card** is what you write. You study its **review units**, each scheduled on its own: a Basic card has one, a reversed card has two, and a cloze card has one per deletion.
 
 ## Card types
 
@@ -25,28 +22,18 @@ a cloze card has one per deletion. Each review unit is scheduled on its own.
 
 ## Cloze deletions
 
-Wrap each part to hide in double braces. Every deletion becomes its own review
-unit unless you number them: deletions with the same number are hidden
-together.
+Wrap each hidden part in double braces. Each deletion is its own review unit unless you number them: deletions with the same number hide together.
 
 ```text
 The {{1::mitochondria}} is the {{2::powerhouse}} of the {{2::cell}}.
 ```
 
-This card has two review units: one hides "mitochondria", the other hides
-"powerhouse" and "cell" together. Add a hint after a second `::`, as in
-`{{1::mitochondria::organelle}}`.
+This card has two review units: one hides "mitochondria", the other hides "powerhouse" and "cell". Add a hint after a second `::`, as in `{{1::mitochondria::organelle}}`.
 
 ## Concept cards
 
-A concept card practises a skill rather than a fact. You describe the concept
-and give one worked example, and Armin generates a pool of exercises from it.
-Each review shows a different exercise, while the schedule tracks the concept
-as one card. You can edit, flag, or delete exercises you don't want.
-
-Concept cards need a Pro plan. See [Plans and limits](/reference/plans/).
+A concept card practices a skill rather than a fact. You describe the concept and give one worked example, and Armin generates a pool of exercises. Each review shows a different exercise while the schedule tracks one card. Edit, flag, or delete exercises you don't want. Concept cards need Pro; see [Plans and limits](/reference/plans/).
 
 ## Images and audio
 
-Cards can include images and audio. Armin shrinks images and compresses audio
-in your browser before upload, and stores them privately in your library.
+Cards can include images and audio. Armin shrinks and compresses them in your browser before upload and stores them privately in your library.

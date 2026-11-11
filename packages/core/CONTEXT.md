@@ -1,18 +1,9 @@
-> Historical study glossary. Profile describes the retired desktop storage model.
-> The current clients use an account-owned library in Convex.
-
 # Armin
 
-Armin is a local-first study context for retaining knowledge through flashcards,
-decks, reviews, and prerequisite relationships.
+Armin is a study context for retaining knowledge through flashcards, decks,
+reviews, and prerequisite relationships. Each account owns one library in Convex.
 
 ## Language
-
-**Profile**:
-A fully isolated local study space backed by its own database. Decks, flashcards,
-schedule, and settings are never shared across profiles; a profile is a folder you
-can copy, move, or delete. Multiple profiles can be open at once.
-_Avoid_: Account, user, login
 
 **Deck**:
 A named, isolated study space for a set of flashcards and their prerequisite
@@ -28,7 +19,7 @@ _Avoid_: Note, item, entry, fact
 
 **Flashcard media**:
 User-provided image files referenced by flashcard content. Flashcard media belongs
-to exactly one Profile and is part of that Profile's local study data.
+to exactly one library.
 _Avoid_: Assets, uploads, attachments
 
 **Review unit**:

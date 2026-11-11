@@ -1,6 +1,6 @@
 # HTTPS for the three public addresses of a self-hosted Armin instance.
 # Caddy obtains and renews Let's Encrypt certificates automatically.
-# Values come from selfhost/.env; see docs/self-hosting.md.
+# Values come from selfhost/.env; see https://docs.armincards.app/guides/self-hosting/.
 {
 	email {$ACME_EMAIL}
 	http_port {$HTTP_PORT}

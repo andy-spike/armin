@@ -1,7 +1,6 @@
 ---
 name: writing-study-cards
 description: Guidelines for structuring spaced-repetition flashcards and prerequisite graphs when creating cards in Armin. Use whenever generating study cards, decks, or prerequisite hierarchies from a topic, notes, or an article (for example with Armin's save_cards tool), or when deciding how to chunk content, what to put in a card, and how cards depend on each other.
-license: CC-BY-4.0. See LICENSE.md.
 ---
 
 # Writing study cards

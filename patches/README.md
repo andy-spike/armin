@@ -1,19 +1,6 @@
 # Dependency patches
 
-`@convex-dev__mcp@0.1.0-alpha.7.patch` adds an optional `inputSchema` to
-`ToolDefinition` in `@convex-dev/mcp` 0.1.0-alpha.7. The component otherwise
-publishes only the JSON Schema derived from Convex validators, which cannot
-carry descriptions or limits. Armin publishes JSON Schema generated from its
-Zod tool schemas instead; runtime validation still uses the Convex validators.
-The patch changes shipped JavaScript, declarations, and source TypeScript.
+pnpm applies both patches through `patchedDependencies` in `pnpm-workspace.yaml`.
 
-`@tanstack__start-server-core.patch` handles incoming request cancellation in
-TanStack Start 1.169.44. Browser tabs reconnecting during dev startup can cancel
-requests, producing a misleading aborted/ECONNRESET stack trace.
-
-The patch skips logging only for a cancelled incoming request and its cancellation
-error. Upstream connection failures and unrelated application errors still log.
-It changes shipped JavaScript and source TypeScript. pnpm reapplies it through
-`patchedDependencies` in `pnpm-workspace.yaml`.
-
-Reevaluate this patch when upgrading TanStack Start.
+- `@convex-dev__mcp@0.1.0-alpha.7.patch` adds an optional `inputSchema` to `ToolDefinition` in `@convex-dev/mcp`. The component otherwise publishes only JSON Schema derived from Convex validators, which can't carry descriptions or limits. Armin publishes JSON Schema generated from its Zod tool schemas instead; runtime validation still uses the Convex validators.
+- `@tanstack__start-server-core.patch` stops `@tanstack/start-server-core` from logging cancelled incoming requests. Browser tabs reconnecting during dev startup cancel requests, which produced a misleading aborted/ECONNRESET stack trace. Other errors still log. Reevaluate it when upgrading TanStack Start.
