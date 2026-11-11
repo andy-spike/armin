@@ -92,7 +92,14 @@ export const Route = createRootRouteWithContext<{
     return browserAuth;
   },
   ssr: true,
-  headers: () => ({ "Cache-Control": "private, no-store" }),
+  headers: () => ({
+    "Cache-Control": "private, no-store",
+    "Content-Security-Policy": "frame-ancestors 'none'",
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Strict-Transport-Security": "max-age=31536000",
+  }),
   shellComponent: RootDocument,
   notFoundComponent: () => (
     <>

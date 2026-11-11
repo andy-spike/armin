@@ -9,7 +9,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { useToast } from "@/components/ui/toast";
 import { Row, Section } from "@/components/settings-layout";
 import { armin, errorMessage } from "@/lib/armin-client";
-import { useConnection } from "@/lib/session";
+import { useConceptsAvailable, useConnection } from "@/lib/session";
 
 type Interval = "month" | "year";
 
@@ -99,6 +99,8 @@ export function BillingSettings() {
       }),
   });
 
+  const conceptsAvailable = useConceptsAvailable();
+
   const data = status.data;
   if (!data?.enabled) return null;
   const subscription = data.subscription;
@@ -178,7 +180,7 @@ export function BillingSettings() {
       ) : !pro ? (
         <Row
           label="Upgrade to Pro"
-          hint="Unlimited cards and decks (fair use), 10,000 AI assistant cards a month, concept cards with generated practice exercises, and room for the largest Anki collections."
+          hint={`Up to ${number.format(PLAN_LIMITS.pro.flashcards)} cards in ${number.format(PLAN_LIMITS.pro.decks)} decks, ${number.format(PLAN_LIMITS.pro.agentCardsPerMonth)} AI assistant cards a month, ${conceptsAvailable ? "concept cards with generated practice exercises, " : ""}and room for the largest Anki collections.`}
           last
         >
           <div className="flex flex-col items-end gap-2 max-sm:items-start">

@@ -8,6 +8,7 @@ import authConfig from "./auth.config";
 import { components, internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
+import { enforceAuthLimits } from "./model/authLimits";
 import { markLibraryDeleting } from "./model/deletion";
 import { emailLayout } from "./model/email";
 import { isReviewer } from "./model/reviewer";
@@ -127,13 +128,15 @@ async function sendEmail(
   });
 }
 
-export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
-  ({
+export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
+  const convexCtx = ctx;
+  return {
     baseURL: siteUrl(),
     trustedOrigins: [siteUrl(), ...mobileOrigins()],
     database: authComponent.adapter(ctx),
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        await enforceAuthLimits(convexCtx, ctx.path, ctx.body?.email);
         if (process.env.REVIEWER_ACCOUNT_USER_ID) {
           if (protectedReviewerPaths.has(ctx.path)) {
             const session = await getSessionFromCtx(ctx, { disableCookieCache: true });
@@ -260,6 +263,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
       },
     },
     plugins: [expo(), convex({ authConfig, jwks: process.env.JWKS })],
-  }) satisfies BetterAuthOptions;
+  } satisfies BetterAuthOptions;
+};
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => betterAuth(createAuthOptions(ctx));

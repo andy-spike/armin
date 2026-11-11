@@ -10,6 +10,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { buttonVariants } from "@/components/ui/button";
+import { useConceptsAvailable } from "@/lib/session";
 import { Switch } from "@/components/ui/switch";
 import { formatStorage, picturesIn } from "@/lib/storage-size";
 import { cn } from "@/lib/utils";
@@ -45,7 +46,7 @@ const highlights = {
   ],
   pro: [
     <>
-      <strong>Unlimited</strong> cards and decks (fair use, up to {n(pro.flashcards)} cards)
+      <strong>{n(pro.flashcards)}</strong> cards in up to <strong>{n(pro.decks)}</strong> decks
     </>,
     <>
       <strong>{n(pro.agentCardsPerMonth)}</strong> AI assistant cards a month
@@ -60,17 +61,25 @@ const highlights = {
 
 type Cell = string | true;
 
-const comparison: {
+type Comparison = {
   group: string;
   rows: { feature: string; hint?: string; free: Cell; pro: Cell }[];
-}[] = [
+}[];
+
+const conceptRow = {
+  feature: "Concept cards with generated practice exercises",
+  free: "Not included",
+  pro: `${n(pro.conceptVariantsPerMonth)} exercises a month`,
+};
+
+const comparison: Comparison = [
   {
     group: "Your library",
     rows: [
       {
         feature: "Cards",
         free: n(free.flashcards),
-        pro: `Unlimited, up to ${n(pro.flashcards)}`,
+        pro: n(pro.flashcards),
       },
       {
         feature: "Review items",
@@ -78,7 +87,7 @@ const comparison: {
         free: n(free.reviewUnits),
         pro: n(pro.reviewUnits),
       },
-      { feature: "Decks", free: n(free.decks), pro: `Unlimited, up to ${n(pro.decks)}` },
+      { feature: "Decks", free: n(free.decks), pro: n(pro.decks) },
       {
         feature: "Cards per deck",
         free: n(MAX_FLASHCARDS_PER_DECK),
@@ -156,7 +165,7 @@ const questions = [
     a: "Assistants can create cards far faster than anyone can learn them. The monthly allowance keeps the service fast for everyone. Anki imports through an assistant don't count toward it.",
   },
   {
-    q: "What does fair use mean?",
+    q: "How big can a Pro library be?",
     a: `Pro fits libraries of up to ${n(pro.flashcards)} cards, more than the biggest medical school decks. Any single deck holds up to ${n(MAX_FLASHCARDS_PER_DECK)} cards on every plan, so very large Anki decks import as several decks. When the whole import doesn't fit, you can bring in the first cards that fit and upgrade later for the rest.`,
   },
 ];
@@ -232,6 +241,23 @@ function CellValue({ value }: { value: Cell }) {
 export function PricingPage() {
   const [interval, setInterval] = useState<Interval>("month");
   const yearly = interval === "year";
+  const conceptsAvailable = useConceptsAvailable();
+  const proHighlights = conceptsAvailable
+    ? [
+        ...highlights.pro.slice(0, 3),
+        <>
+          <strong>Concept cards</strong> with generated practice exercises
+        </>,
+        ...highlights.pro.slice(3),
+      ]
+    : highlights.pro;
+  const rows: Comparison = conceptsAvailable
+    ? comparison.map((section) =>
+        section.group === "Studying"
+          ? { ...section, rows: [...section.rows, conceptRow] }
+          : section,
+      )
+    : comparison;
 
   return (
     <div className="legal notebook-bg flex min-h-dvh flex-col">
@@ -260,7 +286,7 @@ export function PricingPage() {
             </p>
             <div className="mt-6 flex items-baseline gap-2">
               <span className="text-5xl text-ink tabular-nums">$0</span>
-              <span className="text-sm text-muted">forever</span>
+              <span className="text-sm text-muted">USD, forever</span>
             </div>
             <p className="mt-1 min-h-5 text-sm text-muted">No card required.</p>
             <Link
@@ -292,7 +318,9 @@ export function PricingPage() {
               <span className="text-5xl text-ink tabular-nums">
                 ${yearly ? yearlyUsd : monthlyUsd}
               </span>
-              <span className="text-sm text-muted">{yearly ? "per year" : "per month"}</span>
+              <span className="text-sm text-muted">
+                {yearly ? "USD per year" : "USD per month"}
+              </span>
             </div>
             <p className="mt-1 min-h-5 text-sm text-muted" aria-live="polite">
               {yearly
@@ -307,7 +335,7 @@ export function PricingPage() {
               Upgrade to Pro
             </Link>
             <div className="mt-8 border-t border-border pt-6">
-              <Highlights items={highlights.pro} />
+              <Highlights items={proHighlights} />
             </div>
           </section>
         </div>
@@ -317,7 +345,9 @@ export function PricingPage() {
             Compare plans
           </h2>
           <p className="mt-2 text-sm text-muted">
-            Every feature is on both plans. Pro raises the limits.
+            {conceptsAvailable
+              ? "Pro raises the limits and adds concept cards."
+              : "Every feature is on both plans. Pro raises the limits."}
           </p>
           <table className="mt-6 w-full border-collapse text-sm">
             <thead>
@@ -339,7 +369,7 @@ export function PricingPage() {
                 </th>
               </tr>
             </thead>
-            {comparison.map(({ group, rows }) => (
+            {rows.map(({ group, rows }) => (
               <tbody key={group}>
                 <tr>
                   <th

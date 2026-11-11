@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, LoaderCircle, TriangleAlert } from "lucide-react";
 import { type ImportPlan, type ImportWarning, type ImportWarningCode } from "@armin/core/anki";
 import { MAX_FLASHCARDS_PER_DECK, MAX_REVIEW_UNITS_PER_DECK } from "@armin/core/plans";
@@ -8,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { TruncatedLabel } from "@/components/ui/truncated-label";
 import { type OpenedAnkiFile } from "@/lib/anki/opened-file";
+import { deckNamesQuery } from "@/lib/queries";
 import { n, plural, formatBytes, type ProgressMode } from "./format";
 import { NotImported } from "./not-imported";
 
@@ -73,6 +75,13 @@ export function PreviewStep({
   const historyCount =
     source.initialPlan.totals.reviewLogs + (source.initialPlan.reviewLogsDropped ?? 0);
   const shared = sharedDeckPrefix(source.decks.map((deck) => names.get(deck.key) ?? deck.name));
+  const existingNames = new Set(
+    (useQuery(deckNamesQuery()).data ?? []).map((deck) => deck.name.trim().toLowerCase()),
+  );
+  const isExisting = (name: string) => existingNames.has(name.trim().toLowerCase());
+  const duplicates = source.decks.filter(
+    (deck) => selected.has(deck.key) && isExisting(names.get(deck.key) ?? deck.name),
+  ).length;
   const media = new Set(plan.flashcards.flatMap((card) => card.media));
   const audioFiles = [...media].filter((name) => isAudioFile(name)).length;
   const imageFiles = media.size - audioFiles;
@@ -144,6 +153,9 @@ export function PreviewStep({
                       tooltip={armName}
                       className="text-sm text-ink"
                     />
+                    {isExisting(armName) && (
+                      <span className="shrink-0 text-xs text-again">Already in your library</span>
+                    )}
                     <span className="shrink-0 text-xs text-muted tabular-nums">
                       {plural(deck.cardCount, "card")}
                     </span>
@@ -153,6 +165,14 @@ export function PreviewStep({
             })}
           </ul>
         </div>
+        {duplicates > 0 && (
+          <p className="flex items-start gap-2 text-[0.8125rem] text-muted">
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-again" aria-hidden />
+            {duplicates === 1
+              ? "A deck with this name is already in your library. Importing again adds a separate copy; it doesn't update the existing deck."
+              : `${duplicates} decks with these names are already in your library. Importing again adds separate copies; it doesn't update the existing decks.`}
+          </p>
+        )}
         {changes.length > 0 && <ImportChanges warnings={changes} stale={stale} />}
         {plan.omitted?.length ? <NotImported omitted={plan.omitted} stale={stale} /> : null}
         {notetypeSection}
