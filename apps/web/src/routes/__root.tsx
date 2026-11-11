@@ -21,6 +21,7 @@ import { ThemeProvider } from "@/theme/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { KeybindingsProvider } from "@/keybindings/keybindings-provider";
 import { RouteNotFound } from "@/components/route-status";
+import { ConsentBanner } from "@/components/consent-banner";
 
 const getAuth = createServerFn({ method: "GET" }).handler(async () => {
   return (await getToken()) ?? null;
@@ -127,6 +128,7 @@ function RootComponent() {
           <ToastProvider>
             <KeybindingsProvider>
               <Outlet />
+              <ConsentBanner />
             </KeybindingsProvider>
           </ToastProvider>
         </ThemeProvider>

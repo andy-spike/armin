@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { PasswordInput } from "@/components/ui/password-input";
 import { useToast } from "@/components/ui/toast";
 import { Row, Section } from "@/components/settings-layout";
@@ -12,6 +13,12 @@ import { VariantUsage } from "@/components/variant-usage";
 import { GoogleIcon } from "@/components/auth/auth-layout";
 import { armin, errorMessage } from "@/lib/armin-client";
 import { authClient, signOutToSignIn } from "@/lib/auth-client";
+import {
+  analyticsEnabled,
+  resetAnalytics,
+  setAnalyticsConsent,
+  useAnalyticsConsent,
+} from "@/lib/analytics";
 import { useAuthFeatures, useViewer } from "@/lib/session";
 
 function timeZoneOptions(current: string) {
@@ -173,6 +180,7 @@ export function AccountSettings() {
 
       <StorageUsage />
       <VariantUsage />
+      {analyticsEnabled && <AnalyticsSettings />}
       <Section title="Sessions" description="Signing out ends access on that device immediately.">
         <Row label="This device">
           <Button variant="outline" size="sm" onClick={signOutToSignIn}>
@@ -217,6 +225,35 @@ export function AccountSettings() {
   );
 }
 
+function AnalyticsSettings() {
+  const consent = useAnalyticsConsent();
+  return (
+    <Section
+      title="Privacy"
+      description="Armin uses PostHog to count visits and report errors. Card content is never sent."
+    >
+      <Row
+        label="Analytics cookie"
+        hint={
+          consent === "granted"
+            ? "On. A cookie links your visits so usage can be counted per person."
+            : "Off. Visits are counted without a cookie and can't be linked to you."
+        }
+        last
+      >
+        {(labelId) => (
+          <Switch
+            aria-labelledby={labelId}
+            checked={consent === "granted"}
+            disabled={consent === null}
+            onCheckedChange={setAnalyticsConsent}
+          />
+        )}
+      </Row>
+    </Section>
+  );
+}
+
 function DeleteAccountDialog({
   open,
   onClose,
@@ -247,6 +284,7 @@ function DeleteAccountDialog({
       );
       return;
     }
+    await resetAnalytics();
     window.location.assign("/sign-in?deleted=1");
   };
 

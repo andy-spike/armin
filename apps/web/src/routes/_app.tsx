@@ -22,6 +22,7 @@ import { ArminMark, ArminWordmark } from "@/components/brand";
 import { StudyClockSync } from "@/components/study-clock-sync";
 import { LandingPage } from "@/components/landing/landing-page";
 import { selfHosted } from "@/lib/self-host";
+import { identifyAnalytics, useAnalyticsConsent } from "@/lib/analytics";
 import {
   SidebarInset,
   SidebarProvider,
@@ -99,6 +100,12 @@ function AppLayout() {
   }, []);
 
   const data = viewer.data;
+  const consent = useAnalyticsConsent();
+  const userId = data?.userId;
+  useEffect(() => {
+    if (userId && consent === "granted") identifyAnalytics(userId);
+  }, [userId, consent]);
+
   useEffect(() => {
     if (!data || data.library || !data.emailVerified || provisioning.current) return;
     provisioning.current = true;

@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { createAuthClient } from "better-auth/react";
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
+import { resetAnalytics } from "@/lib/analytics";
 
 export const authClient = createAuthClient({
   plugins: [convexClient()],
@@ -12,7 +13,9 @@ const signingOutListeners = new Set<() => void>();
 export function signOutToSignIn() {
   signingOut = true;
   for (const listener of signingOutListeners) listener();
-  void authClient.signOut().finally(() => window.location.assign("/sign-in"));
+  void Promise.allSettled([authClient.signOut(), resetAnalytics()]).then(() =>
+    window.location.assign("/sign-in"),
+  );
 }
 
 export function useSigningOut() {

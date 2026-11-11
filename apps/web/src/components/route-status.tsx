@@ -1,8 +1,13 @@
+import { useEffect } from "react";
 import { Link, type ErrorComponentProps } from "@tanstack/react-router";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { captureError } from "@/lib/analytics";
 
 export function RouteError({ error, reset }: ErrorComponentProps) {
+  useEffect(() => {
+    captureError(error);
+  }, [error]);
   return (
     <div className="mx-auto mt-16 max-w-md border border-border bg-bg-2 px-6 py-10 text-center">
       <h2 className="text-xl font-semibold">Something went wrong</h2>
