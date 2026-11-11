@@ -240,7 +240,7 @@ function Shell({ loading, reviewerResetHours }: { loading?: string; reviewerRese
     <SidebarProvider
       defaultOpen={sidebarOpen}
       defaultWidth={sidebarWidth}
-      className="h-dvh min-h-0 overflow-hidden"
+      className="h-[calc(100dvh-var(--consent-inset))] min-h-0 overflow-hidden"
     >
       <ShellKeybindings activateNav={activateNav} />
       {!loading && <IdlePreload />}

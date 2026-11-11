@@ -230,14 +230,16 @@ function AnalyticsSettings() {
   return (
     <Section
       title="Privacy"
-      description="Armin uses PostHog to count visits and report errors. Card content is never sent."
+      description="Armin uses PostHog to count visits and report errors. It never sees your cards."
     >
       <Row
         label="Analytics cookie"
         hint={
           consent === "granted"
             ? "On. A cookie links your visits so usage can be counted per person."
-            : "Off. Visits are counted without a cookie and can't be linked to you."
+            : consent === "denied"
+              ? "Off. Visits are counted without a cookie and can't be linked to you."
+              : "Not chosen yet. Nothing is recorded until you choose."
         }
         last
       >

@@ -88,7 +88,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       {mounted &&
         createPortal(
-          <div className="pointer-events-none fixed inset-x-0 bottom-4 z-60 flex flex-col items-center gap-2 px-4">
+          <div className="pointer-events-none fixed inset-x-0 bottom-[calc(1rem+var(--consent-inset))] z-60 flex flex-col items-center gap-2 px-4">
             {items.map(({ id, title, description, tone, exiting }) => {
               const { Icon, color } = TONE[tone];
               return (

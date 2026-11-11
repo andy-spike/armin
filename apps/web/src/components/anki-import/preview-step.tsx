@@ -154,7 +154,7 @@ export function PreviewStep({
                       className="text-sm text-ink"
                     />
                     {isExisting(armName) && (
-                      <span className="shrink-0 text-xs text-again">Already in your library</span>
+                      <span className="shrink-0 text-xs text-again">Name in use</span>
                     )}
                     <span className="shrink-0 text-xs text-muted tabular-nums">
                       {plural(deck.cardCount, "card")}
@@ -169,8 +169,8 @@ export function PreviewStep({
           <p className="flex items-start gap-2 text-[0.8125rem] text-muted">
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-again" aria-hidden />
             {duplicates === 1
-              ? "A deck with this name is already in your library. Importing again adds a separate copy; it doesn't update the existing deck."
-              : `${duplicates} decks with these names are already in your library. Importing again adds separate copies; it doesn't update the existing decks.`}
+              ? "A deck with this name is already in your library. Importing adds a second copy and leaves the existing deck as it is."
+              : `${duplicates} decks with these names are already in your library. Importing adds second copies and leaves the existing decks as they are.`}
           </p>
         )}
         {changes.length > 0 && <ImportChanges warnings={changes} stale={stale} />}

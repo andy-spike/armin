@@ -337,7 +337,7 @@ function ChordIndicator({ steps }: { steps: ChordStep[] }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed bottom-4 right-4 z-[60] rounded-md border border-border-strong bg-surface px-2.5 py-1 font-mono text-xs text-muted shadow-overlay"
+      className="pointer-events-none fixed bottom-[calc(1rem+var(--consent-inset))] right-4 z-[60] rounded-md border border-border-strong bg-surface px-2.5 py-1 font-mono text-xs text-muted shadow-overlay"
     >
       ‹ {text}… ›
     </div>
