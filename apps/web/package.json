@@ -47,6 +47,7 @@
     "fzstd": "^0.1.1",
     "katex": "^0.19.1",
     "lucide-react": "^1.71.0",
+    "posthog-js": "1.447.9",
     "react": "19.2.9",
     "react-dom": "19.2.9",
     "react-markdown": "^10.1.0",
