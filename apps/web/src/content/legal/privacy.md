@@ -101,11 +101,13 @@ any time in Settings → Account → Privacy.
 - **If you decline**, nothing is stored in your browser. PostHog still counts
   page views and errors without a cookie, using a hash it computes on its
   servers that changes every day, so visits can't be linked to you over time.
-- **Until you answer**, nothing is sent.
+- **Until you answer**, nothing is stored in your browser and no usage is
+  recorded. Your browser only downloads PostHog's script.
 
 Either way, PostHog receives the page address without its query string,
 coarse browser and device details, the position of what you click, and the
-technical details of errors. It never receives the text on the page, the
+technical details of errors. Like any website, it also sees your IP address,
+which it uses to estimate your city and country. It never receives the text on the page, the
 contents of fields, or your cards. Session recording is off.
 
 When one of our backend functions fails, our hosting provider reports the error

@@ -106,7 +106,10 @@ Set once in the PostHog project:
    Without it PostHog drops every event from visitors who declined.
 2. Error tracking: add an alert for new issues. The app turns on exception
    capture in code, so the project's autocapture toggle doesn't matter.
-3. Leave session replay off.
+3. Leave session replay off. Heatmaps and surveys are turned off in code.
+4. Settings → Project → Product analytics → Filter out internal and test
+   users: add `$host` does not contain `localhost`, so local checks with the
+   production key stay out of reports.
 
 Convex function errors don't go through the web app. On a Convex Pro plan, open
 the prod deployment's Settings → Integrations, choose **PostHog Error

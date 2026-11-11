@@ -61,6 +61,11 @@ export function startAnalytics() {
         disable_session_recording: true,
         mask_all_text: true,
         mask_all_element_attributes: true,
+        capture_heatmaps: false,
+        disable_surveys: true,
+        disable_product_tours: true,
+        disable_conversations: true,
+        disable_web_experiments: true,
         before_send: scrubEvent,
       });
       publishConsent(posthog);
