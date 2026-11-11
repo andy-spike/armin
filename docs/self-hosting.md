@@ -231,4 +231,4 @@ The backend runs with `SELF_HOSTED=true`, which skips email verification and
 refuses every sign-up request. Only `create-owner.sh` creates an account,
 through a server-only function, and only while the instance has none. The web
 image is built with `VITE_SELF_HOSTED=true`, which shows the badge and skips
-the public landing page.
+the public landing page and PostHog analytics.

@@ -41,6 +41,7 @@ import type * as model_agentInput from "../model/agentInput.js";
 import type * as model_agentResults from "../model/agentResults.js";
 import type * as model_agentTools from "../model/agentTools.js";
 import type * as model_agentWrites from "../model/agentWrites.js";
+import type * as model_authLimits from "../model/authLimits.js";
 import type * as model_billing from "../model/billing.js";
 import type * as model_cardDetails from "../model/cardDetails.js";
 import type * as model_concepts from "../model/concepts.js";
@@ -115,6 +116,7 @@ declare const fullApi: ApiFromModules<{
   "model/agentResults": typeof model_agentResults;
   "model/agentTools": typeof model_agentTools;
   "model/agentWrites": typeof model_agentWrites;
+  "model/authLimits": typeof model_authLimits;
   "model/billing": typeof model_billing;
   "model/cardDetails": typeof model_cardDetails;
   "model/concepts": typeof model_concepts;
@@ -180,4 +182,5 @@ export declare const components: {
   betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
   resend: import("@convex-dev/resend/_generated/component.js").ComponentApi<"resend">;
   mcp: import("@convex-dev/mcp/_generated/component.js").ComponentApi<"mcp">;
+  authRateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"authRateLimiter">;
 };

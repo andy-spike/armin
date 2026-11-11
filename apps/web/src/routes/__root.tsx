@@ -21,6 +21,7 @@ import { ThemeProvider } from "@/theme/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { KeybindingsProvider } from "@/keybindings/keybindings-provider";
 import { RouteNotFound } from "@/components/route-status";
+import { ConsentBanner } from "@/components/consent-banner";
 
 const getAuth = createServerFn({ method: "GET" }).handler(async () => {
   return (await getToken()) ?? null;
@@ -92,7 +93,14 @@ export const Route = createRootRouteWithContext<{
     return browserAuth;
   },
   ssr: true,
-  headers: () => ({ "Cache-Control": "private, no-store" }),
+  headers: () => ({
+    "Cache-Control": "private, no-store",
+    "Content-Security-Policy": "frame-ancestors 'none'",
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Strict-Transport-Security": "max-age=31536000",
+  }),
   shellComponent: RootDocument,
   notFoundComponent: () => (
     <>
@@ -120,6 +128,7 @@ function RootComponent() {
           <ToastProvider>
             <KeybindingsProvider>
               <Outlet />
+              <ConsentBanner />
             </KeybindingsProvider>
           </ToastProvider>
         </ThemeProvider>

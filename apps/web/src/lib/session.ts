@@ -25,6 +25,17 @@ export function useAuthFeatures() {
   });
 }
 
+export function useConceptsAvailable() {
+  return (
+    useQuery({
+      queryKey: ["concepts", "availability"],
+      queryFn: () => publicConvex.query(api.concepts.availability, {}),
+      staleTime: 5 * 60_000,
+      retry: false,
+    }).data?.available === true
+  );
+}
+
 export function useConnection() {
   const state = useConvexConnectionState();
   const browserOnline = useSyncExternalStore(

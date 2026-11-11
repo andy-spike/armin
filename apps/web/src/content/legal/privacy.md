@@ -1,6 +1,6 @@
 # Armin Privacy Policy
 
-_Last updated: 2 November 2026_
+_Last updated: 11 November 2026_
 
 This policy explains what personal data Armin handles, why, how long we keep it,
 and what you can do about it. It covers all of Armin: the web app at
@@ -20,8 +20,10 @@ person is us. Contact: **support@armincards.app**.
 - We collect the minimum needed to run a study service: an account (an email),
   the study data you create, and the technical logs our hosting providers keep.
   If you buy Pro, Polar handles the payment; we only keep your plan's status.
-- No analytics tools, no advertising trackers, no profiling, no cookies for
-  marketing. If that ever changes, this page changes first.
+- The web app asks before it sets an analytics cookie. Allow it and PostHog
+  links your visits; decline and visits are only counted, without a cookie.
+  Card content is never sent to analytics. No advertising trackers, no
+  profiling, no cookies for marketing.
 - Connecting an AI app (Claude, ChatGPT, Codex, Claude Code) is a choice you
   make. Your assistant, not Armin, decides what it sends to the AI provider.
   You can revoke access at any time.
@@ -67,15 +69,14 @@ That consent is entirely different from the AI itself. Here is precisely how it
 works: your assistant reads content **you choose there** (e.g. the notes in your
 chat) and calls Armin's tools to create or review cards. Nothing in your Armin
 account flows to Anthropic or OpenAI unless your assistant sends it as part of
-your request. **We do not send, sell, or transmit anything to AI providers.**
-See the _Provided by others_ section below.
+your request. **Apart from concept cards (§7), we do not send anything to AI
+providers, and we never sell to them.** See the _Provided by others_ section
+below.
 
 ### 4. Technical logs
 
 Our providers keep short-lived request logs (for example IP address, response
-code, timestamps) to keep the service secure and fast. We don't buy or install
-analytics on top of them, so we can't show you a dashboard of your visits —
-nobody's watching in that sense.
+code, timestamps) to keep the service secure and fast.
 
 ### 5. Payments, if you buy Pro
 
@@ -87,11 +88,44 @@ handle tax. From Polar we keep only your subscription's status: the plan,
 billing interval, price, renewal or end date, and whether it's cancelled. We
 use that to apply your plan's limits and show it in Settings → Billing.
 
-### 6. What we never have
+### 6. Analytics and error reports
+
+The web app uses **PostHog** to count visits and to report errors so we can fix
+them. The mobile app and the MCP server don't use it. The first time you visit,
+a banner asks whether to allow an analytics cookie. You can change your answer
+any time in Settings → Account → Privacy.
+
+- **If you allow it**, PostHog stores a random ID in a cookie and in your
+  browser's local storage so visits link up. Once you're signed in, we tie that
+  ID to your internal Armin account ID, never to your email or name.
+- **If you decline**, nothing is stored in your browser. PostHog still counts
+  page views and errors without a cookie, using a hash it computes on its
+  servers that changes every day, so visits can't be linked to you over time.
+- **Until you answer**, nothing is stored in your browser and no usage is
+  recorded. Your browser only downloads PostHog's script.
+
+Either way, PostHog receives the page address without its query string,
+coarse browser and device details, the position of what you click, and the
+technical details of errors. Like any website, it also sees your IP address,
+which it uses to estimate your city and country. It never receives the text on the page, the
+contents of fields, or your cards. Session recording is off.
+
+When one of our backend functions fails, our hosting provider reports the error
+and its stack trace to PostHog, tagged with your internal account ID. We use
+these reports only to find and fix bugs.
+
+### 7. Concept cards, if you use them
+
+Concept cards are a Pro feature that writes new exercises for a concept. To
+generate them, we send that concept card's brief, its example, and the
+exercises it already has to **Vercel AI Gateway**, which passes them to
+**Anthropic**'s Claude model. Nothing else from your library is sent, and only
+when you generate exercises for a concept card.
+
+### 8. What we never have
 
 We never have your card number or other payment-card data — Polar and its
-payment processor handle those — and we don't process analytics or
-advertising data at all.
+payment processor handle those — and we don't process advertising data at all.
 
 ## Provided by others
 
@@ -109,13 +143,18 @@ policy. Today's list:
   also processes your payment data under its own privacy policy and keeps
   transaction records as tax law requires. Only if you buy Pro.
 - **Google** — only if you use Google sign-in (see §1 above).
+- **PostHog** (United States) — web analytics and error reports, as described
+  in §6.
+- **Vercel AI Gateway** and **Anthropic** — generating exercises for concept
+  cards. They receive the concept card's brief, its example, and its earlier
+  exercises. Only if you have Pro and use concept cards (see §7).
 
 Two points we want on the record:
 
 - **We do not sell or share your personal data for advertising**, and we do not
   use your content or account records to train machine-learning models.
-- **Apple, Google, Anthropic, and OpenAI**, etc. process only what you send
-  them directly by using their apps/assistants. For example, if you attach a
+- Apart from concept cards (§7), **Apple, Google, Anthropic, and OpenAI**,
+  etc. process only what you send them directly by using their apps/assistants. For example, if you attach a
   lesson PDF to a ChatGPT conversation and ask it to make cards, ChatGPT's own
   privacy rules govern that PDF — Armin never touches it (Armin's MCP server
   only watches the tool calls, and keeps only their inputs as part of the card

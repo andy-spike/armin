@@ -20,23 +20,24 @@
   },
   "dependencies": {
     "@armin/core": "workspace:*",
-    "@better-auth/expo": "1.6.33",
-    "@convex-dev/better-auth": "0.12.5",
+    "@better-auth/expo": "1.6.34",
+    "@convex-dev/better-auth": "0.12.7",
     "@convex-dev/mcp": "0.1.0-alpha.7",
-    "@convex-dev/resend": "0.2.9",
+    "@convex-dev/rate-limiter": "0.4.3",
+    "@convex-dev/resend": "0.2.10",
     "@polar-sh/sdk": "1.0.2",
-    "@tanstack/ai": "1.0.1",
-    "@tanstack/ai-vercel-gateway": "1.0.0",
-    "better-auth": "1.6.33",
-    "convex": "1.47.0",
-    "convex-helpers": "^0.1.106",
+    "@tanstack/ai": "1.4.0",
+    "@tanstack/ai-vercel-gateway": "1.1.2",
+    "better-auth": "1.6.34",
+    "convex": "1.49.0",
+    "convex-helpers": "^0.1.134",
     "fflate": "^0.8.3",
-    "sharp": "0.35.4",
-    "ts-fsrs": "^5.4.1",
+    "sharp": "0.35.5",
+    "ts-fsrs": "^5.4.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.19.2",
     "typescript": "^5.9.3"
   }
 }

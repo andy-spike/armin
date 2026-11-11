@@ -12,6 +12,7 @@ pmOnFail: ignore
 allowBuilds:
   # Better Auth still resolves this native dependency transitively.
   better-sqlite3: true
+  core-js: false
   esbuild: true
   workerd: true
 
@@ -50,6 +51,7 @@ overrides:
   vite@*: "catalog:"
   # @tanstack/redact/cloudflare requires Miniflare to resolve this Undici fix.
   miniflare>undici: 7.30.1
+  prosemirror-view@<1.42.3: ^1.42.9
 peerDependencyRules:
   allowAny:
     - vite
