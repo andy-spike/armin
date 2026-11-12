@@ -56,6 +56,7 @@ export function startAnalytics() {
         api_host: host,
         defaults: "2026-05-30",
         cookieless_mode: "on_reject",
+        opt_out_capturing_by_default: true,
         capture_exceptions: true,
         person_profiles: "identified_only",
         disable_session_recording: true,
