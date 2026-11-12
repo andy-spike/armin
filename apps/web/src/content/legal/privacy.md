@@ -1,6 +1,6 @@
 # Armin Privacy Policy
 
-_Last updated: 11 November 2026_
+_Last updated: 12 November 2026_
 
 This policy explains what personal data Armin handles, why, how long we keep it,
 and what you can do about it. It covers all of Armin: the web app at
@@ -21,7 +21,8 @@ person is us. Contact: **support@armincards.app**.
   the study data you create, and the technical logs our hosting providers keep.
   If you buy Pro, Polar handles the payment; we only keep your plan's status.
 - The web app asks before it sets an analytics cookie. Allow it and PostHog
-  links your visits; decline and visits are only counted, without a cookie.
+  links your visits; decline, or don't answer, and visits are only counted,
+  without a cookie.
   Card content is never sent to analytics. No advertising trackers, no
   profiling, no cookies for marketing.
 - Connecting an AI app (Claude, ChatGPT, Codex, Claude Code) is a choice you
@@ -98,11 +99,9 @@ any time in Settings → Account → Privacy.
 - **If you allow it**, PostHog stores a random ID in a cookie and in your
   browser's local storage so visits link up. Once you're signed in, we tie that
   ID to your internal Armin account ID, never to your email or name.
-- **If you decline**, nothing is stored in your browser. PostHog still counts
+- **If you decline, or until you answer**, nothing is stored in your browser. PostHog still counts
   page views and errors without a cookie, using a hash it computes on its
   servers that changes every day, so visits can't be linked to you over time.
-- **Until you answer**, nothing is stored in your browser and no usage is
-  recorded. Your browser only downloads PostHog's script.
 
 Either way, PostHog receives the page address without its query string,
 coarse browser and device details, the position of what you click, and the
